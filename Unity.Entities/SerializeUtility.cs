@@ -1,12 +1,9 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using Unity.Assertions;
 using Unity.Collections;
-using UnityEngine;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.Serialization

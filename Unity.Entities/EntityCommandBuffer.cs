@@ -517,6 +517,8 @@ namespace Unity.Entities
         private int m_SafetyReadWriteCount;
 
         [NativeSetClassTypeToNullOnSchedule] private DisposeSentinel m_DisposeSentinel;
+
+        internal int SystemID;
 #endif
 
         /// <summary>
@@ -590,6 +592,7 @@ namespace Unity.Entities
 
             m_SafetyReadOnlyCount = 0;
             m_SafetyReadWriteCount = 3;
+            SystemID = 0;
 #endif
         }
 
@@ -961,7 +964,8 @@ namespace Unity.Entities
                                 var componentType = (ComponentType)TypeManager.GetType(cmd->ComponentTypeIndex);
                                 var entity = cmd->Header.Entity == Entity.Null ? playbackState.CurrentEntity : cmd->Header.Entity;
                                 mgr.AddComponent(entity, componentType);
-                                mgr.SetComponentDataRaw(entity, cmd->ComponentTypeIndex, cmd + 1, cmd->ComponentSize);
+                                if (!componentType.IsZeroSized)
+                                    mgr.SetComponentDataRaw(entity, cmd->ComponentTypeIndex, cmd + 1, cmd->ComponentSize);
                             }
                             break;
 

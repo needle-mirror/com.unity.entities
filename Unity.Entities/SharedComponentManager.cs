@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine;
 using UnityEngine.Assertions;
 
 namespace Unity.Entities

@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs.LowLevel;
-using Unity.Jobs.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {

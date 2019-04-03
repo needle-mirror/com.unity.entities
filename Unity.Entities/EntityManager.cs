@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
 using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
-using UnityEngine;
 using UnityEngine.Scripting;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid")]
@@ -737,6 +735,11 @@ namespace Unity.Entities
 
             ComponentJobSafetyManager.CompleteReadAndWriteDependency(typeIndex);
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS            
+            if (TypeManager.GetTypeInfo(typeIndex).SizeInChunk != size)
+                throw new System.ArgumentException($"SetComponentDataRaw<{TypeManager.GetType(typeIndex)}> can not be called with a zero sized component and must have same size as sizeof(T).");
+#endif
+            
             var ptr = Entities->GetComponentDataWithTypeRW(entity, typeIndex, Entities->GlobalSystemVersion);
             UnsafeUtility.MemCpy(ptr, data, size);
         }
@@ -747,6 +750,12 @@ namespace Unity.Entities
 
             ComponentJobSafetyManager.CompleteReadAndWriteDependency(typeIndex);
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS            
+            if (TypeManager.GetTypeInfo(typeIndex).IsZeroSized)
+                throw new System.ArgumentException($"GetComponentDataRaw<{TypeManager.GetType(typeIndex)}> can not be called with a zero sized component.");
+#endif
+
+            
             var ptr = Entities->GetComponentDataWithTypeRW(entity, typeIndex, Entities->GlobalSystemVersion);
             return ptr;
         }
@@ -943,6 +952,15 @@ namespace Unity.Entities
                         }
                     }
                 }
+            }
+        }
+
+        public void GetAllArchetypes(NativeList<EntityArchetype> allArchetypes)
+        {
+            for (var archetype = ArchetypeManager.m_LastArchetype; archetype != null; archetype = archetype->PrevArchetype)
+            {
+                var entityArchetype = new EntityArchetype() { Archetype = archetype };
+                allArchetypes.Add(entityArchetype);
             }
         }
 

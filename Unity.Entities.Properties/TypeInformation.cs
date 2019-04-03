@@ -2,13 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Reflection.Emit;
-using System.Xml.Serialization;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Properties;
-using Unity.Entities;
-using Unity.Mathematics;
-using UnityEngine;
 
 namespace Unity.Entities.Properties
 {

@@ -1,6 +1,5 @@
 ﻿using NUnit.Framework;
 using Unity.Jobs;
-using UnityEngine;
 
 namespace Unity.Entities.Tests
 {

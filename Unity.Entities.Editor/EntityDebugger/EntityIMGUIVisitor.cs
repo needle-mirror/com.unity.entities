@@ -6,6 +6,7 @@ using UnityEngine;
 using Unity.Properties;
 using Unity.Mathematics;
 using UnityEditor;
+using UnityEditor.Graphs;
 
 namespace Unity.Entities.Editor
 {
@@ -96,35 +97,6 @@ namespace Unity.Entities.Editor
             }
         }
 
-        // TODO refactor w/ the 'ref' specific BeginContainer version
-
-        public override bool BeginContainer<TContainer, TValue>(TContainer container, VisitContext<TValue> context)
-        {
-            VisitSetup(ref container, ref context);
-
-            _currentPath.Push(Property.Name, context.Index);
-
-            var displayName = GetContainerDisplayName(context);
-            if (string.IsNullOrEmpty(displayName))
-                return true;
-
-            EditorGUI.indentLevel++;
-
-            return ShowContainerFoldoutIfNecessary<TContainer, TValue>(displayName, context);
-        }
-
-        public override void EndContainer<TContainer, TValue>(TContainer container, VisitContext<TValue> context)
-        {
-            VisitSetup(ref container, ref context);
-            _currentPath.Pop();
-
-            var displayName = GetContainerDisplayName(context);
-            if (string.IsNullOrEmpty(displayName))
-                return;
-
-            EditorGUI.indentLevel--;
-        }
-
         private string GetContainerDisplayName<TValue>(VisitContext<TValue> context)
             where TValue : IPropertyContainer
         {
@@ -144,14 +116,9 @@ namespace Unity.Entities.Editor
             return string.Empty;
         }
 
-        private void RenderBufferData()
-        {
-
-        }
-
-        //
         private static readonly string s_EntityIdFieldName = "Index";
         private static readonly string s_EntityVersionFieldName = "Version";
+
         private GUIStyle m_EntityStyle;
 
         private void RenderEntityView<TValue>(VisitContext<TValue> context)
@@ -203,9 +170,18 @@ namespace Unity.Entities.Editor
             }
         }
 
-        private bool RenderPropertyContainerEditorNode()
+        private static readonly string s_ComponentsPropertyName = "Components";
+
+        private bool IsEmptyComponentDataType(IProperty property, int index, IPropertyBag bag)
         {
-            return false;
+            var count = bag?.Properties?.Count();
+
+            if (index == -1 && property != null && property.Name == s_ComponentsPropertyName)
+            {
+                return false;
+            }
+
+            return (count != null && count <= 1);
         }
 
         private bool ShowContainerFoldoutIfNecessary<TContainer, TValue>(string displayName, VisitContext<TValue> context)
@@ -216,16 +192,16 @@ namespace Unity.Entities.Editor
 
             if (typeof(IPropertyContainer).IsAssignableFrom(t))
             {
+                // @TODO: dont rely on string comparison
                 if (displayName == typeof(Entity).Name)
                 {
-                    // special treatment for Entities
-                    // To allow clickable behavior
+                    // special treatment for Entities to allow clickable behavior
 
                     // @TODO improve the visitcontext environment for better type coersion
                     RenderEntityView(new VisitContext<IPropertyContainer>
                     {
                         Property = context.Property,
-                        Value = context.Value as IPropertyContainer,
+                        Value = context.Value,
                         Index = context.Index,
                     }
                     );
@@ -233,32 +209,105 @@ namespace Unity.Entities.Editor
                     return false;
                 }
 
-                ComponentState state;
-                if (!_states.ContainsKey(_currentPath.ToString()))
+                if ( ! IsEmptyComponentDataType(Property, context.Index, context.Value?.PropertyBag))
                 {
-                    _states[_currentPath.ToString()] = new ComponentState();
+                    ComponentState state;
+                    if (!_states.ContainsKey(_currentPath.ToString()))
+                    {
+                        _states[_currentPath.ToString()] = new ComponentState();
+                    }
+                    state = _states[_currentPath.ToString()];
+
+                    if (context.Value is ObjectContainerProxy)
+                    {
+                        var c = context.Value as ObjectContainerProxy;
+                        if (typeof(UnityEngine.Object).IsAssignableFrom(c.o.GetType()))
+                        {
+                            GUI.enabled = true;
+
+                            Rect pos = EditorGUILayout.GetControlRect();
+
+                            state.Showing = EditorGUI.Foldout(
+                                pos,
+                                state.Showing,
+                                displayName + " (Right click to inspect)",
+                                new GUIStyle(EditorStyles.foldout) { fontStyle = FontStyle.Bold }
+                            );
+
+                            if (Event.current.type == EventType.MouseDown && pos.Contains(Event.current.mousePosition))
+                            {
+                                if (Event.current.clickCount == 1)
+                                {
+                                    Event.current.Use();
+                                    Selection.activeObject = (UnityEngine.Object)c.o;
+                                }
+                            }
+
+                            GUI.enabled = false;
+                        }
+                    }
+                    else
+                    {
+                        state.Showing = EditorGUILayout.Foldout(
+                            state.Showing,
+                            displayName,
+                            new GUIStyle(EditorStyles.foldout) { fontStyle = FontStyle.Bold }
+                        );
+                    }
+
+                    return state.Showing;
                 }
-                state = _states[_currentPath.ToString()];
 
-                state.Showing = EditorGUILayout.Foldout(
-                    state.Showing,
-                    displayName,
-                    new GUIStyle(EditorStyles.foldout) { fontStyle = FontStyle.Bold }
-                );
+                EditorGUILayout.LabelField(displayName, new GUIStyle(EditorStyles.boldLabel) { fontStyle = FontStyle.Bold });
 
-                // @TODO make sure that we dont rely on strings
-                if (typeof(UnityEngine.Object).IsAssignableFrom(t))
-                {
-                    // We have a plane object, render the header as is
-
-                }
-
-                return state.Showing;
+                return false;
             }
             return true;
         }
 
+        public override bool BeginContainer<TContainer, TValue>(TContainer container, VisitContext<TValue> context)
+        {
+            return DoBeginContainer(ref container, context);
+        }
+
+        public override void EndContainer<TContainer, TValue>(TContainer container, VisitContext<TValue> context)
+        {
+            DoEndContainer(ref container, context);
+        }
+
         public override bool BeginContainer<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+        {
+            return DoBeginContainer(ref container, context);
+        }
+
+        public override void EndContainer<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+        {
+            DoEndContainer(ref container, context);
+        }
+
+        public override bool BeginCollection<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+        {
+            return DoBeginCollection(ref container, context);
+        }
+
+        public override bool BeginCollection<TContainer, TValue>(TContainer container, VisitContext<TValue> context)
+        {
+            return DoBeginCollection(ref container, context);
+        }
+
+        public override void EndCollection<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+        {
+            DoEndCollection(ref container, context);
+        }
+
+        public override void EndCollection<TContainer, TValue>(TContainer container, VisitContext<TValue> context)
+        {
+            DoEndCollection(ref container, context);
+        }
+
+        public bool DoBeginContainer<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+            where TContainer : IPropertyContainer
+            where TValue : IPropertyContainer
         {
             VisitSetup(ref container, ref context);
 
@@ -286,7 +335,9 @@ namespace Unity.Entities.Editor
             return ShowContainerFoldoutIfNecessary<TContainer, TValue>(displayName, context);
         }
 
-        public override void EndContainer<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+        public void DoEndContainer<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+            where TContainer : IPropertyContainer
+            where TValue : IPropertyContainer
         {
             VisitSetup(ref container, ref context);
             _currentPath.Pop();
@@ -298,7 +349,8 @@ namespace Unity.Entities.Editor
             EditorGUI.indentLevel--;
         }
 
-        public override bool BeginCollection<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+        public bool DoBeginCollection<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+            where TContainer : IPropertyContainer
         {
             VisitSetup(ref container, ref context);
 
@@ -306,7 +358,6 @@ namespace Unity.Entities.Editor
 
             EditorGUI.indentLevel++;
 
-            //
             ComponentState state;
             if (!_states.ContainsKey(_currentPath.ToString()))
             {
@@ -323,7 +374,8 @@ namespace Unity.Entities.Editor
             return state.Showing;
         }
 
-        public override void EndCollection<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+        public void DoEndCollection<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+            where TContainer : IPropertyContainer
         {
             VisitSetup(ref container, ref context);
             _currentPath.Pop();

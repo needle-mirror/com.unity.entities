@@ -1,6 +1,5 @@
 ﻿
 using System.Linq;
-using Unity.Entities;
 
 namespace Unity.Entities.Editor
 {

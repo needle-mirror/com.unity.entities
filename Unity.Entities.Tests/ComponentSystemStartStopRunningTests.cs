@@ -1,7 +1,6 @@
 ﻿using NUnit.Framework;
 using Unity.Collections;
 using UnityEngine;
-using UnityEngine.Experimental.PlayerLoop;
 using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests

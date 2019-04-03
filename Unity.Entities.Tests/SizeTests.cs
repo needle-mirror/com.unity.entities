@@ -1,7 +1,6 @@
 using System;
 using NUnit.Framework;
 using Unity.Collections;
-using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
@@ -43,7 +42,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        public void SIZ_TagThrowsOnGetComponentData()
+        unsafe public void SIZ_TagThrowsOnGetComponentData()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestTag));
 
@@ -51,16 +50,25 @@ namespace Unity.Entities.Tests
             {
                var data = m_Manager.GetComponentData<EcsTestTag>(entity0);
             });
+            Assert.Throws<ArgumentException>(() =>
+            {
+                m_Manager.GetComponentDataRawRW(entity0, ComponentType.Create<EcsTestTag>().TypeIndex);
+            });
         }
         
         [Test]
-        public void SIZ_TagThrowsOnSetComponentData()
+        unsafe public void SIZ_TagThrowsOnSetComponentData()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestTag));
 
             Assert.Throws<ArgumentException>(() =>
             {
                m_Manager.SetComponentData(entity0, default(EcsTestTag));
+            });
+            Assert.Throws<ArgumentException>(() =>
+            {
+                var value = new EcsTestTag();
+                m_Manager.SetComponentDataRaw(entity0, ComponentType.Create<EcsTestTag>().TypeIndex, &value, sizeof(EcsTestTag));
             });
         }
 
@@ -91,7 +99,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-         public void SIZ_TagCannotGetNativeArrayFromArchetypeChunk()
+        public void SIZ_TagCannotGetNativeArrayFromArchetypeChunk()
         {
             m_Manager.CreateEntity(typeof(EcsTestTag));
             var chunks = m_Manager.CreateArchetypeChunkArray(

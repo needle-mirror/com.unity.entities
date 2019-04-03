@@ -1,9 +1,7 @@
 ﻿using NUnit.Framework;
 using System;
 using Unity.Collections;
-using Unity.Entities;
 using Unity.Jobs;
-using UnityEngine;
 
 namespace Unity.Entities.Tests
 {

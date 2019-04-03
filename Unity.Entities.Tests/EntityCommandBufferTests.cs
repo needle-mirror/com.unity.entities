@@ -1,9 +1,7 @@
 ﻿using System;
 using NUnit.Framework;
 using Unity.Collections;
-using Unity.Entities;
 using Unity.Jobs;
-using Unity.Burst;
 using System.Collections.Generic;
 
 namespace Unity.Entities.Tests
@@ -837,5 +835,35 @@ namespace Unity.Entities.Tests
             cb.Dispose();
             entities.Dispose();
         }
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [Test]
+        public void BarrierPlaybackExceptionIsolation()
+        {
+            var barrier = World.GetOrCreateManager<EndFrameBarrier>();
+
+            var buf1 = barrier.CreateCommandBuffer();
+            var buf2 = barrier.CreateCommandBuffer();
+            
+            buf1.CreateEntity();
+            buf1.AddComponent(new EcsTestData());
+            buf1.AddComponent(new EcsTestData());
+            
+            buf2.CreateEntity();
+            buf2.AddComponent(new EcsTestData());
+            buf2.AddComponent(new EcsTestData());
+
+            // We exp both command buffers to execute, and an exception thrown afterwards
+            // Essentially we want isolation of two systems that might fail independently.
+            Assert.Throws<ArgumentException>(() => { barrier.Update(); });
+            Assert.AreEqual(2, EmptySystem.GetComponentGroup(typeof(EcsTestData)).CalculateLength());
+                        
+            // On second run, we expect all buffers to be removed...
+            // So no more exceptions thrown.
+            barrier.Update();
+            
+            Assert.AreEqual(2, EmptySystem.GetComponentGroup(typeof(EcsTestData)).CalculateLength());            
+        }
+#endif
     }
 }

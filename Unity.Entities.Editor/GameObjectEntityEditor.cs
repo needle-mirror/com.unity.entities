@@ -1,7 +1,4 @@
-﻿
-using System;
-using System.Collections.Generic;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 
 namespace Unity.Entities.Editor

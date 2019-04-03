@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Reflection;
 using Unity.Properties;
 
 namespace Unity.Entities.Properties
@@ -96,26 +95,36 @@ namespace Unity.Entities.Properties
 
                 if (typeof(IBufferElementData).IsAssignableFrom(propertyType))
                 {
+                    IPropertyBag bag = TypeInformation.GetOrCreate(propertyType, primitiveTypes);
+
                     var p = new StructProxy
                     {
                         bag = new StructPropertyBag<StructProxy>(
                                 new BufferListProxyProperty(
-                                    TypeInformation.GetOrCreate(propertyType, primitiveTypes),
+                                    bag,
                                     propertyType,
                                     container.m_Manager.GetBufferLength(container.m_Entity, typeIndex)
                                     )
                                 ),
-                        data = (byte*)container.m_Manager.GetBufferRawRW(container.m_Entity, typeIndex),
+                        data = (byte*) container.m_Manager.GetBufferRawRW(container.m_Entity, typeIndex),
                         type = propertyType
                     };
                     return p;
                 }
 
                 {
+                    IPropertyBag bag = TypeInformation.GetOrCreate(propertyType, primitiveTypes);
+
+                    byte* data = null;
+                    if (bag.PropertyCount > 1 || ! TypeManager.GetTypeInfo(typeIndex).IsZeroSized)
+                    {
+                        data = (byte*)container.m_Manager.GetComponentDataRawRW(container.m_Entity, typeIndex);
+                    }
+
                     var p = new StructProxy
                     {
-                        bag = TypeInformation.GetOrCreate(propertyType, primitiveTypes),
-                        data = (byte*)container.m_Manager.GetComponentDataRawRW(container.m_Entity, typeIndex),
+                        bag = bag,
+                        data = data,
                         type = propertyType
                     };
 

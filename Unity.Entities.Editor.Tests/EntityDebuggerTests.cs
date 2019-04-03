@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Linq;
 using NUnit.Framework;
 using Unity.Entities.Tests;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.Experimental.LowLevel;
 
 namespace Unity.Entities.Editor.Tests
 {

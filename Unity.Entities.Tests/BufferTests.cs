@@ -1,9 +1,7 @@
 ﻿using NUnit.Framework;
 using Unity.Collections;
 using System;
-using Unity.Entities;
 using Unity.Jobs;
-using UnityEditor.Experimental.UIElements;
 
 namespace Unity.Entities.Tests
 {

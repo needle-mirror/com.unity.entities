@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
-using Unity.Entities;
 
 namespace Unity.Entities.Tests
 {

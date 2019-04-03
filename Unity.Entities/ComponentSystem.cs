@@ -39,6 +39,25 @@ namespace Unity.Entities
         
         public uint GlobalSystemVersion => m_EntityManager.GlobalSystemVersion;
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        internal int                        m_SystemID;
+        static internal ComponentSystemBase ms_ExecutingSystem;
+
+        internal ComponentSystemBase GetSystemFromSystemID(World world, int systemID)
+        {
+            foreach(var m in world.BehaviourManagers)
+            {
+                var system = m as ComponentSystemBase;
+                if (system == null)
+                    continue;
+                if (system.m_SystemID == systemID)
+                    return system;
+            }
+
+            return null;
+        }
+#endif
+        
         public bool ShouldRunSystem()
         {
             if (!m_World.IsCreated)
@@ -65,6 +84,9 @@ namespace Unity.Entities
 
         protected override void OnBeforeCreateManagerInternal(World world)
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_SystemID = world.AllocateSystemID();
+#endif
             m_World = world;
             m_EntityManager = world.GetOrCreateManager<EntityManager>();
             m_SafetyManager = m_EntityManager.ComponentJobSafetyManager;
@@ -303,8 +325,21 @@ namespace Unity.Entities
 
             JobHandle.ScheduleBatchedJobs();
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS	
+            try
+            {
+                m_DeferredEntities.Playback(EntityManager);
+            }
+            catch (Exception e)
+            {
+                m_DeferredEntities.Dispose();
+                var error = $"{e.Message}\nEntityCommandBuffer was recorded in {GetType()} using PostUpdateCommands.\n" + e.StackTrace; 
+                throw new System.ArgumentException(error);
+            }
+#else
             m_DeferredEntities.Playback(EntityManager);
-            m_DeferredEntities.Dispose();
+#endif
+            m_DeferredEntities.Dispose();            
         }
 
         internal sealed override void InternalUpdate()
@@ -319,12 +354,20 @@ namespace Unity.Entities
 
                 BeforeOnUpdate();
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                var oldExecutingSystem = ms_ExecutingSystem; 
+                ms_ExecutingSystem = this;
+#endif
+
                 try
                 {
                     OnUpdate();
                 }
                 finally
                 {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS                    
+                    ms_ExecutingSystem = oldExecutingSystem;
+#endif
                     AfterOnUpdate();
                 }
             }
@@ -435,12 +478,21 @@ namespace Unity.Entities
 
                 var inputJob = BeforeOnUpdate();
                 JobHandle outputJob = new JobHandle();
+                
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                var oldExecutingSystem = ms_ExecutingSystem; 
+                ms_ExecutingSystem = this;
+#endif
                 try
                 {
                     outputJob = OnUpdate(inputJob);
                 }
                 catch
                 {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    ms_ExecutingSystem = oldExecutingSystem;
+#endif
+
                     AfterOnUpdate(outputJob, false);
                     throw;
                 }
@@ -538,7 +590,9 @@ namespace Unity.Entities
         public EntityCommandBuffer CreateCommandBuffer()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
-
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            cmds.SystemID = ms_ExecutingSystem != null ? ms_ExecutingSystem.m_SystemID : 0;  
+#endif
             m_PendingBuffers.Add(cmds);
 
             return cmds;
@@ -574,8 +628,6 @@ namespace Unity.Entities
         protected sealed override void OnUpdate()
         {
             FlushBuffers(true);
-
-            m_PendingBuffers.Clear();
         }
 
         private void FlushBuffers(bool playBack)
@@ -589,14 +641,41 @@ namespace Unity.Entities
 #else	
             length = m_PendingBuffers.Length;	
 #endif
+            
+#if ENABLE_UNITY_COLLECTIONS_CHECKS	
+            Exception exception = null;
+#endif            
             for (int i = 0; i < length; ++i)
             {
+                var buffer = m_PendingBuffers[i];
                 if (playBack)
                 {
-                    m_PendingBuffers[i].Playback(EntityManager);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS	
+                    try
+                    {
+                        buffer.Playback(EntityManager);
+                    }
+                    catch (Exception e)
+                    {
+                        
+                        var system = GetSystemFromSystemID(World, buffer.SystemID);
+                        var systemType = system != null ? system.GetType().ToString() : "Unknown";
+                                                
+                        var error = $"{e.Message}\nEntityCommandBuffer was recorded in {systemType} and played back in {GetType()}.\n" + e.StackTrace; 
+                        exception = new System.ArgumentException(error);
+                    }
+#else
+                    buffer.Playback(EntityManager);
+#endif
                 }
-                m_PendingBuffers[i].Dispose();
+                buffer.Dispose();
             }
+            m_PendingBuffers.Clear();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS	
+            if (exception != null)
+                throw exception;
+#endif
         }
     }
 }

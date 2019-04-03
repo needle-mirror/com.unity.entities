@@ -1,9 +1,7 @@
 ﻿//#define WRITE_TO_DISK
 
 using System;
-using System.IO;
 using NUnit.Framework;
-using UnityEditor;
 using UnityEngine;
 using Unity.Entities.Serialization;
 using Object = UnityEngine.Object;

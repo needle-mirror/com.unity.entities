@@ -7,14 +7,15 @@ namespace Unity.Entities
 {
     public class World : IDisposable
     {
-        private static readonly List<World> allWorlds = new List<World>();
-        private bool m_AllowGetManager = true;
+        static readonly List<World> allWorlds = new List<World>();
+        bool m_AllowGetManager = true;
 
         //@TODO: What about multiple managers of the same type...
-        private Dictionary<Type, ScriptBehaviourManager> m_BehaviourManagerLookup =
+        Dictionary<Type, ScriptBehaviourManager> m_BehaviourManagerLookup =
             new Dictionary<Type, ScriptBehaviourManager>();
 
-        private List<ScriptBehaviourManager> m_BehaviourManagers = new List<ScriptBehaviourManager>();
+        List<ScriptBehaviourManager> m_BehaviourManagers = new List<ScriptBehaviourManager>();
+        int m_SystemIDAllocator = 0;
 
         public World(string name)
         {
@@ -226,6 +227,11 @@ namespace Unity.Entities
         {
             RemoveManagerInteral(manager);
             manager.DestroyInstance();
+        }
+
+        internal int AllocateSystemID()
+        {
+            return ++m_SystemIDAllocator;
         }
     }
 }

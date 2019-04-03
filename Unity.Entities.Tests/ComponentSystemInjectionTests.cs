@@ -1,5 +1,4 @@
 ﻿using NUnit.Framework;
-using Unity.Entities;
 
 namespace Unity.Entities.Tests
 {

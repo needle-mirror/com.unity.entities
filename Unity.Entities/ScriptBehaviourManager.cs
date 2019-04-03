@@ -14,7 +14,7 @@ namespace Unity.Entities
     public abstract class ScriptBehaviourManager
     {
 #if UNITY_EDITOR
-        private CustomSampler sampler;
+        private CustomSampler m_Sampler;
 #endif
         internal void CreateInstance(World world)
         {
@@ -24,7 +24,7 @@ namespace Unity.Entities
                 OnCreateManager();
 #if UNITY_EDITOR
                 var type = GetType();
-                sampler = CustomSampler.Create($"{world.Name} {type.FullName}");
+                m_Sampler = CustomSampler.Create($"{world.Name} {type.FullName}");
 #endif
             }
             catch
@@ -72,12 +72,12 @@ namespace Unity.Entities
         public void Update()
         {
 #if UNITY_EDITOR
-            sampler?.Begin();
+            m_Sampler?.Begin();
 #endif
             InternalUpdate();
 
 #if UNITY_EDITOR
-            sampler?.End();
+            m_Sampler?.End();
 #endif
         }
     }

@@ -1,10 +1,8 @@
 ﻿using System;
 using UnityEditor.IMGUI.Controls;
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Collections;
 using UnityEngine;
-using UnityEngine.Profiling;
 
 namespace Unity.Entities.Editor
 {
