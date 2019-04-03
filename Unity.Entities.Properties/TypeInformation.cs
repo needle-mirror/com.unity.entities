@@ -311,10 +311,6 @@ namespace Unity.Entities.Properties
         private unsafe class PrimitiveProperty<TValue> : StructProperty<StructProxy, TValue>
             where TValue : struct
         {
-            // TODO only temporary for property wrappers
-            private MethodInfo PropertyGetMethod { get; }
-            private MethodInfo PropertySetMethod { get; }
-
             private int FieldOffset { get; }
 
             public override bool IsReadOnly => false;
@@ -322,19 +318,6 @@ namespace Unity.Entities.Properties
             public PrimitiveProperty(ITypedMemberDescriptor member) : base(member.Name, null, null)
             {
                 FieldOffset = member.GetOffset();
-
-                /*
-                Type myType = typeof(PrimitiveProperty<>.).MakeGenericType(p.PropertyType);
-                PropertyGetMethod = new DynamicMethod(p.PropertyType.Name, p.PropertyType, new Type[] { typeof(void*) });
-                ILGenerator gen = PropertyGetMethod.GetILGenerator();
-                LocalBuilder outputValue = gen.DeclareLocal(p.PropertyType);
-                gen.Emit(OpCodes.Ldarg_0);
-                gen.Emit(OpCodes.Ldloc_0);
-                gen.Emit(OpCodes.Call, UnsafeUtility.CopyPtrToStructure);
-                gen.Emit(OpCodes.Ldarg_0); // ??
-                gen.Emit(OpCodes.Call, p.GetMethod);
-                gen.Emit(OpCodes.Ret);
-                */
             }
 
             public override TValue GetValue(ref StructProxy container)
@@ -346,7 +329,7 @@ namespace Unity.Entities.Properties
 
             public override void SetValue(ref StructProxy container, TValue value)
             {
-                // @TODO ComponentJobSafetyManager.CompleteReadAndWriteDependency
+                // @TODO ComponentJobSafetyManager.CompleteReadAndWriteDependency ?
                 UnsafeUtility.CopyStructureToPtr(ref value, container.data + FieldOffset);
             }
         }
@@ -356,6 +339,8 @@ namespace Unity.Entities.Properties
         {
             private int FieldOffset { get; }
 
+            public override bool IsReadOnly => false;
+
             public EnumPrimitiveProperty(ITypedMemberDescriptor member) : base(member.Name, null, null)
             {
                 FieldOffset = member.GetOffset();
@@ -364,14 +349,13 @@ namespace Unity.Entities.Properties
             public override TValue GetValue(ref StructProxy container)
             {
                 TValue v = default(TValue);
-//              UnsafeUtility.CopyPtrToStructure(container.data + FieldOffset, out v);
-                UnsafeUtility.MemCpy(container.data + FieldOffset, UnsafeUtility.AddressOf(ref v), UnsafeUtility.SizeOf<TValue>());
+                UnsafeUtility.CopyPtrToStructure(container.data + FieldOffset, out v);
                 return v;
             }
 
             public override void SetValue(ref StructProxy container, TValue value)
             {
-                // @TODO ComponentJobSafetyManager.CompleteReadAndWriteDependency
+                // @TODO ComponentJobSafetyManager.CompleteReadAndWriteDependency ?
                 UnsafeUtility.CopyStructureToPtr(ref value, container.data + FieldOffset);
             }
         }

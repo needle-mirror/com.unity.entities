@@ -64,7 +64,7 @@ namespace Unity.Entities.Editor.Tests
             typeList.Add(subtractive);
             typeList.Add(readOnly);
             typeList.Add(readWrite);
-            typeList.Sort(ComponentGroupListView.CompareTypes);
+            typeList.Sort(ComponentGroupGUI.CompareTypes);
             
             Assert.AreEqual(readOnly, typeList[0]);
             Assert.AreEqual(readWrite, typeList[1]);

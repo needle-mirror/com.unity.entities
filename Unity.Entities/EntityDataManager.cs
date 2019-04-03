@@ -223,7 +223,7 @@ namespace Unity.Entities
             ChunkDataUtility.Copy(chunk, chunk->Count - batchCount, chunk, indexInChunk, batchCount);
         }
 
-        public static void FreeDataEntitiesInChunk(EntityDataManager* entityDataManager, Chunk* chunk, int count)
+        public static void FreeDataEntitiesInChunk(EntityDataManager* entityDataManager, Chunk* chunk, int count, Entity* outputEntities)
         {
             var freeIndex = entityDataManager->m_EntitiesFreeIndex;
             var entityDatas = entityDataManager->m_Entities;
@@ -232,6 +232,8 @@ namespace Unity.Entities
 
             for (var i = 0; i != count; i++)
             {
+                outputEntities[i] = chunkEntities[i];
+
                 var entityIndex = chunkEntities[i].Index;
                 var data = entityDatas + entityIndex;
 
@@ -271,6 +273,34 @@ namespace Unity.Entities
         }
 #endif
 
+        public void AllocateConsecutiveEntitiesForLoading(int count)
+        {
+            int newCapacity = count + 1; // make room for Entity.Null
+            Capacity = newCapacity;
+            m_EntitiesFreeIndex = Capacity == newCapacity ? -1 : newCapacity;
+            for (int i = 1; i < newCapacity; ++i)
+            {
+                if (m_Entities[i].Chunk != null)
+                {
+                    throw new ArgumentException("loading into non-empty entity manager is not supported");
+                }
+
+                m_Entities[i].IndexInChunk = 0;
+                m_Entities[i].Version = 0;
+            }
+        }
+
+        internal void AddExistingChunk(Chunk* chunk)
+        {
+            for (int iEntity = 0; iEntity < chunk->Count; ++iEntity)
+            {
+                var entity = (Entity*)ChunkDataUtility.GetComponentDataRO(chunk, iEntity, 0);
+                m_Entities[entity->Index].Chunk = chunk;
+                m_Entities[entity->Index].IndexInChunk = iEntity;
+                m_Entities[entity->Index].Archetype = chunk->Archetype;
+            }
+        }
+
         public void AllocateEntities(Archetype* arch, Chunk* chunk, int baseIndex, int count, Entity* outputEntities)
         {
             Assert.AreEqual(chunk->Archetype->Offsets[0], 0);
@@ -301,6 +331,63 @@ namespace Unity.Entities
                 entity->Archetype = arch;
                 entity->Chunk = chunk;
             }
+        }
+
+        public void AllocateEntitiesForRemapping(EntityDataManager * srcEntityDataManager, ref NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
+        {
+            var srcEntityData = srcEntityDataManager->m_Entities;
+            var count = srcEntityDataManager->m_EntitiesCapacity;
+            for (var i = 0; i != count; i++)
+            {
+                if (srcEntityData[i].Chunk != null)
+                {
+                    var entity = m_Entities + m_EntitiesFreeIndex;
+                    if (entity->IndexInChunk == -1)
+                    {
+                        IncreaseCapacity();
+                        entity = m_Entities + m_EntitiesFreeIndex;
+                    }
+                    EntityRemapUtility.AddEntityRemapping(ref entityRemapping, new Entity { Version = srcEntityData[i].Version, Index = i }, new Entity { Version = entity->Version, Index = m_EntitiesFreeIndex });
+                    m_EntitiesFreeIndex = entity->IndexInChunk;
+                }
+            }
+        }
+
+        public void RemapChunk(Archetype* arch, Chunk* chunk, int baseIndex, int count, ref NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
+        {
+            Assert.AreEqual(chunk->Archetype->Offsets[0], 0);
+            Assert.AreEqual(chunk->Archetype->SizeOfs[0], sizeof(Entity));
+
+            var entityInChunkStart = (Entity*)(chunk->Buffer) + baseIndex;
+
+            for (var i = 0; i != count; i++)
+            {
+                var entityInChunk = entityInChunkStart + i;
+                var target = EntityRemapUtility.RemapEntity(ref entityRemapping, *entityInChunk);
+                var entity = m_Entities + target.Index;
+                Assert.AreEqual(entity->Version, target.Version);
+
+                entityInChunk->Index = target.Index;
+                entityInChunk->Version = entity->Version;
+                entity->IndexInChunk = baseIndex + i;
+                entity->Archetype = arch;
+                entity->Chunk = chunk;
+            }
+        }
+
+        public void FreeAllEntities()
+        {
+            for (var i = 0; i != m_EntitiesCapacity; i++)
+            {
+                m_Entities[i].IndexInChunk = i + 1;
+                m_Entities[i].Version += 1;
+                m_Entities[i].Chunk = null;
+            }
+
+            // Last entity indexInChunk identifies that we ran out of space...
+            m_Entities[m_EntitiesCapacity - 1].IndexInChunk = -1;
+
+            m_EntitiesFreeIndex = 0;
         }
 
         public bool HasComponent(Entity entity, int type)

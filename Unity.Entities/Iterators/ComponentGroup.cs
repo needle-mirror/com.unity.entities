@@ -437,6 +437,11 @@ namespace Unity.Entities
             m_ComponentGroupData.ResetFilter(ArchetypeManager);
         }
 
+        internal void SetFilter(ref ComponentGroupFilter filter)
+        {
+            m_ComponentGroupData.SetFilter(ArchetypeManager, ref filter);
+        }
+        
         public void SetFilter<SharedComponent1>(SharedComponent1 sharedComponent1)
             where SharedComponent1 : struct, ISharedComponentData
         {

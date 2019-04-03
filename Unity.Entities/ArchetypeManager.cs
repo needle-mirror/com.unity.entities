@@ -89,7 +89,7 @@ namespace Unity.Entities
     {
         // NOTE: Order of the UnsafeLinkedListNode is required to be this in order
         //       to allow for casting & grabbing Chunk* from nodes...
-        public UnsafeLinkedListNode ChunkListNode; // 16 | 8 
+        public UnsafeLinkedListNode ChunkListNode; // 16 | 8
         public UnsafeLinkedListNode ChunkListWithEmptySlotsNode; // 32 | 16
 
         public Archetype* Archetype; // 40 | 20
@@ -203,6 +203,10 @@ namespace Unity.Entities
         // Index matches archetype types
         public int* Offsets;
         public int* SizeOfs;
+
+        // TypesCount indices into Types/Offsets/SizeOfs in the order that the
+        // components are laid out in memory.
+        public int* TypeMemoryOrder;
 
         public int* ManagedArrayOffset;
         public int NumManagedArrays;
@@ -367,6 +371,7 @@ namespace Unity.Entities
             // FIXME: proper alignment
             type->Offsets = (int*) m_ArchetypeChunkAllocator.Allocate(sizeof(int) * count, 4);
             type->SizeOfs = (int*) m_ArchetypeChunkAllocator.Allocate(sizeof(int) * count, 4);
+            type->TypeMemoryOrder = (int*) m_ArchetypeChunkAllocator.Allocate(sizeof(int) * count, 4);
 
             var bytesPerInstance = 0;
 
@@ -389,12 +394,33 @@ namespace Unity.Entities
             Assert.IsTrue(Chunk.kMaximumEntitiesPerChunk >= type->ChunkCapacity);
 #endif
 
+            // For serialization a stable ordering of the components in the
+            // chunk is desired. The type index is not stable, since it depends
+            // on the order in which types are added to the TypeManager.
+            // A permutation of the types ordered by a TypeManager-generated
+            // memory ordering is used instead.
+            var memoryOrderings = new NativeArray<UInt64>(count, Allocator.Temp);
+            for (int i = 0; i < count; ++i)
+                memoryOrderings[i] = TypeManager.GetComponentType(types[i].TypeIndex).MemoryOrdering;
+            for (int i = 0; i < count; ++i)
+            {
+                int index = i;
+                while (index > 1 && memoryOrderings[i] < memoryOrderings[type->TypeMemoryOrder[index - 1]])
+                {
+                    type->TypeMemoryOrder[index] = type->TypeMemoryOrder[index - 1];
+                    --index;
+                }
+                type->TypeMemoryOrder[index] = i;
+            }
+            memoryOrderings.Dispose();
+
             var usedBytes = 0;
             for (var i = 0; i < count; ++i)
             {
-                var sizeOf = type->SizeOfs[i];
+                var index = type->TypeMemoryOrder[i];
+                var sizeOf = type->SizeOfs[index];
 
-                type->Offsets[i] = usedBytes;
+                type->Offsets[index] = usedBytes;
 
                 usedBytes += sizeOf * type->ChunkCapacity;
             }
@@ -469,6 +495,15 @@ namespace Unity.Entities
             else
                 for (var i = 0; i < count; ++i)
                     dest[i] = src[i];
+        }
+
+        public void AddExistingChunk(Chunk* chunk)
+        {
+            var archetype = chunk->Archetype;
+            archetype->ChunkList.Add(&chunk->ChunkListNode);
+            archetype->EntityCount += chunk->Count;
+            for (var i = 0; i < archetype->NumSharedComponents; ++i)
+                m_SharedComponentManager.AddReference(chunk->SharedComponentValueArray[i]);
         }
 
         public void ConstructChunk(Archetype* archetype, Chunk* chunk, int* sharedComponentDataIndices)
@@ -673,8 +708,10 @@ namespace Unity.Entities
             EntityGroupManager dstGroupManager, SharedComponentDataManager dstSharedComponentDataManager,
             EntityDataManager* dstEntityDataManager, SharedComponentDataManager dstSharedComponents)
         {
-            var entitiesArray = new NativeArray<Entity>(Chunk.kMaximumEntitiesPerChunk, Allocator.Temp);
-            var entitiesPtr = (Entity*) entitiesArray.GetUnsafePtr();
+            var entityRemapping = new NativeArray<EntityRemapUtility.EntityRemapInfo>(srcEntityDataManager->Capacity, Allocator.Temp);
+            var entityPatches = new NativeList<EntityRemapUtility.EntityPatchInfo>(128, Allocator.Temp);
+
+            dstEntityDataManager->AllocateEntitiesForRemapping(srcEntityDataManager, ref entityRemapping);
 
             var srcArchetype = srcArchetypeManager.m_LastArchetype;
             while (srcArchetype != null)
@@ -684,14 +721,20 @@ namespace Unity.Entities
                     if (srcArchetype->NumManagedArrays != 0)
                         throw new ArgumentException("MoveEntitiesFrom is not supported with managed arrays");
                     var dstArchetype = dstArchetypeManager.GetOrCreateArchetype(srcArchetype->Types,
-                        srcArchetype->TypesCount, dstGroupManager);
+					    srcArchetype->TypesCount, dstGroupManager);
 
-                    for (var c = srcArchetype->ChunkList.Begin; c != srcArchetype->ChunkList.End; c = c->Next)
+                    entityPatches.Clear();
+                    for (var i = 1; i != dstArchetype->TypesCount; i++)
+                        EntityRemapUtility.AppendEntityPatches(ref entityPatches,
+						TypeManager.GetComponentType(dstArchetype->Types[i].TypeIndex).EntityOffsets,
+						dstArchetype->Offsets[i], dstArchetype->SizeOfs[i]);
+
+                    for (var c = srcArchetype->ChunkList.Begin;c != srcArchetype->ChunkList.End;c = c->Next)
                     {
                         var chunk = (Chunk*) c;
 
-                        EntityDataManager.FreeDataEntitiesInChunk(srcEntityDataManager, chunk, chunk->Count);
-                        dstEntityDataManager->AllocateEntities(dstArchetype, chunk, 0, chunk->Count, entitiesPtr);
+                        dstEntityDataManager->RemapChunk(dstArchetype, chunk, 0, chunk->Count, ref entityRemapping);
+                        EntityRemapUtility.PatchEntities(ref entityPatches, chunk->Buffer, chunk->Count, ref entityRemapping);
 
                         chunk->Archetype = dstArchetype;
 
@@ -700,11 +743,10 @@ namespace Unity.Entities
                                 chunk->SharedComponentValueArray, dstArchetype->NumSharedComponents);
                     }
 
-                    //@TODO: Patch Entity references in IComponentData...
-
                     UnsafeLinkedListNode.InsertListBefore(dstArchetype->ChunkList.End, &srcArchetype->ChunkList);
-                    UnsafeLinkedListNode.InsertListBefore(dstArchetype->ChunkListWithEmptySlots.End,
-                        &srcArchetype->ChunkListWithEmptySlots);
+                    if (!srcArchetype->ChunkListWithEmptySlots.IsEmpty)
+                        UnsafeLinkedListNode.InsertListBefore(dstArchetype->ChunkListWithEmptySlots.End,
+						    &srcArchetype->ChunkListWithEmptySlots);
 
                     dstArchetype->EntityCount += srcArchetype->EntityCount;
                     dstArchetype->ChunkCount += srcArchetype->ChunkCount;
@@ -715,7 +757,10 @@ namespace Unity.Entities
                 srcArchetype = srcArchetype->PrevArchetype;
             }
 
-            entitiesArray.Dispose();
+            srcEntityDataManager->FreeAllEntities();
+
+            entityRemapping.Dispose();
+            entityPatches.Dispose();
         }
 
         public int CheckInternalConsistency()

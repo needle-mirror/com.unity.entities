@@ -11,8 +11,10 @@ namespace Unity.Entities.Editor
     
     public class ComponentGroupListView : TreeView {
         private readonly Dictionary<int, ComponentGroup> componentGroupsById = new Dictionary<int, ComponentGroup>();
-        private readonly Dictionary<int, string[]> componentGroupTypeNamesById = new Dictionary<int, string[]>();
-        private readonly Dictionary<int, ComponentType.AccessMode[]> componentGroupTypeModesById = new Dictionary<int, ComponentType.AccessMode[]>();
+        private readonly Dictionary<int, List<GUIStyle>> componentGroupStylesById = new Dictionary<int, List<GUIStyle>>();
+        private readonly Dictionary<int, List<GUIContent>> componentGroupNamesById = new Dictionary<int, List<GUIContent>>();
+        private readonly Dictionary<int, List<Rect>> componentGroupRectsById = new Dictionary<int, List<Rect>>();
+        private readonly Dictionary<int, float> componentGroupHeightsById = new Dictionary<int, float>();
 
         public ComponentSystemBase SelectedSystem
         {
@@ -63,37 +65,21 @@ namespace Unity.Entities.Editor
             this.componentGroupSelectionCallback = componentGroupSelectionCallback;
             selectedSystem = system;
             rowHeight += 1;
+            showAlternatingRowBackgrounds = true;
             Reload();
         }
 
         public float Height => Mathf.Max(selectedSystem?.ComponentGroups?.Length ?? 0, 1)*rowHeight;
 
-        internal static int CompareTypes(ComponentType x, ComponentType y)
+        protected override float GetCustomRowHeight(int row, TreeViewItem item)
         {
-            var accessModeOrder = SortOrderFromAccessMode(x.AccessModeType).CompareTo(SortOrderFromAccessMode(y.AccessModeType));
-            return accessModeOrder != 0 ? accessModeOrder : string.Compare(x.GetType().Name, y.GetType().Name, StringComparison.InvariantCulture);
-        }
-
-        private static int SortOrderFromAccessMode(ComponentType.AccessMode mode)
-        {
-            switch (mode)
-            {
-                    case ComponentType.AccessMode.ReadOnly:
-                        return 0;
-                    case ComponentType.AccessMode.ReadWrite:
-                        return 1;
-                    case ComponentType.AccessMode.Subtractive:
-                        return 2;
-                    default:
-                        throw new ArgumentException("Unrecognized AccessMode");
-            }
+            return componentGroupHeightsById.ContainsKey(item.id) ? componentGroupHeightsById[item.id] + 2 : rowHeight;
         }
 
         protected override TreeViewItem BuildRoot()
         {
             componentGroupsById.Clear();
-            componentGroupTypeModesById.Clear();
-            componentGroupTypeNamesById.Clear();
+            componentGroupHeightsById.Clear();
             var currentId = 0;
             var root  = new TreeViewItem { id = currentId++, depth = -1, displayName = "Root" };
             if (getWorldSelection() == null)
@@ -113,10 +99,6 @@ namespace Unity.Entities.Editor
                 foreach (var group in SelectedSystem.ComponentGroups)
                 {
                     componentGroupsById.Add(currentId, group);
-                    var types = new List<ComponentType>(group.Types.Skip(1)); // Skip Entity
-                    types.Sort(CompareTypes);
-                    componentGroupTypeNamesById.Add(currentId, (from t in types select t.GetManagedType().Name).ToArray());
-                    componentGroupTypeModesById.Add(currentId, (from t in types select t.AccessModeType).ToArray());
 
                     var groupItem = new TreeViewItem { id = currentId++ };
                     root.AddChild(groupItem);
@@ -126,54 +108,61 @@ namespace Unity.Entities.Editor
             return root;
         }
 
+        private float width;
+
+        private void CalculateDrawingParts(float newWidth)
+        {
+            width = newWidth;
+            componentGroupStylesById.Clear();
+            componentGroupNamesById.Clear();
+            componentGroupRectsById.Clear();
+            componentGroupHeightsById.Clear();
+            foreach (var idGroupPair in componentGroupsById)
+            {
+                ComponentGroupGUI.CalculateDrawingParts(idGroupPair.Value.Types, width, out var height, out var styles, out var names, out var rects);
+                componentGroupStylesById.Add(idGroupPair.Key, styles);
+                componentGroupNamesById.Add(idGroupPair.Key, names);
+                componentGroupRectsById.Add(idGroupPair.Key, rects);
+                componentGroupHeightsById.Add(idGroupPair.Key, height);
+            }
+            RefreshCustomRowHeights();
+        }
+
         public override void OnGUI(Rect rect)
         {
+
             if (getWorldSelection()?.GetExistingManager<EntityManager>()?.IsCreated == true)
-                base.OnGUI(rect);
-        }
-
-        private void DrawTypeAndMovePosition(ref Vector2 position, string name, ComponentType.AccessMode mode)
-        {
-            var style = StyleForAccessMode(mode);
-            var content = new GUIContent(name);
-            var labelRect = new Rect(position, style.CalcSize(content));
-            GUI.Label(labelRect, content, style);
-            position.x += labelRect.width + 2f;
-        }
-
-        internal static GUIStyle StyleForAccessMode(ComponentType.AccessMode mode)
-        {
-            switch (mode)
             {
-                case ComponentType.AccessMode.ReadOnly:
-                    return EntityDebuggerStyles.ComponentReadOnly;
-                case ComponentType.AccessMode.ReadWrite:
-                    return EntityDebuggerStyles.ComponentReadWrite;
-                case ComponentType.AccessMode.Subtractive:
-                    return EntityDebuggerStyles.ComponentSubtractive;
-                default:
-                    throw new ArgumentException("Unrecognized access mode");
+                if (Event.current.type == EventType.Repaint)
+                {
+                    CalculateDrawingParts(rect.width - 60f);
+                }
+                base.OnGUI(rect);
             }
+        }
+
+        protected override void BeforeRowsGUI()
+        {
+            base.BeforeRowsGUI();
         }
 
         protected override void RowGUI(RowGUIArgs args)
         {
             base.RowGUI(args);
-            if (!componentGroupsById.ContainsKey(args.item.id))
+            if (!componentGroupsById.ContainsKey(args.item.id) || Event.current.type != EventType.Repaint)
                 return;
 
             var componentGroup = componentGroupsById[args.item.id];
-            var names = componentGroupTypeNamesById[args.item.id];
-            var modes = componentGroupTypeModesById[args.item.id];
 
             var position = args.rowRect.position;
             position.x = GetContentIndent(args.item);
             position.y += 1;
             
-            for (var i = 0; i < names.Length; ++i)
-            {
-                DrawTypeAndMovePosition(ref position, names[i], modes[i]);
-            }
+            ComponentGroupGUI.DrawComponentList(
+                new Rect(position.x, position.y, componentGroupHeightsById[args.item.id], width),
+                componentGroupStylesById[args.item.id],
+                componentGroupNamesById[args.item.id],
+                componentGroupRectsById[args.item.id]);
             
             var countString = componentGroup.CalculateLength().ToString();
             DefaultGUI.LabelRightAligned(args.rowRect, countString, args.selected, args.focused);

@@ -18,6 +18,10 @@ namespace Unity.Entities
         internal abstract void UpdateComponentData(EntityManager manager, Entity entity);
         internal abstract void UpdateSerializedData(EntityManager manager, Entity entity);
 
+        internal abstract int InsertSharedComponent(EntityManager manager);
+        internal abstract void UpdateSerializedData(EntityManager manager, int sharedComponentIndex);
+        
+        
         void OnValidate()
         {
             var gameObjectEntity = GetComponent<GameObjectEntity>();
@@ -83,6 +87,16 @@ namespace Unity.Entities
         {
             m_SerializedData = manager.GetComponentData<T>(entity);
         }
+        
+        internal override int InsertSharedComponent(EntityManager manager)
+        {
+            throw new System.InvalidOperationException();
+        }
+
+        internal override void UpdateSerializedData(EntityManager manager, int sharedComponentIndex)
+        {
+            throw new System.InvalidOperationException();
+        }
     }
 
     //@TODO: This should be fully implemented in C++ for efficiency
@@ -117,6 +131,16 @@ namespace Unity.Entities
         internal override void UpdateSerializedData(EntityManager manager, Entity entity)
         {
             m_SerializedData = manager.GetSharedComponentData<T>(entity);
+        }
+
+        internal override int InsertSharedComponent(EntityManager manager)
+        {
+            return manager.m_SharedComponentManager.InsertSharedComponent(m_SerializedData);
+        }
+
+        internal override void UpdateSerializedData(EntityManager manager, int sharedComponentIndex)
+        {
+            m_SerializedData = manager.m_SharedComponentManager.GetSharedComponentData<T>(sharedComponentIndex);
         }
     }
 

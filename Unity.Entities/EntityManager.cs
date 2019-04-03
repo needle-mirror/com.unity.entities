@@ -86,19 +86,19 @@ namespace Unity.Entities
         ArchetypeManager                  m_ArchetypeManager;
         EntityGroupManager                m_GroupManager;
 
-        SharedComponentDataManager        m_SharedComponentManager;
+        internal SharedComponentDataManager        m_SharedComponentManager;
 
         ExclusiveEntityTransaction        m_ExclusiveEntityTransaction;
 
         ComponentType*                    m_CachedComponentTypeArray;
         ComponentTypeInArchetype*         m_CachedComponentTypeInArchetypeArray;
-        
+
         internal object m_CachedComponentList;
-    
+
         internal EntityDataManager* Entities
         {
             get => m_Entities;
-            private set => m_Entities = value; 
+            private set => m_Entities = value;
         }
 
         internal ArchetypeManager ArchetypeManager
@@ -130,10 +130,10 @@ namespace Unity.Entities
             get => ComponentJobSafetyManager.ExclusiveTransactionDependency;
             set => ComponentJobSafetyManager.ExclusiveTransactionDependency = value;
         }
-        
+
         EntityManagerDebug m_Debug;
 
-        internal EntityManagerDebug Debug => m_Debug ?? (m_Debug = new EntityManagerDebug(this));
+        public EntityManagerDebug Debug => m_Debug ?? (m_Debug = new EntityManagerDebug(this));
 
         protected override void OnBeforeCreateManagerInternal(World world, int capacity)
         {
@@ -286,6 +286,11 @@ namespace Unity.Entities
         {
             BeforeStructuralChange();
             Entities->CreateEntities(ArchetypeManager, archetype.Archetype, entities, count);
+        }
+
+        internal void AllocateConsecutiveEntitiesForLoading(int count)
+        {
+            m_Entities->AllocateConsecutiveEntitiesForLoading(count);
         }
 
         public void DestroyEntity(ComponentGroup componentGroupFilter)
@@ -729,6 +734,12 @@ namespace Unity.Entities
             return assignableTypes;
         }
 
+        internal void AddExistingChunk(Chunk* chunk)
+        {
+            m_ArchetypeManager.AddExistingChunk(chunk);
+            m_Entities->AddExistingChunk(chunk);
+        }
+
         private bool TestMatchingArchetypeAny(Archetype* archetype, ComponentType* anyTypes, int anyCount)
         {
             if (anyCount == 0) return true;
@@ -870,7 +881,7 @@ namespace Unity.Entities
 #endif
         }
 
-        internal class EntityManagerDebug
+        public class EntityManagerDebug
         {
             private readonly EntityManager m_Manager;
 
@@ -888,6 +899,11 @@ namespace Unity.Entities
             public void SetGlobalSystemVersion(uint version)
             {
                 m_Manager.Entities->GlobalSystemVersion = version;
+            }
+
+            public bool IsSharedComponentManagerEmpty()
+            {
+                return m_Manager.m_SharedComponentManager.IsEmpty();
             }
         }
     }

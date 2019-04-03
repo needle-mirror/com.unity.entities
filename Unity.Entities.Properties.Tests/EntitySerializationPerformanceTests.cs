@@ -15,6 +15,7 @@ using Debug = UnityEngine.Debug;
 namespace Unity.Entities.Properties.Tests
 {
     [TestFixture]
+    //TODO: Convert to performance tests
     public sealed class EntitySerializationPerformanceTests
     {
         private World m_PreviousWorld;
@@ -94,9 +95,6 @@ namespace Unity.Entities.Properties.Tests
                 }
 
                 totalTimer.Stop();
-
-                Debug.Log($"Serialized {kCount} entities in {totalTimer.Elapsed}. Size per entity = {json.Length} bytes, total size = {json.Length * kCount} bytes");
-                Debug.Log(json);
             }
         }
 
@@ -215,7 +213,6 @@ namespace Unity.Entities.Properties.Tests
                 }
 
                 totalTimer.Stop();
-                Debug.Log($"Serialized {kCount} entities in {totalTimer.Elapsed}. Size per entity = {json.Length} bytes, total size = {json.Length * kCount} bytes");
             }
         }
 
@@ -264,7 +261,6 @@ namespace Unity.Entities.Properties.Tests
                 handle.Complete();
 
                 totalTimer.Stop();
-                Debug.Log($"Serialized {kCount} entities in {totalTimer.Elapsed}. Size per entity = {json.Length} bytes, total size = {json.Length * kCount} bytes");
             }
         }
     }

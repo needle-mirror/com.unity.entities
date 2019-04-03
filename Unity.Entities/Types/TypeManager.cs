@@ -30,20 +30,29 @@ namespace Unity.Entities
             public static int typeIndex;
         }
 
+        public struct EntityOffsetInfo
+        {
+            public int Offset;
+        }
+
         public struct ComponentType
         {
-            public ComponentType(Type type, int size, TypeCategory category, FastEquality.Layout[] layout)
+            public ComponentType(Type type, int size, TypeCategory category, FastEquality.Layout[] layout, EntityOffsetInfo[] entityOffsets, UInt64 memoryOrdering)
             {
                 Type = type;
                 SizeInChunk = size;
                 Category = category;
                 FastEqualityLayout = layout;
+                EntityOffsets = entityOffsets;
+                MemoryOrdering = memoryOrdering;
             }
 
             public readonly Type Type;
             public readonly int SizeInChunk;
             public readonly FastEquality.Layout[] FastEqualityLayout;
             public readonly TypeCategory Category;
+            public readonly EntityOffsetInfo[] EntityOffsets;
+            public readonly UInt64 MemoryOrdering;
         }
 
         // TODO: this creates a dependency on UnityEngine, but makes splitting code in separate assemblies easier. We need to remove it during the biggere refactor.
@@ -65,10 +74,10 @@ namespace Unity.Entities
             s_Types = new ComponentType[MaximumTypesCount];
             s_Count = 0;
 
-            s_Types[s_Count++] = new ComponentType(null, 0, TypeCategory.ComponentData, null);
+            s_Types[s_Count++] = new ComponentType(null, 0, TypeCategory.ComponentData, null, null, 0);
             // This must always be first so that Entity is always index 0 in the archetype
             s_Types[s_Count++] = new ComponentType(typeof(Entity), sizeof(Entity), TypeCategory.EntityData,
-                FastEquality.CreateLayout(typeof(Entity)));
+			    FastEquality.CreateLayout(typeof(Entity)), EntityRemapUtility.CalculateEntityOffsets(typeof(Entity)), 0);
         }
 
 
@@ -137,11 +146,30 @@ namespace Unity.Entities
             }
         }
 
+        static UInt64 CalculateMemoryOrdering(Type type)
+        {
+            if (type == typeof(Entity))
+                return 0;
+
+            var hash = new System.Security.Cryptography.SHA1Managed().ComputeHash(System.Text.Encoding.UTF8.GetBytes(type.AssemblyQualifiedName));
+            var hash64 = new byte[8];
+            Array.Copy(hash, 0, hash64, 0, 8);
+
+            UInt64 result = 0;
+            for (int i = 0; i < 8; ++i)
+            {
+                result = result * 256 + hash64[i];
+            }
+            return (result != 0) ? result : 1;
+        }
+
         private static ComponentType BuildComponentType(Type type)
         {
             var componentSize = 0;
             TypeCategory category;
             FastEquality.Layout[] fastEqualityLayout = null;
+            EntityOffsetInfo[] entityOffsets = null;
+            var memoryOrdering = CalculateMemoryOrdering(type);
             if (typeof(IComponentData).IsAssignableFrom(type))
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -155,7 +183,8 @@ namespace Unity.Entities
                 category = TypeCategory.ComponentData;
                 componentSize = UnsafeUtility.SizeOf(type);
                 fastEqualityLayout = FastEquality.CreateLayout(type);
-            }
+                entityOffsets = EntityRemapUtility.CalculateEntityOffsets(type);
+             }
             else if (typeof(ISharedComponentData).IsAssignableFrom(type))
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -200,7 +229,7 @@ namespace Unity.Entities
             if (typeof(IComponentData).IsAssignableFrom(type) && typeof(ISharedComponentData).IsAssignableFrom(type))
                 throw new ArgumentException($"Component {type} can not be both IComponentData & ISharedComponentData");
 #endif
-            return new ComponentType(type, componentSize, category, fastEqualityLayout);
+            return new ComponentType(type, componentSize, category, fastEqualityLayout, entityOffsets, memoryOrdering);
         }
 
         public static bool IsValidComponentTypeForArchetype(int typeIndex, bool isArray)

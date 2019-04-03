@@ -112,8 +112,6 @@ namespace Unity.Entities.Tests
                 var transformParentType = EntityManager.GetArchetypeChunkComponentType<ParentTransform>(true);
                 var entityType = EntityManager.GetArchetypeChunkEntityType(true);
 
-                Debug.Log(string.Format("New ParentTransform = {0}", chunks.EntityCount));
-
                 for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
                 {
                     var chunk = chunks[chunkIndex];
@@ -526,7 +524,7 @@ namespace Unity.Entities.Tests
             {
                 var localToParent = LocalToParentMatrices[entity].Value;
                 var localToWorld = math.mul(parentToWorld, localToParent);
-                
+
                 LocalToWorldMatrices[entity] = new LocalToWorldMatrix
                 {
                     Value = localToWorld
@@ -619,7 +617,7 @@ namespace Unity.Entities.Tests
                 var uniformScaleChange = uniformScaleVersion != LastUniformScaleVersion;
                 var parentTransformChange = parentTransformVersion != LastParentTransformVersion;
                 var possibleChange = positionChange || rotationChange || headingChange || scaleChange || uniformScaleChange || parentTransformChange;
-                
+
                 if (!possibleChange)
                     return inputDeps;
 
@@ -631,15 +629,13 @@ namespace Unity.Entities.Tests
                 LastParentTransformVersion = parentTransformVersion;
                 PostUpdateCommands = new EntityCommandBuffer(Allocator.Persistent);
 
-                Debug.Log(string.Format("Transform Patch: {0}", GlobalSystemVersion));
-
                 RootChangedQueue.Clear();
 
                 // Stage-0
                 //   - ParentTransform changed
                 //   - Hash(parent->children)
                 //   - Set TransformRoot
-                //   - UpdateQueue(root) 
+                //   - UpdateQueue(root)
                 UpdateAddedParentTransforms();
                 UpdateChangedParentTransforms();
 
@@ -686,7 +682,6 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
-                Debug.Log(string.Format("Update {0}", UpdateStep));
                 switch (UpdateStep)
                 {
                     case 0:
@@ -809,7 +804,7 @@ namespace Unity.Entities.Tests
                     new ComponentType[] {typeof(ParentTransform)}, // none
                     new ComponentType[] {typeof(PreviousParentTransform)}, // all
                     Allocator.Temp);
-                
+
                 Assert.AreEqual(entityCount-1,chunks.EntityCount);
 
                 chunks.Dispose();

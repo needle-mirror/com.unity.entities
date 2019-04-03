@@ -1,16 +1,7 @@
 ﻿using System;
-using System.Diagnostics;
-using System.IO;
-using System.Threading;
 using NUnit.Framework;
-using Unity.Collections;
-using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Properties.Serialization;
-using UnityEngine;
-using Unity.Properties;
-using UnityEngine.Profiling;
-using Debug = UnityEngine.Debug;
 
 namespace Unity.Entities.Properties.Tests
 {
@@ -43,6 +34,12 @@ namespace Unity.Entities.Properties.Tests
             }
         }
 
+        [System.Serializable]
+        public struct TestComponentWrapper<T>
+        {
+            public T[] Components;
+        }
+
         /// <summary>
         /// Writes an entity to json
         /// </summary>
@@ -56,8 +53,13 @@ namespace Unity.Entities.Properties.Tests
             m_Manager.SetComponentData(entity, testComponent);
 
             var container = new EntityContainer(m_Manager, entity);
+
             var json = JsonSerializer.Serialize(ref container);
-            Debug.Log(json);
+
+            Assert.AreEqual(
+                testComponent,
+                UnityEngine.JsonUtility.FromJson<TestComponentWrapper<TestComponent>>(json).Components[0]
+                );
         }
 
         [Test]
@@ -71,9 +73,13 @@ namespace Unity.Entities.Properties.Tests
 
             var container = new EntityContainer(m_Manager, entity);
             var json = JsonSerializer.Serialize(ref container);
-            Debug.Log(json);
+
+            Assert.AreEqual(
+                nestedComponent,
+                UnityEngine.JsonUtility.FromJson<TestComponentWrapper<NestedComponent>>(json).Components[0]
+                );
         }
-        
+
         [Test]
         public void MathOverrides()
         {
@@ -81,15 +87,23 @@ namespace Unity.Entities.Properties.Tests
 
             var math = m_Manager.GetComponentData<MathComponent>(entity);
             math.v2 = new float2(1f, 2f);
-            math.v3 = new float3(1f, 2f, 3f);
-            math.v4 = new float4(1f, 2f, 3f, 4f);
+            math.v3 = new float3(2f, 4f, 9f);
+            math.v4 = new float4(3f, 8f, 18f, 32f);
             m_Manager.SetComponentData(entity, math);
 
             var container = new EntityContainer(m_Manager, entity);
             var json = JsonSerializer.Serialize(ref container);
-            Debug.Log(json);
+
+            // Note: This test is to be improved, for various reasons,
+            //  (SimpleJson being ignored in unity >= 18.2, Roslyn issues preventing
+            //  to upgrade the properties packages (that would fix the SimpleJson issue))
+            //  we fallback on string matching for now.
+
+            Assert.IsTrue(json.Contains("float2(1f, 2f)"));
+            Assert.IsTrue(json.Contains("float3(2f, 4f, 9f)"));
+            Assert.IsTrue(json.Contains("float4(3f, 8f, 18f, 32f)"));
         }
-        
+
         [Test]
         public void BlittableTest()
         {
@@ -100,10 +114,30 @@ namespace Unity.Entities.Properties.Tests
             comp.blit.y = 456.789;
             comp.blit.z = -12;
             comp.flt = 0.01f;
+            m_Manager.SetComponentData(entity, comp);
 
             var container = new EntityContainer(m_Manager, entity);
             var json = JsonSerializer.Serialize(ref container);
-            Debug.Log(json);
+
+            Assert.AreEqual(
+                comp,
+                UnityEngine.JsonUtility.FromJson<TestComponentWrapper<BlitComponent>>(json).Components[0]
+                );
+        }
+
+        [Test]
+        public void EnumComponentTest()
+        {
+            var entity = m_Manager.CreateEntity(typeof(TestEnumComponent));
+
+            var c = m_Manager.GetComponentData<TestEnumComponent>(entity);
+            c.e = MyEnum.THREE;
+            m_Manager.SetComponentData(entity, c);
+
+            var container = new EntityContainer(m_Manager, entity);
+            var json = JsonSerializer.Serialize(ref container);
+
+            Assert.AreEqual(MyEnum.THREE, UnityEngine.JsonUtility.FromJson<TestComponentWrapper<TestEnumComponent>>(json).Components[0].e);
         }
     }
 }

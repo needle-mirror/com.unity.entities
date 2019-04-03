@@ -82,5 +82,11 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
             Assert.AreEqual(4, m_Manager.Version);
         }
+
+        [Test]
+        [Ignore("NOT IMPLEMENTED")]
+        public void UsingComponentGroupOrArchetypeorEntityFromDifferentEntityManagerGivesExceptions()
+        {
+        }
     }
 }

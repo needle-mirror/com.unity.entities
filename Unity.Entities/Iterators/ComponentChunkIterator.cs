@@ -95,7 +95,7 @@ namespace Unity.Entities
             m_CurrentMatchingArchetype = match;
             IndexInComponentGroup = -1;
             m_CurrentChunk = null;
-            m_CurrentArchetypeIndex = 0;
+            m_CurrentArchetypeIndex = int.MaxValue; // This will trigger UpdateCacheResolvedIndex to update the cache on first access
             m_CurrentChunkIndex = 0;
             m_GlobalSystemVersion = globalSystemVersion;
             m_Filter = filter;
@@ -239,11 +239,13 @@ namespace Unity.Entities
 
             if (!m_Filter.RequiresMatchesFilter)
             {
-                if (index < m_CurrentArchetypeIndex || m_CurrentChunk == null)
+                if (index < m_CurrentArchetypeIndex)
                 {
                     m_CurrentMatchingArchetype = m_FirstMatchingArchetype;
                     m_CurrentArchetypeIndex = 0;
                     m_CurrentChunk = (Chunk*) m_CurrentMatchingArchetype->Archetype->ChunkList.Begin;
+                    // m_CurrentChunk might point to an invalid chunk if the first matching archetype has no chunks
+                    // the while loop below will move to the first archetype that has any entities
                     m_CurrentChunkIndex = 0;
                 }
 
@@ -270,7 +272,7 @@ namespace Unity.Entities
             }
             else
             {
-                if (index < m_CurrentArchetypeIndex + m_CurrentChunkIndex || m_CurrentChunk == null)
+                if (index < m_CurrentArchetypeIndex + m_CurrentChunkIndex)
                 {
                     if (index < m_CurrentArchetypeIndex)
                     {
@@ -278,11 +280,12 @@ namespace Unity.Entities
                         m_CurrentArchetypeIndex = 0;
                     }
 
-                    m_CurrentChunk = (Chunk*) m_CurrentMatchingArchetype->Archetype->ChunkList.Begin;
+                    m_CurrentChunk = (Chunk*) m_CurrentMatchingArchetype->Archetype->ChunkList.End;
+                    // m_CurrentChunk now points to an invalid chunk but since the chunk list is circular
+                    // it effectively points to the chunk before the first
+                    // MoveToNextMatchingChunk will move it to a valid chunk if any exists
                     m_CurrentChunkIndex = 0;
-                    if (!(m_CurrentChunk->MatchesFilter(m_CurrentMatchingArchetype, ref m_Filter) &&
-                          m_CurrentChunk->Count > 0))
-                        MoveToNextMatchingChunk();
+                    MoveToNextMatchingChunk();
                 }
 
                 while (index >= m_CurrentArchetypeIndex + m_CurrentChunkIndex + m_CurrentChunk->Count)

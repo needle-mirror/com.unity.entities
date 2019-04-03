@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine;
 using UnityEngine.Assertions;
 
 namespace Unity.Entities
@@ -214,6 +215,17 @@ namespace Unity.Entities
             } while (m_HashLookup.TryGetNextValue(out itemIndex, ref iter));
         }
 
+        public bool IsEmpty()
+        {
+            for (int i = 1; i < m_SharedComponentData.Count; ++i)
+            {
+                if (m_SharedComponentData[i] != null) return false;
+                if (m_SharedComponentType[i] != -1) return false;
+                if (m_SharedComponentRefCount[i] != 0) return false;
+            }
+
+            return true;
+        }
 
         public unsafe void MoveSharedComponents(SharedComponentDataManager srcSharedComponents,
             int* sharedComponentIndices, int sharedComponentIndicesCount)

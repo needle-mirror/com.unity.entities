@@ -227,14 +227,16 @@ namespace Unity.Entities
             var buffer = chunk->Buffer;
             var count = chunk->Count;
 
-            for (var i = 0; i < arch->TypesCount - 1; ++i)
+            for (int i = 0; i<arch->TypesCount-1; ++i)
             {
-                var startOffset = arch->Offsets[i] + count * arch->SizeOfs[i];
-                var endOffset = arch->Offsets[i + 1];
+                var index = arch->TypeMemoryOrder[i];
+                var nextIndex = arch->TypeMemoryOrder[i + 1];
+                var startOffset = arch->Offsets[index] + count * arch->SizeOfs[index];
+                var endOffset = arch->Offsets[nextIndex];
                 UnsafeUtilityEx.MemSet(buffer + startOffset, value, endOffset - startOffset);
             }
-
-            var lastStartOffset = arch->Offsets[arch->TypesCount - 1] + count * arch->SizeOfs[arch->TypesCount - 1];
+            var lastIndex = arch->TypeMemoryOrder[arch->TypesCount - 1];
+            var lastStartOffset = arch->Offsets[lastIndex] + count * arch->SizeOfs[lastIndex];
             UnsafeUtilityEx.MemSet(buffer + lastStartOffset, value, bufferSize - lastStartOffset);
         }
 

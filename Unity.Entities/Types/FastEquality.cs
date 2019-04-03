@@ -1,8 +1,8 @@
 using System;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Boo.Lang;
 using Unity.Collections.LowLevel.Unsafe;
+using System.Collections.Generic;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Tests")]
 

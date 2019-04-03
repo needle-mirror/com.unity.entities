@@ -1,36 +1,39 @@
 ﻿using System;
-using System.Collections;
+using System.Reflection;
 using NUnit.Framework;
-using UnityEditor;
-using UnityEditor.TestTools;
-using UnityEngine;
+using Unity.Entities;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace Unity.Entities.Tests
 {
     public class DefaultWorldInitializationTests
     {
-        
+        private World m_PreviousWorld;
+        private World m_World;
+
         [SetUp]
         public void Setup()
         {
+            m_PreviousWorld = World.Active;
         }
-// TODO: [case 1040539] Remove this when entering playmode in an editmode test works in 2018.2+
-#if UNITY_2018_1_OR_NEWER && !UNITY_2018_2_OR_NEWER
-        [UnityTest]
-        public IEnumerator Initialize_WhenEnteringPlaymode_ShouldLogNothing()
+
+        [Test]
+        public void Initialize_ShouldLogNothing()
         {
-            EditorApplication.isPlaying = true;
-            yield return null;
-        
-            
+            DefaultWorldInitialization.Initialize("Test World", true);
+
             LogAssert.NoUnexpectedReceived();
         }
-#endif
+
         [TearDown]
         public void TearDown()
         {
-            EditorApplication.isPlaying = false;
+            World.Active.Dispose();
+            World.Active = null;
+
+            World.Active = m_PreviousWorld;
+            ScriptBehaviourUpdateOrder.UpdatePlayerLoop();
 
         }
     }

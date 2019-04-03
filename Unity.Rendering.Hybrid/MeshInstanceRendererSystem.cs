@@ -13,6 +13,7 @@ namespace Unity.Rendering
     /// Renders all Entities containing both MeshInstanceRenderer & TransformMatrix components.
     /// </summary>
     [UpdateAfter(typeof(PreLateUpdate.ParticleSystemBeginUpdateAll))]
+    [UpdateAfter(typeof(MeshCullingBarrier))]
     [UnityEngine.ExecuteInEditMode]
     public class MeshInstanceRendererSystem : ComponentSystem
 	{
@@ -42,7 +43,7 @@ namespace Unity.Rendering
 	    protected override void OnCreateManager(int capacity)
 	    {
 	        // We want to find all MeshInstanceRenderer & TransformMatrix combinations and render them
-	        m_InstanceRendererGroup = GetComponentGroup(typeof(MeshInstanceRenderer), typeof(TransformMatrix));
+	        m_InstanceRendererGroup = GetComponentGroup(typeof(MeshInstanceRenderer), typeof(TransformMatrix), ComponentType.Subtractive<MeshCulledComponent>(), ComponentType.Subtractive<MeshLODInactive>());
 	    }
 
 	    protected override void OnUpdate()
