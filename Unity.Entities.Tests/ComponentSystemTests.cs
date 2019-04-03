@@ -219,4 +219,47 @@ namespace Unity.Entities.Tests
         }
         
     }
+
+    public class Issue101 : ECSTestsFixture
+    {
+        [ComputeJobOptimization(CompileSynchronously = true)]
+        struct Issue101Job : IJob
+        {
+            [WriteOnly] public NativeHashMap<ulong, byte>.Concurrent hashMap;
+            [WriteOnly] public NativeQueue<ulong>.Concurrent keys;
+            public int Index;
+
+            public void Execute()
+            {
+                byte hash = (byte) Index;
+                hashMap.TryAdd(hash, hash);
+                keys.Enqueue(hash);
+            }
+        }
+
+        [Ignore("Passed off to compute team")]
+        [Test]
+        public void TestIssue101()
+        {
+            var hashMap = new NativeHashMap<ulong, byte>(100, Allocator.TempJob);
+            var keys = new NativeQueue<ulong>(Allocator.TempJob);
+
+            try
+            {
+                var job = new Issue101Job()
+                {
+                    hashMap = hashMap,
+                    keys = keys,
+                    Index = 1,
+                };
+
+                job.Schedule(default(JobHandle)).Complete();
+            }
+            finally
+            {
+                keys.Dispose();
+                hashMap.Dispose();
+            }
+        }
+    }
 }

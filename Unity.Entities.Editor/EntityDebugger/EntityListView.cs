@@ -6,8 +6,9 @@ using UnityEngine;
 namespace Unity.Entities.Editor
 {
     
-    public delegate void EntitySelectionCallback(Entity selection, bool updateList);
+    public delegate void EntitySelectionCallback(Entity selection);
     public delegate World WorldSelectionGetter();
+    public delegate ScriptBehaviourManager SystemSelectionGetter();
     
     public class EntityListView : TreeView {
         private readonly Dictionary<int, Entity> entitiesById = new Dictionary<int, Entity>();
@@ -17,7 +18,7 @@ namespace Unity.Entities.Editor
             get { return selectedComponentGroup; }
             set
             {
-                if (selectedComponentGroup != value)
+                if (value == null || selectedComponentGroup != value)
                 {
                     selectedComponentGroup = value;
                     Reload();
@@ -29,12 +30,14 @@ namespace Unity.Entities.Editor
 
         private EntitySelectionCallback setEntitySelection;
         private WorldSelectionGetter getWorldSelection;
+        private SystemSelectionGetter getSystemSelection;
 
-        public EntityListView(TreeViewState state, ComponentGroup componentGroup, EntitySelectionCallback entitySelectionCallback, WorldSelectionGetter getWorldSelection) : base(state)
+        public EntityListView(TreeViewState state, ComponentGroup componentGroup, EntitySelectionCallback entitySelectionCallback, WorldSelectionGetter getWorldSelection, SystemSelectionGetter getSystemSelection) : base(state)
         {
             this.setEntitySelection = entitySelectionCallback;
             this.getWorldSelection = getWorldSelection;
-            SelectedComponentGroup = componentGroup;
+            this.getSystemSelection = getSystemSelection;
+            selectedComponentGroup = componentGroup;
             Reload();
         }
 
@@ -44,7 +47,7 @@ namespace Unity.Entities.Editor
                 return;
             if (selectedComponentGroup == null)
             {
-                if (getWorldSelection().GetExistingManager<EntityManager>().Version != cachedVersion)
+                if (!(getSystemSelection() is ComponentSystemBase) && getWorldSelection().GetExistingManager<EntityManager>().Version != cachedVersion)
                     Reload();
             }
             else if (selectedComponentGroup.GetCombinedComponentOrderVersion() != cachedVersion)
@@ -64,19 +67,21 @@ namespace Unity.Entities.Editor
             var root  = new TreeViewItem { id = managerId--, depth = -1, displayName = "Root" };
             if (getWorldSelection() == null)
             {
-                root.AddChild(new TreeViewItem { id = managerId, displayName = "No world selected"});
                 cachedVersion = -1;
             }
             else
             {
                 if (SelectedComponentGroup == null)
                 {
-                    var entityManager = getWorldSelection().GetExistingManager<EntityManager>();
-                    var array = entityManager.GetAllEntities(Allocator.Temp);
-                    for (var i = 0; i < array.Length; ++i)
-                        root.AddChild(CreateEntityItem(array[i]));
-                    array.Dispose();
-                    cachedVersion = entityManager.Version;
+                    if (!(getSystemSelection() is ComponentSystemBase))
+                    {
+                        var entityManager = getWorldSelection().GetExistingManager<EntityManager>();
+                        var array = entityManager.GetAllEntities(Allocator.Temp);
+                        for (var i = 0; i < array.Length; ++i)
+                            root.AddChild(CreateEntityItem(array[i]));
+                        array.Dispose();
+                        cachedVersion = entityManager.Version;
+                    }
                 }
                 else
                 {
@@ -86,12 +91,12 @@ namespace Unity.Entities.Editor
                         root.AddChild(CreateEntityItem(entityArray[i]));
                     cachedVersion = SelectedComponentGroup.GetCombinedComponentOrderVersion();
                 }
-
-                if (entitiesById.Count == 0)
-                {
-                    root.AddChild(new TreeViewItem { id = managerId, displayName = "No Entities"});
-                }
                 SetupDepthsFromParentsAndChildren(root);
+            }
+
+            if (entitiesById.Count == 0)
+            {
+                root.children = new List<TreeViewItem>();
             }
             
             return root;
@@ -115,11 +120,11 @@ namespace Unity.Entities.Editor
             if (selectedIds.Count > 0)
             {
                 if (entitiesById.ContainsKey(selectedIds[0]))
-                    setEntitySelection(entitiesById[selectedIds[0]], false);
+                    setEntitySelection(entitiesById[selectedIds[0]]);
             }
             else
             {
-                setEntitySelection(Entity.Null, false);
+                setEntitySelection(Entity.Null);
             }
         }
 

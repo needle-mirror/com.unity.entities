@@ -16,7 +16,7 @@ namespace Unity.Entities.Tests
 			{
 				public ComponentDataArray<EcsTestData> Data;
 				public EntityArray                     Entities;
-				public int                             Length;
+				public readonly int                    Length;
 			}
 
 			[Inject]
@@ -72,6 +72,62 @@ namespace Unity.Entities.Tests
 	        }
 	    }
 
+	    [DisableAutoCreation]
+	    [AlwaysUpdateSystem]
+	    public class ComponentGroupAsPartOfInjectedGroupSystem : ComponentSystem
+	    {
+	        public struct GroupStruct0
+	        {
+	            public ComponentDataArray<EcsTestData> Data;
+	            public ComponentDataArray<EcsTestData2> Data2;
+	            public readonly int GroupIndex;
+	        }
+
+	        public struct GroupStruct1
+	        {
+	            public ComponentDataArray<EcsTestData> Data;
+	            [ReadOnly] public SharedComponentDataArray<EcsTestSharedComp> Shared;
+	            public readonly int GroupIndex;
+	        }
+
+	        [Inject]
+	        public GroupStruct0 Group0;
+	        [Inject]
+	        public GroupStruct1 Group1;
+
+	        protected override void OnCreateManager(int capacity)
+	        {
+	            ComponentGroups[Group1.GroupIndex].SetFilter(new EcsTestSharedComp(123));
+	        }
+
+	        protected override void OnUpdate()
+	        {
+	        }
+	    }
+
+	    [Test]
+	    public void ComponentGroupFromInjectedGroup()
+	    {
+	        var system = World.GetOrCreateManager<ComponentGroupAsPartOfInjectedGroupSystem>();
+
+	        var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsTestData2));
+	        var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
+	        var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+	        m_Manager.SetSharedComponentData(entity0, new EcsTestSharedComp(123));
+	        m_Manager.SetSharedComponentData(entity1, new EcsTestSharedComp(456));
+	        m_Manager.SetSharedComponentData(entity2, new EcsTestSharedComp(123));
+
+	        var group0 = system.ComponentGroups[system.Group0.GroupIndex];
+	        var group1 = system.ComponentGroups[system.Group1.GroupIndex];
+
+	        var data0 = group0.GetComponentDataArray<EcsTestData>();
+	        var data1 = group1.GetComponentDataArray<EcsTestData>();
+
+	        Assert.AreEqual(1, data0.Length);
+	        Assert.AreEqual(2, data1.Length);
+	    }
+
 		[Test]
         public void ReadOnlyComponentDataArray()
         {
@@ -85,7 +141,7 @@ namespace Unity.Entities.Tests
             Assert.Throws<System.InvalidOperationException>(()=> { readOnlySystem.Group.Data[0] = new EcsTestData(); });
         }
 
-	   
+
 
 	    [Test]
 	    public void SharedComponentDataArray()

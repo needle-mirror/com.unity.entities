@@ -101,6 +101,14 @@ namespace Unity.Entities.Tests
             }
         }
 
+	    // UpdatePlayerLoop handles nulls so that users of the API don't have to deal with setting the default loop
+	    [Test]
+	    public void NullWorldsDontThrow()
+	    {
+	        Assert.DoesNotThrow(() => ScriptBehaviourUpdateOrder.UpdatePlayerLoop(null));
+	        Assert.DoesNotThrow(() => ScriptBehaviourUpdateOrder.UpdatePlayerLoop(new World[] {World.Active, null}));
+	    }
+
         [Test]
         public void RecursiveGroupIsError()
         {

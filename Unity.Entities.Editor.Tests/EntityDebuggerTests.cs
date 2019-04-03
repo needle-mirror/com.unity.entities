@@ -3,6 +3,7 @@ using NUnit.Framework;
 using Unity.Entities.Tests;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Experimental.LowLevel;
 
 namespace Unity.Entities.Editor.Tests
 {
@@ -20,7 +21,7 @@ namespace Unity.Entities.Editor.Tests
 #pragma warning disable 0169 // "never used" warning
             struct Group
             {
-                private int Length;
+                private readonly int Length;
                 private ComponentDataArray<EcsTestData> testDatas;
             }
 
@@ -40,6 +41,9 @@ namespace Unity.Entities.Editor.Tests
                 window.Close();
         }
 
+        private const string World2Name = "Test World 2";
+        private World World2;
+
         public override void Setup()
         {
             base.Setup();
@@ -49,6 +53,13 @@ namespace Unity.Entities.Editor.Tests
             m_Window = EditorWindow.GetWindow<EntityDebugger>();
 
             m_System = World.Active.GetOrCreateManager<SingleGroupSystem>();
+            
+            World2 = new World(World2Name);
+
+            World2.GetOrCreateManager<EntityManager>();
+            World2.GetOrCreateManager<EmptySystem>();
+            
+            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(World.Active);
 
             m_ComponentGroup = m_System.ComponentGroups[0];
 
@@ -59,7 +70,33 @@ namespace Unity.Entities.Editor.Tests
         {
             CloseAllDebuggers();
             
+            World2.Dispose();
+            World2 = null;
+            
             base.TearDown();
+            
+            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(World.Active);
+        }
+
+        [Test]
+        public void WorldPopup_RestorePreviousSelection()
+        {
+            World world = null;
+            var popup = new WorldPopup(() => null, x => world = x);
+            popup.TryRestorePreviousSelection(false, WorldPopup.kNoWorldName);
+            Assert.AreEqual(World.AllWorlds[0], world);
+            popup.TryRestorePreviousSelection(false, World2Name);
+            Assert.AreEqual(World2, world);
+        }
+
+        [Test]
+        public void EntityDebugger_SetSystemSelection()
+        {
+            m_Window.SetSystemSelection(m_Manager, World.Active, true, true);
+            
+            Assert.AreEqual(World.Active, m_Window.SystemSelectionWorld);
+            
+            Assert.Throws<ArgumentNullException>(() => m_Window.SetSystemSelection(m_Manager, null, true, true));
         }
 
         [Test]
@@ -97,16 +134,16 @@ namespace Unity.Entities.Editor.Tests
             var componentGroup = World.Active.GetExistingManager<EntityManager>().CreateComponentGroup(components);
             
             m_Window.SetWorldSelection(World.Active, true);
-            m_Window.SetSystemSelection(null, true, true);
+            m_Window.SetSystemSelection(null, null, true, true);
             m_Window.SetAllEntitiesFilter(componentGroup);
             Assert.AreEqual(componentGroup, m_Window.ComponentGroupSelection);
             
             m_Window.SetComponentGroupSelection(null, true, true);
-            m_Window.SetSystemSelection(World.Active.GetExistingManager<EntityManager>(), true, true);
+            m_Window.SetSystemSelection(World.Active.GetExistingManager<EntityManager>(), World.Active, true, true);
             m_Window.SetAllEntitiesFilter(componentGroup);
             Assert.AreEqual(componentGroup, m_Window.ComponentGroupSelection);
             
-            m_Window.SetSystemSelection(m_System, true, true);
+            m_Window.SetSystemSelection(m_System, World.Active, true, true);
             m_Window.SetAllEntitiesFilter(componentGroup);
             Assert.AreNotEqual(componentGroup, m_Window.ComponentGroupSelection);
         }

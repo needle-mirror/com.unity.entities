@@ -99,109 +99,69 @@ namespace Unity.Entities
         }
     }
 
-    [NativeContainer]
-    [NativeContainerSupportsMinMaxWriteRestriction]
-    public unsafe struct ArchetypeChunkArray : IDisposable
+    public unsafe struct ArchetypeChunkArray
     {
-        [NativeDisableUnsafePtrRestriction] private readonly ArchetypeChunk* m_Chunks;
-        private readonly Allocator m_Allocator;
-
-        public int EntityCount { get; }
-
-        private readonly int m_Length;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        private readonly int m_MinIndex;
-        private readonly int m_MaxIndex;
-        private readonly AtomicSafetyHandle m_Safety;
-#endif
-
-        public int Length => m_Length;
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal ArchetypeChunkArray(NativeList<EntityArchetype> archetypes, Allocator allocator,
-            AtomicSafetyHandle safety)
+        static internal NativeArray<ArchetypeChunk> Create(NativeList<EntityArchetype> archetypes, Allocator allocator, AtomicSafetyHandle safetyHandle)
 #else
-        internal ArchetypeChunkArray(NativeList<EntityArchetype> archetypes, Allocator allocator)
+        static internal NativeArray<ArchetypeChunk> Create(NativeList<EntityArchetype> archetypes, Allocator allocator)
 #endif
         {
             var archetypeCount = archetypes.Length;
+            int length = 0;
 
-            m_Length = 0;
-            EntityCount = 0;
             for (var i = 0; i < archetypeCount; i++)
             {
-                m_Length += archetypes[i].Archetype->ChunkCount;
-                EntityCount += archetypes[i].Archetype->EntityCount;
+                length += archetypes[i].Archetype->ChunkCount;
             }
 
-            m_Chunks = (ArchetypeChunk*) UnsafeUtility.Malloc(UnsafeUtility.SizeOf<ArchetypeChunk>() * m_Length, 16,
-                allocator);
-            m_Allocator = allocator;
-
-            if (m_Length > 0)
+            if (length == 0)
             {
-                var lastChunk = (Chunk*) archetypes[0].Archetype->ChunkList.Begin;
-                var lastArchetypeIndex = 0;
-                var lastChunkOffset = 0;
-                var chunkCount = 1;
-                m_Chunks[0] = new ArchetypeChunk {m_Chunk = lastChunk, StartIndex = lastChunkOffset};
-                for (var i = 1; i < m_Length; i++)
+                return new NativeArray<ArchetypeChunk>(0, allocator);
+            }
+
+            var sourceData = (ArchetypeChunk*) UnsafeUtility.Malloc(sizeof(ArchetypeChunk) * length, 16, allocator);
+
+            var lastChunk = (Chunk*) archetypes[0].Archetype->ChunkList.Begin;
+            var lastArchetypeIndex = 0;
+            var lastChunkOffset = 0;
+            sourceData[0] = new ArchetypeChunk {m_Chunk = lastChunk, StartIndex = lastChunkOffset};
+            var chunkCount = 1;
+            for (var i = 1; i < length; i++)
+            {
+                lastChunkOffset += lastChunk->Count;
+                lastChunk = (Chunk*) lastChunk->ChunkListNode.Next;
+                if (lastChunk == (Chunk*) archetypes[lastArchetypeIndex].Archetype->ChunkList.End)
                 {
-                    lastChunkOffset += lastChunk->Count;
-                    lastChunk = (Chunk*) lastChunk->ChunkListNode.Next;
-                    if (lastChunk == (Chunk*) archetypes[lastArchetypeIndex].Archetype->ChunkList.End)
-                    {
-                        lastArchetypeIndex++;
+                    lastArchetypeIndex++;
 
-                        if (lastArchetypeIndex == archetypeCount)
-                            break;
+                    if (lastArchetypeIndex == archetypeCount)
+                        break;
 
-                        lastChunk = (Chunk*) archetypes[lastArchetypeIndex].Archetype->ChunkList.Begin;
-                    }
-
-                    m_Chunks[i] = new ArchetypeChunk {m_Chunk = lastChunk, StartIndex = lastChunkOffset};
-                    chunkCount++;
+                    lastChunk = (Chunk*) archetypes[lastArchetypeIndex].Archetype->ChunkList.Begin;
                 }
 
-                m_Length = chunkCount;
+                sourceData[i] = new ArchetypeChunk {m_Chunk = lastChunk, StartIndex = lastChunkOffset};
+                chunkCount++;
             }
 
+            var arr = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<ArchetypeChunk>(sourceData, chunkCount, allocator);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            m_MinIndex = 0;
-            m_MaxIndex = m_Length - 1;
-            m_Safety = safety;
+            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref arr,safetyHandle); 
 #endif
+            return arr;
         }
 
-        public void Dispose()
+        static public int CalculateEntityCount(NativeArray<ArchetypeChunk> chunks)
         {
-            UnsafeUtility.Free(m_Chunks, m_Allocator);
-        }
-
-        public ArchetypeChunk this[int index]
-        {
-            get
+            int entityCount = 0;
+            for (var i = 0; i < chunks.Length; i++)
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
-                if (index < m_MinIndex || index > m_MaxIndex)
-                    FailOutOfRangeError(index);
-#endif
-                return m_Chunks[index];
+                entityCount += chunks[i].Count;
             }
-        }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        private void FailOutOfRangeError(int index)
-        {
-            //@TODO: Make error message utility and share with NativeArray...
-            if (index < Length && (m_MinIndex != 0 || m_MaxIndex != Length - 1))
-                throw new IndexOutOfRangeException(
-                    $"Index {index} is out of restricted IJobParallelFor range [{m_MinIndex}...{m_MaxIndex}] in ReadWriteBuffer.\nReadWriteBuffers are restricted to only read & write the element at the job index. You can use double buffering strategies to avoid race conditions due to reading & writing in parallel to the same elements from a job.");
-
-            throw new IndexOutOfRangeException($"Index {index} is out of range of '{Length}' Length.");
+            return entityCount;
         }
-#endif
     }
 
     [NativeContainer]

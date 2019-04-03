@@ -165,7 +165,7 @@ namespace Unity.Entities.Tests
 	    {
 	        public struct Group
 	        {
-	            public int Length;
+	            public readonly int Length;
 	            public GameObjectArray gameObjects;
 
 	            public TransformAccessArray transforms;
@@ -213,7 +213,7 @@ namespace Unity.Entities.Tests
 	    {
 	        public struct Group
 	        {
-	            public int Length;
+	            public readonly int Length;
 	            public ComponentArray<Transform> transforms;
 
 	            public TransformAccessArray transformAccesses;

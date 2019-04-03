@@ -5,6 +5,8 @@ using Unity.Collections;
 using NUnit.Framework;
 using Unity.Entities;
 using UnityEngine;
+using System.Collections.Generic;
+using UnityEditor.VersionControl;
 
 namespace Unity.Entities.Tests
 {
@@ -14,7 +16,7 @@ namespace Unity.Entities.Tests
         public int b;
     }
 
-    public class BatchDestroyTests : ECSTestsFixture
+    public class Bug149 : ECSTestsFixture
     {
         private EntityArchetype m_Archetype;
 
@@ -96,7 +98,7 @@ namespace Unity.Entities.Tests
         // believe the generation numbers should be.
         private void SanityCheckVersions()
         {
-            ArchetypeChunkArray chunks = m_Manager.CreateArchetypeChunkArray(
+            var chunks = m_Manager.CreateArchetypeChunkArray(
                 Array.Empty<ComponentType>(), // none
                 Array.Empty<ComponentType>(), // none
                 s_OurTypes, // all
@@ -121,6 +123,76 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(ourVersion == version);
                 }
             }
+            
+            chunks.Dispose();
+        }
+    }
+
+    public class Bug148
+    {
+        [Test]
+        public void Test1()
+        {
+            World w = new World("TestWorld");
+            World.Active = w;
+            EntityManager em = World.Active.GetOrCreateManager<EntityManager>();
+            List<Entity> remember = new List<Entity>();
+            for (int i = 0; i < 5; i++)
+            {
+                remember.Add(em.CreateEntity());
+            }
+
+            var allEnt = em.GetAllEntities(Allocator.Temp);
+            allEnt.Dispose();
+            foreach (Entity e in remember)
+            {
+                Assert.IsTrue(em.Exists(e));
+            }
+
+            foreach (Entity e in remember)
+            {
+                em.DestroyEntity(e);
+            }
+        }
+
+        [Test]
+        public void Test2()
+        {
+            World w = new World("TestWorld");
+            World.Active = w;
+            EntityManager em = World.Active.GetOrCreateManager<EntityManager>();
+
+            List<Entity> remember = new List<Entity>();
+            for (int i = 0; i < 5; i++)
+            {
+                remember.Add(em.CreateEntity());
+            }
+
+            w = null;
+            World.DisposeAllWorlds();
+
+            w = new World("TestWorld2");
+            World.Active = w;
+            em = World.Active.GetOrCreateManager<EntityManager>();
+            var allEnt = em.GetAllEntities(Allocator.Temp);
+            Assert.AreEqual(0, allEnt.Length);
+            allEnt.Dispose();
+
+            foreach (Entity e in remember)
+            {
+                bool exists = em.Exists(e);
+                Assert.IsFalse(exists);
+            }
+
+            foreach (Entity e in remember)
+            {
+                if (em.Exists(e))
+                {
+                    em.DestroyEntity(e);
+                }
+            }
+
+            World.DisposeAllWorlds();
         }
     }
 }

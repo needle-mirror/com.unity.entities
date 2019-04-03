@@ -214,6 +214,7 @@ namespace Unity.Entities.Serialization
                 for (var c = (Chunk*)archetype->ChunkList.Begin; c != archetype->ChunkList.End; c = (Chunk*)c->ChunkListNode.Next)
                 {
                     UnsafeUtility.MemCpy(tempChunk, c, Chunk.kChunkSize);
+                    tempChunk->SharedComponentValueArray = (int*)((byte*)(tempChunk) + Chunk.GetSharedComponentOffset(archetype->NumSharedComponents));
 
                     entityPatchInfos.Clear();
                     for (var i = 0; i != archetype->TypesCount; ++i)

@@ -16,7 +16,7 @@ namespace Unity.Transforms2D
             public ComponentDataArray<TransformMatrix> matrices;
             [ReadOnly] public ComponentDataArray<Position2D> positions;
             [ReadOnly] public SubtractiveComponent<Heading2D> headings;
-            public int Length;
+            public readonly int Length;
         }
         
         [Inject] TransGroup m_TransGroup;
@@ -26,7 +26,7 @@ namespace Unity.Transforms2D
             public ComponentDataArray<TransformMatrix> matrices;
             [ReadOnly] public ComponentDataArray<Position2D> positions;
             [ReadOnly] public ComponentDataArray<Heading2D> headings;
-            public int Length;
+            public readonly int Length;
         }
         
         [Inject] RotTransGroup m_RotTransGroup;
@@ -42,7 +42,7 @@ namespace Unity.Transforms2D
                 var position = positions[i].Value;
                 matrices[i] = new TransformMatrix
                 {
-                    Value = math.translate(new float3(position.x,0.0f,position.y))
+                    Value = float4x4.translate(new float3(position.x,0.0f,position.y))
                 };
             }
         }

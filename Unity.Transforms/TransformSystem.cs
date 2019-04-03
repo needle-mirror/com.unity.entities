@@ -26,7 +26,7 @@ namespace Unity.Transforms
             [ReadOnly] public ComponentDataArray<Position> positions;
             [ReadOnly] public EntityArray entities;
             [ReadOnly] public SubtractiveComponent<TransformMatrix> transforms;
-            public int Length;
+            public readonly int Length;
         }
         [Inject] RootRotTransNoTransformGroup m_RootRotTransNoTransformGroup;
         
@@ -41,7 +41,7 @@ namespace Unity.Transforms
             [ReadOnly] public EntityArray entities;
             [NativeDisableContainerSafetyRestriction]
             public ComponentDataArray<TransformMatrix> transforms;
-            public int Length;
+            public readonly int Length;
         }
         [Inject] RootRotTransTransformGroup m_RootRotTransTransformGroup;
 
@@ -55,7 +55,7 @@ namespace Unity.Transforms
             [ReadOnly] public SubtractiveComponent<Position> positions;
             [ReadOnly] public EntityArray entities;
             [ReadOnly] public SubtractiveComponent<TransformMatrix> transforms;
-            public int Length;
+            public readonly int Length;
         }
         [Inject] RootRotNoTransformGroup m_RootRotNoTransformGroup;
         
@@ -70,7 +70,7 @@ namespace Unity.Transforms
             [ReadOnly] public EntityArray entities;
             [NativeDisableContainerSafetyRestriction]
             public ComponentDataArray<TransformMatrix> transforms;
-            public int Length;
+            public readonly int Length;
         }
         [Inject] RootRotTransformGroup m_RootRotTransformGroup;
         
@@ -84,7 +84,7 @@ namespace Unity.Transforms
             [ReadOnly] public ComponentDataArray<Position> positions;
             [ReadOnly] public EntityArray entities;
             [ReadOnly] public SubtractiveComponent<TransformMatrix> transforms;
-            public int Length;
+            public readonly int Length;
         }
         [Inject] RootTransNoTransformGroup m_RootTransNoTransformGroup;
         
@@ -99,7 +99,7 @@ namespace Unity.Transforms
             [ReadOnly] public EntityArray entities;
             [NativeDisableContainerSafetyRestriction]
             public ComponentDataArray<TransformMatrix> transforms;
-            public int Length;
+            public readonly int Length;
         }
         [Inject] RootTransTransformGroup m_RootTransTransformGroup;
         
@@ -116,7 +116,7 @@ namespace Unity.Transforms
             // [ReadOnly] public ComponentDataArray<TransformMatrix> transforms;
             [NativeDisableContainerSafetyRestriction]
             public ComponentDataArray<TransformMatrix> transforms;
-            public int Length;
+            public readonly int Length;
         }
         [Inject] RootHeadingTransTransformGroup m_RootHeadingTransTransformGroup;
         
@@ -130,7 +130,7 @@ namespace Unity.Transforms
             [ReadOnly] public ComponentDataArray<Position> positions;
             [ReadOnly] public EntityArray entities;
             [ReadOnly] public SubtractiveComponent<TransformMatrix> transforms;
-            public int Length;
+            public readonly int Length;
         }
         [Inject] RootHeadingTransNoTransformGroup m_RootHeadingTransNoTransformGroup;
 
@@ -139,7 +139,7 @@ namespace Unity.Transforms
             [ReadOnly] public SubtractiveComponent<VoidSystem<TransformSystem>> transfromExternal;
             [ReadOnly] public ComponentDataArray<TransformParent> transformParents;
             [ReadOnly] public EntityArray entities;
-            public int Length;
+            public readonly int Length;
         }
         [Inject] ParentGroup m_ParentGroup;
         
@@ -154,7 +154,7 @@ namespace Unity.Transforms
 
             public void Execute(int index)
             {
-                float4x4 matrix = math.rottrans(rotations[index].Value, positions[index].Value);
+                float4x4 matrix = math.float4x4(rotations[index].Value, positions[index].Value);
                 matrices[index] = matrix;
                 transforms[index] = new TransformMatrix {Value = matrix};
             }
@@ -170,7 +170,7 @@ namespace Unity.Transforms
 
             public void Execute(int index)
             {
-                float4x4 matrix = math.rottrans(rotations[index].Value, positions[index].Value);
+                float4x4 matrix = math.float4x4(rotations[index].Value, positions[index].Value);
                 transforms[index] = new TransformMatrix {Value = matrix};
             }
         }
@@ -184,7 +184,7 @@ namespace Unity.Transforms
 
             public void Execute(int index)
             {
-                float4x4 matrix = math.rottrans(rotations[index].Value, positions[index].Value);
+                float4x4 matrix = math.float4x4(rotations[index].Value, positions[index].Value);
                 matrices[index] = matrix;
             }
         }
@@ -199,7 +199,7 @@ namespace Unity.Transforms
 
             public void Execute(int index)
             {
-                float4x4 matrix = math.rottrans(rotations[index].Value, new float3());
+                float4x4 matrix = math.float4x4(rotations[index].Value, new float3());
                 matrices[index] = matrix;
                 transforms[index] = new TransformMatrix {Value = matrix};
             }
@@ -214,7 +214,7 @@ namespace Unity.Transforms
 
             public void Execute(int index)
             {
-                float4x4 matrix = math.rottrans(rotations[index].Value, new float3());
+                float4x4 matrix = math.float4x4(rotations[index].Value, new float3());
                 transforms[index] = new TransformMatrix {Value = matrix};
             }
         }
@@ -227,7 +227,7 @@ namespace Unity.Transforms
 
             public void Execute(int index)
             {
-                float4x4 matrix = math.rottrans(rotations[index].Value, new float3());
+                float4x4 matrix = math.float4x4(rotations[index].Value, new float3());
                 matrices[index] = matrix;
             }
         }
@@ -242,7 +242,7 @@ namespace Unity.Transforms
 
             public void Execute(int index)
             {
-                float4x4 matrix = math.translate(positions[index].Value);
+                float4x4 matrix = float4x4.translate(positions[index].Value);
                 matrices[index] = matrix;
                 transforms[index] = new TransformMatrix {Value = matrix};
             }
@@ -257,7 +257,7 @@ namespace Unity.Transforms
 
             public void Execute(int index)
             {
-                float4x4 matrix = math.translate(positions[index].Value);
+                float4x4 matrix = float4x4.translate(positions[index].Value);
                 transforms[index] = new TransformMatrix {Value = matrix};
             }
         }
@@ -270,7 +270,7 @@ namespace Unity.Transforms
 
             public void Execute(int index)
             {
-                float4x4 matrix = math.translate(positions[index].Value);
+                float4x4 matrix = float4x4.translate(positions[index].Value);
                 matrices[index] = matrix;
             }
         }
@@ -286,7 +286,7 @@ namespace Unity.Transforms
 
             public void Execute(int index)
             {
-                var matrix = math.lookRotationToMatrix(positions[index].Value, headings[index].Value, math.up());
+                var matrix = float4x4.lookAt(positions[index].Value, headings[index].Value, math.up());
                 matrices[index] = matrix;
                 transforms[index] = new TransformMatrix {Value = matrix};
             }
@@ -302,7 +302,7 @@ namespace Unity.Transforms
 
             public void Execute(int index)
             {
-                var matrix = math.lookRotationToMatrix(positions[index].Value, headings[index].Value, math.up());
+                var matrix = float4x4.lookAt(positions[index].Value, headings[index].Value, math.up());
                 transforms[index] = new TransformMatrix {Value = matrix};
             }
         }
@@ -316,7 +316,7 @@ namespace Unity.Transforms
 
             public void Execute(int index)
             {
-                var matrix = math.lookRotationToMatrix(positions[index].Value, headings[index].Value, math.up());
+                var matrix = float4x4.lookAt(positions[index].Value, headings[index].Value, math.up());
                 matrices[index] = matrix;
             }
         }
@@ -374,7 +374,7 @@ namespace Unity.Transforms
                 
                 if (localRotations.Exists(entity))
                 {
-                    var parentRotation = math.matrixToQuat(parentMatrix.c0.xyz, parentMatrix.c1.xyz, parentMatrix.c2.xyz);
+                    var parentRotation = math.quaternion(math.float3x3(parentMatrix.c0.xyz, parentMatrix.c1.xyz, parentMatrix.c2.xyz));
                     var localRotation = localRotations[entity].Value;
                     rotation = math.mul(parentRotation, localRotation);
                     if (rotations.Exists(entity))
@@ -383,7 +383,7 @@ namespace Unity.Transforms
                     }
                 }
 
-                float4x4 matrix = math.rottrans(rotation, position);
+                float4x4 matrix = math.float4x4(rotation, position);
                 if (transformMatrices.Exists(entity))
                 {
                     transformMatrices[entity] = new TransformMatrix {Value = matrix};

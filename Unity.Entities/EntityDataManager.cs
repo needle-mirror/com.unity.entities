@@ -116,8 +116,17 @@ namespace Unity.Entities
 
         public bool Exists(Entity entity)
         {
-            var exists = m_Entities[entity.Index].Version == entity.Version;
-            return exists;
+            int index = entity.Index;
+
+            #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (index >= m_EntitiesCapacity)
+                return false;
+            #endif
+
+            var versionMatches = m_Entities[index].Version == entity.Version;
+            var hasChunk = m_Entities[index].Chunk != null;
+
+            return versionMatches && hasChunk;
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
@@ -196,7 +205,7 @@ namespace Unity.Entities
             var freeIndex = entityDataManager->m_EntitiesFreeIndex;
             var entityDatas = entityDataManager->m_Entities;
 
-            for (var i = 0; i < batchCount; i++)
+            for (var i = batchCount - 1; i >= 0; --i)
             {
                 var entityIndex = entities[i].Index;
                 var data = entityDatas + entityIndex;

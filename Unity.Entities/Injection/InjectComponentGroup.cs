@@ -28,13 +28,17 @@ namespace Unity.Entities
         private readonly InjectionData[] m_SharedComponentInjections;
         private readonly ComponentGroup m_EntityGroup;
 
-        private InjectComponentGroupData(ComponentSystemBase system, FieldInfo groupField,
+        private readonly int m_ComponentGroupIndex;
+
+        private unsafe InjectComponentGroupData(ComponentSystemBase system, FieldInfo groupField,
             InjectionData[] componentDataInjections, InjectionData[] fixedArrayInjections,
             InjectionData[] sharedComponentInjections,
             FieldInfo entityArrayInjection, FieldInfo indexFromEntityInjection, InjectionContext injectionContext,
-            FieldInfo lengthInjection, ComponentType[] componentRequirements)
+            FieldInfo lengthInjection, FieldInfo componentGroupIndexField, ComponentType[] componentRequirements)
         {
             m_EntityGroup = system.GetComponentGroupInternal(componentRequirements);
+
+            m_ComponentGroupIndex = Array.IndexOf(system.ComponentGroups, m_EntityGroup);
 
             m_ComponentDataInjections = componentDataInjections;
             m_FixedArrayInjections = fixedArrayInjections;
@@ -58,6 +62,17 @@ namespace Unity.Entities
                 m_LengthOffset = -1;
 
             m_GroupFieldOffset = UnsafeUtility.GetFieldOffset(groupField);
+
+            if (componentGroupIndexField != null)
+            {
+                var pinnedSystemPtr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(system, out var gchandle);
+                var groupIndexPtr = pinnedSystemPtr + m_GroupFieldOffset + UnsafeUtility.GetFieldOffset(componentGroupIndexField);
+
+                int groupIndex = m_ComponentGroupIndex;
+                UnsafeUtility.CopyStructureToPtr(ref groupIndex, groupIndexPtr);
+
+                UnsafeUtility.ReleaseGCObject(gchandle);
+            }
         }
 
         private void PatchGetIndexInComponentGroup(InjectionData[] componentInjections)
@@ -118,6 +133,7 @@ namespace Unity.Entities
             FieldInfo entityArrayField;
             FieldInfo indexFromEntityField;
             FieldInfo lengthField;
+            FieldInfo componentGroupIndexField;
 
             var injectionContext = new InjectionContext();
             var componentDataInjections = new List<InjectionData>();
@@ -126,21 +142,22 @@ namespace Unity.Entities
 
             var componentRequirements = new HashSet<ComponentType>();
             var error = CollectInjectedGroup(system, groupField, injectedGroupType, out entityArrayField,
-                out indexFromEntityField, injectionContext, out lengthField, componentRequirements,
-                componentDataInjections, fixedArrayInjections, sharedComponentInjections);
+                out indexFromEntityField, injectionContext, out lengthField, out componentGroupIndexField,
+                componentRequirements, componentDataInjections, fixedArrayInjections, sharedComponentInjections);
             if (error != null)
                 throw new ArgumentException(error);
 
             return new InjectComponentGroupData(system, groupField, componentDataInjections.ToArray(),
                 fixedArrayInjections.ToArray(), sharedComponentInjections.ToArray(), entityArrayField,
-                indexFromEntityField, injectionContext, lengthField, componentRequirements.ToArray());
+                indexFromEntityField, injectionContext, lengthField, componentGroupIndexField,
+                componentRequirements.ToArray());
         }
 
         private static string CollectInjectedGroup(ComponentSystemBase system, FieldInfo groupField,
             Type injectedGroupType, out FieldInfo entityArrayField, out FieldInfo indexFromEntityField,
-            InjectionContext injectionContext, out FieldInfo lengthField, ISet<ComponentType> componentRequirements,
-            ICollection<InjectionData> componentDataInjections, ICollection<InjectionData> fixedArrayInjections,
-            ICollection<InjectionData> sharedComponentInjections)
+            InjectionContext injectionContext, out FieldInfo lengthField, out FieldInfo componentGroupIndexField,
+            ISet<ComponentType> componentRequirements, ICollection<InjectionData> componentDataInjections,
+            ICollection<InjectionData> fixedArrayInjections, ICollection<InjectionData> sharedComponentInjections)
         {
             //@TODO: Improve error messages...
             var fields =
@@ -148,6 +165,7 @@ namespace Unity.Entities
             entityArrayField = null;
             indexFromEntityField = null;
             lengthField = null;
+            componentGroupIndexField = null;
 
             foreach (var field in fields)
             {
@@ -196,11 +214,19 @@ namespace Unity.Entities
                 }
                 else if (field.FieldType == typeof(int))
                 {
-                    // Error on multiple EntityArray
-                    if (field.Name != "Length")
+                    if (field.Name != "Length" && field.Name != "GroupIndex")
                         return
-                            $"{system.GetType().Name}:{groupField.Name} An [Inject] struct, supports only a specialized int storing the length of the group. (\"int Length;\")";
-                    lengthField = field;
+                            $"{system.GetType().Name}:{groupField.Name} Int in an [Inject] struct should be named \"Length\" (group length) or \"GroupIndex\" (index in ComponentGroup[])";
+
+                    if (!field.IsInitOnly)
+                        return
+                            $"{system.GetType().Name}:{groupField.Name} {field.Name} must use the \"readonly\" keyword";
+
+                    if(field.Name == "Length")
+                        lengthField = field;
+
+                    if (field.Name == "GroupIndex")
+                        componentGroupIndexField = field;
                 }
                 else
                 {

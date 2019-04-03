@@ -15,14 +15,14 @@ namespace Unity.Rendering
         {
             public ComponentDataArray<MeshLODGroupComponent> lod;
             [ReadOnly] public ComponentDataArray<TransformMatrix> transform;
-            public int Length;
+            public readonly int Length;
         }
         [Inject] private LODGroup lodGroups;
         struct LODMesh
         {
             public ComponentDataArray<MeshLODComponent> lod;
             public EntityArray entities;
-            public int Length;
+            public readonly int Length;
         }
         [Inject] private LODMesh lodMeshes;
         [Inject] [ReadOnly] private ComponentDataFromEntity<MeshLODGroupComponent> allGroups;

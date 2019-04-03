@@ -215,7 +215,7 @@ namespace Unity.Entities
         public int NumSharedComponents;
 
         public Archetype* PrevArchetype;
-        
+
         public bool SystemStateCleanupComplete;
         public bool SystemStateCleanupNeeded;
     }
@@ -465,7 +465,7 @@ namespace Unity.Entities
             // Update the list of all created archetypes
             type->PrevArchetype = m_LastArchetype;
             m_LastArchetype = type;
-            
+
             UnsafeLinkedListNode.InitializeList(&type->ChunkList);
             UnsafeLinkedListNode.InitializeList(&type->ChunkListWithEmptySlots);
 
@@ -478,7 +478,7 @@ namespace Unity.Entities
 
             return type;
         }
-        
+
         private bool ArchetypeSystemStateCleanupComplete(Archetype* archetype)
         {
             if (archetype->TypesCount == 2 && archetype->Types[1].TypeIndex == TypeManager.GetTypeIndex<CleanupEntity>()) return true;
@@ -573,7 +573,7 @@ namespace Unity.Entities
 
             var sharedComponentValueArray = chunk->SharedComponentValueArray;
             CopySharedComponentDataIndexArray(sharedComponentValueArray, sharedComponentDataIndices,
-                chunk->Archetype->NumSharedComponents);
+                archetype->NumSharedComponents);
 
             if (sharedComponentDataIndices == null)
                 return;
@@ -676,6 +676,7 @@ namespace Unity.Entities
                     chunk->ManagedArrayIndex = -1;
                 }
 
+                chunk->Archetype->ChunkCount -= 1;
                 chunk->Archetype = null;
                 chunk->ChunkListNode.Remove();
                 chunk->ChunkListWithEmptySlotsNode.Remove();

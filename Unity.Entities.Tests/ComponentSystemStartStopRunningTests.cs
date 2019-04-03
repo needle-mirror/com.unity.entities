@@ -1,4 +1,4 @@
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.PlayerLoop;
@@ -19,7 +19,7 @@ namespace Unity.Entities.Tests
 
             struct MyStruct
             {
-                public int Length;
+                public readonly int Length;
                 public readonly ComponentDataArray<EcsTestData> Data;
             }
 

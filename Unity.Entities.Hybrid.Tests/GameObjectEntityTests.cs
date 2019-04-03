@@ -28,7 +28,7 @@ namespace UnityEngine.Entities.Tests
 	    {
 	        public struct Group
 	        {
-	            public int Length;
+	            public readonly int Length;
 	            public GameObjectArray gameObjects;
 
 	            public ComponentArray<BoxCollider> colliders;

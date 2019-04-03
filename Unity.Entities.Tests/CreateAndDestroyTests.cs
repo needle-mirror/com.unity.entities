@@ -189,7 +189,7 @@ namespace Unity.Entities.Tests
 	        m_Manager.DestroyEntity(entity);
 	    }
 
-		[Test]
+	    [Test]
 		public void ReadOnlyAndNonReadOnlyArchetypeAreEqual()
 		{
 			var arch = m_Manager.CreateArchetype(ComponentType.ReadOnly(typeof(EcsTestData)));
@@ -213,5 +213,27 @@ namespace Unity.Entities.Tests
 			m_Manager.AddComponentData<EcsTestData>(entity, new EcsTestData());
 			Assert.AreEqual(0, subtractiveArch.GetComponentDataArray<EcsTestData2>().Length);
 		}
+
+
+	    [Test]
+	    public void ChunkCountsAreCorrect()
+	    {
+	        var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+	        var entity = m_Manager.CreateEntity(archetype);
+
+	        Assert.AreEqual(1, archetype.ChunkCount);
+
+	        m_Manager.AddComponent(entity, typeof(EcsTestData2));
+	        Assert.AreEqual(0, archetype.ChunkCount);
+
+	        unsafe {
+	            Assert.IsTrue(archetype.Archetype->ChunkList.IsEmpty);
+	            Assert.AreEqual(0, archetype.Archetype->EntityCount);
+
+	            var archetype2 = m_Manager.Entities->GetArchetype(entity);
+	            Assert.AreEqual(1, archetype2->ChunkCount);
+	            Assert.AreEqual(1, archetype2->EntityCount);
+	        }
+	    }
 	}
 }

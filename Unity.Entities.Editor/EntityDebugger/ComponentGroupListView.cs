@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Unity.Entities.Editor
 {
     
-    public delegate void SetComponentGroupSelection(ComponentGroup group, bool updateList, bool propagate);
+    public delegate void SetComponentGroupSelection(ComponentGroup group);
     
     public class ComponentGroupListView : TreeView {
         private readonly Dictionary<int, ComponentGroup> componentGroupsById = new Dictionary<int, ComponentGroup>();
@@ -172,11 +172,11 @@ namespace Unity.Entities.Editor
         {
             if (selectedIds.Count > 0 && componentGroupsById.ContainsKey(selectedIds[0]))
             {
-                componentGroupSelectionCallback(componentGroupsById[selectedIds[0]], false, true);
+                componentGroupSelectionCallback(componentGroupsById[selectedIds[0]]);
             }
             else
             {
-                componentGroupSelectionCallback(null, false, true);
+                componentGroupSelectionCallback(null);
             }
         }
 

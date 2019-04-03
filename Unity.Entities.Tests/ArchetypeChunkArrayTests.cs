@@ -7,8 +7,6 @@ using Unity.Mathematics;
 
 namespace Unity.Entities.Tests
 {
-
-    
     [TestFixture]
     public class ArchetypeChunkArrayTest : ECSTestsFixture
     {
@@ -47,7 +45,7 @@ namespace Unity.Entities.Tests
 
         struct CollectValues : IJobParallelFor
         {
-            [ReadOnly] public ArchetypeChunkArray chunks;
+            [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
             [ReadOnly] public ArchetypeChunkComponentType<EcsTestData> ecsTestData;
 
             [NativeDisableParallelForRestriction] public NativeArray<int> values;
@@ -78,7 +76,7 @@ namespace Unity.Entities.Tests
                 Allocator.Temp);
 
             var ecsTestData = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(true);
-            var entityCount = chunks.EntityCount;
+            var entityCount = ArchetypeChunkArray.CalculateEntityCount(chunks);
             var values = new NativeArray<int>(entityCount, Allocator.TempJob);
             var collectValuesJob = new CollectValues
             {
@@ -106,7 +104,7 @@ namespace Unity.Entities.Tests
 
         struct CollectMixedValues : IJobParallelFor
         {
-            [ReadOnly] public ArchetypeChunkArray chunks;
+            [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
             [ReadOnly] public ArchetypeChunkComponentType<EcsTestData> ecsTestData;
             [ReadOnly] public ArchetypeChunkComponentType<EcsTestData2> ecsTestData2;
 
@@ -147,12 +145,17 @@ namespace Unity.Entities.Tests
                 Array.Empty<ComponentType>(), // none
                 Array.Empty<ComponentType>(), // all
                 Allocator.Temp);
+
+            for (int i = 0; i < chunks.Length; i++)
+            {
+                Debug.Log($"Chunk[{i}].Count = {chunks[i].Count}");
+            }
             
             Assert.AreEqual(14,chunks.Length);
 
             var ecsTestData = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(true);
             var ecsTestData2 = m_Manager.GetArchetypeChunkComponentType<EcsTestData2>(true);
-            var entityCount = chunks.EntityCount;
+            var entityCount = ArchetypeChunkArray.CalculateEntityCount(chunks);
             var values = new NativeArray<int>(entityCount, Allocator.TempJob);
             var collectValuesJob = new CollectMixedValues
             {
@@ -188,7 +191,7 @@ namespace Unity.Entities.Tests
 
         struct ChangeMixedValues : IJobParallelFor
         {
-            [ReadOnly] public ArchetypeChunkArray chunks;
+            [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
             public ArchetypeChunkComponentType<EcsTestData> ecsTestData;
             public ArchetypeChunkComponentType<EcsTestData2> ecsTestData2;
 
@@ -275,7 +278,7 @@ namespace Unity.Entities.Tests
         
         struct ChangeMixedValuesSharedFilter : IJobParallelFor
         {
-            [ReadOnly] public ArchetypeChunkArray chunks;
+            [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
             public ArchetypeChunkComponentType<EcsTestData> ecsTestData;
             public ArchetypeChunkComponentType<EcsTestData2> ecsTestData2;
             [ReadOnly] public ArchetypeChunkSharedComponentType<EcsTestSharedComp> ecsTestSharedData;

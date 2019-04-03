@@ -1,7 +1,9 @@
 ﻿using System;
 using NUnit.Framework;
 using System.Collections.Generic;
+using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 
@@ -39,11 +41,6 @@ namespace Unity.Entities.Tests
         {
         }
 
-        public struct StaticLocalToWorld : IComponentData
-        {
-            public float4x4 Value;
-        }
-
         //
         // Managed by system:
         //
@@ -77,8 +74,8 @@ namespace Unity.Entities.Tests
             public float4x4 Value;
         }
 
+        // [ComponentSystemPatch]
         [DisableAutoCreation]
-        [ComponentSystemPatch]
         public class TransformPatch : JobComponentSystem
         {
             private uint LastSystemVersion = 0;
@@ -120,7 +117,6 @@ namespace Unity.Entities.Tests
                 if (!ParentToChildTree.TryGetFirstValue(parentEntity, out foundChild, out it))
                 {
                     return;
-                    // throw new System.InvalidOperationException(string.Format("Parent not found in Hierarchy hashmap"));
                 }
 
                 do
@@ -158,8 +154,7 @@ namespace Unity.Entities.Tests
             {
                 var chunks = m_EntityManager.CreateArchetypeChunkArray(
                     new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)}, // any
-                    new ComponentType[]
-                        {typeof(Parent), typeof(LocalToWorld), typeof(ChangedVersion), typeof(Depth)}, // none
+                    new ComponentType[] {typeof(Frozen), typeof(Parent), typeof(LocalToWorld), typeof(ChangedVersion), typeof(Depth)}, // none
                     Array.Empty<ComponentType>(),
                     Allocator.Temp);
 
@@ -199,7 +194,7 @@ namespace Unity.Entities.Tests
 
                 var chunks = m_EntityManager.CreateArchetypeChunkArray(
                     new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)}, // any
-                    new ComponentType[] {typeof(LocalToParent), typeof(LocalToWorld), typeof(PreviousParent)}, // none
+                    new ComponentType[] {typeof(Frozen), typeof(LocalToParent), typeof(LocalToWorld), typeof(PreviousParent)}, // none
                     new ComponentType[] {typeof(Parent)}, // all
                     Allocator.Temp);
 
@@ -211,7 +206,8 @@ namespace Unity.Entities.Tests
                     return;
                 }
 
-                Debug.Log(string.Format("New Child Transforms = {0}", chunks.EntityCount));
+                Debug.Log(string.Format("New Child Transforms = {0}",
+                    ArchetypeChunkArray.CalculateEntityCount(chunks)));
 
                 var entityType = EntityManager.GetArchetypeChunkEntityType(true);
                 var parentType = EntityManager.GetArchetypeChunkComponentType<Parent>(true);
@@ -261,7 +257,7 @@ namespace Unity.Entities.Tests
 
                 var chunks = m_EntityManager.CreateArchetypeChunkArray(
                     Array.Empty<ComponentType>(), // any
-                    Array.Empty<ComponentType>(), // none
+                    new ComponentType[] {typeof(Frozen)}, // none
                     new ComponentType[] {typeof(Parent), typeof(PreviousParent)}, // all
                     Allocator.Temp);
 
@@ -346,11 +342,11 @@ namespace Unity.Entities.Tests
 
                 var chunks = m_EntityManager.CreateArchetypeChunkArray(
                     Array.Empty<ComponentType>(), // any
-                    new ComponentType[] {typeof(Parent)}, // none
+                    new ComponentType[] {typeof(Frozen), typeof(Parent)}, // none
                     new ComponentType[] {typeof(PreviousParent), typeof(LocalToParent)}, // all
                     Allocator.Temp);
 
-                Debug.Log($"RemoveParent count {chunks.EntityCount}");
+                Debug.Log($"RemoveParent count {ArchetypeChunkArray.CalculateEntityCount(chunks)}");
 
                 if (chunks.Length == 0)
                 {
@@ -477,7 +473,7 @@ namespace Unity.Entities.Tests
             {
                 var chunks = m_EntityManager.CreateArchetypeChunkArray(
                     Array.Empty<ComponentType>(), // any
-                    new ComponentType[] {typeof(Parent)}, // none
+                    new ComponentType[] {typeof(Frozen), typeof(Parent)}, // none
                     new ComponentType[] {typeof(ChangedVersion), typeof(Depth)}, // all
                     Allocator.Temp);
 
@@ -560,7 +556,7 @@ namespace Unity.Entities.Tests
             {
                 var chunks = m_EntityManager.CreateArchetypeChunkArray(
                     Array.Empty<ComponentType>(), // any
-                    new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)}, // none
+                    new ComponentType[] {typeof(Frozen), typeof(Rotation), typeof(Position), typeof(Scale)}, // none
                     new ComponentType[] {typeof(LocalToWorld)}, // all
                     Allocator.Temp);
 
@@ -590,6 +586,45 @@ namespace Unity.Entities.Tests
                 chunks.Dispose();
             }
 
+            public void UpdateFrozen()
+            {
+                EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
+                
+                var chunks = m_EntityManager.CreateArchetypeChunkArray(
+                    Array.Empty<ComponentType>(), // any
+                    new ComponentType[] {typeof(Frozen)}, // none
+                    new ComponentType[] {typeof(LocalToWorld), typeof(Static)}, // all
+                    Allocator.Temp);
+
+                if (chunks.Length == 0)
+                {
+                    chunks.Dispose();
+                    return;
+                }
+
+                var entityType = EntityManager.GetArchetypeChunkEntityType(true);
+
+                for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
+                {
+                    var chunk = chunks[chunkIndex];
+                    var parentCount = chunk.Count;
+
+                    var chunkEntities = chunk.GetNativeArray(entityType);
+
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        var entity = chunkEntities[i];
+
+                        entityCommandBuffer.AddComponent<Frozen>(entity, new Frozen());
+                    }
+                }
+
+                chunks.Dispose();
+                
+                entityCommandBuffer.Playback(EntityManager);
+                entityCommandBuffer.Dispose();
+            }
+
             public void UpdateDAG()
             {
                 Debug.Log("TransformPatch UpdateDAG");
@@ -612,26 +647,17 @@ namespace Unity.Entities.Tests
                 CleanupParentToChildTree(changedVersions);
             }
 
-            public void UpdateRootsLocalToWorld()
+            // [BurstCompile(CompileSynchronously = true)]
+            struct RootsLocalToWorld : IJobParallelFor
             {
-                var chunks = m_EntityManager.CreateArchetypeChunkArray(
-                    new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)}, // any
-                    new ComponentType[] {typeof(Parent)}, // none
-                    new ComponentType[] {typeof(LocalToWorld)}, // all
-                    Allocator.Temp);
+                [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
+                [ReadOnly] public ArchetypeChunkComponentType<Rotation> rotationType;
+                [ReadOnly] public ArchetypeChunkComponentType<Position> positionType;
+                [ReadOnly] public ArchetypeChunkComponentType<Scale> scaleType;
+                public ArchetypeChunkComponentType<LocalToWorld> localToWorldType;
+                public uint lastSystemVersion;
 
-                if (chunks.Length == 0)
-                {
-                    chunks.Dispose();
-                    return;
-                }
-
-                var rotationType = EntityManager.GetArchetypeChunkComponentType<Rotation>(true);
-                var positionType = EntityManager.GetArchetypeChunkComponentType<Position>(true);
-                var scaleType = EntityManager.GetArchetypeChunkComponentType<Scale>(true);
-                var localToWorldType = EntityManager.GetArchetypeChunkComponentType<LocalToWorld>(false);
-
-                for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
+                public void Execute(int chunkIndex)
                 {
                     var chunk = chunks[chunkIndex];
                     var parentCount = chunk.Count;
@@ -642,11 +668,11 @@ namespace Unity.Entities.Tests
                     var chunkLocalToWorlds = chunk.GetNativeArray(localToWorldType);
 
                     var chunkRotationsChanged =
-                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(rotationType), LastSystemVersion);
+                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(rotationType), lastSystemVersion);
                     var chunkPositionsChanged =
-                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(positionType), LastSystemVersion);
+                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(positionType), lastSystemVersion);
                     var chunkScalesChanged =
-                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(scaleType), LastSystemVersion);
+                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(scaleType), lastSystemVersion);
                     var chunkAnyChanged = chunkRotationsChanged || chunkPositionsChanged || chunkScalesChanged;
 
                     // if (!chunkAnyChanged)
@@ -663,8 +689,8 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToWorlds[i] = new LocalToWorld
                             {
-                                Value = math.mul(math.translate(chunkPositions[i].Value),
-                                    math.scale(chunkScales[i].Value))
+                                Value = math.mul(float4x4.translate(chunkPositions[i].Value),
+                                    float4x4.scale(chunkScales[i].Value))
                             };
                         }
                     }
@@ -675,7 +701,7 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToWorlds[i] = new LocalToWorld
                             {
-                                Value = math.rottrans(chunkRotations[i].Value, new float3())
+                                Value = math.float4x4(chunkRotations[i].Value, new float3())
                             };
                         }
                     }
@@ -686,8 +712,8 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToWorlds[i] = new LocalToWorld
                             {
-                                Value = math.mul(math.rottrans(chunkRotations[i].Value, new float3()),
-                                    math.scale(chunkScales[i].Value))
+                                Value = math.mul(math.float4x4(chunkRotations[i].Value, new float3()),
+                                    float4x4.scale(chunkScales[i].Value))
                             };
                         }
                     }
@@ -698,7 +724,7 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToWorlds[i] = new LocalToWorld
                             {
-                                Value = math.translate(chunkPositions[i].Value)
+                                Value = float4x4.translate(chunkPositions[i].Value)
                             };
                         }
                     }
@@ -709,8 +735,8 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToWorlds[i] = new LocalToWorld
                             {
-                                Value = math.mul(math.translate(chunkPositions[i].Value),
-                                    math.scale(chunkScales[i].Value))
+                                Value = math.mul(float4x4.translate(chunkPositions[i].Value),
+                                    float4x4.scale(chunkScales[i].Value))
                             };
                         }
                     }
@@ -721,7 +747,7 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToWorlds[i] = new LocalToWorld
                             {
-                                Value = math.rottrans(chunkRotations[i].Value, chunkPositions[i].Value)
+                                Value = math.float4x4(chunkRotations[i].Value, chunkPositions[i].Value)
                             };
                         }
                     }
@@ -732,39 +758,53 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToWorlds[i] = new LocalToWorld
                             {
-                                Value = math.mul(math.rottrans(chunkRotations[i].Value, chunkPositions[i].Value),
-                                    math.scale(chunkScales[i].Value))
+                                Value = math.mul(math.float4x4(chunkRotations[i].Value, chunkPositions[i].Value),
+                                    float4x4.scale(chunkScales[i].Value))
                             };
                         }
-                    }
+                    } 
                 }
-
-                chunks.Dispose();
             }
 
-            public void UpdateInnerTreeLocalToParent()
+            public JobHandle UpdateRootsLocalToWorld(JobHandle inputDeps)
             {
                 var chunks = m_EntityManager.CreateArchetypeChunkArray(
                     new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)}, // any
-                    Array.Empty<ComponentType>(), // none
-                    new ComponentType[] {typeof(LocalToParent), typeof(Parent), typeof(ChangedVersion)}, // all
-                    Allocator.Temp);
-                
-                Debug.Log($"UpdateInnerTreeLocalToParent {chunks.EntityCount}");
+                    new ComponentType[] {typeof(Frozen), typeof(Parent)}, // none
+                    new ComponentType[] {typeof(LocalToWorld)}, // all
+                    Allocator.TempJob);
 
                 if (chunks.Length == 0)
                 {
                     chunks.Dispose();
-                    return;
+                    return inputDeps;
                 }
 
-                var rotationType = EntityManager.GetArchetypeChunkComponentType<Rotation>(true);
-                var positionType = EntityManager.GetArchetypeChunkComponentType<Position>(true);
-                var scaleType = EntityManager.GetArchetypeChunkComponentType<Scale>(true);
-                var localToParentType = EntityManager.GetArchetypeChunkComponentType<LocalToParent>(false);
-                var changedVersionType = EntityManager.GetArchetypeChunkComponentType<ChangedVersion>(false);
+                var rootsLocalToWorldJob = new RootsLocalToWorld
+                {
+                    chunks = chunks,
+                    rotationType = EntityManager.GetArchetypeChunkComponentType<Rotation>(true),
+                    positionType = EntityManager.GetArchetypeChunkComponentType<Position>(true),
+                    scaleType = EntityManager.GetArchetypeChunkComponentType<Scale>(true),
+                    localToWorldType = EntityManager.GetArchetypeChunkComponentType<LocalToWorld>(false),
+                    lastSystemVersion = LastSystemVersion,
+                };
+                var rootsLocalToWorldJobHandle = rootsLocalToWorldJob.Schedule(chunks.Length,64,inputDeps);
+                return rootsLocalToWorldJobHandle;
+            }
 
-                for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
+            // [BurstCompile(CompileSynchronously = true)]
+            struct InnerTreeLocalToParent : IJobParallelFor
+            {
+                [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
+                [ReadOnly] public ArchetypeChunkComponentType<Rotation> rotationType;
+                [ReadOnly] public ArchetypeChunkComponentType<Position> positionType;
+                [ReadOnly] public ArchetypeChunkComponentType<Scale> scaleType;
+                public ArchetypeChunkComponentType<LocalToParent> localToParentType;
+                public ArchetypeChunkComponentType<ChangedVersion> changedVersionType;
+                public uint lastSystemVersion;
+
+                public void Execute(int chunkIndex)
                 {
                     var chunk = chunks[chunkIndex];
                     var parentCount = chunk.Count;
@@ -775,20 +815,11 @@ namespace Unity.Entities.Tests
                     var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
                     var chunkChangedVersions = chunk.GetNativeArray(changedVersionType);
 
-                    var chunkRotationsChanged =
-                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(rotationType), LastSystemVersion);
-                    var chunkPositionsChanged =
-                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(positionType), LastSystemVersion);
-                    var chunkScalesChanged =
-                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(scaleType), LastSystemVersion);
+                    var chunkRotationsChanged = ChangeVersionUtility.DidChange(chunk.GetComponentVersion(rotationType), lastSystemVersion);
+                    var chunkPositionsChanged = ChangeVersionUtility.DidChange(chunk.GetComponentVersion(positionType), lastSystemVersion);
+                    var chunkScalesChanged = ChangeVersionUtility.DidChange(chunk.GetComponentVersion(scaleType), lastSystemVersion);
                     var chunkAnyChanged = chunkRotationsChanged || chunkPositionsChanged || chunkScalesChanged;
 
-                    Debug.Log($" rotation.version = {chunk.GetComponentVersion(rotationType)}");
-                    Debug.Log($" position.version = {chunk.GetComponentVersion(positionType)}");
-                    Debug.Log($" scale.version = {chunk.GetComponentVersion(scaleType)}");
-                    Debug.Log($" LastSystemVersion = {LastSystemVersion}");
-                    Debug.Log($" Changed = {chunkAnyChanged}");
-                    
                     // if (!chunkAnyChanged)
                     //  continue;
 
@@ -796,7 +827,7 @@ namespace Unity.Entities.Tests
                     {
                         chunkChangedVersions[i] = new ChangedVersion
                         {
-                            Value = LastSystemVersion
+                            Value = lastSystemVersion
                         };
                     }
 
@@ -811,8 +842,8 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToParents[i] = new LocalToParent
                             {
-                                Value = math.mul(math.translate(chunkPositions[i].Value),
-                                    math.scale(chunkScales[i].Value))
+                                Value = math.mul(float4x4.translate(chunkPositions[i].Value),
+                                    float4x4.scale(chunkScales[i].Value))
                             };
                         }
                     }
@@ -823,7 +854,7 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToParents[i] = new LocalToParent
                             {
-                                Value = math.rottrans(chunkRotations[i].Value, new float3())
+                                Value = math.float4x4(chunkRotations[i].Value, new float3())
                             };
                         }
                     }
@@ -834,8 +865,8 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToParents[i] = new LocalToParent
                             {
-                                Value = math.mul(math.rottrans(chunkRotations[i].Value, new float3()),
-                                    math.scale(chunkScales[i].Value))
+                                Value = math.mul(math.float4x4(chunkRotations[i].Value, new float3()),
+                                    float4x4.scale(chunkScales[i].Value))
                             };
                         }
                     }
@@ -846,7 +877,7 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToParents[i] = new LocalToParent
                             {
-                                Value = math.translate(chunkPositions[i].Value)
+                                Value = float4x4.translate(chunkPositions[i].Value)
                             };
                         }
                     }
@@ -857,8 +888,8 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToParents[i] = new LocalToParent
                             {
-                                Value = math.mul(math.translate(chunkPositions[i].Value),
-                                    math.scale(chunkScales[i].Value))
+                                Value = math.mul(float4x4.translate(chunkPositions[i].Value),
+                                    float4x4.scale(chunkScales[i].Value))
                             };
                         }
                     }
@@ -869,7 +900,7 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToParents[i] = new LocalToParent
                             {
-                                Value = math.rottrans(chunkRotations[i].Value, chunkPositions[i].Value)
+                                Value = math.float4x4(chunkRotations[i].Value, chunkPositions[i].Value)
                             };
                         }
                     }
@@ -880,38 +911,55 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToParents[i] = new LocalToParent
                             {
-                                Value = math.mul(math.rottrans(chunkRotations[i].Value, chunkPositions[i].Value),
-                                    math.scale(chunkScales[i].Value))
+                                Value = math.mul(math.float4x4(chunkRotations[i].Value, chunkPositions[i].Value),
+                                    float4x4.scale(chunkScales[i].Value))
                             };
                         }
                     }
                 }
-
-                chunks.Dispose();
             }
 
-            public void UpdateLeafLocalToParent()
+            public JobHandle UpdateInnerTreeLocalToParent(JobHandle inputDeps)
             {
                 var chunks = m_EntityManager.CreateArchetypeChunkArray(
                     new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)}, // any
-                    new ComponentType[] {typeof(ChangedVersion)}, // none
-                    new ComponentType[] {typeof(LocalToParent), typeof(Parent)}, // all
-                    Allocator.Temp);
-
-                Debug.Log($"UpdateLeafLocalToParent {chunks.EntityCount}");
+                    new ComponentType[] {typeof(Frozen)}, // none
+                    new ComponentType[] {typeof(LocalToParent), typeof(Parent), typeof(ChangedVersion)}, // all
+                    Allocator.TempJob);
                 
+                Debug.Log($"UpdateInnerTreeLocalToParent {ArchetypeChunkArray.CalculateEntityCount(chunks)}");
+
                 if (chunks.Length == 0)
                 {
                     chunks.Dispose();
-                    return;
+                    return inputDeps;
                 }
 
-                var rotationType = EntityManager.GetArchetypeChunkComponentType<Rotation>(true);
-                var positionType = EntityManager.GetArchetypeChunkComponentType<Position>(true);
-                var scaleType = EntityManager.GetArchetypeChunkComponentType<Scale>(true);
-                var localToParentType = EntityManager.GetArchetypeChunkComponentType<LocalToParent>(false);
+                var innerTreeLocalToParentJob = new InnerTreeLocalToParent
+                {
+                    chunks = chunks,
+                    rotationType = EntityManager.GetArchetypeChunkComponentType<Rotation>(true),
+                    positionType = EntityManager.GetArchetypeChunkComponentType<Position>(true),
+                    scaleType = EntityManager.GetArchetypeChunkComponentType<Scale>(true),
+                    localToParentType = EntityManager.GetArchetypeChunkComponentType<LocalToParent>(false),
+                    changedVersionType = EntityManager.GetArchetypeChunkComponentType<ChangedVersion>(false),
+                    lastSystemVersion = LastSystemVersion
+                };
+                var innerTreeLocalToParentJobHandle = innerTreeLocalToParentJob.Schedule(chunks.Length, 64, inputDeps);
+                return innerTreeLocalToParentJobHandle;
+            }
+            
+            // [BurstCompile(CompileSynchronously = true)]
+            struct LeafLocalToParent : IJobParallelFor
+            {
+                [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
+                [ReadOnly] public ArchetypeChunkComponentType<Rotation> rotationType;
+                [ReadOnly] public ArchetypeChunkComponentType<Position> positionType;
+                [ReadOnly] public ArchetypeChunkComponentType<Scale> scaleType;
+                public ArchetypeChunkComponentType<LocalToParent> localToParentType;
+                public uint lastSystemVersion;
 
-                for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
+                public void Execute(int chunkIndex)
                 {
                     var chunk = chunks[chunkIndex];
                     var parentCount = chunk.Count;
@@ -922,11 +970,11 @@ namespace Unity.Entities.Tests
                     var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
 
                     var chunkRotationsChanged =
-                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(rotationType), LastSystemVersion);
+                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(rotationType), lastSystemVersion);
                     var chunkPositionsChanged =
-                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(positionType), LastSystemVersion);
+                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(positionType), lastSystemVersion);
                     var chunkScalesChanged =
-                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(scaleType), LastSystemVersion);
+                        ChangeVersionUtility.DidChange(chunk.GetComponentVersion(scaleType), lastSystemVersion);
                     var chunkAnyChanged = chunkRotationsChanged || chunkPositionsChanged || chunkScalesChanged;
 
                     // if (!chunkAnyChanged)
@@ -943,8 +991,8 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToParents[i] = new LocalToParent
                             {
-                                Value = math.mul(math.translate(chunkPositions[i].Value),
-                                    math.scale(chunkScales[i].Value))
+                                Value = math.mul(float4x4.translate(chunkPositions[i].Value),
+                                    float4x4.scale(chunkScales[i].Value))
                             };
                         }
                     }
@@ -955,7 +1003,7 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToParents[i] = new LocalToParent
                             {
-                                Value = math.rottrans(chunkRotations[i].Value, new float3())
+                                Value = math.float4x4(chunkRotations[i].Value, new float3())
                             };
                         }
                     }
@@ -966,8 +1014,8 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToParents[i] = new LocalToParent
                             {
-                                Value = math.mul(math.rottrans(chunkRotations[i].Value, new float3()),
-                                    math.scale(chunkScales[i].Value))
+                                Value = math.mul(math.float4x4(chunkRotations[i].Value, new float3()),
+                                    float4x4.scale(chunkScales[i].Value))
                             };
                         }
                     }
@@ -978,7 +1026,7 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToParents[i] = new LocalToParent
                             {
-                                Value = math.translate(chunkPositions[i].Value)
+                                Value = float4x4.translate(chunkPositions[i].Value)
                             };
                         }
                     }
@@ -989,8 +1037,8 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToParents[i] = new LocalToParent
                             {
-                                Value = math.mul(math.translate(chunkPositions[i].Value),
-                                    math.scale(chunkScales[i].Value))
+                                Value = math.mul(float4x4.translate(chunkPositions[i].Value),
+                                    float4x4.scale(chunkScales[i].Value))
                             };
                         }
                     }
@@ -1001,7 +1049,7 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToParents[i] = new LocalToParent
                             {
-                                Value = math.rottrans(chunkRotations[i].Value, chunkPositions[i].Value)
+                                Value = math.float4x4(chunkRotations[i].Value, chunkPositions[i].Value)
                             };
                         }
                     }
@@ -1012,22 +1060,114 @@ namespace Unity.Entities.Tests
                         {
                             chunkLocalToParents[i] = new LocalToParent
                             {
-                                Value = math.mul(math.rottrans(chunkRotations[i].Value, chunkPositions[i].Value),
-                                    math.scale(chunkScales[i].Value))
+                                Value = math.mul(math.float4x4(chunkRotations[i].Value, chunkPositions[i].Value),
+                                    float4x4.scale(chunkScales[i].Value))
                             };
                         }
                     }
                 }
-
-                chunks.Dispose();
             }
 
-            public void UpdateInnerTreeLocalToWorld()
+            public JobHandle UpdateLeafLocalToParent(JobHandle inputDeps)
+            {
+                var chunks = m_EntityManager.CreateArchetypeChunkArray(
+                    new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)}, // any
+                    new ComponentType[] {typeof(Frozen), typeof(ChangedVersion)}, // none
+                    new ComponentType[] {typeof(LocalToParent), typeof(Parent)}, // all
+                    Allocator.TempJob);
+
+                Debug.Log($"UpdateLeafLocalToParent {ArchetypeChunkArray.CalculateEntityCount(chunks)}");
+                
+                if (chunks.Length == 0)
+                {
+                    chunks.Dispose();
+                    return inputDeps;
+                }
+
+                var leafToLocalParentJob = new LeafLocalToParent
+                {
+                    chunks = chunks,
+                    rotationType = EntityManager.GetArchetypeChunkComponentType<Rotation>(true),
+                    positionType = EntityManager.GetArchetypeChunkComponentType<Position>(true),
+                    scaleType = EntityManager.GetArchetypeChunkComponentType<Scale>(true),
+                    localToParentType = EntityManager.GetArchetypeChunkComponentType<LocalToParent>(false),
+                    lastSystemVersion = LastSystemVersion
+                };
+                var leafToLocalParentJobHandle = leafToLocalParentJob.Schedule(chunks.Length,64,inputDeps);
+                return leafToLocalParentJobHandle;
+            }
+            
+            // [BurstCompile(CompileSynchronously = true)]
+            struct InnerTreeLocalToWorld : IJobParallelFor
+            {
+                [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<int> chunkIndices;
+                [NativeDisableParallelForRestriction] [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
+                [ReadOnly] public ArchetypeChunkComponentType<Parent> parentType;
+                [ReadOnly] public ArchetypeChunkEntityType entityType;
+                [ReadOnly] public ArchetypeChunkComponentType<LocalToParent> localToParentType;
+                [ReadOnly] public ComponentDataFromEntity<ChangedVersion> changedVersionFromEntity;
+                [NativeDisableParallelForRestriction] public ComponentDataFromEntity<LocalToWorld> localToWorldFromEntity;
+                public uint lastSystemVersion;
+
+                public void Execute(int i)
+                {
+                    var chunkIndex = chunkIndices[i];
+                    var chunk = chunks[chunkIndex];
+                    var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
+
+                    var chunkParents = chunk.GetNativeArray(parentType);
+                    var chunkEntities = chunk.GetNativeArray(entityType);
+                    var previousParentEntity = Entity.Null;
+                    var parentChanged = false;
+                    var parentLocalToWorldMatrix = new float4x4();
+
+                    for (int j = 0; j < chunk.Count; j++)
+                    {
+                        var parentEntity = chunkParents[j].Value;
+                        var changed = false;
+                        if (parentEntity != previousParentEntity)
+                        {
+                            if (changedVersionFromEntity.Exists(parentEntity))
+                            {
+                                parentChanged =
+                                    ChangeVersionUtility.DidChange(changedVersionFromEntity[parentEntity].Value,
+                                        lastSystemVersion);
+                            }
+                            else
+                            {
+                                parentChanged = true;
+                            }
+
+                            parentLocalToWorldMatrix = localToWorldFromEntity[parentEntity].Value;
+                            previousParentEntity = parentEntity;
+                        }
+
+                        if (!parentChanged)
+                        {
+                            var localToParentChanged =
+                                ChangeVersionUtility.DidChange(chunk.GetComponentVersion(localToParentType),
+                                    lastSystemVersion);
+
+                            // AnyChanged
+                            // if (!localToParentChanged)
+                            // continue;
+                        }
+
+                        var entity = chunkEntities[j];
+                        localToWorldFromEntity[entity] = new LocalToWorld
+                        {
+                            Value = math.mul(parentLocalToWorldMatrix, chunkLocalToParents[j].Value)
+                        };
+                    }
+                }
+            }
+
+            public JobHandle UpdateInnerTreeLocalToWorld(JobHandle inputDeps)
             {
                 var sharedDepths = new List<Depth>();
                 var sharedDepthIndices = new List<int>();
 
-                var localToWorldFromEntity = EntityManager.GetComponentDataFromEntity<LocalToWorld>(true);
+                var localToWorldFromEntity = EntityManager.GetComponentDataFromEntity<LocalToWorld>(false);
                 var changedVersionFromEntity = EntityManager.GetComponentDataFromEntity<ChangedVersion>(true);
                 var sharedComponentCount = EntityManager.GetSharedComponentCount();
 
@@ -1035,15 +1175,14 @@ namespace Unity.Entities.Tests
 
                 var chunks = m_EntityManager.CreateArchetypeChunkArray(
                     Array.Empty<ComponentType>(), // any
-                    Array.Empty<ComponentType>(), // none
-                    new ComponentType[]
-                        {typeof(Depth), typeof(LocalToParent), typeof(Parent), typeof(LocalToWorld)}, // all
-                    Allocator.Temp);
+                    new ComponentType[] {typeof(Frozen)}, // none
+                    new ComponentType[] {typeof(Depth), typeof(LocalToParent), typeof(Parent), typeof(LocalToWorld)}, // all
+                    Allocator.TempJob);
 
                 if (chunks.Length == 0)
                 {
                     chunks.Dispose();
-                    return;
+                    return inputDeps;
                 }
 
                 var depthCount = sharedDepths.Count;
@@ -1089,144 +1228,111 @@ namespace Unity.Entities.Tests
                         }
                     }
                 }
+                depths.Dispose();
 
+                var innerTreeLocalToWorldJob = new InnerTreeLocalToWorld
                 {
-                    var localToParentType = EntityManager.GetArchetypeChunkComponentType<LocalToParent>(true);
-                    var localToWorldType = EntityManager.GetArchetypeChunkComponentType<LocalToWorld>(false);
-                    var parentType = EntityManager.GetArchetypeChunkComponentType<Parent>(true);
-                    var entityType = EntityManager.GetArchetypeChunkEntityType(true);
+                    chunkIndices = chunkIndices,
+                    chunks = chunks,
+                    parentType = EntityManager.GetArchetypeChunkComponentType<Parent>(true),
+                    entityType = EntityManager.GetArchetypeChunkEntityType(true),
+                    localToParentType = EntityManager.GetArchetypeChunkComponentType<LocalToParent>(true),
+                    changedVersionFromEntity = changedVersionFromEntity,
+                    localToWorldFromEntity = localToWorldFromEntity,
+                    lastSystemVersion = LastSystemVersion
+                };
+                var innerTreeLocalToWorldJobHandle = innerTreeLocalToWorldJob.Schedule(chunks.Length, 64, inputDeps);
+                return innerTreeLocalToWorldJobHandle;
+            }
+            
+            // [BurstCompile(CompileSynchronously = true)]
+            struct LeafLocalToWorld : IJobParallelFor
+            {
+                [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
+                [ReadOnly] public ArchetypeChunkEntityType entityType;
+                [ReadOnly] public ArchetypeChunkComponentType<Parent> parentType;
+                [ReadOnly] public ArchetypeChunkComponentType<LocalToParent> localToParentType;
+                [ReadOnly] public ComponentDataFromEntity<ChangedVersion> changedVersionFromEntity;
+                [NativeDisableParallelForRestriction] public ComponentDataFromEntity<LocalToWorld> localToWorldFromEntity;
+                public uint lastSystemVersion;
 
-                    for (int i = 0; i < chunks.Length; i++)
+                public void Execute(int i)
+                {
+                    var chunk = chunks[i];
+                    var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
+                    var chunkEntities = chunk.GetNativeArray(entityType);
+                    var chunkParents = chunk.GetNativeArray(parentType);
+                    var previousParentEntity = Entity.Null;
+                    var parentChanged = false;
+                    var parentLocalToWorldMatrix = new float4x4();
+
+                    for (int j = 0; j < chunk.Count; j++)
                     {
-                        var chunkIndex = chunkIndices[i];
-                        var chunk = chunks[chunkIndex];
-                        var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
-                        var chunkLocalToWorld = chunk.GetNativeArray(localToWorldType);
-                        var chunkParents = chunk.GetNativeArray(parentType);
-                        var chunkEntities = chunk.GetNativeArray(entityType);
-                        var previousParentEntity = Entity.Null;
-                        var parentChanged = false;
-                        var parentLocalToWorldMatrix = new float4x4();
-
-                        for (int j = 0; j < chunk.Count; j++)
+                        var parentEntity = chunkParents[j].Value;
+                        var changed = false;
+                        if (parentEntity != previousParentEntity)
                         {
-                            var parentEntity = chunkParents[j].Value;
-                            var changed = false;
-                            if (parentEntity != previousParentEntity)
+                            if (changedVersionFromEntity.Exists(parentEntity))
                             {
-                                if (changedVersionFromEntity.Exists(parentEntity))
-                                {
-                                    parentChanged =
-                                        ChangeVersionUtility.DidChange(changedVersionFromEntity[parentEntity].Value,
-                                            LastSystemVersion);
-                                }
-                                else
-                                {
-                                    parentChanged = true;
-                                }
-
-                                parentLocalToWorldMatrix = localToWorldFromEntity[parentEntity].Value;
-                                previousParentEntity = parentEntity;
+                                parentChanged =
+                                    ChangeVersionUtility.DidChange(changedVersionFromEntity[parentEntity].Value,
+                                        lastSystemVersion);
+                            }
+                            else
+                            {
+                                parentChanged = true;
                             }
 
-                            if (!parentChanged)
-                            {
-                                var localToParentChanged =
-                                    ChangeVersionUtility.DidChange(chunk.GetComponentVersion(localToParentType),
-                                        LastSystemVersion);
-                                
-                                // AnyChanged
-                                // if (!localToParentChanged)
-                                // continue;
-                            }
-                            
-                            Debug.Log($"Child {chunkEntities[j].Index}.{chunkEntities[j].Version} Parent {parentEntity.Index}.{parentEntity.Version}");
-
-                            chunkLocalToWorld[j] = new LocalToWorld
-                            {
-                                Value = math.mul(parentLocalToWorldMatrix, chunkLocalToParents[j].Value)
-                            };
+                            parentLocalToWorldMatrix = localToWorldFromEntity[parentEntity].Value;
+                            previousParentEntity = parentEntity;
                         }
+
+                        if (!parentChanged)
+                        {
+                            var localToParentChanged =
+                                ChangeVersionUtility.DidChange(chunk.GetComponentVersion(localToParentType),
+                                    lastSystemVersion);
+
+                            // AnyChanged
+                            // if (!localToParentChanged)
+                            //  continue;
+                        }
+
+                        var entity = chunkEntities[j];
+                        localToWorldFromEntity[entity] = new LocalToWorld
+                        {
+                            Value = math.mul(parentLocalToWorldMatrix, chunkLocalToParents[j].Value)
+                        };
                     }
                 }
-
-                chunkIndices.Dispose();
-                depths.Dispose();
-                chunks.Dispose();
             }
 
-            public void UpdateLeafLocalToWorld()
+            public JobHandle UpdateLeafLocalToWorld(JobHandle inputDeps)
             {
                 var chunks = m_EntityManager.CreateArchetypeChunkArray(
                     new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)}, // any
-                    new ComponentType[] {typeof(ChangedVersion), typeof(Depth)}, // none
+                    new ComponentType[] {typeof(Frozen), typeof(ChangedVersion), typeof(Depth)}, // none
                     new ComponentType[] {typeof(LocalToParent), typeof(Parent)}, // all
-                    Allocator.Temp);
+                    Allocator.TempJob);
 
                 if (chunks.Length == 0)
                 {
                     chunks.Dispose();
-                    return;
+                    return inputDeps;
                 }
 
+                var updateLeafLocalToWorldJob = new LeafLocalToWorld
                 {
-                    var localToWorldFromEntity = EntityManager.GetComponentDataFromEntity<LocalToWorld>(true);
-                    var changedVersionFromEntity = EntityManager.GetComponentDataFromEntity<ChangedVersion>(true);
-                    var localToParentType = EntityManager.GetArchetypeChunkComponentType<LocalToParent>(true);
-                    var localToWorldType = EntityManager.GetArchetypeChunkComponentType<LocalToWorld>(false);
-                    var parentType = EntityManager.GetArchetypeChunkComponentType<Parent>(true);
-
-                    for (int i = 0; i < chunks.Length; i++)
-                    {
-                        var chunk = chunks[i];
-                        var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
-                        var chunkLocalToWorld = chunk.GetNativeArray(localToWorldType);
-                        var chunkParents = chunk.GetNativeArray(parentType);
-                        var previousParentEntity = Entity.Null;
-                        var parentChanged = false;
-                        var parentLocalToWorldMatrix = new float4x4();
-
-                        for (int j = 0; j < chunk.Count; j++)
-                        {
-                            var parentEntity = chunkParents[j].Value;
-                            var changed = false;
-                            if (parentEntity != previousParentEntity)
-                            {
-                                if (changedVersionFromEntity.Exists(parentEntity))
-                                {
-                                    parentChanged =
-                                        ChangeVersionUtility.DidChange(changedVersionFromEntity[parentEntity].Value,
-                                            LastSystemVersion);
-                                }
-                                else
-                                {
-                                    parentChanged = true;
-                                }
-
-                                parentLocalToWorldMatrix = localToWorldFromEntity[parentEntity].Value;
-                                previousParentEntity = parentEntity;
-                            }
-
-                            if (!parentChanged)
-                            {
-                                var localToParentChanged =
-                                    ChangeVersionUtility.DidChange(chunk.GetComponentVersion(localToParentType),
-                                        LastSystemVersion);
-                                
-                                // AnyChanged
-                                // if (!localToParentChanged)
-                                //  continue;
-                            }
-
-                            chunkLocalToWorld[j] = new LocalToWorld
-                            {
-                                Value = math.mul(parentLocalToWorldMatrix, chunkLocalToParents[j].Value)
-                            };
-                        }
-                    }
-                }
-
-                chunks.Dispose();
+                    chunks = chunks,
+                    entityType = EntityManager.GetArchetypeChunkEntityType(true),
+                    parentType = EntityManager.GetArchetypeChunkComponentType<Parent>(true),
+                    localToParentType = EntityManager.GetArchetypeChunkComponentType<LocalToParent>(true),
+                    changedVersionFromEntity = EntityManager.GetComponentDataFromEntity<ChangedVersion>(true),
+                    localToWorldFromEntity = EntityManager.GetComponentDataFromEntity<LocalToWorld>(false),
+                    lastSystemVersion = LastSystemVersion
+                };
+                var updateLeafToWorldJobHandle = updateLeafLocalToWorldJob.Schedule(chunks.Length, 64, inputDeps);
+                return updateLeafToWorldJobHandle;
             }
 
             protected override JobHandle OnUpdate(JobHandle inputDeps)
@@ -1250,54 +1356,18 @@ namespace Unity.Entities.Tests
                 if (!possibleChange)
                     return inputDeps;
 
-                // Stage-0:
-
-                // - Update reparented components
-                // - Add LocalToWorld
-                // - Add LocalToParent if Parent
-                //   - Parent changed
-                //   - Hash(parent->children)
-                //   - Set TransformRoot
-                //   - UpdateQueue(root) 
-                //   - Root changed, update world->local
-                //   - LocalToRoot
-                //     - No Root? 
-                //     - Does parent have root? Use that.
-                //     - Parent doesn't have root? Loop.
-
-                // Stage-1:
-                // - Update changed root PRS -> LocalToWorld
-
-                // Stage-2:
-                // - Update changed inner PRS -> LocalToParent, mark change
-
-                // Stage-3:
-                // - Update changed leaf PRS -> LocalToParent
-
-                // Stage-3: Update Changed
-                // - Start at roots
-                // - Set changed if different
-                // - Recurse children
-                // - OR different of parent
-
-                // Stage-4:
-                //   - Update depth order LocalToWorld
-                //   - Update leaf LocalToWorld
-
-                // Stage-5: -> Stage-0
-                // - If static and LocalToWorld
-                //   - copy to StaticLocalToWorld
-                //   - remove LocalToWorld
-                //   - remove TransformParent
-                //   - remove parent
-
+                UpdateFrozen();
                 UpdateDAG();
-                UpdateRootsLocalToWorld();
-                UpdateInnerTreeLocalToParent();
-                UpdateLeafLocalToParent();
+                
+                var updateRootsLocalToWorldJobHandle = UpdateRootsLocalToWorld(inputDeps);
+                var updateInnerTreeLocalToParentJobHandle = UpdateInnerTreeLocalToParent(updateRootsLocalToWorldJobHandle);
+                var updateLeafLocaltoParentJobHandle = UpdateLeafLocalToParent(updateInnerTreeLocalToParentJobHandle);
+                updateLeafLocaltoParentJobHandle.Complete();
+                
                 UpdateChanged();
-                UpdateInnerTreeLocalToWorld();
-                UpdateLeafLocalToWorld();
+                
+                var updateInnerTreeLocalToWorldJobHandle = UpdateInnerTreeLocalToWorld(inputDeps);
+                var updateLeafLocalToWorldJobHandle = UpdateLeafLocalToWorld(updateInnerTreeLocalToWorldJobHandle);
 
                 LastSystemVersion = GlobalSystemVersion;
                 LastPositionVersion = positionVersion;
@@ -1305,7 +1375,8 @@ namespace Unity.Entities.Tests
                 LastScaleVersion = scaleVersion;
                 LastParentVersion = parentTransformVersion;
 
-                return inputDeps;
+                updateLeafLocalToWorldJobHandle.Complete();
+                return updateLeafLocalToWorldJobHandle;
             }
 
             protected override void OnDestroyManager()
@@ -1401,7 +1472,7 @@ namespace Unity.Entities.Tests
             void Update3()
             {
                 EntityManager.SetComponentData(AllEntities[0],
-                    new Rotation {Value = math.axisAngle(new float3(0.0f, 1.0f, 0.0f), 3.14f)});
+                    new Rotation {Value = quaternion.axisAngle(new float3(0.0f, 1.0f, 0.0f), 3.14f)});
             }
         }
 
@@ -1478,7 +1549,6 @@ namespace Unity.Entities.Tests
 
         // Capture reparenting changes to DAG
         
-        // #debug [Test]
         [Test]
         public void TRA_CatchChangesToParent()
         {
@@ -1500,7 +1570,7 @@ namespace Unity.Entities.Tests
 
                 var entityType = m_Manager.GetArchetypeChunkEntityType(true);
 
-                Assert.AreEqual(entityCount - 1, chunks.EntityCount);
+                Assert.AreEqual(entityCount - 1, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
                 {
                     var chunk = chunks[chunkIndex];
@@ -1523,7 +1593,7 @@ namespace Unity.Entities.Tests
                     Array.Empty<ComponentType>(), // none
                     new ComponentType[] {typeof(Depth)}, // all
                     Allocator.Temp);
-                Assert.AreEqual(entityCount - 1, chunks.EntityCount);
+                Assert.AreEqual(entityCount - 1, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 chunks.Dispose();
             }
 
@@ -1535,7 +1605,7 @@ namespace Unity.Entities.Tests
                     Array.Empty<ComponentType>(), // none
                     new ComponentType[] {typeof(Depth)}, // all
                     Allocator.Temp);
-                Assert.AreEqual(1, chunks.EntityCount);
+                Assert.AreEqual(1, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 chunks.Dispose();
             }
 
@@ -1587,7 +1657,7 @@ namespace Unity.Entities.Tests
                     new ComponentType[] {typeof(Parent), typeof(PreviousParent)}, // all
                     Allocator.Temp);
 
-                Assert.AreEqual(entityCount - 1, chunks.EntityCount);
+                Assert.AreEqual(entityCount - 1, ArchetypeChunkArray.CalculateEntityCount(chunks));
 
                 chunks.Dispose();
             }
@@ -1724,7 +1794,6 @@ namespace Unity.Entities.Tests
             chunks.Dispose();
         }
 
-        // #debug [Test]
         [Test]
         public void TRA_RotateParent()
         {
@@ -1742,9 +1811,29 @@ namespace Unity.Entities.Tests
             Debug.Log("UPDATE 3");
             testTransformSetup.UpdateCase(3);
             transformPatch.Update();
+            
             DebugPrintComponents<Parent>();
             DebugPrintLocalToWorld();
             DebugPrintSharedComponents<Depth>();
+            
+        }
+
+        [Test]
+        public void TRA_TestChunkDispose()
+        {
+            var testTransformSetup = World.CreateManager<TestTransformSetup>();
+            var transformPatch = World.CreateManager<TransformPatch>();
+
+            testTransformSetup.UpdateCase(0);
+            transformPatch.Update();
+            
+            var chunks = m_Manager.CreateArchetypeChunkArray(
+                Array.Empty<ComponentType>(), // any
+                Array.Empty<ComponentType>(), // none
+                new ComponentType[] {typeof(Position)}, // all
+                Allocator.Temp);
+
+            chunks.Dispose();
         }
     }
 }

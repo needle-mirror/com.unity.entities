@@ -30,6 +30,11 @@ namespace Unity.Entities
 
         public string Name { get; }
 
+        public override string ToString()
+        {
+            return Name;
+        }
+
         public int Version { get; private set; }
 
         public static World Active { get; set; }

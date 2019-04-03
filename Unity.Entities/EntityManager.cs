@@ -803,18 +803,18 @@ namespace Unity.Entities
             }
         }
 
-        public ArchetypeChunkArray CreateArchetypeChunkArray(NativeList<EntityArchetype> archetypes,
+        public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(NativeList<EntityArchetype> archetypes,
             Allocator allocator)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new ArchetypeChunkArray(archetypes, allocator,
-                ComponentJobSafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<Entity>(), true));
+            var safetyHandle = AtomicSafetyHandle.Create();
+            return ArchetypeChunkArray.Create(archetypes, allocator, safetyHandle);
 #else
-            return new ArchetypeChunkArray(archetypes, allocator);
+            return ArchetypeChunkArray.Create(archetypes, allocator);
 #endif
         }
 
-        public ArchetypeChunkArray CreateArchetypeChunkArray(ComponentType[] anyComponentTypes,
+        public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(ComponentType[] anyComponentTypes,
             ComponentType[] noneComponentTypes, ComponentType[] allComponentTypes, Allocator allocator)
         {
             var foundArchetypes = new NativeList<EntityArchetype>(Allocator.Temp);

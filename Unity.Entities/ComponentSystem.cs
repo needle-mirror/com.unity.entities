@@ -41,6 +41,9 @@ namespace Unity.Entities
 
         public bool ShouldRunSystem()
         {
+            if (!m_World.IsCreated)
+                return false;
+
             if (m_AlwaysUpdateSystem)
                 return true;
 

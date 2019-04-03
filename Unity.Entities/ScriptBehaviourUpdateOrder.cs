@@ -195,7 +195,7 @@ namespace Unity.Entities
             }
         }
 
-        public static void CollectGroups(IEnumerable<ScriptBehaviourManager> activeManagers,
+        private static void CollectGroups(IEnumerable<ScriptBehaviourManager> activeManagers,
             out Dictionary<Type, ScriptBehaviourGroup> allGroups, out Dictionary<Type, DependantBehavior> dependencies)
         {
             allGroups = new Dictionary<Type, ScriptBehaviourGroup>();
@@ -398,7 +398,7 @@ namespace Unity.Entities
             }
         }
 
-        public static PlayerLoopSystem InsertWorldManagersInPlayerLoop(PlayerLoopSystem defaultPlayerLoop,
+        private static PlayerLoopSystem InsertWorldManagersInPlayerLoop(PlayerLoopSystem defaultPlayerLoop,
             params World[] worlds)
         {
             var systemList = new List<InsertionBucket>();
@@ -444,7 +444,7 @@ namespace Unity.Entities
             return ecsPlayerLoop;
         }
 
-        public static PlayerLoopSystem InsertManagersInPlayerLoop(IEnumerable<ScriptBehaviourManager> activeManagers,
+        internal static PlayerLoopSystem InsertManagersInPlayerLoop(IEnumerable<ScriptBehaviourManager> activeManagers,
             PlayerLoopSystem defaultPlayerLoop)
         {
             if (activeManagers.Count() == 0)
@@ -665,7 +665,6 @@ namespace Unity.Entities
                                 ecsPlayerLoop.subSystemList[i].subSystemList[dstPos].updateDelegate = tmp.TriggerUpdate;
                                 ++dstPos;
                             }
-
                             ++currentBucket;
                         }
 
@@ -698,28 +697,31 @@ namespace Unity.Entities
         {
             var defaultLoop = PlayerLoop.GetDefaultPlayerLoop();
 
-            if (worlds.Length > 0)
+            if (worlds?.Length > 0)
             {
-                var ecsLoop = InsertWorldManagersInPlayerLoop(defaultLoop, worlds);
-                SetPlayerLoopAndNotify(ecsLoop);
+                var ecsLoop = InsertWorldManagersInPlayerLoop(defaultLoop, worlds.Where(x => x != null).ToArray());
+                SetPlayerLoop(ecsLoop);
             }
             else
             {
-                SetPlayerLoopAndNotify(defaultLoop);
+                SetPlayerLoop(defaultLoop);
             }
         }
 
-        public static event Action<PlayerLoopSystem> OnSetPlayerLoop;
+        public static PlayerLoopSystem CurrentPlayerLoop => currentPlayerLoop;
+        private static PlayerLoopSystem currentPlayerLoop;
 
-        public static void SetPlayerLoopAndNotify(PlayerLoopSystem playerLoop)
+        private static void SetPlayerLoop(PlayerLoopSystem playerLoop)
         {
             PlayerLoop.SetPlayerLoop(playerLoop);
-            OnSetPlayerLoop?.Invoke(playerLoop);
+            currentPlayerLoop = playerLoop;
         }
 
         // FIXME: HACK! - mono 4.6 has problems invoking virtual methods as delegates from native, so wrap the invocation in a non-virtual class
-        private class DummyDelagateWrapper
+        internal class DummyDelagateWrapper
         {
+
+            internal ScriptBehaviourManager Manager => m_Manager;
             private readonly ScriptBehaviourManager m_Manager;
 
             public DummyDelagateWrapper(ScriptBehaviourManager man)
@@ -733,7 +735,7 @@ namespace Unity.Entities
             }
         }
 
-        public class ScriptBehaviourGroup
+        private class ScriptBehaviourGroup
         {
             private readonly List<ScriptBehaviourGroup> m_Groups = new List<ScriptBehaviourGroup>();
             public readonly List<Type> Managers = new List<Type>();
@@ -834,7 +836,7 @@ namespace Unity.Entities
             }
         }
 
-        public class DependantBehavior
+        private class DependantBehavior
         {
             public readonly ScriptBehaviourManager Manager;
             public readonly HashSet<Type> UpdateAfter = new HashSet<Type>();

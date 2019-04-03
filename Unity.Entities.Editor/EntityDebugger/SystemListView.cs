@@ -2,13 +2,15 @@
 using UnityEditor.IMGUI.Controls;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor;
 using UnityEngine;
+using UnityEngine.Experimental.LowLevel;
 using UnityEngine.Profiling;
 
 namespace Unity.Entities.Editor
 {
 
-    public delegate void SystemSelectionCallback(ScriptBehaviourManager manager, bool updateList, bool propagate);
+    public delegate void SystemSelectionCallback(ScriptBehaviourManager manager, World world);
 
     public class SystemListView : TreeView
     {
@@ -41,9 +43,8 @@ namespace Unity.Entities.Editor
                 return lastReading;
             }
         }
-        private readonly Dictionary<Type, List<ScriptBehaviourManager>> managersByGroup = new Dictionary<Type, List<ScriptBehaviourManager>>();
-        private readonly List<ScriptBehaviourManager> floatingManagers = new List<ScriptBehaviourManager>();
-        private readonly Dictionary<int, ScriptBehaviourManager> managersById = new Dictionary<int, ScriptBehaviourManager>();
+        internal readonly Dictionary<int, ScriptBehaviourManager> managersById = new Dictionary<int, ScriptBehaviourManager>();
+        private readonly Dictionary<int, World> worldsById = new Dictionary<int, World>();
         private readonly Dictionary<ScriptBehaviourManager, AverageRecorder> recordersByManager = new Dictionary<ScriptBehaviourManager, AverageRecorder>();
 
         private const float kToggleWidth = 22f;
@@ -51,8 +52,6 @@ namespace Unity.Entities.Editor
 
         private readonly SystemSelectionCallback systemSelectionCallback;
         private readonly WorldSelectionGetter getWorldSelection;
-
-        private int systemVersion;
 
         private static GUIStyle RightAlignedLabel
         {
@@ -70,7 +69,7 @@ namespace Unity.Entities.Editor
 
         private static GUIStyle rightAlignedText;
 
-        private static MultiColumnHeaderState GetHeaderState()
+        internal static MultiColumnHeaderState GetHeaderState()
         {
             var columns = new[]
             {
@@ -139,7 +138,7 @@ namespace Unity.Entities.Editor
             return new SystemListView(state, header, systemSelectionCallback, worldSelectionGetter);
         }
 
-        private SystemListView(TreeViewState state, MultiColumnHeader header, SystemSelectionCallback systemSelectionCallback, WorldSelectionGetter worldSelectionGetter) : base(state, header)
+        internal SystemListView(TreeViewState state, MultiColumnHeader header, SystemSelectionCallback systemSelectionCallback, WorldSelectionGetter worldSelectionGetter) : base(state, header)
         {
             this.getWorldSelection = worldSelectionGetter;
             this.systemSelectionCallback = systemSelectionCallback;
@@ -147,93 +146,90 @@ namespace Unity.Entities.Editor
             Reload();
         }
 
-        static int CompareSystem(ScriptBehaviourManager x, ScriptBehaviourManager y)
-        {
-            var xIsEntityManager = x is EntityManager;
-            var yIsEntityManager = y is EntityManager;
-            if (xIsEntityManager == yIsEntityManager)
-            {
-                return string.CompareOrdinal(x.GetType().Name, y.GetType().Name);
-            }
-            else
-            {
-                return xIsEntityManager ? -1 : 1;
-            }
-        }
-
-        private TreeViewItem CreateManagerItem(int id, ScriptBehaviourManager manager)
+        private TreeViewItem CreateManagerItem(int id, ScriptBehaviourManager manager, World world)
         {
             managersById.Add(id, manager);
-            var recorder = Recorder.Get($"{getWorldSelection().Name} {manager.GetType().FullName}");
+            worldsById.Add(id, world);
+            var recorder = Recorder.Get($"{world.Name} {manager.GetType().FullName}");
             recordersByManager.Add(manager, new AverageRecorder(recorder));
             recorder.enabled = true;
-            return new TreeViewItem { id = id, displayName = manager.GetType().Name.ToString() };
+            var name = getWorldSelection() == null ? $"{manager.GetType().Name} ({world.Name})" : manager.GetType().Name;
+            return new TreeViewItem { id = id, displayName = name };
         }
+
+        private PlayerLoopSystem lastPlayerLoop;
 
         protected override TreeViewItem BuildRoot()
         {
-            managersByGroup.Clear();
             managersById.Clear();
-            floatingManagers.Clear();
+            worldsById.Clear();
             recordersByManager.Clear();
-
-            systemVersion = -1;
-            if (getWorldSelection() != null)
-            {
-                systemVersion = getWorldSelection().Version;
-                Dictionary<Type, ScriptBehaviourUpdateOrder.ScriptBehaviourGroup> allGroups;
-                Dictionary<Type, ScriptBehaviourUpdateOrder.DependantBehavior> dependencies;
-                ScriptBehaviourUpdateOrder.CollectGroups(getWorldSelection().BehaviourManagers, out allGroups, out dependencies);
-
-                foreach (var manager in getWorldSelection().BehaviourManagers)
-                {
-                    var hasGroup = false;
-                    foreach (var attributeData in manager.GetType().GetCustomAttributesData())
-                    {
-                        if (attributeData.AttributeType == typeof(UpdateInGroupAttribute))
-                        {
-                            var groupType = (Type) attributeData.ConstructorArguments[0].Value;
-                            if (!managersByGroup.ContainsKey(groupType))
-                                managersByGroup[groupType] = new List<ScriptBehaviourManager>{manager};
-                            else
-                                managersByGroup[groupType].Add(manager);
-                            hasGroup = true;
-                            break;
-                        }
-                    }
-
-                    if (!hasGroup)
-                    {
-                        floatingManagers.Add(manager);
-                    }
-                }
-                foreach (var managerSet in managersByGroup.Values)
-                {
-                    managerSet.Sort(CompareSystem);
-                }
-            }
-            floatingManagers.Sort(CompareSystem);
 
             var currentID = 0;
             var root  = new TreeViewItem { id = currentID++, depth = -1, displayName = "Root" };
-            if (managersByGroup.Count == 0 && floatingManagers.Count == 0)
+            
+            lastPlayerLoop = ScriptBehaviourUpdateOrder.CurrentPlayerLoop;
+
+            var expandedIds = new List<int>();
+
+            if (ScriptBehaviourUpdateOrder.CurrentPlayerLoop.subSystemList == null)
             {
-                root.AddChild(new TreeViewItem { id = currentID++, displayName = "No ComponentSystems Loaded"});
+                root.children = new List<TreeViewItem>(0);
             }
             else
             {
-                foreach (var manager in floatingManagers)
-                    root.AddChild(CreateManagerItem(currentID++, manager));
-
-                foreach (var group in (from g in managersByGroup.Keys orderby g.Name select g))
+                foreach (var group in ScriptBehaviourUpdateOrder.CurrentPlayerLoop.subSystemList)
                 {
-                    var groupItem = new TreeViewItem { id = currentID++, displayName = group.Name };
-                    root.AddChild(groupItem);
-                    foreach (var manager in managersByGroup[group])
-                        groupItem.AddChild(CreateManagerItem(currentID++, manager));
+                    var groupItem = new TreeViewItem { id = currentID++, depth = 0, displayName = group.type.Name};
+                    var hasManagerChildren = false;
+                    foreach (var child in group.subSystemList)
+                    {
+                        var executionDelegate = child.updateDelegate;
+                        if (executionDelegate != null && executionDelegate.Target is ScriptBehaviourUpdateOrder.DummyDelagateWrapper dummy)
+                        {
+                            var system = dummy.Manager;
+                            if (getWorldSelection() == null)
+                            {
+                                foreach (var world in World.AllWorlds)
+                                {
+                                    if (world.BehaviourManagers.Contains(system))
+                                    {
+                                        groupItem.AddChild(CreateManagerItem(currentID++, system, world));
+                                        hasManagerChildren = true;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                if (getWorldSelection().BehaviourManagers.Contains(system))
+                                {
+                                    groupItem.AddChild(CreateManagerItem(currentID++, system, getWorldSelection()));
+                                    hasManagerChildren = true;
+                                }
+                            }
+                        }
+                        else if (getWorldSelection() == null)
+                        {
+                            groupItem.AddChild(new TreeViewItem(currentID++, 1, child.type.Name));
+                        }
+                    }
+
+                    if (groupItem.hasChildren)
+                    {
+                        root.AddChild(groupItem);
+                        if (hasManagerChildren)
+                            expandedIds.Add(groupItem.id);
+                    }
+                    else
+                    {
+                        --currentID;
+                    }
                 }
-                SetupDepthsFromParentsAndChildren(root);
             }
+
+            state.expandedIDs = expandedIds;
+            
+            SetupDepthsFromParentsAndChildren(root);
             return root;
         }
 
@@ -255,11 +251,17 @@ namespace Unity.Entities.Editor
                     toggleRect.xMin = toggleRect.xMin + 4f;
                     componentSystemBase.Enabled = GUI.Toggle(toggleRect, componentSystemBase.Enabled, GUIContent.none);
                 }
-                GUI.enabled = componentSystemBase?.ShouldRunSystem() ?? true;
 
-                var timingRect = args.GetCellRect(2);
-                var recorder = recordersByManager[manager];
-                GUI.Label(timingRect, recorder.ReadMilliseconds().ToString("f2"), RightAlignedLabel);
+                if (componentSystemBase?.ShouldRunSystem() ?? false)
+                {
+                    var timingRect = args.GetCellRect(2);
+                    var recorder = recordersByManager[manager];
+                    GUI.Label(timingRect, recorder.ReadMilliseconds().ToString("f2"), RightAlignedLabel);
+                }
+            }
+            else
+            {
+                GUI.enabled = false;
             }
 
             var indent = GetContentIndent(item);
@@ -269,15 +271,25 @@ namespace Unity.Entities.Editor
             GUI.enabled = enabled;
         }
 
+        protected override void AfterRowsGUI()
+        {
+            base.AfterRowsGUI();
+            if (Event.current.type == EventType.MouseDown)
+            {
+                SetSelection(new List<int>());
+            }
+        }
+
         protected override void SelectionChanged(IList<int> selectedIds)
         {
             if (selectedIds.Count > 0 && managersById.ContainsKey(selectedIds[0]))
             {
-                systemSelectionCallback(managersById[selectedIds[0]], false, true);
+                systemSelectionCallback(managersById[selectedIds[0]], worldsById[selectedIds[0]]);
             }
             else
             {
-                systemSelectionCallback(null, false, true);
+                systemSelectionCallback(null, null);
+                SetSelection(new List<int>());
             }
         }
 
@@ -291,11 +303,28 @@ namespace Unity.Entities.Editor
             SetSelection(GetSelection(), TreeViewSelectionOptions.FireSelectionChanged);
         }
 
+        private bool PlayerLoopsMatch(PlayerLoopSystem a, PlayerLoopSystem b)
+        {
+            if (a.type != b.type)
+                return false;
+            if (a.subSystemList == b.subSystemList)
+                return true;
+            if (a.subSystemList == null || b.subSystemList == null)
+                return false;
+            if (a.subSystemList.Length != b.subSystemList.Length)
+                return false;
+            for (var i = 0; i < a.subSystemList.Length; ++i)
+            {
+                if (!PlayerLoopsMatch(a.subSystemList[i], b.subSystemList[i]))
+                    return false;
+            }
+            
+            return true;
+        }
+
         public void UpdateIfNecessary()
         {
-            if (getWorldSelection() == null)
-                return;
-            if (getWorldSelection().Version != systemVersion)
+            if (!PlayerLoopsMatch(lastPlayerLoop, ScriptBehaviourUpdateOrder.CurrentPlayerLoop))
                 Reload();
         }
 
@@ -314,7 +343,7 @@ namespace Unity.Entities.Editor
             lastTimedFrame = Time.frameCount;
         }
 
-        public void SetSystemSelection(ScriptBehaviourManager manager)
+        public void SetSystemSelection(ScriptBehaviourManager manager, World world)
         {
             foreach (var pair in managersById)
             {

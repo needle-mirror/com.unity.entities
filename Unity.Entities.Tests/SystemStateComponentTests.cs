@@ -27,7 +27,7 @@ namespace Unity.Entities.Tests
                     Array.Empty<ComponentType>(), // none
                     new ComponentType[] {typeof(EcsTestData)}, // all
                     Allocator.Temp);
-                Assert.AreEqual(1, chunks.EntityCount);
+                Assert.AreEqual(1, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 chunks.Dispose();
             }
 
@@ -39,7 +39,7 @@ namespace Unity.Entities.Tests
                     Array.Empty<ComponentType>(), // none
                     new ComponentType[] {typeof(EcsTestData)}, // all
                     Allocator.Temp);
-                Assert.AreEqual(0, chunks.EntityCount);
+                Assert.AreEqual(0, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 chunks.Dispose();
             }
 
@@ -49,7 +49,7 @@ namespace Unity.Entities.Tests
                     Array.Empty<ComponentType>(), // none
                     new ComponentType[] {typeof(EcsState1)}, // all
                     Allocator.Temp);
-                Assert.AreEqual(1, chunks.EntityCount);
+                Assert.AreEqual(1, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 chunks.Dispose();
             }
 
@@ -61,7 +61,7 @@ namespace Unity.Entities.Tests
                     Array.Empty<ComponentType>(), // none
                     new ComponentType[] {typeof(EcsState1)}, // all
                     Allocator.Temp);
-                Assert.AreEqual(0, chunks.EntityCount);
+                Assert.AreEqual(0, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 chunks.Dispose();
             }
 
@@ -93,7 +93,7 @@ namespace Unity.Entities.Tests
                     Array.Empty<ComponentType>(), // none
                     new ComponentType[] {typeof(EcsTestData)}, // all
                     Allocator.Temp);
-                Assert.AreEqual(512, chunks.EntityCount);
+                Assert.AreEqual(512, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 chunks.Dispose();
             }
 
@@ -109,7 +109,7 @@ namespace Unity.Entities.Tests
                     Array.Empty<ComponentType>(), // none
                     new ComponentType[] {typeof(EcsTestData)}, // all
                     Allocator.Temp);
-                Assert.AreEqual(256, chunks.EntityCount);
+                Assert.AreEqual(256, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 chunks.Dispose();
             }
 
@@ -119,7 +119,7 @@ namespace Unity.Entities.Tests
                     new ComponentType[] {typeof(EcsTestData)}, // none
                     new ComponentType[] {typeof(EcsState1)}, // all
                     Allocator.Temp);
-                Assert.AreEqual(256, chunks.EntityCount);
+                Assert.AreEqual(256, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 chunks.Dispose();
             }
 
@@ -135,7 +135,7 @@ namespace Unity.Entities.Tests
                     Array.Empty<ComponentType>(), // none
                     new ComponentType[] {typeof(EcsState1)}, // all
                     Allocator.Temp);
-                Assert.AreEqual(256, chunks.EntityCount);
+                Assert.AreEqual(256, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 chunks.Dispose();
             }
 
@@ -177,7 +177,7 @@ namespace Unity.Entities.Tests
                     Array.Empty<ComponentType>(), // none
                     new ComponentType[] {typeof(EcsTestData)}, // all
                     Allocator.Temp);
-                Assert.AreEqual(512, chunks.EntityCount);
+                Assert.AreEqual(512, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 chunks.Dispose();
             }
 
@@ -193,7 +193,7 @@ namespace Unity.Entities.Tests
                     Array.Empty<ComponentType>(), // none
                     new ComponentType[] {typeof(EcsTestData)}, // all
                     Allocator.Temp);
-                Assert.AreEqual(256, chunks.EntityCount);
+                Assert.AreEqual(256, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 chunks.Dispose();
             }
 
@@ -203,7 +203,7 @@ namespace Unity.Entities.Tests
                     new ComponentType[] {typeof(EcsTestData)}, // none
                     new ComponentType[] {typeof(EcsState1)}, // all
                     Allocator.Temp);
-                Assert.AreEqual(256, chunks.EntityCount);
+                Assert.AreEqual(256, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 chunks.Dispose();
             }
 
@@ -219,7 +219,7 @@ namespace Unity.Entities.Tests
                     Array.Empty<ComponentType>(), // none
                     new ComponentType[] {typeof(EcsState1)}, // all
                     Allocator.Temp);
-                Assert.AreEqual(256, chunks.EntityCount);
+                Assert.AreEqual(256, ArchetypeChunkArray.CalculateEntityCount(chunks));
                 chunks.Dispose();
             }
 

@@ -29,6 +29,7 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void ComponentTypeFilterUI_ComparisonToTypeManagerCorrect()
         {
+            TypeManager.GetTypeIndex(typeof(EcsTestData));
             var filterUI = new ComponentTypeFilterUI(SetFilterDummy, WorldSelectionGetter);
             Assert.IsFalse(filterUI.TypeListValid());
             filterUI.GetTypes();

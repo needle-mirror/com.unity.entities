@@ -15,7 +15,7 @@ namespace Unity.Transforms
         {
             public ComponentDataArray<Rotation> rotations;
             [ReadOnly] public ComponentDataArray<Heading> headings;
-            public int Length;
+            public readonly int Length;
         }
 
         [Inject] private HeadingsGroup m_HeadingsGroup;
@@ -24,7 +24,7 @@ namespace Unity.Transforms
         {
             public ComponentDataArray<LocalRotation> rotations;
             [ReadOnly] public ComponentDataArray<LocalHeading> headings;
-            public int Length;
+            public readonly int Length;
         }
 
         [Inject] private LocalHeadingsGroup m_LocalHeadingsGroup;
@@ -38,7 +38,7 @@ namespace Unity.Transforms
             public void Execute(int i)
             {
                 var heading = headings[i].Value;
-                var rotation = math.lookRotationToQuaternion(heading, math.up());
+                var rotation = quaternion.lookRotation(heading, math.up());
                 rotations[i] = new Rotation { Value = rotation };
             }
         }
@@ -51,7 +51,7 @@ namespace Unity.Transforms
         
             public void Execute(int i)
             {
-                rotations[i] = new LocalRotation { Value = math.lookRotationToQuaternion(headings[i].Value, math.up()) };
+                rotations[i] = new LocalRotation { Value = quaternion.lookRotation(headings[i].Value, math.up()) };
             }
         }
     

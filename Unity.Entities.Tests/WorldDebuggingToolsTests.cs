@@ -12,7 +12,7 @@ namespace Unity.Entities.Tests
         {
             struct Entities
             {
-                public int Length;
+                public readonly int Length;
                 public ComponentDataArray<EcsTestData> tests;
             }
 
@@ -30,7 +30,7 @@ namespace Unity.Entities.Tests
         {
             struct Entities
             {
-                public int Length;
+                public readonly int Length;
                 public ComponentDataArray<EcsTestData> tests;
                 public SubtractiveComponent<EcsTestData2> noTest2;
             }

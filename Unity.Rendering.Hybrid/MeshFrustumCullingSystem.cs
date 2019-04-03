@@ -23,7 +23,7 @@ namespace Unity.Rendering
             public ComponentDataArray<MeshCullingComponent> sphere;
             public ComponentDataArray<TransformMatrix> transform;
             public EntityArray entities;
-            public int Length;
+            public readonly int Length;
         }
 
         [BurstCompile]
