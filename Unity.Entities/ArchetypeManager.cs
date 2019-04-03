@@ -223,6 +223,7 @@ namespace Unity.Entities
 
         public Archetype* PrevArchetype;
         public Archetype* InstantiableArchetype;
+        public Archetype* SystemStateResidueArchetype;
 
         public EntityRemapUtility.EntityPatchInfo* ScalarEntityPatches;
         public int                                 ScalarEntityPatchCount;
@@ -250,6 +251,8 @@ namespace Unity.Entities
         // shared component combination, if this chunk matches we can avoid searching through all chunks belonging
         // to the archetype
         private Chunk* lastChunkWithSharedComponentsAllocatedInto;
+
+        private Archetype* m_entityOnlyArchetype;
 
         public ArchetypeManager(SharedComponentDataManager sharedComponentManager)
         {
@@ -361,10 +364,25 @@ namespace Unity.Entities
             return hash;
         }
 
+        private Archetype* GetEntityOnlyArchetype(ComponentTypeInArchetype* types, EntityGroupManager groupManager)
+        {
+            if (m_entityOnlyArchetype == null)
+            {
+                m_entityOnlyArchetype = GetOrCreateArchetypeInternal(types, 1, groupManager);
+                m_entityOnlyArchetype->InstantiableArchetype = m_entityOnlyArchetype;
+                m_entityOnlyArchetype->SystemStateResidueArchetype = null;
+            }
+            return m_entityOnlyArchetype;
+        }
+
         public Archetype* GetOrCreateArchetype(ComponentTypeInArchetype* types, int count,
             EntityGroupManager groupManager)
         {
-            var srcArchetype = GetOrCreateArchetypeInternal(types, count, groupManager);
+            var srcArchetype = GetExistingArchetype(types, count);
+            if (srcArchetype != null)
+                return srcArchetype;
+
+            srcArchetype = CreateArchetypeInternal(types, count, groupManager);
 
             var removedTypes = 0;
             var prefabTypeIndex = TypeManager.GetTypeIndex<Prefab>();
@@ -385,7 +403,41 @@ namespace Unity.Entities
 
                 srcArchetype->InstantiableArchetype = instantiableArchetype;
                 instantiableArchetype->InstantiableArchetype = instantiableArchetype;
+                instantiableArchetype->SystemStateResidueArchetype = null;
             }
+
+            if (!srcArchetype->SystemStateCleanupNeeded)
+            {
+                return srcArchetype;
+            }
+
+            var cleanupEntityType = new ComponentTypeInArchetype(ComponentType.Create<CleanupEntity>());
+            bool cleanupAdded = false;
+
+            var newTypeCount = 1;
+            for (var t = 1; t < srcArchetype->TypesCount; ++t)
+            {
+                var type = srcArchetype->Types[t];
+
+                if (type.IsSystemStateComponent||type.IsSystemStateSharedComponent)
+                {
+                    if (!cleanupAdded && (cleanupEntityType < srcArchetype->Types[t]))
+                    {
+                        types[newTypeCount++] = cleanupEntityType;
+                        cleanupAdded = true;
+                    }
+                    types[newTypeCount++] = srcArchetype->Types[t];
+                }
+            }
+            if (!cleanupAdded)
+            {
+                types[newTypeCount++] = cleanupEntityType;
+            }
+            var systemStateResidueArchetype = GetOrCreateArchetype(types, newTypeCount, groupManager);
+            systemStateResidueArchetype->SystemStateResidueArchetype = systemStateResidueArchetype;
+            systemStateResidueArchetype->InstantiableArchetype = GetEntityOnlyArchetype(types, groupManager);
+
+            srcArchetype->SystemStateResidueArchetype = systemStateResidueArchetype;
 
             return srcArchetype;
         }
@@ -394,13 +446,16 @@ namespace Unity.Entities
             EntityGroupManager groupManager)
         {
             var type = GetExistingArchetype(types, count);
-            if (type != null)
-                return type;
+            return type != null ? type : CreateArchetypeInternal(types, count, groupManager);
+        }
 
+        private Archetype* CreateArchetypeInternal(ComponentTypeInArchetype* types, int count,
+            EntityGroupManager groupManager)
+        {
             AssertArchetypeComponents(types, count);
 
             // This is a new archetype, allocate it and add it to the hash map
-            type = (Archetype*) m_ArchetypeChunkAllocator.Allocate(sizeof(Archetype), 8);
+            var type = (Archetype*) m_ArchetypeChunkAllocator.Allocate(sizeof(Archetype), 8);
             type->TypesCount = count;
             type->Types =
                 (ComponentTypeInArchetype*) m_ArchetypeChunkAllocator.Construct(
@@ -524,11 +579,12 @@ namespace Unity.Entities
                 var mi = 0;
                 for (var i = 0; i < count; ++i)
                 {
-                    var cType = TypeManager.GetTypeInfo(types[i].TypeIndex);
+                    var index = type->TypeMemoryOrder[i];
+                    var cType = TypeManager.GetTypeInfo(types[index].TypeIndex);
                     if (cType.Category == TypeManager.TypeCategory.Class)
-                        type->ManagedArrayOffset[i] = mi++;
+                        type->ManagedArrayOffset[index] = mi++;
                     else
-                        type->ManagedArrayOffset[i] = -1;
+                        type->ManagedArrayOffset[index] = -1;
                 }
             }
 
@@ -538,11 +594,12 @@ namespace Unity.Entities
                 var mi = 0;
                 for (var i = 0; i < count; ++i)
                 {
-                    var cType = TypeManager.GetTypeInfo(types[i].TypeIndex);
+                    var index = type->TypeMemoryOrder[i];
+                    var cType = TypeManager.GetTypeInfo(types[index].TypeIndex);
                     if (cType.Category == TypeManager.TypeCategory.ISharedComponentData)
-                        type->SharedComponentOffset[i] = mi++;
+                        type->SharedComponentOffset[index] = mi++;
                     else
-                        type->SharedComponentOffset[i] = -1;
+                        type->SharedComponentOffset[index] = -1;
                 }
             }
 

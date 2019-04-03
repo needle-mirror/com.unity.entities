@@ -82,7 +82,7 @@ namespace Unity.Entities.Editor.Tests
         public void WorldPopup_RestorePreviousSelection()
         {
             World world = null;
-            var popup = new WorldPopup(() => null, x => world = x);
+            var popup = new WorldPopup(() => null, x => world = x, () => true, () => {});
             popup.TryRestorePreviousSelection(false, WorldPopup.kNoWorldName);
             Assert.AreEqual(World.AllWorlds[0], world);
             popup.TryRestorePreviousSelection(false, World2Name);

@@ -541,6 +541,7 @@ namespace Unity.Entities
                 ++t;
             }
 
+            var indexInTypeArray = t;
             componentTypeInArchetypeArray[t] = componentType;
             while (t < archetype->TypesCount)
             {
@@ -551,53 +552,18 @@ namespace Unity.Entities
             var newType = archetypeManager.GetOrCreateArchetype(componentTypeInArchetypeArray,
                 archetype->TypesCount + 1, groupManager);
 
-            int* sharedComponentDataIndices = null;
-            if (newType->NumSharedComponents > 0)
+            int* sharedComponentDataIndices = GetComponentChunk(entity)->SharedComponentValueArray;
+            if ((newType->NumSharedComponents > 0) && (newType->NumSharedComponents != archetype->NumSharedComponents))
             {
-                var oldSharedComponentDataIndices = GetComponentChunk(entity)->SharedComponentValueArray;
-                if (type.IsSharedComponent)
-                {
-                    int* stackAlloced = stackalloc int[newType->NumSharedComponents];
-                    sharedComponentDataIndices = stackAlloced;
+                var oldSharedComponentDataIndices = sharedComponentDataIndices;
+                int* stackAlloced = stackalloc int[newType->NumSharedComponents];
+                sharedComponentDataIndices = stackAlloced;
 
-                    if (archetype->SharedComponentOffset == null)
-                    {
-                        sharedComponentDataIndices[0] = 0;
-                    }
-                    else
-                    {
-                        t = 0;
-                        var sharedIndex = 0;
-                        while (t < archetype->TypesCount && archetype->Types[t] < componentType)
-                        {
-                            if (archetype->SharedComponentOffset[t] != -1)
-                            {
-                                sharedComponentDataIndices[sharedIndex] = oldSharedComponentDataIndices[sharedIndex];
-                                ++sharedIndex;
-                            }
-
-                            ++t;
-                        }
-
-                        sharedComponentDataIndices[sharedIndex] = 0;
-                        while (t < archetype->TypesCount)
-                        {
-                            if (archetype->SharedComponentOffset[t] != -1)
-                            {
-                                sharedComponentDataIndices[sharedIndex + 1] =
-                                    oldSharedComponentDataIndices[sharedIndex];
-                                ++sharedIndex;
-                            }
-
-                            ++t;
-                        }
-                    }
-                }
-                else
-                {
-                    // reuse old sharedComponentDataIndices
-                    sharedComponentDataIndices = oldSharedComponentDataIndices;
-                }
+                int indexOfNewSharedComponent = newType->SharedComponentOffset[indexInTypeArray];
+                UnsafeUtility.MemCpy(sharedComponentDataIndices, oldSharedComponentDataIndices, indexOfNewSharedComponent*sizeof(int));
+                sharedComponentDataIndices[indexOfNewSharedComponent] = 0;
+                UnsafeUtility.MemCpy(sharedComponentDataIndices + indexOfNewSharedComponent + 1, oldSharedComponentDataIndices + indexOfNewSharedComponent,
+                    (archetype->NumSharedComponents-indexOfNewSharedComponent)*sizeof(int));
             }
 
             SetArchetype(archetypeManager, entity, newType, sharedComponentDataIndices);
@@ -640,72 +606,33 @@ namespace Unity.Entities
                     }
                     else
                     {
+                        var newType = archetype->SystemStateResidueArchetype;
+
+                        int* sharedComponentDataIndices = chunk->SharedComponentValueArray;
+                        if ((newType->NumSharedComponents > 0) && (newType->NumSharedComponents != archetype->NumSharedComponents))
+                        {
+                            var oldSharedComponentDataIndices = sharedComponentDataIndices;
+                            int* tempAlloc = stackalloc int[newType->NumSharedComponents];
+                            sharedComponentDataIndices = tempAlloc;
+
+                            int oldIndex = 0;
+                            for (int newIndex = 0; newIndex < newType->TypesCount; ++newIndex, ++oldIndex)
+                            {
+                                if (newType->SharedComponentOffset[newIndex] != -1)
+                                {
+                                    var t = newType->Types[newIndex];
+                                    while (t != archetype->Types[oldIndex])
+                                        ++oldIndex;
+                                    var newOffset = newType->SharedComponentOffset[newIndex];
+                                    var oldOffset = archetype->SharedComponentOffset[oldIndex];
+                                    sharedComponentDataIndices[newOffset] = oldSharedComponentDataIndices[oldOffset];
+                                }
+                            }
+                        }
+
                         for (var batchEntityIndex = 0; batchEntityIndex < batchCount; batchEntityIndex++)
                         {
                             var entity = entities[entityIndex + batchEntityIndex];
-                            var removedTypes = 0;
-                            var removedComponentIsShared = false;
-                            for (var t = 1; t < archetype->TypesCount; ++t)
-                            {
-                                var type = archetype->Types[t];
-                                
-                                if (!(type.IsSystemStateComponent||type.IsSystemStateSharedComponent))
-                                {
-                                    ++removedTypes;
-                                    removedComponentIsShared |= type.IsSharedComponent;
-                                }
-                                else
-                                {
-                                    componentTypeInArchetypeArray[t - removedTypes] = archetype->Types[t];
-                                }
-                            }
-
-                            componentTypeInArchetypeArray[archetype->TypesCount - removedTypes] =
-                                new ComponentTypeInArchetype(ComponentType.Create<CleanupEntity>());
-
-                            var newType = archetypeManager.GetOrCreateArchetype(componentTypeInArchetypeArray,
-                                archetype->TypesCount - removedTypes + 1, groupManager);
-
-                            int* sharedComponentDataIndices = null;
-                            if (newType->NumSharedComponents > 0)
-                            {
-                                var oldSharedComponentDataIndices =
-                                    GetComponentChunk(entity)->SharedComponentValueArray;
-                                if (removedComponentIsShared)
-                                {
-                                    int* tempAlloc = stackalloc int[newType->NumSharedComponents];
-                                    sharedComponentDataIndices = tempAlloc;
-
-                                    var srcIndex = 0;
-                                    var dstIndex = 0;
-                                    for (var t = 0; t < archetype->TypesCount; ++t)
-                                    {
-                                        if (archetype->SharedComponentOffset[t] != -1)
-                                        {
-                                            var typeIndex = archetype->Types[t].TypeIndex;
-                                            var systemStateType = typeof(ISystemStateComponentData).IsAssignableFrom(TypeManager.GetType(typeIndex));
-                                            var systemStateSharedType = typeof(ISystemStateSharedComponentData).IsAssignableFrom(TypeManager.GetType(typeIndex));
-                                            if (!(systemStateType||systemStateSharedType))
-                                            {
-                                                srcIndex++;
-                                            }
-                                            else
-                                            {
-                                                sharedComponentDataIndices[dstIndex] =
-                                                    oldSharedComponentDataIndices[srcIndex];
-                                                srcIndex++;
-                                                dstIndex++;
-                                            }
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    // reuse old sharedComponentDataIndices
-                                    sharedComponentDataIndices = oldSharedComponentDataIndices;
-                                }
-                            }
-
                             IncrementComponentOrderVersion(archetype, GetComponentChunk(entity),
                                 sharedComponentDataManager);
                             SetArchetype(archetypeManager, entity, newType, sharedComponentDataIndices);
@@ -726,46 +653,29 @@ namespace Unity.Entities
             var archetype = GetArchetype(entity);
 
             var removedTypes = 0;
+            int indexInOldTypeArray = -1;
             for (var t = 0; t < archetype->TypesCount; ++t)
                 if (archetype->Types[t].TypeIndex == componentType.TypeIndex)
+                {
+                    indexInOldTypeArray = t;
                     ++removedTypes;
+                }
                 else
                     componentTypeInArchetypeArray[t - removedTypes] = archetype->Types[t];
 
             var newType = archetypeManager.GetOrCreateArchetype(componentTypeInArchetypeArray,
                 archetype->TypesCount - removedTypes, groupManager);
 
-            int* sharedComponentDataIndices = null;
-            if (newType->NumSharedComponents > 0)
+            int* sharedComponentDataIndices = GetComponentChunk(entity)->SharedComponentValueArray;
+            if ((newType->NumSharedComponents > 0) && (newType->NumSharedComponents != archetype->NumSharedComponents))
             {
-                var oldSharedComponentDataIndices = GetComponentChunk(entity)->SharedComponentValueArray;
-                if (type.IsSharedComponent)
-                {
-                    int* tempAlloc = stackalloc int[newType->NumSharedComponents];
-                    sharedComponentDataIndices = tempAlloc;
+                var oldSharedComponentDataIndices = sharedComponentDataIndices;
+                int* tempAlloc = stackalloc int[newType->NumSharedComponents];
+                sharedComponentDataIndices = tempAlloc;
 
-                    var srcIndex = 0;
-                    var dstIndex = 0;
-                    for (var t = 0; t < archetype->TypesCount; ++t)
-                        if (archetype->SharedComponentOffset[t] != -1)
-                        {
-                            if (archetype->Types[t].TypeIndex == componentType.TypeIndex)
-                            {
-                                srcIndex++;
-                            }
-                            else
-                            {
-                                sharedComponentDataIndices[dstIndex] = oldSharedComponentDataIndices[srcIndex];
-                                srcIndex++;
-                                dstIndex++;
-                            }
-                        }
-                }
-                else
-                {
-                    // reuse old sharedComponentDataIndices
-                    sharedComponentDataIndices = oldSharedComponentDataIndices;
-                }
+                int indexOfRemovedSharedComponent = archetype->SharedComponentOffset[indexInOldTypeArray];
+                UnsafeUtility.MemCpy(sharedComponentDataIndices, oldSharedComponentDataIndices, indexOfRemovedSharedComponent*sizeof(int));
+                UnsafeUtility.MemCpy(sharedComponentDataIndices + indexOfRemovedSharedComponent, oldSharedComponentDataIndices + indexOfRemovedSharedComponent + 1, (newType->NumSharedComponents-indexOfRemovedSharedComponent)*sizeof(int));
             }
 
             IncrementComponentOrderVersion(archetype, GetComponentChunk(entity), sharedComponentDataManager);

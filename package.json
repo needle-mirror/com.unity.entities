@@ -1,7 +1,7 @@
 {
     "name": "com.unity.entities", 
     "unity": "2018.2", 
-    "version": "0.0.12-preview.14", 
+    "version": "0.0.12-preview.15", 
     "dependencies": {
         "com.unity.collections": "0.0.9-preview.6", 
         "com.unity.properties": "0.2.11-preview", 

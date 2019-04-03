@@ -66,7 +66,7 @@ namespace Unity.Entities
                    && entityManager.HasComponent(entity, GetComponentType());
         }
         
-        void OnValidate()
+        public void OnValidate()
         {
             EntityManager entityManager;
             Entity entity;
@@ -93,7 +93,7 @@ namespace Unity.Entities
     public abstract class ComponentDataWrapper<T> : ComponentDataWrapperBase where T : struct, IComponentData
     {
         [SerializeField, WrappedComponentData]
-        T m_SerializedData;
+        protected T m_SerializedData;
 
         public T Value
         {

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEditor.IMGUI.Controls;
@@ -174,7 +173,7 @@ namespace Unity.Entities.Editor
 
         private void CreateSystemListView()
         {
-            systemListView = SystemListView.CreateList(systemListStates, systemListStateNames, (system, world) => SetSystemSelection(system, world, false, true), () => WorldSelection);
+            systemListView = SystemListView.CreateList(systemListStates, systemListStateNames, (system, world) => SetSystemSelection(system, world, false, true), () => WorldSelection, () => ShowInactiveSystems);
             systemListView.multiColumnHeader.ResizeToFit();
         }
 
@@ -183,9 +182,20 @@ namespace Unity.Entities.Editor
             componentGroupListView = ComponentGroupListView.CreateList(SystemSelection as ComponentSystemBase, componentGroupListStates, componentGroupListStateNames, x => SetEntityListSelection(x, false, true), () => SystemSelectionWorld);
         }
 
+        [SerializeField] private bool ShowInactiveSystems;
+
         private void CreateWorldPopup()
         {
-            m_WorldPopup = new WorldPopup(() => WorldSelection, x => SetWorldSelection(x, true));
+            m_WorldPopup = new WorldPopup(
+                () => WorldSelection,
+                x => SetWorldSelection(x, true),
+                () => ShowInactiveSystems,
+                () =>
+                {
+                    ShowInactiveSystems = !ShowInactiveSystems;
+                    systemListView.Reload();
+                }
+                );
         }
 
         private World worldSelection;
