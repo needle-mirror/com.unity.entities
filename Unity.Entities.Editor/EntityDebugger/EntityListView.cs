@@ -10,6 +10,7 @@ namespace Unity.Entities.Editor
     public delegate void EntitySelectionCallback(Entity selection);
     public delegate World WorldSelectionGetter();
     public delegate ScriptBehaviourManager SystemSelectionGetter();
+    public delegate void ChunkArrayAssignmentCallback(NativeArray<ArchetypeChunk> chunkArray);
     
     public class EntityListView : TreeView, IDisposable {
 
@@ -39,17 +40,19 @@ namespace Unity.Entities.Editor
         private readonly EntitySelectionCallback setEntitySelection;
         private readonly WorldSelectionGetter getWorldSelection;
         private readonly SystemSelectionGetter getSystemSelection;
+        private readonly ChunkArrayAssignmentCallback setChunkArray;
         
         private readonly EntityArrayListAdapter rows;
 
         public NativeArray<ArchetypeChunk> ChunkArray => chunkArray;
         private NativeArray<ArchetypeChunk> chunkArray;
 
-        public EntityListView(TreeViewState state, EntityListQuery entityQuery, EntitySelectionCallback entitySelectionCallback, WorldSelectionGetter getWorldSelection, SystemSelectionGetter getSystemSelection) : base(state)
+        public EntityListView(TreeViewState state, EntityListQuery entityQuery, EntitySelectionCallback entitySelectionCallback, WorldSelectionGetter getWorldSelection, SystemSelectionGetter getSystemSelection, ChunkArrayAssignmentCallback setChunkArray) : base(state)
         {
             this.setEntitySelection = entitySelectionCallback;
             this.getWorldSelection = getWorldSelection;
             this.getSystemSelection = getSystemSelection;
+            this.setChunkArray = setChunkArray;
             selectedEntityQuery = entityQuery;
             rows = new EntityArrayListAdapter();
             getNewSelectionOverride = (item, selection, shift) => new List<int>() {item.id};
@@ -59,9 +62,13 @@ namespace Unity.Entities.Editor
         internal bool ShowingSomething => getWorldSelection() != null &&
                                        (selectedEntityQuery != null || !(getSystemSelection() is ComponentSystemBase));
 
-        public void UpdateIfNecessary()
+        private int lastVersion = -1;
+
+        public bool NeedsReload => ShowingSomething && getWorldSelection().GetExistingManager<EntityManager>().Version != lastVersion;
+        
+        public void ReloadIfNecessary()
         {
-            if (ShowingSomething)
+            if (NeedsReload)
                 Reload();
         }
 
@@ -104,6 +111,10 @@ namespace Unity.Entities.Editor
             }
 
             rows.SetSource(chunkArray, entityManager, chunkFilter);
+            setChunkArray(chunkArray);
+
+            lastVersion = entityManager.Version;
+            
             return rows;
         }
 

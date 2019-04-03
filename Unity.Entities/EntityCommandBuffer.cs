@@ -89,6 +89,7 @@ namespace Unity.Entities
             // Until it is fixed, this function prevents commands from forming batches
             // of size >1.
             m_PrevCreateCommand = null;
+            m_PrevEntityCommand = null;
         }
     }
 

@@ -21,10 +21,5 @@ namespace Unity.Entities.Editor
 
             inclusionList.OnGUI(World.Active, gameObjectEntity.Entity);
         }
-
-        public override bool RequiresConstantRepaint()
-        {
-            return true;
-        }
     }
 }

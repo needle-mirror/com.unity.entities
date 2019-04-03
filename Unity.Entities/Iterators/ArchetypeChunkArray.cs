@@ -73,9 +73,9 @@ namespace Unity.Entities
             return result;
         }
 
-        public bool DidAddOrChange<T>(ArchetypeChunkComponentType<T> chunkComponentType) where T : struct, IComponentData
+        public bool DidAddOrChange<T>(ArchetypeChunkComponentType<T> chunkComponentType, uint version) where T : struct, IComponentData
         {
-            return ChangeVersionUtility.DidAddOrChange(GetComponentVersion(chunkComponentType), chunkComponentType.GlobalSystemVersion);
+            return ChangeVersionUtility.DidAddOrChange(GetComponentVersion(chunkComponentType), version);
         }
 
         public bool DidChange<T>(ArchetypeChunkComponentType<T> chunkComponentType) where T : struct, IComponentData

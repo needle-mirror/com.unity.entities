@@ -59,7 +59,7 @@ namespace Unity.Entities.Editor.Tests
             ScriptBehaviourManager currentSystem = null;
 
             using (var listView = new EntityListView(new TreeViewState(), null, SetEntitySelection, () => null,
-                () => currentSystem))
+                () => currentSystem, x => {}))
             {
                 currentSystem = World.Active.GetExistingManager<EntityManager>();
                 listView.SelectedEntityQuery = null;
@@ -88,7 +88,7 @@ namespace Unity.Entities.Editor.Tests
             ScriptBehaviourManager currentSystem = null;
 
             using (var listView = new EntityListView(new TreeViewState(), null, SetEntitySelection, () => selectedWorld,
-                () => currentSystem))
+                () => currentSystem, x => {}))
             {
                 currentSystem = World.Active.GetExistingManager<EntityManager>();
                 listView.SelectedEntityQuery = AllQuery;

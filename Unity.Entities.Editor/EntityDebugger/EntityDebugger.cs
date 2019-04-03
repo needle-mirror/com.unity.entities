@@ -195,7 +195,8 @@ namespace Unity.Entities.Editor
                 EntityListQuerySelection,
                 x => SetEntitySelection(x, false),
                 () => SystemSelectionWorld ?? WorldSelection,
-                () => SystemSelection
+                () => SystemSelection,
+                x => chunkInfoListView.SetChunkArray(x)
                 );
         }
 
@@ -284,16 +285,23 @@ namespace Unity.Entities.Editor
             if (change == PlayModeStateChange.ExitingPlayMode && Selection.activeObject == selectionProxy)
                 Selection.activeObject = null;
         }
-        
-        private float lastUpdate;
+
+        private readonly RepaintLimiter repaintLimiter = new RepaintLimiter();
 
         private void Update()
         {
             systemListView.UpdateTimings();
             
-            if (Time.realtimeSinceStartup > lastUpdate + 0.5f) 
-            { 
-                Repaint(); 
+            
+
+            if (repaintLimiter.SimulationAdvanced())
+            {
+                Repaint();
+            }
+            else if (!Application.isPlaying)
+            {
+                if (systemListView.NeedsReload || componentGroupListView.NeedsReload || entityListView.NeedsReload || !filterUI.TypeListValid())
+                    Repaint();
             }
         }
 
@@ -408,11 +416,10 @@ namespace Unity.Entities.Editor
             GUILayout.FlexibleSpace();
             ChunkInfoToggle();
             GUILayout.EndHorizontal();
-            var chunkArray = entityListView.ChunkArray;
-            if (chunkArray.IsCreated && entityListView.ShowingSomething)
+            if (entityListView.ShowingSomething)
             {
                 GUILayout.BeginHorizontal();
-                GUILayout.Label($"Matching chunks: {chunkArray.Length}");
+                GUILayout.Label($"Matching chunks: {entityListView.ChunkArray.Length}");
                 GUILayout.FlexibleSpace();
                 if (chunkInfoListView.HasSelection() && GUILayout.Button("Clear Selection"))
                 {
@@ -420,7 +427,6 @@ namespace Unity.Entities.Editor
                     EditorGUIUtility.ExitGUI();
                 }
                 GUILayout.EndHorizontal();
-                chunkInfoListView.SetChunkArray(chunkArray);
                 chunkInfoListView.OnGUI(GUIHelpers.GetExpandingRect());
             }
         }
@@ -445,10 +451,10 @@ namespace Unity.Entities.Editor
         {
             if (Event.current.type == EventType.Layout)
             {
-                systemListView.UpdateIfNecessary();
-                componentGroupListView.UpdateIfNecessary();
+                systemListView.ReloadIfNecessary();
                 filterUI.GetTypes();
-                entityListView.UpdateIfNecessary();
+                componentGroupListView.ReloadIfNecessary();
+                entityListView.ReloadIfNecessary();
             }
             
             if (Selection.activeObject == selectionProxy)
@@ -488,8 +494,8 @@ namespace Unity.Entities.Editor
             }
             
             GUILayout.EndHorizontal();
-
-            lastUpdate = Time.realtimeSinceStartup;
+            
+            repaintLimiter.RecordRepaint();
         }
     }
 }

@@ -38,6 +38,7 @@ namespace Unity.Entities
         public ComponentGroup[] 			ComponentGroups => m_ComponentGroups;
         
         public uint GlobalSystemVersion => m_EntityManager.GlobalSystemVersion;
+        public uint LastSystemVersion   => m_LastSystemVersion;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         internal int                        m_SystemID;

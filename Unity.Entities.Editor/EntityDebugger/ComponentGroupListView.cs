@@ -303,11 +303,20 @@ namespace Unity.Entities.Editor
         {
             SetSelection(GetSelection(), TreeViewSelectionOptions.FireSelectionChanged);
         }
-
-        public void UpdateIfNecessary()
+        
+        public bool NeedsReload
         {
-            var expectedGroupCount = SelectedSystem?.ComponentGroups?.Length ?? 0; 
-            if (expectedGroupCount != componentGroupsById.Count)
+            get
+            {
+                var expectedGroupCount = SelectedSystem?.ComponentGroups?.Length ?? 0;
+                return expectedGroupCount != componentGroupsById.Count;
+            }
+            
+        }
+
+        public void ReloadIfNecessary()
+        {
+            if (NeedsReload)
                 Reload();
         }
     }

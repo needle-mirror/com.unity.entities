@@ -6,6 +6,7 @@ using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine.Scripting;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid")]
@@ -13,7 +14,7 @@ using UnityEngine.Scripting;
 
 namespace Unity.Entities
 {
-    //@TODO: There is nothing prevent non-main thread (non-job thread) access of EntityMnaager.
+    //@TODO: There is nothing prevent non-main thread (non-job thread) access of EntityManager.
     //       Static Analysis or runtime checks?
 
     //@TODO: safety?
@@ -624,6 +625,13 @@ namespace Unity.Entities
             BufferHeader* header = (BufferHeader*)Entities->GetComponentDataWithTypeRW(entity, typeIndex, Entities->GlobalSystemVersion);
 
             return header->Length;
+        }
+
+        internal uint GetChunkVersionHash(Entity entity)
+        {
+            var chunk = Entities->GetComponentChunk(entity);
+            var typeCount = chunk->Archetype->TypesCount;
+            return math.hash((void*)chunk->ChangeVersion, typeCount*UnsafeUtility.SizeOf(typeof(uint)));
         }
 
         public NativeArray<Entity> GetAllEntities(Allocator allocator = Allocator.Temp)

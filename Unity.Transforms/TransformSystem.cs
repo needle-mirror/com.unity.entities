@@ -364,6 +364,7 @@ namespace Unity.Transforms
             [ReadOnly] public ArchetypeChunkComponentType<Rotation> rotationType;
             [ReadOnly] public ArchetypeChunkComponentType<Position> positionType;
             [ReadOnly] public ArchetypeChunkComponentType<Scale> scaleType;
+            [ReadOnly] public uint lastSystemUpdateVersion;
             public ArchetypeChunkComponentType<LocalToWorld> localToWorldType;
 
             public void Execute(int chunkIndex)
@@ -376,9 +377,9 @@ namespace Unity.Transforms
                 var chunkScales = chunk.GetNativeArray(scaleType);
                 var chunkLocalToWorlds = chunk.GetNativeArray(localToWorldType);
 
-                var chunkRotationsChanged = chunk.DidAddOrChange(rotationType);
-                var chunkPositionsChanged = chunk.DidAddOrChange(positionType);
-                var chunkScalesChanged = chunk.DidAddOrChange(scaleType);
+                var chunkRotationsChanged = chunk.DidAddOrChange(rotationType, lastSystemUpdateVersion);
+                var chunkPositionsChanged = chunk.DidAddOrChange(positionType, lastSystemUpdateVersion);
+                var chunkScalesChanged = chunk.DidAddOrChange(scaleType, lastSystemUpdateVersion);
                 var chunkAnyChanged = chunkRotationsChanged || chunkPositionsChanged || chunkScalesChanged;
 
                 if (!chunkAnyChanged)
@@ -482,6 +483,7 @@ namespace Unity.Transforms
                 rotationType = RotationTypeRO,
                 positionType = PositionTypeRO,
                 scaleType = ScaleTypeRO,
+                lastSystemUpdateVersion = LastSystemVersion,
                 localToWorldType = LocalToWorldTypeRW
             };
             var rootsLocalToWorldJobHandle = rootsLocalToWorldJob.Schedule(chunks .Length, 4, JobHandle.CombineDependencies(inputDeps, gatherChunksJob));
@@ -495,6 +497,7 @@ namespace Unity.Transforms
             [ReadOnly] public ArchetypeChunkComponentType<Rotation> rotationType;
             [ReadOnly] public ArchetypeChunkComponentType<Position> positionType;
             [ReadOnly] public ArchetypeChunkComponentType<Scale> scaleType;
+            [ReadOnly] public uint lastSystemUpdateVersion;
             public ArchetypeChunkComponentType<LocalToParent> localToParentType;
 
             public void Execute(int chunkIndex)
@@ -507,9 +510,9 @@ namespace Unity.Transforms
                 var chunkScales = chunk.GetNativeArray(scaleType);
                 var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
 
-                var chunkRotationsChanged = chunk.DidAddOrChange(rotationType);
-                var chunkPositionsChanged = chunk.DidAddOrChange(positionType);
-                var chunkScalesChanged = chunk.DidAddOrChange(scaleType);
+                var chunkRotationsChanged = chunk.DidAddOrChange(rotationType, lastSystemUpdateVersion);
+                var chunkPositionsChanged = chunk.DidAddOrChange(positionType, lastSystemUpdateVersion);
+                var chunkScalesChanged = chunk.DidAddOrChange(scaleType, lastSystemUpdateVersion);
                 var chunkAnyChanged = chunkRotationsChanged || chunkPositionsChanged || chunkScalesChanged;
 
                 if (!chunkAnyChanged)
@@ -616,6 +619,7 @@ namespace Unity.Transforms
                 rotationType = RotationTypeRO,
                 positionType = PositionTypeRO,
                 scaleType = ScaleTypeRO,
+                lastSystemUpdateVersion = LastSystemVersion,
                 localToParentType = LocalToParentTypeRW
             };
             var innerTreeLocalToParentJobHandle = innerTreeLocalToParentJob.Schedule(InnerTreeLocalToParentChunks.Length, 4, inputDeps);
@@ -629,6 +633,7 @@ namespace Unity.Transforms
             [ReadOnly] public ArchetypeChunkComponentType<Rotation> rotationType;
             [ReadOnly] public ArchetypeChunkComponentType<Position> positionType;
             [ReadOnly] public ArchetypeChunkComponentType<Scale> scaleType;
+            [ReadOnly] public uint lastSystemUpdateVersion;
             public ArchetypeChunkComponentType<LocalToParent> localToParentType;
 
             public void Execute(int chunkIndex)
@@ -641,9 +646,9 @@ namespace Unity.Transforms
                 var chunkScales = chunk.GetNativeArray(scaleType);
                 var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
 
-                var chunkRotationsChanged = chunk.DidAddOrChange(rotationType);
-                var chunkPositionsChanged = chunk.DidAddOrChange(positionType);
-                var chunkScalesChanged = chunk.DidAddOrChange(scaleType);
+                var chunkRotationsChanged = chunk.DidAddOrChange(rotationType, lastSystemUpdateVersion);
+                var chunkPositionsChanged = chunk.DidAddOrChange(positionType, lastSystemUpdateVersion);
+                var chunkScalesChanged = chunk.DidAddOrChange(scaleType, lastSystemUpdateVersion);
                 var chunkAnyChanged = chunkRotationsChanged || chunkPositionsChanged || chunkScalesChanged;
 
                 if (!chunkAnyChanged)
@@ -750,6 +755,7 @@ namespace Unity.Transforms
                 rotationType = RotationTypeRO,
                 positionType = PositionTypeRO,
                 scaleType = ScaleTypeRO,
+                lastSystemUpdateVersion = LastSystemVersion,
                 localToParentType = LocalToParentTypeRW
             };
             var leafToLocalParentJobHandle = leafToLocalParentJob.Schedule(LeafLocalToParentChunks.Length, 4, inputDeps);

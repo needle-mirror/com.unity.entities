@@ -421,9 +421,11 @@ namespace Unity.Entities.Editor
             return true;
         }
 
-        public void UpdateIfNecessary()
+        public bool NeedsReload => !PlayerLoopsMatch(lastPlayerLoop, ScriptBehaviourUpdateOrder.CurrentPlayerLoop);
+
+        public void ReloadIfNecessary()
         {
-            if (!PlayerLoopsMatch(lastPlayerLoop, ScriptBehaviourUpdateOrder.CurrentPlayerLoop))
+            if (NeedsReload)
                 RebuildNodes();
         }
 

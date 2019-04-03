@@ -10,6 +10,7 @@ namespace Unity.Entities.Editor
     public class EntitySelectionProxyEditor : UnityEditor.Editor
     {
         private EntityIMGUIVisitor visitor;
+        private readonly RepaintLimiter repaintLimiter = new RepaintLimiter();
 
         [SerializeField] private SystemInclusionList inclusionList;
         
@@ -26,6 +27,14 @@ namespace Unity.Entities.Editor
             inclusionList = new SystemInclusionList();
         }
 
+        private uint lastVersion;
+
+        private uint GetVersion()
+        {
+            var container = target as EntitySelectionProxy;
+            return container.World.GetExistingManager<EntityManager>().GetChunkVersionHash(container.Entity);
+        }
+
         public override void OnInspectorGUI()
         {
             var targetProxy = (EntitySelectionProxy) target;
@@ -39,11 +48,14 @@ namespace Unity.Entities.Editor
             GUI.enabled = true;
             
             inclusionList.OnGUI(targetProxy.World, targetProxy.Entity);
+            
+            repaintLimiter.RecordRepaint();
+            lastVersion = GetVersion();
         }
 
         public override bool RequiresConstantRepaint()
         {
-            return true;
+            return (GetVersion() != lastVersion) && (repaintLimiter.SimulationAdvanced() || !Application.isPlaying);
         }
     }
 }

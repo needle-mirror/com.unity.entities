@@ -1,4 +1,5 @@
 ﻿using Unity.Entities.Properties;
+using UnityEditor;
 using UnityEngine;
 
 namespace Unity.Entities.Editor
@@ -10,7 +11,16 @@ namespace Unity.Entities.Editor
         public event EntityControlDoubleClickHandler EntityControlDoubleClick;
 
         public EntityContainer Container { get; private set; }
-        public Entity Entity { get; private set; }
+        public Entity Entity {
+            get { return new Entity() {Index = entityIndex, Version = entityVersion}; }
+            private set
+            {
+                entityIndex = value.Index;
+                entityVersion = value.Version;
+            }
+        }
+        [SerializeField] private int entityIndex;
+        [SerializeField] private int entityVersion;
         public EntityManager EntityManager { get; private set; }
         public World World { get; private set; }
 
@@ -27,6 +37,7 @@ namespace Unity.Entities.Editor
             this.Entity = entity;
             this.EntityManager = world.GetExistingManager<EntityManager>();
             this.Container = new EntityContainer(EntityManager, Entity);
+            EditorUtility.SetDirty(this);
         }
     }
 }

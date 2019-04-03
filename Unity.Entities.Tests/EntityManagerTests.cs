@@ -1,4 +1,5 @@
-﻿using Unity.Collections;
+﻿using System;
+using Unity.Collections;
 using NUnit.Framework;
 
 namespace Unity.Entities.Tests
@@ -80,6 +81,20 @@ namespace Unity.Entities.Tests
             
             m_Manager.DestroyEntity(entity);
             Assert.AreEqual(4, m_Manager.Version);
+        }
+
+        [Test]
+        public void GetChunkVersions_ReflectsChange()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+
+            var version = m_Manager.GetChunkVersionHash(entity);
+
+            m_Manager.SetComponentData(entity, new EcsTestData());
+            
+            var version2 = m_Manager.GetChunkVersionHash(entity);
+            
+            Assert.AreNotEqual(version, version2);
         }
 
         [Test]

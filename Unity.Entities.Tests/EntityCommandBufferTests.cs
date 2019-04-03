@@ -591,17 +591,87 @@ namespace Unity.Entities.Tests
         [Test]
         public void ConcurrentRecordParallelFor()
         {
+            const int kCreateCount = 10000;
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
             cmds.CreateEntity();
-            new TestConcurrentParallelForJob { Buffer = cmds.ToConcurrent() }.Schedule(10000, 64).Complete();
+            new TestConcurrentParallelForJob { Buffer = cmds.ToConcurrent() }.Schedule(kCreateCount, 64).Complete();
             cmds.Playback(m_Manager);
             cmds.Dispose();
 
             var allEntities = m_Manager.GetAllEntities();
             int count = allEntities.Length;
+            Assert.AreEqual(kCreateCount+1, count);
+            bool[] foundEntity = new bool[kCreateCount];
+            for (int i = 0; i < foundEntity.Length; ++i)
+            {
+                foundEntity[i] = false;
+            }
+            for (int i = 0; i < count; ++i)
+            {
+                if (m_Manager.HasComponent<EcsTestData>(allEntities[i]))
+                {
+                    var data1 = m_Manager.GetComponentData<EcsTestData>(allEntities[i]);
+                    Assert.IsFalse(foundEntity[data1.value]);
+                    foundEntity[data1.value] = true;
+                }
+            }
+            for (int i = 0; i < foundEntity.Length; ++i)
+            {
+                Assert.IsTrue(foundEntity[i]);
+            }
             allEntities.Dispose();
 
-            Assert.AreEqual(10001, count);
+        }
+
+        struct TestConcurrentInstantiateJob : IJobParallelFor
+        {
+            public Entity MasterCopy;
+            public EntityCommandBuffer.Concurrent Buffer;
+
+            public void Execute(int index)
+            {
+                Buffer.Instantiate(index, MasterCopy);
+                Buffer.AddComponent(index, new EcsTestData { value = index });
+            }
+        }
+
+        [Test]
+        public void ConcurrentRecordInstantiate()
+        {
+            const int kInstantiateCount = 10000;
+            Entity master = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(master, new EcsTestData2 {value0 = 42, value1 = 17});
+
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            new TestConcurrentInstantiateJob { Buffer = cmds.ToConcurrent(), MasterCopy = master }.Schedule(kInstantiateCount, 64).Complete();
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            var allEntities = m_Manager.GetAllEntities();
+            int count = allEntities.Length;
+            Assert.AreEqual(kInstantiateCount+1, count); // +1 for the master entity
+            bool[] foundEntity = new bool[kInstantiateCount];
+            for (int i = 0; i < foundEntity.Length; ++i)
+            {
+                foundEntity[i] = false;
+            }
+            for (int i = 0; i < count; ++i)
+            {
+                var data2 = m_Manager.GetComponentData<EcsTestData2>(allEntities[i]);
+                Assert.AreEqual(data2.value0, 42);
+                Assert.AreEqual(data2.value1, 17);
+                if (m_Manager.HasComponent<EcsTestData>(allEntities[i]))
+                {
+                    var data1 = m_Manager.GetComponentData<EcsTestData>(allEntities[i]);
+                    Assert.IsFalse(foundEntity[data1.value]);
+                    foundEntity[data1.value] = true;
+                }
+            }
+            for (int i = 0; i < foundEntity.Length; ++i)
+            {
+                Assert.IsTrue(foundEntity[i]);
+            }
+            allEntities.Dispose();
         }
 
         [Test]
@@ -844,11 +914,11 @@ namespace Unity.Entities.Tests
 
             var buf1 = barrier.CreateCommandBuffer();
             var buf2 = barrier.CreateCommandBuffer();
-            
+
             buf1.CreateEntity();
             buf1.AddComponent(new EcsTestData());
             buf1.AddComponent(new EcsTestData());
-            
+
             buf2.CreateEntity();
             buf2.AddComponent(new EcsTestData());
             buf2.AddComponent(new EcsTestData());
@@ -857,12 +927,12 @@ namespace Unity.Entities.Tests
             // Essentially we want isolation of two systems that might fail independently.
             Assert.Throws<ArgumentException>(() => { barrier.Update(); });
             Assert.AreEqual(2, EmptySystem.GetComponentGroup(typeof(EcsTestData)).CalculateLength());
-                        
+
             // On second run, we expect all buffers to be removed...
             // So no more exceptions thrown.
             barrier.Update();
-            
-            Assert.AreEqual(2, EmptySystem.GetComponentGroup(typeof(EcsTestData)).CalculateLength());            
+
+            Assert.AreEqual(2, EmptySystem.GetComponentGroup(typeof(EcsTestData)).CalculateLength());
         }
 #endif
     }
