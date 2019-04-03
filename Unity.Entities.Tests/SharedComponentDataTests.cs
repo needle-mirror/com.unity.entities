@@ -279,7 +279,7 @@ namespace Unity.Entities.Tests
             var group0 = m_Manager.CreateComponentGroup(typeof(SharedData1));
             var group1 = m_Manager.CreateComponentGroup(typeof(SharedData2));
 
-            var entity0 = m_Manager.CreateEntity(archetype0);
+            m_Manager.CreateEntity(archetype0);
             var entity1 = m_Manager.CreateEntity(archetype1);
 
             Assert.AreEqual(2, group0.CalculateLength());
@@ -313,7 +313,7 @@ namespace Unity.Entities.Tests
                 None = Array.Empty<ComponentType>()
             };
 
-            var entity0 = m_Manager.CreateEntity(archetype0);
+            m_Manager.CreateEntity(archetype0);
             var entity1 = m_Manager.CreateEntity(archetype1);
 
             var preChunks0 = m_Manager.CreateArchetypeChunkArray(query0, Allocator.TempJob);

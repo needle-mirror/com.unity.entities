@@ -33,6 +33,7 @@ namespace Unity.Entities.Tests
 	    public struct TransformAccessArrayTestTag : IComponentData
 	    {
 	    }
+	    [DisallowMultipleComponent]
 	    public class TransformAccessArrayTestTagComponent : ComponentDataWrapper<TransformAccessArrayTestTag> { }
 
 	    [Test]
@@ -47,14 +48,10 @@ namespace Unity.Entities.Tests
 	    {
 	        var go = new GameObject();
 	        go.AddComponent<TransformAccessArrayTestTagComponent>();
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go.GetComponent<GameObjectEntity>().OnEnable();
 	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(1, ta.length);
 
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go.GetComponent<GameObjectEntity>().OnDisable();
 	        Object.DestroyImmediate(go);
 	    }
 	    [Test]
@@ -62,22 +59,15 @@ namespace Unity.Entities.Tests
 	    {
 	        var go = new GameObject();
 	        go.AddComponent<TransformAccessArrayTestTagComponent>();
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go.GetComponent<GameObjectEntity>().OnEnable();
 	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(1, ta.length);
 
 	        var go2 = new GameObject();
 	        go2.AddComponent<TransformAccessArrayTestTagComponent>();
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go2.GetComponent<GameObjectEntity>().OnEnable();
 	        ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(2, ta.length);
 
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go.GetComponent<GameObjectEntity>().OnDisable();
-	        go2.GetComponent<GameObjectEntity>().OnDisable();
 	        Object.DestroyImmediate(go);
 	        Object.DestroyImmediate(go2);
 	    }
@@ -87,21 +77,14 @@ namespace Unity.Entities.Tests
 	    {
 	        var go = new GameObject();
 	        go.AddComponent<TransformAccessArrayTestTagComponent>();
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go.GetComponent<GameObjectEntity>().OnEnable();
 	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(1, ta.length);
 
 	        var go2 = new GameObject();
 	        go2.AddComponent<TransformAccessArrayTestTagComponent>();
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go2.GetComponent<GameObjectEntity>().OnEnable();
 	        Assert.AreEqual(1, ta.length);
 
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go.GetComponent<GameObjectEntity>().OnDisable();
-	        go2.GetComponent<GameObjectEntity>().OnDisable();
 	        Object.DestroyImmediate(go);
 	        Object.DestroyImmediate(go2);
 	    }
@@ -110,26 +93,18 @@ namespace Unity.Entities.Tests
 	    {
 	        var go = new GameObject();
 	        go.AddComponent<TransformAccessArrayTestTagComponent>();
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go.GetComponent<GameObjectEntity>().OnEnable();
 	        var go2 = new GameObject();
 	        go2.AddComponent<TransformAccessArrayTestTagComponent>();
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go2.GetComponent<GameObjectEntity>().OnEnable();
 
 	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(2, ta.length);
 
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go.GetComponent<GameObjectEntity>().OnDisable();
 	        Object.DestroyImmediate(go);
 
 	        ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(1, ta.length);
 
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go2.GetComponent<GameObjectEntity>().OnDisable();
 	        Object.DestroyImmediate(go2);
 	    }
 	    [Test]
@@ -138,25 +113,17 @@ namespace Unity.Entities.Tests
 	    {
 	        var go = new GameObject();
 	        go.AddComponent<TransformAccessArrayTestTagComponent>();
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go.GetComponent<GameObjectEntity>().OnEnable();
 	        var go2 = new GameObject();
 	        go2.AddComponent<TransformAccessArrayTestTagComponent>();
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go2.GetComponent<GameObjectEntity>().OnEnable();
 
 	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(2, ta.length);
 
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go.GetComponent<GameObjectEntity>().OnDisable();
 	        Object.DestroyImmediate(go);
 
 	        Assert.AreEqual(2, ta.length);
 
-	        // Execute in edit mode is not enabled so this has to be called manually right now
-	        go2.GetComponent<GameObjectEntity>().OnDisable();
 	        Object.DestroyImmediate(go2);
 	    }
 

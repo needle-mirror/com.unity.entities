@@ -1,17 +1,17 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using RequireComponent = UnityEngine.RequireComponent;
 using SerializeField = UnityEngine.SerializeField;
 using MonoBehaviour = UnityEngine.MonoBehaviour;
-using DisallowMultipleComponent = UnityEngine.DisallowMultipleComponent;
 using GameObject = UnityEngine.GameObject;
 using Component = UnityEngine.Component;
 
 namespace Unity.Entities
 {
     //@TODO: This should be fully implemented in C++ for efficiency
+    [ExecuteInEditMode]
     [RequireComponent(typeof(GameObjectEntity))]
     public abstract class ComponentDataWrapperBase : MonoBehaviour, ISerializationCallbackReceiver
     {
@@ -22,7 +22,29 @@ namespace Unity.Entities
         internal abstract int InsertSharedComponent(EntityManager manager);
         internal abstract void UpdateSerializedData(EntityManager manager, int sharedComponentIndex);
 
-        internal bool CanSynchronizeWithEntityManager(out EntityManager entityManager, out Entity entity)
+        protected virtual void OnEnable()
+        {
+            EntityManager entityManager;
+            Entity entity;
+            if (
+                World.Active != null
+                && TryGetEntityAndManager(out entityManager, out entity)
+                && !entityManager.HasComponent(entity, GetComponentType()) // in case GameObjectEntity already added
+            )
+                entityManager.AddComponent(entity, GetComponentType());
+        }
+
+        protected virtual void OnDisable()
+        {
+            if (!gameObject.activeInHierarchy) // GameObjectEntity will handle removal when Entity is destroyed
+                return;
+            EntityManager entityManager;
+            Entity entity;
+            if (CanSynchronizeWithEntityManager(out entityManager, out entity))
+                entityManager.RemoveComponent(entity, GetComponentType());
+        }
+
+        internal bool TryGetEntityAndManager(out EntityManager entityManager, out Entity entity)
         {
             entityManager = null;
             entity = Entity.Null;
@@ -33,11 +55,15 @@ namespace Unity.Entities
                 return false;
             if (!gameObjectEntity.EntityManager.Exists(gameObjectEntity.Entity))
                 return false;
-            if (!gameObjectEntity.EntityManager.HasComponent(gameObjectEntity.Entity, GetComponentType()))
-                return false;
             entityManager = gameObjectEntity.EntityManager;
             entity = gameObjectEntity.Entity;
             return true;
+        }
+
+        internal bool CanSynchronizeWithEntityManager(out EntityManager entityManager, out Entity entity)
+        {
+            return TryGetEntityAndManager(out entityManager, out entity)
+                   && entityManager.HasComponent(entity, GetComponentType());
         }
         
         void OnValidate()
@@ -64,7 +90,7 @@ namespace Unity.Entities
     }
 
     //@TODO: This should be fully implemented in C++ for efficiency
-    public class ComponentDataWrapper<T> : ComponentDataWrapperBase where T : struct, IComponentData
+    public abstract class ComponentDataWrapper<T> : ComponentDataWrapperBase where T : struct, IComponentData
     {
         [SerializeField, WrappedComponentData]
         T m_SerializedData;
@@ -95,12 +121,14 @@ namespace Unity.Entities
 
         internal override void UpdateComponentData(EntityManager manager, Entity entity)
         {
-            manager.SetComponentData(entity, m_SerializedData);
+            if (!ComponentType.Create<T>().IsZeroSized)
+                manager.SetComponentData(entity, m_SerializedData);
         }
         
         internal override void UpdateSerializedData(EntityManager manager, Entity entity)
-        {                
-            m_SerializedData = manager.GetComponentData<T>(entity);
+        {
+            if (!ComponentType.Create<T>().IsZeroSized)
+                m_SerializedData = manager.GetComponentData<T>(entity);
         }
         
         internal override int InsertSharedComponent(EntityManager manager)
@@ -115,7 +143,7 @@ namespace Unity.Entities
     }
 
     //@TODO: This should be fully implemented in C++ for efficiency
-    public class SharedComponentDataWrapper<T> : ComponentDataWrapperBase where T : struct, ISharedComponentData
+    public abstract class SharedComponentDataWrapper<T> : ComponentDataWrapperBase where T : struct, ISharedComponentData
     {
         [SerializeField, WrappedComponentData]
         T m_SerializedData;
@@ -244,7 +272,7 @@ namespace Unity.Entities
             return entity;
         }
 
-        public void OnEnable()
+        protected virtual void OnEnable()
         {
             #if UNITY_EDITOR
             if (World.Active == null)
@@ -282,7 +310,7 @@ namespace Unity.Entities
             Entity = AddToEntityManager(EntityManager, gameObject);
         }
 
-        public void OnDisable()
+        protected virtual void OnDisable()
         {
             if (EntityManager != null && EntityManager.IsCreated && EntityManager.Exists(Entity))
                 EntityManager.DestroyEntity(Entity);

@@ -77,10 +77,8 @@ namespace Unity.Entities
         // TODO: this creates a dependency on UnityEngine, but makes splitting code in separate assemblies easier. We need to remove it during the biggere refactor.
         private struct ObjectOffsetType
         {
-#pragma warning disable 0169 // "never used" warning
             private void* v0;
             private void* v1;
-#pragma warning restore 0169
         }
 
         public static void Initialize()

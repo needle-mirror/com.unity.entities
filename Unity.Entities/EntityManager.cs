@@ -403,22 +403,19 @@ namespace Unity.Entities
         {
             BeforeStructuralChange();
             Entities->AssertEntitiesExist(&entity, 1);
-            Entities->AddComponent(entity, type, ArchetypeManager, m_SharedComponentManager, m_GroupManager,
-                m_CachedComponentTypeInArchetypeArray);
+            Entities->AddComponent(entity, type, ArchetypeManager, m_SharedComponentManager, m_GroupManager, m_CachedComponentTypeInArchetypeArray);
         }
 
         public void RemoveComponent(Entity entity, ComponentType type)
         {
             BeforeStructuralChange();
             Entities->AssertEntityHasComponent(entity, type);
-            Entities->RemoveComponent(entity, type, ArchetypeManager, m_SharedComponentManager, m_GroupManager,
-                m_CachedComponentTypeInArchetypeArray);
+            Entities->RemoveComponent(entity, type, ArchetypeManager, m_SharedComponentManager, m_GroupManager, m_CachedComponentTypeInArchetypeArray);
 
             var archetype = Entities->GetArchetype(entity);
             if (archetype->SystemStateCleanupComplete)
             {
-                Entities->TryRemoveEntityId(&entity, 1, ArchetypeManager, m_SharedComponentManager, m_GroupManager,
-                    m_CachedComponentTypeInArchetypeArray);
+                Entities->TryRemoveEntityId(&entity, 1, ArchetypeManager, m_SharedComponentManager, m_GroupManager, m_CachedComponentTypeInArchetypeArray);
             }
         }
 
@@ -429,8 +426,10 @@ namespace Unity.Entities
 
         public void AddComponentData<T>(Entity entity, T componentData) where T : struct, IComponentData
         {
-            AddComponent(entity, ComponentType.Create<T>());
-            SetComponentData(entity, componentData);
+            var type = ComponentType.Create<T>();
+            AddComponent(entity, type);
+            if (!type.IsZeroSized)
+                SetComponentData(entity, componentData);
         }
 
         public void AddBuffer<T>(Entity entity) where T : struct, IBufferElementData
@@ -480,11 +479,10 @@ namespace Unity.Entities
 
             Entities->AssertEntityHasComponent(entity, typeIndex);
 
-            // If the user attempts to get a zero-sized type, we return a default-initialized value instead.
-            // This is to prevent requiring users from checking for zero-size before calling this API.
-            var componentType = ComponentType.FromTypeIndex(typeIndex);
-            if (componentType.IsZeroSized)
-                return default(T);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (ComponentType.FromTypeIndex(typeIndex).IsZeroSized)
+                throw new System.ArgumentException($"GetComponentData<{typeof(T)}> can not be called with a zero sized component.");
+#endif
 
             ComponentJobSafetyManager.CompleteWriteDependency(typeIndex);
 
@@ -501,11 +499,10 @@ namespace Unity.Entities
 
             Entities->AssertEntityHasComponent(entity, typeIndex);
 
-            // If the user attempts to set a zero-sized type, we do nothing instead.
-            // This is to prevent requiring users from checking for zero-size before calling this API.
-            var componentType = ComponentType.FromTypeIndex(typeIndex);
-            if (componentType.IsZeroSized)
-                return;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (ComponentType.FromTypeIndex(typeIndex).IsZeroSized)
+                throw new System.ArgumentException($"GetComponentData<{typeof(T)}> can not be called with a zero sized component.");
+#endif
             
             ComponentJobSafetyManager.CompleteReadAndWriteDependency(typeIndex);
 

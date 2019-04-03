@@ -93,6 +93,48 @@ namespace Unity.Entities.Tests
             }
 		}
 
+	    [Test]
+	    public void InsertWorks()
+	    {
+	        var arrayType = ComponentType.Create<EcsIntElement>();
+	        var entity = m_Manager.CreateEntity(arrayType);
+	        var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+	        // Insert at end
+	        for (int i = 0; i < 189; ++i)
+	            buffer.Insert(i, i);
+
+	        Assert.AreEqual(189, buffer.Length);
+	        for (int i = 0; i < 189; ++i)
+	        {
+	            Assert.AreEqual(i, buffer[i].Value);
+	        }
+
+	        buffer.Clear();
+
+	        // Insert at beginning
+	        for (int i = 0; i < 189; ++i)
+	            buffer.Insert(0, i);
+
+	        Assert.AreEqual(189, buffer.Length);
+	        for (int i = 0; i < 189; ++i)
+	        {
+	            Assert.AreEqual(188-i, buffer[i].Value);
+	        }
+
+	        buffer.Clear();
+
+	        // Insert in middle
+	        for (int i = 0; i < 189; ++i)
+	            buffer.Insert(i/2, i);
+
+	        Assert.AreEqual(189, buffer.Length);
+	        for (int i = 0; i < 189; ++i)
+	        {
+	            int expectedValue = i<94 ? i*2+1 : (188-i)*2;
+	            Assert.AreEqual(expectedValue, buffer[i].Value);
+	        }
+	    }
+
 		[Test]
 		public void AddRangeWorks()
 		{
@@ -522,7 +564,9 @@ namespace Unity.Entities.Tests
 	        buffer.Add(2);
 	        Assert.Throws<InvalidOperationException>(() =>
 	        {
+#pragma warning disable 0219 // assigned but its value is never used
 	            int value = array[0].Value;
+#pragma warning restore 0219
 	        });
 	    }
 
@@ -543,6 +587,7 @@ namespace Unity.Entities.Tests
 
 	        b0.Add(1);
 
+#pragma warning disable 0219 // assigned but its value is never used
 	        Assert.Throws<InvalidOperationException>(() =>
 	        {
 	            int value = a0[0].Value;
@@ -552,6 +597,7 @@ namespace Unity.Entities.Tests
 	        {
 	            int value = a1[0].Value;
 	        });
+#pragma warning restore 0219
 	    }
 
 	    [Test]

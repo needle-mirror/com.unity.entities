@@ -280,6 +280,7 @@ namespace Unity.Entities.Serialization
                     tempChunk->SharedComponentValueArray = (int*)((byte*)(tempChunk) + Chunk.GetSharedComponentOffset(archetype->NumSharedComponents));
 
                     byte* tempChunkBuffer = tempChunk->Buffer;
+                    EntityRemapUtility.PatchEntities(archetype->ScalarEntityPatches, archetype->ScalarEntityPatchCount, archetype->BufferEntityPatches, archetype->BufferEntityPatchCount, tempChunkBuffer, tempChunk->Count, ref entityRemapInfos);
 
                     // Find all buffer pointer locations and work out how much memory the deserializer must allocate on load.
                     for (int ti = 0; ti < archetype->TypesCount; ++ti)
@@ -309,8 +310,6 @@ namespace Unity.Entities.Serialization
                             header = (BufferHeader*)OffsetFromPointer(header, stride);
                         }
                     }
-
-                    EntityRemapUtility.PatchEntities(archetype->ScalarEntityPatches, archetype->ScalarEntityPatchCount, archetype->BufferEntityPatches, archetype->BufferEntityPatchCount, tempChunkBuffer, tempChunk->Count, ref entityRemapInfos);
 
                     ClearUnusedChunkData(tempChunk);
                     tempChunk->ChunkListNode.Next = null;

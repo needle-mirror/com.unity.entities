@@ -10,5 +10,6 @@ namespace Unity.Transforms
     [Serializable]
     public struct CopyInitialTransformFromGameObject : IComponentData { }
 
+    [UnityEngine.DisallowMultipleComponent]
     public class CopyInitialTransformFromGameObjectComponent : ComponentDataWrapper<CopyInitialTransformFromGameObject> { } 
 }

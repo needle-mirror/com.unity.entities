@@ -4,7 +4,9 @@ using Unity.Entities.Tests;
 
 namespace Unity.Entities.Tests
 {
+    [DisallowMultipleComponent]
     public class EcsFooTestComponent : ComponentDataWrapper<EcsFooTest> { }
+    [DisallowMultipleComponent]
     public class EcsTestComponent : ComponentDataWrapper<EcsTestData> { }
 
     public class EntityManagerTests : ECSTestsFixture
@@ -14,8 +16,6 @@ namespace Unity.Entities.Tests
         {
             var go = new GameObject();
             go.AddComponent<EcsTestComponent>();
-            // Execute in edit mode is not enabled so this has to be called manually right now
-            go.GetComponent<GameObjectEntity>().OnEnable();
 
             var component = m_Manager.GetComponentObject<Transform>(go.GetComponent<GameObjectEntity>().Entity);
 
@@ -29,8 +29,6 @@ namespace Unity.Entities.Tests
         {
             var go = new GameObject();
             go.AddComponent<EcsTestComponent>();
-            // Execute in edit mode is not enabled so this has to be called manually right now
-            go.GetComponent<GameObjectEntity>().OnEnable();
 
             Assert.Throws<System.ArgumentException>(() => m_Manager.GetComponentObject<Rigidbody>(go.GetComponent<GameObjectEntity>().Entity));
         }

@@ -42,7 +42,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void CreateEntityDoesNotTriggerChange()
         {
-            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.CreateEntity(typeof(EcsTestData));
             var deltaCheckSystem = World.CreateManager<DeltaCheckSystem>();
             deltaCheckSystem.UpdateExpect(new Entity[0]);
         }
@@ -114,7 +114,6 @@ namespace Unity.Entities.Tests
             }
             else if (mode == ChangeMode.SetComponentDataFromEntity)
             {
-                var array = EmptySystem.GetComponentDataFromEntity<EcsTestData>(false);
                 for(int i = 0;i != entityArray.Length;i++)
                     m_Manager.GetComponentData<EcsTestData>(entityArray[i]);
             }

@@ -19,8 +19,10 @@ namespace Unity.Entities
         private readonly int m_MaxIndex;
         private readonly AtomicSafetyHandle m_Safety0;
         private readonly AtomicSafetyHandle m_ArrayInvalidationSafety;
+#pragma warning disable 0414 // assigned but its value is never used
         private int m_SafetyReadOnlyCount;
         private int m_SafetyReadWriteCount;
+#pragma warning restore 0414
 #endif
         public int Length => m_Length;
 
@@ -54,7 +56,6 @@ namespace Unity.Entities
                 AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
                 if (index < m_MinIndex || index > m_MaxIndex)
                     FailOutOfRangeError(index);
-                var safety = m_Safety0;
 #endif
 
                 if (index < m_Cache.CachedBeginIndex || index >= m_Cache.CachedEndIndex)

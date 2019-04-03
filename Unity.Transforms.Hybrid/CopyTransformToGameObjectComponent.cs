@@ -9,5 +9,6 @@ namespace Unity.Transforms
     [Serializable]
     public struct CopyTransformToGameObject : IComponentData { }
 
+    [UnityEngine.DisallowMultipleComponent]
     public class CopyTransformToGameObjectComponent : ComponentDataWrapper<CopyTransformToGameObject> { } 
 }

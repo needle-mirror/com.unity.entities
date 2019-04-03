@@ -289,9 +289,7 @@ namespace Unity.Entities.Tests
             };
             var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
 
-            var entities = m_Manager.GetArchetypeChunkEntityType();
             var intElements = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(false);
-            var totalBuffersFound = 0;
 
             for (int i = 0; i < chunks.Length; ++i)
             {
@@ -307,8 +305,6 @@ namespace Unity.Entities.Tests
                         if (buffer[n] != n)
                             Assert.Fail("buffer element does not have the expected value");
                     }
-
-                    ++totalBuffersFound;
                 }
             }
 
@@ -327,7 +323,6 @@ namespace Unity.Entities.Tests
                 All = new ComponentType[] {typeof(EcsIntElement)}, // all
             };
             var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-            var entities = m_Manager.GetArchetypeChunkEntityType();
             var intElements = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(true);
 
             var chunk = chunks[0];

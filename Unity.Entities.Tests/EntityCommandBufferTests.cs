@@ -760,7 +760,9 @@ namespace Unity.Entities.Tests
         public void NoTempAllocatorInConcurrent()
         {
             var cmds = new EntityCommandBuffer(Allocator.Temp);
+#pragma warning disable 0219 // assigned but its value is never used
             Assert.Throws<InvalidOperationException>(() => { EntityCommandBuffer.Concurrent c = cmds.ToConcurrent(); });
+#pragma warning restore 0219
             cmds.Dispose();
         }
 

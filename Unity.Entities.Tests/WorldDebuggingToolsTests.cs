@@ -17,9 +17,7 @@ namespace Unity.Entities.Tests
                 public ComponentDataArray<EcsTestData> tests;
             }
 
-#pragma warning disable 0169 // "never used" warning
             [Inject] private Entities entities;
-#pragma warning restore 0169
             
             protected override void OnUpdate()
             {
@@ -37,9 +35,7 @@ namespace Unity.Entities.Tests
                 public SubtractiveComponent<EcsTestData2> noTest2;
             }
 
-#pragma warning disable 0169 // "never used" warning
             [Inject] private Entities entities;
-#pragma warning restore 0169
             
             protected override void OnUpdate()
             {
@@ -66,7 +62,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void SystemInclusionList_IgnoresSubtractedComponents()
         {
-            var system = World.Active.GetOrCreateManager<SubtractiveSystem>();
+            World.Active.GetOrCreateManager<SubtractiveSystem>();
             
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 

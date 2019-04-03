@@ -139,6 +139,18 @@ namespace Unity.Entities
             this[length] = elem;
         }
 
+        public void Insert(int index, T elem)
+        {
+            CheckWriteAccess();
+            int length = Length;
+            ResizeUninitialized(length + 1);
+            CheckBounds(index); //CheckBounds after ResizeUninitialized since index == length is allowed
+            int elemSize = UnsafeUtility.SizeOf<T>();
+            byte* basePtr = BufferHeader.GetElementPointer(m_Buffer);
+            UnsafeUtility.MemMove(basePtr + (index + 1) * elemSize, basePtr + index * elemSize, elemSize * (length - index));
+            this[index] = elem;
+        }
+
         public void AddRange(NativeArray<T> newElems)
         {
             CheckWriteAccess();

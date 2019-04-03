@@ -175,7 +175,6 @@ namespace Unity.Entities
             int count)
         {
             var srcArchetype  = srcChunk->Archetype;
-            var dstArchetype  = dstChunk->Archetype;
             var srcBuffer     = srcChunk->Buffer;
             var dstBuffer     = dstChunk->Buffer;
             var srcOffsets    = srcArchetype->Offsets;

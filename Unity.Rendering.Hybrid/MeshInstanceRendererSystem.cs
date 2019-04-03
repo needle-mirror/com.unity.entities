@@ -441,7 +441,6 @@ namespace Unity.Rendering
             }
             
             Profiler.BeginSample("Gather Types");
-            var sharedComponentCount = EntityManager.GetSharedComponentCount();
             var localToWorldType = GetArchetypeChunkComponentType<LocalToWorld>(true);
             var visibleLocalToWorldType = GetArchetypeChunkComponentType<VisibleLocalToWorld>(false);
             var meshInstanceRendererType = GetArchetypeChunkSharedComponentType<MeshInstanceRenderer>();
@@ -535,7 +534,6 @@ namespace Unity.Rendering
             }
             
             Profiler.BeginSample("Gather Types");
-            var sharedComponentCount = EntityManager.GetSharedComponentCount();
             var localToWorldType = GetArchetypeChunkComponentType<LocalToWorld>(true);
             var visibleLocalToWorldType = GetArchetypeChunkComponentType<VisibleLocalToWorld>(false);
             var meshInstanceRendererType = GetArchetypeChunkSharedComponentType<MeshInstanceRenderer>();
@@ -727,7 +725,6 @@ namespace Unity.Rendering
             
             var sharedComponentCount = EntityManager.GetSharedComponentCount();
             var meshInstanceRendererType = GetArchetypeChunkSharedComponentType<MeshInstanceRenderer>();
-            var worldMeshRenderBoundsType = GetArchetypeChunkComponentType<WorldMeshRenderBounds>(true);
             
             // Allocate temp data
             var chunkRendererMap = new NativeMultiHashMap<int, int>(100000, Allocator.TempJob);

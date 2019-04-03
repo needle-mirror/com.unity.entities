@@ -55,11 +55,10 @@ namespace Unity.Entities
 #endif
                 m_Entities->AssertEntityHasComponent(entity, m_TypeIndex);
 
-                // if the component is zero-sized, we return a default-initialized T.
-                // this is to support users who transition to zero-sized T and back,
-                // or who write generics over T and don't wish to branch over zero-sizedness.
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (m_IsZeroSized)
-                    return default(T);
+                   throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not get the component because it is zero sized, you can use Exists instead.");
+#endif
                 
                 T data;
                 void* ptr = m_Entities->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_TypeLookupCache);
@@ -74,11 +73,10 @@ namespace Unity.Entities
 #endif
                 m_Entities->AssertEntityHasComponent(entity, m_TypeIndex);
 
-			    // if the component is zero-sized, we make no attempt to set a value.
-			    // this is to support users who transition to zero-sized T and back,
-			    // or who write generics over T and don't wish to branch over zero-sizedness.
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
 			    if (m_IsZeroSized)
-			        return;
+			        throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not set the component because it is zero sized, you can use Exists instead.");
+#endif
 
                 void* ptr = m_Entities->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_TypeLookupCache);
                 UnsafeUtility.CopyStructureToPtr(ref value, ptr);

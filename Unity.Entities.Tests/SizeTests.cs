@@ -7,6 +7,7 @@ namespace Unity.Entities.Tests
 {
     public class SizeTests : ECSTestsFixture
     {
+#pragma warning disable 0219 // assigned but its value is never used
         [Test]
         public void SIZ_TagComponentDoesNotChangeCapacity()
         {
@@ -20,7 +21,7 @@ namespace Unity.Entities.Tests
                 var archetype0 = chunk0->Archetype;
                 var archetype1 = chunk1->Archetype;
 
-                var td2index0 = ChunkDataUtility.GetIndexInTypeArray(chunk0->Archetype, TypeManager.GetTypeIndex<EcsTestData2>());
+                ChunkDataUtility.GetIndexInTypeArray(chunk0->Archetype, TypeManager.GetTypeIndex<EcsTestData2>());
 
                 Assert.AreEqual(archetype0->ChunkCapacity, archetype1->ChunkCapacity);
             }
@@ -42,55 +43,57 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        public void SIZ_TagCanGetComponentData()
+        public void SIZ_TagThrowsOnGetComponentData()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestTag));
 
-            Assert.DoesNotThrow(() =>
+            Assert.Throws<ArgumentException>(() =>
             {
                var data = m_Manager.GetComponentData<EcsTestTag>(entity0);
             });
         }
         
         [Test]
-        public void SIZ_TagCanSetComponentData()
+        public void SIZ_TagThrowsOnSetComponentData()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestTag));
 
-            Assert.DoesNotThrow(() =>
+            Assert.Throws<ArgumentException>(() =>
             {
                m_Manager.SetComponentData(entity0, default(EcsTestTag));
             });
         }
 
         [Test]
+        public void SIZ_TagCanAddComponentData()
+        {
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(entity, default(EcsTestTag));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(entity));
+        }
+                
+        [Test]
         public void SIZ_TagCannotGetComponentDataArray()
         {
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestTag));
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestTag));
 
-            Assert.Throws<ArgumentException>(() =>
-            {
-               var array = group.GetComponentDataArray<EcsTestTag>();
-            });
+            Assert.Throws<ArgumentException>(() => { group.GetComponentDataArray<EcsTestTag>(); });
         }
         
         [Test]
-        public void SIZ_TagCanGetComponentDataFromEntity()
+        public void SIZ_TagThrowsOnComponentDataFromEntity()
         {
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestTag));
-            var entity0 = m_Manager.CreateEntity(typeof(EcsTestTag));
-
-            Assert.DoesNotThrow(() =>
-            {
-                var array = m_Manager.GetComponentDataFromEntity<EcsTestTag>();
-            });
+            var entity = m_Manager.CreateEntity(typeof(EcsTestTag));
+            var fromEntity = m_Manager.GetComponentDataFromEntity<EcsTestTag>();
+            Assert.IsTrue(fromEntity.Exists(entity));            
+            Assert.Throws<ArgumentException>(() => { var res = fromEntity[entity]; });
         }
         
         [Test]
          public void SIZ_TagCannotGetNativeArrayFromArchetypeChunk()
         {
-            var entity0 = m_Manager.CreateEntity(typeof(EcsTestTag));
+            m_Manager.CreateEntity(typeof(EcsTestTag));
             var chunks = m_Manager.CreateArchetypeChunkArray(
                 new EntityArchetypeQuery
                 {
@@ -109,11 +112,12 @@ namespace Unity.Entities.Tests
                 Assert.IsTrue(chunk.Has(tagType));
                 Assert.Throws<ArgumentException>(() =>
                 {
-                    var tags = chunk.GetNativeArray(tagType);
+                    chunk.GetNativeArray(tagType);
                 });
             }
             
             chunks.Dispose();
         }
+#pragma warning restore 0219
     }
 }

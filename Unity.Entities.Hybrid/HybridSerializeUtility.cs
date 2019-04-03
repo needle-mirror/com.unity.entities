@@ -1,6 +1,6 @@
-﻿using UnityEditor;
+﻿using System;
+using UnityEditor;
 using UnityEngine;
-using UnityEngine.Assertions;
 
 namespace Unity.Entities.Serialization
 {
@@ -47,13 +47,15 @@ namespace Unity.Entities.Serialization
                 var typeName = sharedData.GetType().FullName + "Component";
                 var componentType = sharedData.GetType().Assembly.GetType(typeName);
                 if (componentType == null)
-                    throw new System.ArgumentException($"SharedComponentDataWrapper<{sharedData.GetType().FullName}> must be named '{typeName}'");
+                    throw new ArgumentException($"SharedComponentDataWrapper<{sharedData.GetType().FullName}> must be named '{typeName}'");
+                if (Attribute.IsDefined(componentType, typeof(DisallowMultipleComponent), true))
+                    throw new ArgumentException($"{componentType} is marked with {typeof(DisallowMultipleComponent)}, but current implementation of {nameof(SerializeSharedComponents)} serializes all shared components on a single GameObject.");
 
                 var com = go.AddComponent(componentType) as ComponentDataWrapperBase;
                 #if UNITY_EDITOR
                 if (!EditorUtility.IsPersistent(MonoScript.FromMonoBehaviour(com)))
                 {
-                    throw new System.ArgumentException($"SharedComponentDataWrapper<{sharedData.GetType().FullName}> must be defined in a file with the same name as the wrapper class");
+                    throw new ArgumentException($"SharedComponentDataWrapper<{sharedData.GetType().FullName}> must be defined in a file with the same name as the wrapper class");
                 }
                 #endif
                 com.UpdateSerializedData(manager, sharedComponentIndices[i]);
@@ -78,7 +80,7 @@ namespace Unity.Entities.Serialization
                 {
                     var newComponent = sharedData[i];
                     var existingComponent = manager.m_SharedComponentManager.GetSharedComponentDataNonDefaultBoxed(index);
-                    throw new System.ArgumentException($"Shared Component {i} was inserted but got index {index} at load time than at build time when loading {debugSceneName}..\n{newComponent} vs {existingComponent}");
+                    throw new ArgumentException($"Shared Component {i} was inserted but got index {index} at load time than at build time when loading {debugSceneName}..\n{newComponent} vs {existingComponent}");
                 }
 #endif
             }

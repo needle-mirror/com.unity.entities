@@ -33,7 +33,6 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity (typeof(EcsTestData));
 
             var go = new GameObject("Test", typeof(EcsTestComponent));
-            go.GetComponent<GameObjectEntity>().OnEnable();
 
             // Ensure entities without the subtractive components are present
             subtractiveSystem.Update ();
@@ -46,7 +45,8 @@ namespace Unity.Entities.Tests
 
             // TODO: This should be automatic...
             go.AddComponent<Rigidbody>();
-            go.GetComponent<GameObjectEntity>().OnDisable(); go.GetComponent<GameObjectEntity>().OnEnable();
+            go.GetComponent<GameObjectEntity>().enabled = false;
+            go.GetComponent<GameObjectEntity>().enabled = true;
 
             subtractiveSystem.Update ();
             Assert.AreEqual (0, subtractiveSystem.Group.Data.Length);

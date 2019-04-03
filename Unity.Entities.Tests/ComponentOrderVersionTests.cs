@@ -213,7 +213,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void ChangedOnlyAffectedArchetype()
         {
-            var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData3));
+            m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData3));
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             m_Manager.RemoveComponent<EcsTestData2>(entity1);
             

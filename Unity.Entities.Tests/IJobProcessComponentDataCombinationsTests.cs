@@ -100,7 +100,7 @@ namespace Unity.Entities.Tests
 
         void CheckResultsAndDispose(NativeArray<Entity> entities, int processCount, bool withEntity)
         {
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4));
+            m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4));
 
             for (int i = 0; i < entities.Length; i++)
             {

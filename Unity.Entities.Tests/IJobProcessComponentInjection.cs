@@ -36,7 +36,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void NestedIJobProcessComponentDataAreInjectedDuringOnCreateManager()
         {
-            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             var system = World.GetOrCreateManager<TestSystem>();
             Assert.AreEqual(2, system.ComponentGroups.Length);
         }

@@ -182,8 +182,12 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         private AtomicSafetyHandle m_Safety0;
         private AtomicSafetyHandle m_ArrayInvalidationSafety;
+        
+#pragma warning disable 0414 // assigned but its value is never used
         private int m_SafetyReadOnlyCount;
         private int m_SafetyReadWriteCount;
+#pragma warning restore 0414
+        
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS

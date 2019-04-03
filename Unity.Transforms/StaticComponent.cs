@@ -13,6 +13,7 @@ namespace Unity.Transforms
     {
     }
 
+    [UnityEngine.DisallowMultipleComponent]
     public class StaticComponent : ComponentDataWrapper<Static>
     {
     }

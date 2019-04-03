@@ -101,8 +101,6 @@ namespace Unity.Transforms
         ArchetypeChunkComponentType<Rotation> RotationTypeRO;
         ArchetypeChunkComponentType<Position> PositionTypeRO;
         ArchetypeChunkComponentType<Attach> AttachTypeRO;
-        ArchetypeChunkComponentType<Frozen> FrozenTypeRO;
-        ArchetypeChunkComponentType<PendingFrozen> PendingFrozenTypeRO;
         ArchetypeChunkSharedComponentType<Depth> DepthTypeRO;
 
         protected override void OnCreateManager()
@@ -1136,9 +1134,6 @@ namespace Unity.Transforms
             PositionTypeRO = GetArchetypeChunkComponentType<Position>(true);
             ScaleTypeRO = GetArchetypeChunkComponentType<Scale>(true);
             AttachTypeRO = GetArchetypeChunkComponentType<Attach>(true);
-
-            FrozenTypeRO = GetArchetypeChunkComponentType<Frozen>(true);
-            PendingFrozenTypeRO = GetArchetypeChunkComponentType<PendingFrozen>(true);
         }
 
         private static readonly ProfilerMarker k_ProfileGatherDAGChunks = new ProfilerMarker("GatherDAGChunks");

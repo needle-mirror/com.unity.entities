@@ -350,8 +350,9 @@ namespace Unity.Entities
         internal void AddEntityComponentCommand<T>(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, Entity e, T component) where T : struct
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
-            var type = TypeManager.GetTypeInfo<T>();
-            var typeSize = type.SizeInChunk;
+            // NOTE: This has to be sizeof not TypeManager.SizeInChunk since we use UnsafeUtility.CopyStructureToPtr
+            //       even on zero size components.
+            var typeSize = UnsafeUtility.SizeOf<T>();
             var sizeNeeded = Align(sizeof(EntityComponentCommand) + typeSize, 8);
 
             var data = (EntityComponentCommand*)Reserve(chain, jobIndex, sizeNeeded);

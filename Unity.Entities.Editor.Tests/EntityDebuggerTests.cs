@@ -19,8 +19,6 @@ namespace Unity.Entities.Editor.Tests
         [DisableAutoCreation]
         class SingleGroupSystem : ComponentSystem
         {
-            
-#pragma warning disable 0169 // "never used" warning
             struct Group
             {
                 private readonly int Length;
@@ -28,7 +26,6 @@ namespace Unity.Entities.Editor.Tests
             }
 
             [Inject] private Group entities;
-#pragma warning restore 0169
             
             protected override void OnUpdate()
             {
@@ -40,7 +37,8 @@ namespace Unity.Entities.Editor.Tests
         {
             var windows = Resources.FindObjectsOfTypeAll<EntityDebugger>();
             foreach (var window in windows)
-                window.Close();
+                if (window != null)
+                    window.Close();
         }
 
         private const string World2Name = "Test World 2";

@@ -14,6 +14,7 @@ namespace Unity.Transforms
         public quaternion Value;
     }
 
+    [UnityEngine.DisallowMultipleComponent]
     public class RotationComponent : ComponentDataWrapper<Rotation>
     {
     }
