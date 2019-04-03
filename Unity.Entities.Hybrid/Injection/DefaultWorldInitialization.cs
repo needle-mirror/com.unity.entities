@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
@@ -37,54 +38,75 @@ namespace Unity.Entities
 
             PlayerLoopManager.RegisterDomainUnload(DomainUnloadShutdown, 10000);
 
+            IEnumerable<Type> allTypes;
+
             foreach (var ass in AppDomain.CurrentDomain.GetAssemblies())
             {
                 try
                 {
-                    var allTypes = ass.GetTypes();
+                    allTypes = ass.GetTypes();
 
-                    // Create all ComponentSyste
-                    var systemTypes = allTypes.Where(t =>
-                        t.IsSubclassOf(typeof(ComponentSystemBase)) &&
-                        !t.IsAbstract &&
-                        !t.ContainsGenericParameters &&
-                        (t.GetCustomAttributes(typeof(ComponentSystemPatchAttribute), true).Length == 0) &&
-                        t.GetCustomAttributes(typeof(DisableAutoCreationAttribute), true).Length == 0);
-                    foreach (var type in systemTypes)
-                    {
-                        if (editorWorld && type.GetCustomAttributes(typeof(ExecuteInEditMode), true).Length == 0)
-                            continue;
-
-                        GetBehaviourManagerAndLogException(world, type);
-                    }
                 }
-                catch (ReflectionTypeLoadException)
+                catch (ReflectionTypeLoadException e)
                 {
-                    // Can happen for certain assembly during the GetTypes() step
+                    allTypes = e.Types.Where(t => t != null);
+                    Debug.LogWarning("DefaultWorldInitialization failed loading assembly: " + ass.Location);
                 }
-            }
-            
-            foreach (var ass in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                var allTypes = ass.GetTypes();
 
                 // Create all ComponentSystem
-                var systemTypes = allTypes.Where(t => 
-                    t.IsSubclassOf(typeof(ComponentSystemBase)) && 
-                    !t.IsAbstract && 
-                    !t.ContainsGenericParameters && 
-                    (t.GetCustomAttributes(typeof(ComponentSystemPatchAttribute), true).Length > 0) &&
-                    t.GetCustomAttributes(typeof(DisableAutoCreationAttribute), true).Length == 0);
-                foreach (var type in systemTypes)
-                {
-                    if (editorWorld && type.GetCustomAttributes(typeof(ExecuteInEditMode), true).Length == 0)
-                        continue;
+                CreateBehaviourManagersForMatchingTypes(editorWorld, allTypes, world);
+            }
 
-                    world.AddComponentSystemPatch(type);
+            foreach (var ass in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    allTypes = ass.GetTypes();
                 }
+                catch (ReflectionTypeLoadException e)
+                {
+                    allTypes = e.Types.Where(t => t != null);
+                    Debug.LogWarning("DefaultWorldInitialization failed loading assembly: " + ass.Location);
+                }
+
+                AddComponentSystemPatchesForMatchingTypes(editorWorld, allTypes, world);
             }
 
             ScriptBehaviourUpdateOrder.UpdatePlayerLoop(world);
+        }
+
+        static void CreateBehaviourManagersForMatchingTypes(bool editorWorld, IEnumerable<Type> allTypes, World world)
+        {
+            var systemTypes = allTypes.Where(t =>
+                t.IsSubclassOf(typeof(ComponentSystemBase)) &&
+                !t.IsAbstract &&
+                !t.ContainsGenericParameters &&
+                t.GetCustomAttributes(typeof(ComponentSystemPatchAttribute), true).Length == 0 &&
+                t.GetCustomAttributes(typeof(DisableAutoCreationAttribute), true).Length == 0);
+            foreach (var type in systemTypes)
+            {
+                if (editorWorld && type.GetCustomAttributes(typeof(ExecuteInEditMode), true).Length == 0)
+                    continue;
+
+                GetBehaviourManagerAndLogException(world, type);
+            }
+        }
+
+        static void AddComponentSystemPatchesForMatchingTypes(bool editorWorld, IEnumerable<Type> allTypes, World world)
+        {
+            var systemTypes = allTypes.Where(t =>
+                t.IsSubclassOf(typeof(ComponentSystemBase)) &&
+                !t.IsAbstract &&
+                !t.ContainsGenericParameters &&
+                t.GetCustomAttributes(typeof(ComponentSystemPatchAttribute), true).Length > 0 &&
+                t.GetCustomAttributes(typeof(DisableAutoCreationAttribute), true).Length == 0);
+            foreach (var type in systemTypes)
+            {
+                if (editorWorld && type.GetCustomAttributes(typeof(ExecuteInEditMode), true).Length == 0)
+                    continue;
+
+                world.AddComponentSystemPatch(type);
+            }
         }
     }
 }
