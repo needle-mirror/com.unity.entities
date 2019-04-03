@@ -12,7 +12,9 @@ namespace Unity.Rendering
         public Camera ActiveCamera;
 
         [Inject]
+#pragma warning disable 649
         ComponentDataFromEntity<ActiveLODGroupMask> m_ActiveLODGroupMask;
+#pragma warning restore 649
         
         [BurstCompile]
         struct LODGroupJob : IJobProcessComponentData<MeshLODGroupComponent, ActiveLODGroupMask>

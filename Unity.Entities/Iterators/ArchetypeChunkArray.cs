@@ -73,6 +73,16 @@ namespace Unity.Entities
             return result;
         }
 
+        public bool DidAddOrChange<T>(ArchetypeChunkComponentType<T> chunkComponentType) where T : struct, IComponentData
+        {
+            return ChangeVersionUtility.DidAddOrChange(GetComponentVersion(chunkComponentType), chunkComponentType.GlobalSystemVersion);
+        }
+
+        public bool DidChange<T>(ArchetypeChunkComponentType<T> chunkComponentType) where T : struct, IComponentData
+        {
+            return ChangeVersionUtility.DidChange(GetComponentVersion(chunkComponentType), chunkComponentType.GlobalSystemVersion);
+        }
+
         public uint GetComponentVersion<T>(ArchetypeChunkComponentType<T> chunkComponentType)
             where T : struct, IComponentData
         {
@@ -147,7 +157,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 return new BufferAccessor<T>(null, 0, 0, true, bufferComponentType.m_Safety, bufferComponentType.m_ArrayInvalidationSafety);
 #else
-                return new BufferAccessor<T>(null, 0, 0, true);
+                return new BufferAccessor<T>(null, 0, 0);
 #endif
             }
 
@@ -161,7 +171,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             return new BufferAccessor<T>(buffer + startOffset, length, stride, bufferComponentType.IsReadOnly, bufferComponentType.m_Safety, bufferComponentType.m_ArrayInvalidationSafety);
 #else
-            return new BufferAccessor<T>(buffer + startOffset, length, stride, bufferComponentType.IsReadOnly);
+            return new BufferAccessor<T>(buffer + startOffset, length, stride);
 #endif
         }
     }
@@ -174,7 +184,9 @@ namespace Unity.Entities
         private byte* m_BasePointer;
         private int m_Length;
         private int m_Stride;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         private bool m_IsReadOnly;
+#endif
 
         public int Length => m_Length;
 
@@ -202,12 +214,11 @@ namespace Unity.Entities
             m_SafetyReadWriteCount = readOnly ? 0 : 2;
         }
 #else
-        public BufferAccessor(byte* basePointer, int length, int stride, bool readOnly)
+        public BufferAccessor(byte* basePointer, int length, int stride)
         {
             m_BasePointer = basePointer;
             m_Length = length;
             m_Stride = stride;
-            m_IsReadOnly = readOnly;
         }
 #endif
 

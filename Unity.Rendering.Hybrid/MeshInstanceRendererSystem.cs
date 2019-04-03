@@ -102,9 +102,9 @@ namespace Unity.Rendering
         Matrix4x4[] m_MatricesArray = new Matrix4x4[1023];
         private FrustumPlanes m_Planes;
         
-        EntityArchetypeQuery m_FrozenChunksQuery;
-        EntityArchetypeQuery m_DynamicChunksQuery;
-        
+        ComponentGroup m_FrozenChunksQuery;
+        ComponentGroup m_DynamicChunksQuery;
+
         static unsafe void CopyTo(NativeSlice<VisibleLocalToWorld> transforms, int count, Matrix4x4[] outMatrices, int offset)
         {
             // @TODO: This is using unsafe code because the Unity DrawInstances API takes a Matrix4x4[] instead of NativeArray.
@@ -118,18 +118,26 @@ namespace Unity.Rendering
         
         protected override void OnCreateManager()
         {
-            m_FrozenChunksQuery = new EntityArchetypeQuery
+            m_FrozenChunksQuery = GetComponentGroup(new EntityArchetypeQuery
             {
                 Any = Array.Empty<ComponentType>(),
                 None = Array.Empty<ComponentType>(),
                 All = new ComponentType[] {typeof(LocalToWorld), typeof(MeshInstanceRenderer), typeof(VisibleLocalToWorld), typeof(Frozen)}
-            };
-            m_DynamicChunksQuery = new EntityArchetypeQuery
+            });
+            m_DynamicChunksQuery = GetComponentGroup(new EntityArchetypeQuery
             {
                 Any = Array.Empty<ComponentType>(),
                 None = new ComponentType[] {typeof(Frozen)},
                 All = new ComponentType[] {typeof(LocalToWorld), typeof(MeshInstanceRenderer), typeof(VisibleLocalToWorld)}
-            };
+            });
+            
+            GetComponentGroup(new EntityArchetypeQuery
+            {
+                Any = Array.Empty<ComponentType>(),
+                None = new ComponentType[] { typeof(VisibleLocalToWorld) },
+                All = new ComponentType[] { typeof(MeshInstanceRenderer), typeof(LocalToWorld) }
+            });
+
         }
 
         protected override void OnDestroyManager()
@@ -670,8 +678,7 @@ namespace Unity.Rendering
             var foundArchetypes = new NativeList<EntityArchetype>(Allocator.TempJob);
 
             Profiler.BeginSample("CreateArchetypeChunkArray");
-            EntityManager.AddMatchingArchetypes(m_FrozenChunksQuery, foundArchetypes);
-            var chunks = EntityManager.CreateArchetypeChunkArray(foundArchetypes, Allocator.TempJob);
+            var chunks = m_FrozenChunksQuery.CreateArchetypeChunkArray(Allocator.TempJob);
             Profiler.EndSample();
             
             m_FrozenChunks = new NativeArray<ArchetypeChunk>(chunks.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
@@ -730,8 +737,7 @@ namespace Unity.Rendering
             var foundArchetypes = new NativeList<EntityArchetype>(Allocator.TempJob);
 
             Profiler.BeginSample("CreateArchetypeChunkArray");
-            EntityManager.AddMatchingArchetypes(m_DynamicChunksQuery, foundArchetypes);
-            var chunks = EntityManager.CreateArchetypeChunkArray(foundArchetypes, Allocator.TempJob);
+            var chunks = m_DynamicChunksQuery.CreateArchetypeChunkArray(Allocator.TempJob);
             Profiler.EndSample();
             
             m_DynamicChunks = new NativeArray<ArchetypeChunk>(chunks.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);

@@ -12,7 +12,9 @@ namespace Unity.Entities
         readonly EntityDataManager*      m_Entities;
         readonly int                     m_TypeIndex;
         readonly uint                    m_GlobalSystemVersion;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         readonly bool                    m_IsZeroSized;          // cache of whether T is zero-sized
+#endif
         int                              m_TypeLookupCache;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -32,7 +34,6 @@ namespace Unity.Entities
             m_Entities = entityData;
             m_TypeLookupCache = 0;
             m_GlobalSystemVersion = entityData->GlobalSystemVersion;
-            m_IsZeroSized = ComponentType.FromTypeIndex(typeIndex).IsZeroSized;
         }
 #endif
 

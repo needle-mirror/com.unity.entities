@@ -108,9 +108,9 @@ namespace Unity.Entities.Editor
             switch (mode)
             {
                 case ComponentType.AccessMode.ReadOnly:
-                    return archetypeQueryMode ? EntityDebuggerStyles.ComponentRequired : EntityDebuggerStyles.ComponentReadOnly;
+                    return EntityDebuggerStyles.ComponentReadOnly;
                 case ComponentType.AccessMode.ReadWrite:
-                    return archetypeQueryMode ? EntityDebuggerStyles.ComponentRequired : EntityDebuggerStyles.ComponentReadWrite;
+                    return EntityDebuggerStyles.ComponentReadWrite;
                 case ComponentType.AccessMode.Subtractive:
                     return EntityDebuggerStyles.ComponentSubtractive;
                 default:

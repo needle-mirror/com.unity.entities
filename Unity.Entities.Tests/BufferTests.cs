@@ -409,7 +409,9 @@ namespace Unity.Entities.Tests
                 public BufferArray<EcsIntElement> Buffers;
             }
 
+#pragma warning disable 649
             [Inject] Data m_Data;
+#pragma warning restore 649
 
             public struct MyJob : IJobParallelFor
             {
@@ -539,7 +541,9 @@ namespace Unity.Entities.Tests
 
 	    internal struct ElementWithoutCapacity : IBufferElementData
 	    {
+#pragma warning disable 649
 	        public float Value;
+#pragma warning restore 649
 	    }
 
 	    [Test]

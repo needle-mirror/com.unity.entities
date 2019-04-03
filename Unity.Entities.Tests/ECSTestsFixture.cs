@@ -9,6 +9,11 @@ namespace Unity.Entities.Tests
         protected override JobHandle OnUpdate(JobHandle dep) { return dep; }
 
 
+        new public ComponentGroup GetComponentGroup(params EntityArchetypeQuery[] queries)
+        {
+            return base.GetComponentGroup(queries);
+        }
+
         new public ComponentGroup GetComponentGroup(params ComponentType[] componentTypes)
         {
             return base.GetComponentGroup(componentTypes);

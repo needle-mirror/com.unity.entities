@@ -56,33 +56,29 @@ namespace Unity.Transforms
     public class EndFrameTransformSystem : TransformSystem
     {
     }
-
     public abstract class TransformSystem : JobComponentSystem
     {
-        uint LastSystemVersion = 0;
-
         // Internally tracked state of Parent->Child relationships.
         // Child->Parent relationship stored in Parent component.
         NativeMultiHashMap<Entity, Entity> ParentToChildTree;
 
-        EntityArchetypeQuery NewRootQuery;
-        EntityArchetypeQuery AttachQuery;
-        EntityArchetypeQuery DetachQuery;
-        EntityArchetypeQuery PendingFrozenQuery;
-        EntityArchetypeQuery FrozenQuery;
-        EntityArchetypeQuery RootLocalToWorldQuery;
-        EntityArchetypeQuery InnerTreeLocalToParentQuery;
-        EntityArchetypeQuery LeafLocalToParentQuery;
-        EntityArchetypeQuery InnerTreeLocalToWorldQuery;
-        EntityArchetypeQuery LeafLocalToWorldQuery;
-        EntityArchetypeQuery DepthQuery;
-
+        ComponentGroup NewRootGroup;
+        ComponentGroup AttachGroup;
+        ComponentGroup DetachGroup;
+        ComponentGroup PendingFrozenGroup;
+        ComponentGroup FrozenGroup;
+        ComponentGroup RootLocalToWorldGroup;
+        ComponentGroup InnerTreeLocalToParentGroup;
+        ComponentGroup LeafLocalToParentGroup;
+        ComponentGroup InnerTreeLocalToWorldGroup;
+        ComponentGroup LeafLocalToWorldGroup;
+        ComponentGroup DepthGroup;
+        
         NativeArray<ArchetypeChunk> NewRootChunks;
         NativeArray<ArchetypeChunk> AttachChunks;
         NativeArray<ArchetypeChunk> DetachChunks;
         NativeArray<ArchetypeChunk> PendingFrozenChunks;
         NativeArray<ArchetypeChunk> FrozenChunks;
-        NativeArray<ArchetypeChunk> RootLocalToWorldChunks;
         NativeArray<ArchetypeChunk> InnerTreeLocalToParentChunks;
         NativeArray<ArchetypeChunk> LeafLocalToParentChunks;
         NativeArray<ArchetypeChunk> InnerTreeLocalToWorldChunks;
@@ -369,7 +365,6 @@ namespace Unity.Transforms
             [ReadOnly] public ArchetypeChunkComponentType<Position> positionType;
             [ReadOnly] public ArchetypeChunkComponentType<Scale> scaleType;
             public ArchetypeChunkComponentType<LocalToWorld> localToWorldType;
-            public uint lastSystemVersion;
 
             public void Execute(int chunkIndex)
             {
@@ -381,13 +376,13 @@ namespace Unity.Transforms
                 var chunkScales = chunk.GetNativeArray(scaleType);
                 var chunkLocalToWorlds = chunk.GetNativeArray(localToWorldType);
 
-                var chunkRotationsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(rotationType), lastSystemVersion);
-                var chunkPositionsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(positionType), lastSystemVersion);
-                var chunkScalesChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(scaleType), lastSystemVersion);
+                var chunkRotationsChanged = chunk.DidAddOrChange(rotationType);
+                var chunkPositionsChanged = chunk.DidAddOrChange(positionType);
+                var chunkScalesChanged = chunk.DidAddOrChange(scaleType);
                 var chunkAnyChanged = chunkRotationsChanged || chunkPositionsChanged || chunkScalesChanged;
 
                 if (!chunkAnyChanged)
-                  return;
+                    return;
 
                 var chunkRotationsExist = chunkRotations.Length > 0;
                 var chunkPositionsExist = chunkPositions.Length > 0;
@@ -478,22 +473,18 @@ namespace Unity.Transforms
 
         JobHandle UpdateRootLocalToWorld(JobHandle inputDeps)
         {
-            if (RootLocalToWorldChunks.Length == 0)
-            {
-                RootLocalToWorldChunks.Dispose();
-                return inputDeps;
-            }
-
+            JobHandle gatherChunksJob;
+            var chunks = RootLocalToWorldGroup.CreateArchetypeChunkArray(Allocator.TempJob, out gatherChunksJob);
+            
             var rootsLocalToWorldJob = new RootLocalToWorld
             {
-                chunks = RootLocalToWorldChunks,
+                chunks = chunks,
                 rotationType = RotationTypeRO,
                 positionType = PositionTypeRO,
                 scaleType = ScaleTypeRO,
-                localToWorldType = LocalToWorldTypeRW,
-                lastSystemVersion = LastSystemVersion,
+                localToWorldType = LocalToWorldTypeRW
             };
-            var rootsLocalToWorldJobHandle = rootsLocalToWorldJob.Schedule(RootLocalToWorldChunks.Length, 4, inputDeps);
+            var rootsLocalToWorldJobHandle = rootsLocalToWorldJob.Schedule(chunks .Length, 4, JobHandle.CombineDependencies(inputDeps, gatherChunksJob));
             return rootsLocalToWorldJobHandle;
         }
 
@@ -505,7 +496,6 @@ namespace Unity.Transforms
             [ReadOnly] public ArchetypeChunkComponentType<Position> positionType;
             [ReadOnly] public ArchetypeChunkComponentType<Scale> scaleType;
             public ArchetypeChunkComponentType<LocalToParent> localToParentType;
-            public uint lastSystemVersion;
 
             public void Execute(int chunkIndex)
             {
@@ -517,9 +507,9 @@ namespace Unity.Transforms
                 var chunkScales = chunk.GetNativeArray(scaleType);
                 var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
 
-                var chunkRotationsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(rotationType), lastSystemVersion);
-                var chunkPositionsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(positionType), lastSystemVersion);
-                var chunkScalesChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(scaleType), lastSystemVersion);
+                var chunkRotationsChanged = chunk.DidAddOrChange(rotationType);
+                var chunkPositionsChanged = chunk.DidAddOrChange(positionType);
+                var chunkScalesChanged = chunk.DidAddOrChange(scaleType);
                 var chunkAnyChanged = chunkRotationsChanged || chunkPositionsChanged || chunkScalesChanged;
 
                 if (!chunkAnyChanged)
@@ -626,8 +616,7 @@ namespace Unity.Transforms
                 rotationType = RotationTypeRO,
                 positionType = PositionTypeRO,
                 scaleType = ScaleTypeRO,
-                localToParentType = LocalToParentTypeRW,
-                lastSystemVersion = LastSystemVersion
+                localToParentType = LocalToParentTypeRW
             };
             var innerTreeLocalToParentJobHandle = innerTreeLocalToParentJob.Schedule(InnerTreeLocalToParentChunks.Length, 4, inputDeps);
             return innerTreeLocalToParentJobHandle;
@@ -641,7 +630,6 @@ namespace Unity.Transforms
             [ReadOnly] public ArchetypeChunkComponentType<Position> positionType;
             [ReadOnly] public ArchetypeChunkComponentType<Scale> scaleType;
             public ArchetypeChunkComponentType<LocalToParent> localToParentType;
-            public uint lastSystemVersion;
 
             public void Execute(int chunkIndex)
             {
@@ -653,13 +641,13 @@ namespace Unity.Transforms
                 var chunkScales = chunk.GetNativeArray(scaleType);
                 var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
 
-                var chunkRotationsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(rotationType), lastSystemVersion);
-                var chunkPositionsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(positionType), lastSystemVersion);
-                var chunkScalesChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(scaleType), lastSystemVersion);
+                var chunkRotationsChanged = chunk.DidAddOrChange(rotationType);
+                var chunkPositionsChanged = chunk.DidAddOrChange(positionType);
+                var chunkScalesChanged = chunk.DidAddOrChange(scaleType);
                 var chunkAnyChanged = chunkRotationsChanged || chunkPositionsChanged || chunkScalesChanged;
 
                 if (!chunkAnyChanged)
-                  return;
+                    return;
 
                 var chunkRotationsExist = chunkRotations.Length > 0;
                 var chunkPositionsExist = chunkPositions.Length > 0;
@@ -762,8 +750,7 @@ namespace Unity.Transforms
                 rotationType = RotationTypeRO,
                 positionType = PositionTypeRO,
                 scaleType = ScaleTypeRO,
-                localToParentType = LocalToParentTypeRW,
-                lastSystemVersion = LastSystemVersion
+                localToParentType = LocalToParentTypeRW
             };
             var leafToLocalParentJobHandle = leafToLocalParentJob.Schedule(LeafLocalToParentChunks.Length, 4, inputDeps);
             return leafToLocalParentJobHandle;
@@ -781,7 +768,6 @@ namespace Unity.Transforms
             [ReadOnly] public ArchetypeChunkEntityType entityType;
             [ReadOnly] public ArchetypeChunkComponentType<LocalToParent> localToParentType;
             [NativeDisableParallelForRestriction] public ComponentDataFromEntity<LocalToWorld> localToWorldFromEntity;
-            public uint lastSystemVersion;
 
             public void Execute()
             {
@@ -907,8 +893,7 @@ namespace Unity.Transforms
                 parentType = ParentTypeRO,
                 entityType = EntityTypeRO,
                 localToParentType = LocalToParentTypeRO,
-                localToWorldFromEntity = LocalToWorldFromEntityRW,
-                lastSystemVersion = LastSystemVersion
+                localToWorldFromEntity = LocalToWorldFromEntityRW
             };
             var innerTreeLocalToWorldJobHandle = innerTreeLocalToWorldJob.Schedule(sortDepthsJobHandle);
 
@@ -923,7 +908,6 @@ namespace Unity.Transforms
             [ReadOnly] public ArchetypeChunkComponentType<Parent> parentType;
             [ReadOnly] public ArchetypeChunkComponentType<LocalToParent> localToParentType;
             [NativeDisableParallelForRestriction] public ComponentDataFromEntity<LocalToWorld> localToWorldFromEntity;
-            public uint lastSystemVersion;
 
             public void Execute(int i)
             {
@@ -966,8 +950,7 @@ namespace Unity.Transforms
                 entityType = EntityTypeRO,
                 parentType = ParentTypeRO,
                 localToParentType = LocalToParentTypeRO,
-                localToWorldFromEntity = LocalToWorldFromEntityRW,
-                lastSystemVersion = LastSystemVersion
+                localToWorldFromEntity = LocalToWorldFromEntityRW
             };
             var updateLeafToWorldJobHandle = updateLeafLocalToWorldJob.Schedule(LeafLocalToWorldChunks.Length, 4, inputDeps);
             return updateLeafToWorldJobHandle;
@@ -1023,99 +1006,98 @@ namespace Unity.Transforms
 
         void GatherQueries()
         {
-            NewRootQuery = new EntityArchetypeQuery
+            NewRootGroup = GetComponentGroup(new EntityArchetypeQuery
             {
                 Any = new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)},
                 None = new ComponentType[] {typeof(Frozen), typeof(Parent), typeof(LocalToWorld), typeof(Depth)},
                 All = Array.Empty<ComponentType>(),
-            };
-            AttachQuery = new EntityArchetypeQuery
+            });
+            AttachGroup = GetComponentGroup(new EntityArchetypeQuery
             {
                 Any = Array.Empty<ComponentType>(),
                 None = Array.Empty<ComponentType>(),
                 All = new ComponentType[] {typeof(Attach)},
-            };
-            DetachQuery = new EntityArchetypeQuery
+            });
+            DetachGroup = GetComponentGroup(new EntityArchetypeQuery
             {
                 Any = Array.Empty<ComponentType>(),
                 None = new ComponentType[] {typeof(Attached)},
                 All = new ComponentType[] {typeof(Parent)},
-            };
-            PendingFrozenQuery = new EntityArchetypeQuery
+            });
+            PendingFrozenGroup = GetComponentGroup(new EntityArchetypeQuery
             {
                 Any = Array.Empty<ComponentType>(),
                 None = new ComponentType[] {typeof(Frozen)},
                 All = new ComponentType[] {typeof(LocalToWorld), typeof(Static),typeof(PendingFrozen)},
-            };
-            FrozenQuery = new EntityArchetypeQuery
+            });
+            FrozenGroup = GetComponentGroup(new EntityArchetypeQuery
             {
                 Any = Array.Empty<ComponentType>(),
                 None = new ComponentType[] {typeof(PendingFrozen), typeof(Frozen)},
                 All = new ComponentType[] {typeof(LocalToWorld), typeof(Static)},
-            };
-            RootLocalToWorldQuery = new EntityArchetypeQuery
+            });
+            RootLocalToWorldGroup = GetComponentGroup(new EntityArchetypeQuery
             {
                 Any = new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)},
                 None = new ComponentType[] {typeof(Frozen), typeof(Parent)},
                 All = new ComponentType[] {typeof(LocalToWorld)},
-            };
-            InnerTreeLocalToParentQuery = new EntityArchetypeQuery
+            });
+            InnerTreeLocalToParentGroup = GetComponentGroup(new EntityArchetypeQuery
             {
                 Any = new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)},
                 None = new ComponentType[] {typeof(Frozen)},
                 All = new ComponentType[] {typeof(LocalToParent), typeof(Parent) },
-            };
-            LeafLocalToParentQuery = new EntityArchetypeQuery
+            });
+            LeafLocalToParentGroup = GetComponentGroup(new EntityArchetypeQuery
             {
                 Any = new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)},
                 None = new ComponentType[] {typeof(Frozen)},
                 All = new ComponentType[] {typeof(LocalToParent), typeof(Parent)},
-            };
-            InnerTreeLocalToWorldQuery = new EntityArchetypeQuery
+            });
+            InnerTreeLocalToWorldGroup = GetComponentGroup(new EntityArchetypeQuery
             {
                 Any = Array.Empty<ComponentType>(),
                 None = new ComponentType[] {typeof(Frozen)},
                 All = new ComponentType[] {typeof(Depth), typeof(LocalToParent), typeof(Parent), typeof(LocalToWorld)},
-            };
-            LeafLocalToWorldQuery = new EntityArchetypeQuery
+            });
+            LeafLocalToWorldGroup = GetComponentGroup(new EntityArchetypeQuery
             {
                 Any = new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)},
                 None = new ComponentType[] {typeof(Frozen), typeof(Depth)},
                 All = new ComponentType[] {typeof(LocalToParent), typeof(Parent)},
-            };
-            DepthQuery = new EntityArchetypeQuery
+            });
+            DepthGroup = GetComponentGroup(new EntityArchetypeQuery
             {
                 Any = Array.Empty<ComponentType>(),
                 None = Array.Empty<ComponentType>(),
                 All = new ComponentType[] {typeof(Depth), typeof(Parent)},
-            };
+            });
         }
 
         void GatherFrozenChunks()
         {
-            PendingFrozenChunks = EntityManager.CreateArchetypeChunkArray(PendingFrozenQuery, Allocator.TempJob);
-            FrozenChunks = EntityManager.CreateArchetypeChunkArray(FrozenQuery, Allocator.TempJob);
+            PendingFrozenChunks = PendingFrozenGroup.CreateArchetypeChunkArray(Allocator.TempJob);
+            FrozenChunks = FrozenGroup.CreateArchetypeChunkArray(Allocator.TempJob);
         }
 
         void GatherDAGChunks()
         {
-            NewRootChunks = EntityManager.CreateArchetypeChunkArray(NewRootQuery, Allocator.TempJob);
-            AttachChunks = EntityManager.CreateArchetypeChunkArray(AttachQuery, Allocator.TempJob);
-            DetachChunks = EntityManager.CreateArchetypeChunkArray(DetachQuery, Allocator.TempJob);
+            NewRootChunks = NewRootGroup.CreateArchetypeChunkArray(Allocator.TempJob);
+            AttachChunks = AttachGroup.CreateArchetypeChunkArray(Allocator.TempJob);
+            DetachChunks = DetachGroup.CreateArchetypeChunkArray(Allocator.TempJob);
         }
 
         void GatherDepthChunks()
         {
-            DepthChunks = EntityManager.CreateArchetypeChunkArray(DepthQuery, Allocator.TempJob);
+            DepthChunks = DepthGroup.CreateArchetypeChunkArray(Allocator.TempJob);
         }
 
         void GatherUpdateChunks()
         {
-            RootLocalToWorldChunks = EntityManager.CreateArchetypeChunkArray(RootLocalToWorldQuery, Allocator.TempJob);
-            InnerTreeLocalToParentChunks = EntityManager.CreateArchetypeChunkArray(InnerTreeLocalToParentQuery, Allocator.TempJob);
-            LeafLocalToParentChunks = EntityManager.CreateArchetypeChunkArray(LeafLocalToParentQuery, Allocator.TempJob);
-            InnerTreeLocalToWorldChunks = EntityManager.CreateArchetypeChunkArray(InnerTreeLocalToWorldQuery, Allocator.TempJob);
-            LeafLocalToWorldChunks = EntityManager.CreateArchetypeChunkArray(LeafLocalToWorldQuery, Allocator.TempJob);
+            InnerTreeLocalToParentChunks = InnerTreeLocalToParentGroup.CreateArchetypeChunkArray(Allocator.TempJob);
+            LeafLocalToParentChunks = LeafLocalToParentGroup.CreateArchetypeChunkArray(Allocator.TempJob);
+            InnerTreeLocalToWorldChunks = InnerTreeLocalToWorldGroup.CreateArchetypeChunkArray(Allocator.TempJob);
+            LeafLocalToWorldChunks = LeafLocalToWorldGroup.CreateArchetypeChunkArray(Allocator.TempJob);
         }
 
         void GatherTypes()
@@ -1215,7 +1197,6 @@ namespace Unity.Transforms
             var updateLeafLocalToWorldJobHandle = UpdateLeafLocalToWorld(updateInnerTreeLocalToWorldJobHandle);
             k_ProfileUpdateLeafLocalToWorld.End();
 
-            LastSystemVersion = GlobalSystemVersion;
             return updateLeafLocalToWorldJobHandle;
         }
     }

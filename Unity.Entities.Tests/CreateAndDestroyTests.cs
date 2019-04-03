@@ -1,5 +1,6 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.Tests
 {
@@ -234,5 +235,73 @@ namespace Unity.Entities.Tests
 	            Assert.AreEqual(1, archetype2->EntityCount);
 	        }
 	    }
+	    
+	    [Test]
+	    public void AddComponentsWorks()
+	    {
+	        var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+	        var entity = m_Manager.CreateEntity(archetype);
+
+	        var typesToAdd = new ComponentTypes(new ComponentType[] {typeof(EcsTestData3), typeof(EcsTestData2)});	        
+	        m_Manager.AddComponents(entity, typesToAdd);
+
+	        var expectedTotalTypes = new ComponentTypes(new ComponentType[] {typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData)});
+	        var actualTotalTypes = m_Manager.GetComponentTypes(entity);
+
+	        Assert.AreEqual(expectedTotalTypes.Length, actualTotalTypes.Length);
+	        for (var i = 0; i < expectedTotalTypes.Length; ++i)
+	            Assert.AreEqual(expectedTotalTypes.GetTypeIndex(i), actualTotalTypes[i].TypeIndex);
+	        
+	        actualTotalTypes.Dispose();
+	    }
+
+	    [Test]
+	    public void AddComponentsWithTypeIndicesWorks()
+	    {
+	        var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+	        var entity = m_Manager.CreateEntity(archetype);
+
+	        var typesToAdd = new ComponentTypes(typeof(EcsTestData3), typeof(EcsTestData2));
+
+	        m_Manager.AddComponents(entity, typesToAdd);
+
+	        var expectedTotalTypes = new ComponentTypes(typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData));
+
+	        var actualTotalTypes = m_Manager.GetComponentTypes(entity);
+
+	        Assert.AreEqual(expectedTotalTypes.Length, actualTotalTypes.Length);
+	        for (var i = 0; i < expectedTotalTypes.Length; ++i)
+	            Assert.AreEqual(expectedTotalTypes.GetTypeIndex(i), actualTotalTypes[i].TypeIndex);
+	        
+	        actualTotalTypes.Dispose();
+	    }
+
+	    [Test]
+	    public void AddComponentsWithSharedComponentsWorks()
+	    {
+	        var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+	        var entity = m_Manager.CreateEntity(archetype);
+
+	        var sharedComponentValue = new EcsTestSharedComp(1337);
+	        m_Manager.SetSharedComponentData(entity, sharedComponentValue);
+	        
+	        var typesToAdd = new ComponentTypes(typeof(EcsTestData3), typeof(EcsTestSharedComp2), typeof(EcsTestData2));
+
+	        m_Manager.AddComponents(entity, typesToAdd);
+
+	        Assert.AreEqual(m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity), sharedComponentValue);
+
+	        var expectedTotalTypes = new ComponentTypes(typeof(EcsTestData), typeof(EcsTestData2), 
+	            typeof(EcsTestData3), typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
+
+	        var actualTotalTypes = m_Manager.GetComponentTypes(entity);
+
+	        Assert.AreEqual(expectedTotalTypes.Length, actualTotalTypes.Length);
+	        for (var i = 0; i < expectedTotalTypes.Length; ++i)
+	            Assert.AreEqual(expectedTotalTypes.GetTypeIndex(i), actualTotalTypes[i].TypeIndex);
+
+	        actualTotalTypes.Dispose();
+	    }
+
 	}
 }

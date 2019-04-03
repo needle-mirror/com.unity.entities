@@ -80,11 +80,18 @@ namespace Unity.Entities.Editor
             
             if (chunkArray.IsCreated)
                 chunkArray.Dispose();
-
-            var query = SelectedEntityQuery?.Query ?? allQuery;
             
             entityManager.CompleteAllJobs();
-            chunkArray = entityManager.CreateArchetypeChunkArray(query, Allocator.Persistent);
+
+            if (SelectedEntityQuery == null || SelectedEntityQuery.Group == null)
+            {
+                var query = SelectedEntityQuery?.Query ?? allQuery;
+                chunkArray = entityManager.CreateArchetypeChunkArray(query, Allocator.Persistent);
+            }
+            else
+            {
+                chunkArray = SelectedEntityQuery.Group.CreateArchetypeChunkArray(Allocator.Persistent);
+            }
 
             rows.SetSource(chunkArray, entityManager);
             return rows;

@@ -5,9 +5,147 @@ using System.Diagnostics;
 using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 
 namespace Unity.Entities
-{
+{        
+    public unsafe struct ComponentTypes
+    {
+        ResizableArray64Byte<int> m_sorted;
+
+        public struct Masks
+        {
+            public UInt16 m_BufferMask;
+            public UInt16 m_SystemStateComponentMask;
+            public UInt16 m_SystemStateSharedComponentMask;
+            public UInt16 m_SharedComponentMask;
+            public UInt16 m_ZeroSizedMask;
+
+            public bool IsSharedComponent(int index)
+            {
+                return (m_SharedComponentMask & (1 << index)) != 0;
+            }
+
+            public bool IsZeroSized(int index)
+            {
+                return (m_ZeroSizedMask & (1 << index)) != 0;
+            }
+
+            public int Buffers => math.countbits((UInt32)m_BufferMask);
+            public int SystemStateComponents => math.countbits((UInt32)m_SystemStateComponentMask);
+            public int SystemStateSharedComponents => math.countbits((UInt32)m_SystemStateSharedComponentMask);
+            public int SharedComponents => math.countbits((UInt32)m_SharedComponentMask);
+            public int ZeroSizeds => math.countbits((UInt32)m_ZeroSizedMask);
+        }
+        public Masks m_masks;
+
+        private void ComputeMasks()
+        {
+            for (var i = 0; i < m_sorted.Length; ++i)
+            {
+                var typeIndex = m_sorted[i];
+                var typeInfo = TypeManager.GetTypeInfo(typeIndex);
+                var mask = (UInt16)(1 << i);
+                if (typeInfo.BufferCapacity >= 0)
+                    m_masks.m_BufferMask |= mask;
+                if (typeInfo.IsSystemStateComponent)
+                    m_masks.m_SystemStateComponentMask |= mask;
+                if (typeInfo.IsSystemStateSharedComponent)
+                    m_masks.m_SystemStateSharedComponentMask |= mask;
+                if (TypeManager.TypeCategory.ISharedComponentData == typeInfo.Category)
+                    m_masks.m_SharedComponentMask |= mask;
+                if (typeInfo.IsZeroSized)
+                    m_masks.m_ZeroSizedMask |= mask;
+            }                        
+        }
+
+        public int Length
+        {
+            get => m_sorted.Length;                
+        }
+        
+        public int GetTypeIndex(int index)
+        {
+            return m_sorted[index];
+        }
+        public ComponentType GetComponentType(int index)
+        {
+            return TypeManager.GetType(m_sorted[index]);
+        }
+        
+        public ComponentTypes(ComponentType a)
+        {
+            m_sorted = new ResizableArray64Byte<int>();
+            m_masks = new Masks();
+            m_sorted.Length = 1;
+            var pointer = (int*)m_sorted.GetUnsafePointer();
+            SortingUtilities.InsertSorted(pointer, 0, a.TypeIndex);
+            ComputeMasks();            
+        }
+
+        public ComponentTypes(ComponentType a, ComponentType b)
+        {
+            m_sorted = new ResizableArray64Byte<int>();
+            m_masks = new Masks();
+            m_sorted.Length = 2;
+            var pointer = (int*)m_sorted.GetUnsafePointer();
+            SortingUtilities.InsertSorted(pointer, 0, a.TypeIndex);
+            SortingUtilities.InsertSorted(pointer, 1, b.TypeIndex);
+            ComputeMasks();            
+        }
+
+        public ComponentTypes(ComponentType a, ComponentType b, ComponentType c)
+        {
+            m_sorted = new ResizableArray64Byte<int>();
+            m_masks = new Masks();
+            m_sorted.Length = 3;
+            var pointer = (int*)m_sorted.GetUnsafePointer();
+            SortingUtilities.InsertSorted(pointer, 0, a.TypeIndex);
+            SortingUtilities.InsertSorted(pointer, 1, b.TypeIndex);
+            SortingUtilities.InsertSorted(pointer, 2, c.TypeIndex);
+            ComputeMasks();            
+        }
+
+        public ComponentTypes(ComponentType a, ComponentType b, ComponentType c, ComponentType d)
+        {
+            m_sorted = new ResizableArray64Byte<int>();
+            m_masks = new Masks();
+            m_sorted.Length = 4;
+            var pointer = (int*)m_sorted.GetUnsafePointer();
+            SortingUtilities.InsertSorted(pointer, 0, a.TypeIndex);
+            SortingUtilities.InsertSorted(pointer, 1, b.TypeIndex);
+            SortingUtilities.InsertSorted(pointer, 2, c.TypeIndex);
+            SortingUtilities.InsertSorted(pointer, 3, d.TypeIndex);
+            ComputeMasks();            
+        }
+
+        public ComponentTypes(ComponentType a, ComponentType b, ComponentType c, ComponentType d, ComponentType e)
+        {
+            m_sorted = new ResizableArray64Byte<int>();
+            m_masks = new Masks();
+            m_sorted.Length = 5;
+            var pointer = (int*)m_sorted.GetUnsafePointer();
+            SortingUtilities.InsertSorted(pointer, 0, a.TypeIndex);
+            SortingUtilities.InsertSorted(pointer, 1, b.TypeIndex);
+            SortingUtilities.InsertSorted(pointer, 2, c.TypeIndex);
+            SortingUtilities.InsertSorted(pointer, 3, d.TypeIndex);
+            SortingUtilities.InsertSorted(pointer, 4, e.TypeIndex);
+            ComputeMasks();            
+        }
+
+        public ComponentTypes(ComponentType[] componentType)
+        {           
+            m_sorted = new ResizableArray64Byte<int>();
+            m_masks = new Masks();
+            m_sorted.Length = componentType.Length;
+            var pointer = (int*)m_sorted.GetUnsafePointer();
+            for(var i = 0; i < componentType.Length; ++i)
+                SortingUtilities.InsertSorted(pointer, i, componentType[i].TypeIndex);
+            ComputeMasks();            
+        }
+                
+    }
+    
     internal struct CleanupEntity : IComponentData
     {
     }
@@ -527,6 +665,88 @@ namespace Unity.Entities
             typeMan.SetChunkCount(oldChunk, lastIndex);
         }
 
+        public void AddComponents(Entity entity, ComponentTypes types, ArchetypeManager archetypeManager,
+            SharedComponentDataManager sharedComponentDataManager,
+            EntityGroupManager groupManager, ComponentTypeInArchetype* componentTypeInArchetypeArray)
+        {
+            var oldArchetype = GetArchetype(entity);
+
+            var indexOfNewTypeInNewArchetype = stackalloc int[types.Length];
+            
+            // zipper the two sorted arrays "type" and "componentTypeInArchetype" into "componentTypeInArchetype"
+            // because this is done in-place, it must be done backwards so as not to disturb the existing contents.
+
+            {
+                var oldThings = oldArchetype->TypesCount;
+                var newThings = types.Length;
+                var mixedThings = oldThings + newThings;
+                while (oldThings > 0 && newThings > 0) // while both are still zippering,
+                {
+                    var oldThing = componentTypeInArchetypeArray[oldThings - 1];
+                    var newThing = types.GetComponentType(newThings - 1);
+                    if (oldThing.TypeIndex > newThing.TypeIndex) // put whichever is bigger at the end of the array
+                    {
+                        componentTypeInArchetypeArray[--mixedThings] = oldThing;
+                        --oldThings;
+                    }
+                    else
+                    {
+                        var componentTypeInArchetype = new ComponentTypeInArchetype(newThing);
+                        componentTypeInArchetypeArray[--mixedThings] = componentTypeInArchetype;
+                        --newThings;
+                        indexOfNewTypeInNewArchetype[newThings] = mixedThings; // "this new thing ended up HERE"
+                    }
+                }
+                while (newThings > 0) // if smallest new things < smallest old things, copy them here
+                {
+                    var newThing = types.GetComponentType(newThings - 1);
+                    var componentTypeInArchetype = new ComponentTypeInArchetype(newThing);
+                    componentTypeInArchetypeArray[--mixedThings] = componentTypeInArchetype;
+                    --newThings;
+                    indexOfNewTypeInNewArchetype[newThings] = mixedThings; // "this new thing ended up HERE"
+                }
+                Assert.AreEqual(newThings, 0); // must not be any new things to copy remaining
+                Assert.AreEqual(oldThings, mixedThings); // all things we didn't copy must be old
+            }
+            
+            var newTypesCount = oldArchetype->TypesCount + (int)types.Length;
+            var newArchetype = archetypeManager.GetOrCreateArchetype(componentTypeInArchetypeArray,
+                newTypesCount, groupManager);
+
+            int* sharedComponentDataIndices = GetComponentChunk(entity)->SharedComponentValueArray;
+            if (types.m_masks.m_SharedComponentMask != 0)
+            {
+                int* alloc2 = stackalloc int[newArchetype->NumSharedComponents];
+                var oldSharedComponentDataIndices = sharedComponentDataIndices;
+                sharedComponentDataIndices = alloc2;
+                
+                UInt64 sharedComponentInNewArchetypeIsNew = 0;
+                for (var i = 0; i < types.Length; ++i)
+                    if (types.m_masks.IsSharedComponent(i))
+                    {
+                        var indexInNewArchetype = indexOfNewTypeInNewArchetype[i];
+                        Assert.IsTrue((indexInNewArchetype >= 0) && (indexInNewArchetype < newArchetype->TypesCount));
+                        var sharedComponentOffset = newArchetype->SharedComponentOffset[indexInNewArchetype];
+                        Assert.IsTrue((sharedComponentOffset >= 0) && (sharedComponentOffset < newArchetype->NumSharedComponents));
+                        sharedComponentInNewArchetypeIsNew |= 1UL << sharedComponentOffset;
+                    }
+                Assert.AreEqual(math.countbits(sharedComponentInNewArchetypeIsNew), types.m_masks.SharedComponents);
+                var j = 0;
+                for (var i = 0; i < newArchetype->NumSharedComponents; ++i)
+                    if ((sharedComponentInNewArchetypeIsNew & (1UL << i)) != 0)
+                        sharedComponentDataIndices[i] = 0;
+                    else
+                    {
+                        Assert.IsTrue(j < oldArchetype->NumSharedComponents);
+                        sharedComponentDataIndices[i] = oldSharedComponentDataIndices[j++];
+                    }
+                Assert.AreEqual(j, oldArchetype->NumSharedComponents);
+            }
+
+            SetArchetype(archetypeManager, entity, newArchetype, sharedComponentDataIndices);
+            IncrementComponentOrderVersion(newArchetype, GetComponentChunk(entity), sharedComponentDataManager); 
+        }
+        
         public void AddComponent(Entity entity, ComponentType type, ArchetypeManager archetypeManager,
             SharedComponentDataManager sharedComponentDataManager,
             EntityGroupManager groupManager, ComponentTypeInArchetype* componentTypeInArchetypeArray)

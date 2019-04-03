@@ -16,14 +16,17 @@ namespace Unity.Entities.Tests
             public const string OnStopRunningString =
                 nameof(TestSystem) + ".OnStopRunning()";
 
+#pragma warning disable 649
             struct MyStruct
             {
+
                 public readonly int Length;
                 public readonly ComponentDataArray<EcsTestData> Data;
             }
 
             [Inject]
             MyStruct DataStruct;
+#pragma warning restore 649
             public NativeArray<int> StoredData;
             protected override void OnUpdate()
             {

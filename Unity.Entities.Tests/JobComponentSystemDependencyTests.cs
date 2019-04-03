@@ -15,7 +15,9 @@ namespace Unity.Entities.Tests
                 public ComponentDataArray<EcsTestData> data;
             }
 
+#pragma warning disable 649
             [Inject] Inputs m_Inputs;
+#pragma warning restore 649
 
             struct ReadJob : IJob
             {
@@ -46,7 +48,9 @@ namespace Unity.Entities.Tests
             public bool returnWrongJob = false;
             public bool ignoreInputDeps = false;
 
+#pragma warning disable 649
             [Inject] private Inputs m_Inputs;
+#pragma warning restore 649
 
             private struct ReadJob : IJob
             {
@@ -102,7 +106,9 @@ namespace Unity.Entities.Tests
                 public ComponentDataArray<EcsTestData> data;
             }
 
+#pragma warning disable 649
             [Inject] private Inputs m_Inputs;
+#pragma warning restore 649
 
             public bool SkipJob = false;
 

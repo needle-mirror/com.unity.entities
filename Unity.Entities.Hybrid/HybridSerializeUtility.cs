@@ -72,9 +72,13 @@ namespace Unity.Entities.Serialization
             manager.m_SharedComponentManager.PrepareForDeserialize();
 
             var sharedData = gameobject.GetComponents<ComponentDataWrapperBase>();
+            
+
             for (int i = 0; i != sharedData.Length; i++)
             {
+#pragma warning disable 219
                 int index = sharedData[i].InsertSharedComponent(manager);
+#pragma warning restore 219
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (index != i + 1)
                 {

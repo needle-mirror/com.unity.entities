@@ -183,7 +183,7 @@ namespace Unity.Entities.Editor
                 List<GUIStyle> styles;
                 List<GUIContent> names;
                 List<Rect> rects;
-                ComponentGroupGUI.CalculateDrawingParts(new List<ComponentType>(idGroupPair.Value.Types.Skip(1)), false, width, out height, out styles, out names, out rects);
+                ComponentGroupGUI.CalculateDrawingParts(new List<ComponentType>(idGroupPair.Value.Types), true, width, out height, out styles, out names, out rects);
                 stylesById.Add(idGroupPair.Key, styles);
                 namesById.Add(idGroupPair.Key, names);
                 rectsById.Add(idGroupPair.Key, rects);

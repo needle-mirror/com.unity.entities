@@ -51,6 +51,16 @@ namespace Unity.Entities
                 : lhs.BufferCapacity > rhs.BufferCapacity;
         }
 
+        public static bool operator <= (ComponentTypeInArchetype lhs, ComponentTypeInArchetype rhs)
+        {
+            return !(lhs > rhs);
+        }
+
+        public static bool operator >= (ComponentTypeInArchetype lhs, ComponentTypeInArchetype rhs)
+        {
+            return !(lhs < rhs);
+        }
+
         public static unsafe bool CompareArray(ComponentTypeInArchetype* type1, int typeCount1,
             ComponentTypeInArchetype* type2, int typeCount2)
         {
@@ -635,7 +645,7 @@ namespace Unity.Entities
             type->SystemStateCleanupComplete = ArchetypeSystemStateCleanupComplete(type);
             type->SystemStateCleanupNeeded = ArchetypeSystemStateCleanupNeeded(type);
 
-            groupManager.OnArchetypeAdded(type);
+            groupManager.AddArchetypeIfMatching(type);
 
             return type;
         }

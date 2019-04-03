@@ -90,7 +90,9 @@ namespace Unity.Entities.Tests
                 None = Array.Empty<ComponentType>(), // none
                 All = Array.Empty<ComponentType>(), // all
             };
-            var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+            var group = m_Manager.CreateComponentGroup(query);
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
 
             Assert.AreEqual(14,chunks.Length);
 

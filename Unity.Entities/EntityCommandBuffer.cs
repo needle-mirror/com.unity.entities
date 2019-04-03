@@ -818,12 +818,14 @@ namespace Unity.Entities
                 {
                     if (chain->m_Head != null)
                     {
+#pragma warning disable 728
                         chainStates[initialChainCount++] = new ECBChainPlaybackState
                         {
                             Chunk = chain->m_Head,
                             Offset = 0,
                             NextSortIndex = chain->m_Head->BaseSortIndex
                         };
+#pragma warning restore 728
                     }
                 }
                 if (m_Data->m_ThreadedChains != null)
@@ -834,12 +836,14 @@ namespace Unity.Entities
                         {
                             if (chain->m_Head != null)
                             {
+#pragma warning disable 728
                                 chainStates[initialChainCount++] = new ECBChainPlaybackState
                                 {
                                     Chunk = chain->m_Head,
                                     Offset = 0,
                                     NextSortIndex = chain->m_Head->BaseSortIndex
                                 };
+#pragma warning restore 728
                             }
                         }
                     }
@@ -864,7 +868,7 @@ namespace Unity.Entities
                     while (currentElem.ChainIndex != -1)
                     {
                         ECBChainHeapElement nextElem = chainQueue.Peek();
-                        PlaybackChain(mgr, ref playbackState, ref chainStates, currentElem.ChainIndex, nextElem.ChainIndex);
+                        PlaybackChain(mgr, ref playbackState, chainStates, currentElem.ChainIndex, nextElem.ChainIndex);
                         if (chainStates[currentElem.ChainIndex].Chunk == null)
                         {
                             chainQueue.Pop(); // ignore return value; we already have it as nextElem
@@ -882,7 +886,7 @@ namespace Unity.Entities
             Profiler.EndSample();
         }
 
-        private static unsafe void PlaybackChain(EntityManager mgr, ref ECBSharedPlaybackState playbackState, ref NativeArray<ECBChainPlaybackState> chainStates, int currentChain, int nextChain)
+        private static unsafe void PlaybackChain(EntityManager mgr, ref ECBSharedPlaybackState playbackState, NativeArray<ECBChainPlaybackState> chainStates, int currentChain, int nextChain)
         {
             int nextChainSortIndex = (nextChain != -1) ? chainStates[nextChain].NextSortIndex : -1;
 
@@ -1061,7 +1065,7 @@ namespace Unity.Entities
                 concurrent.m_Data->InitConcurrentAccess();
             }
 
-            return concurrent;           
+            return concurrent;
         }
 
         /// <summary>
@@ -1129,7 +1133,7 @@ namespace Unity.Entities
                 m_Data->AddEntityCommand(chain, jobIndex, ECBCommand.InstantiateEntity, e);
                 chain->TemporaryForceDisableBatching();
             }
-        
+
             public void DestroyEntity(int jobIndex, Entity e)
             {
                 CheckWriteAccess();

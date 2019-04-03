@@ -16,13 +16,6 @@ namespace Unity.Entities
     //@TODO: There is nothing prevent non-main thread (non-job thread) access of EntityMnaager.
     //       Static Analysis or runtime checks?
 
-    public class EntityArchetypeQuery
-    {
-        public ComponentType[] Any;
-        public ComponentType[] None;
-        public ComponentType[] All;
-    }
-
     //@TODO: safety?
     public unsafe struct EntityArchetype : IEquatable<EntityArchetype>
     {
@@ -119,7 +112,7 @@ namespace Unity.Entities
 
         ExclusiveEntityTransaction        m_ExclusiveEntityTransaction;
 
-        ComponentType*                    m_CachedComponentTypeArray;
+        const int                         m_CachedComponentTypeInArchetypeArrayLength = 1024;
         ComponentTypeInArchetype*         m_CachedComponentTypeInArchetypeArray;
 
         internal object m_CachedComponentList;
@@ -140,7 +133,7 @@ namespace Unity.Entities
 
         public uint GlobalSystemVersion => IsCreated ? Entities->GlobalSystemVersion : 0;
 
-        public bool IsCreated => m_CachedComponentTypeArray != null;
+        public bool IsCreated => m_CachedComponentTypeInArchetypeArray != null;
 
         public int EntityCapacity
         {
@@ -192,10 +185,8 @@ namespace Unity.Entities
             m_ExclusiveEntityTransaction = new ExclusiveEntityTransaction(ArchetypeManager, m_GroupManager,
                 m_SharedComponentManager, Entities);
 
-            m_CachedComponentTypeArray =
-                (ComponentType*) UnsafeUtility.Malloc(sizeof(ComponentType) * 32 * 1024, 16, Allocator.Persistent);
             m_CachedComponentTypeInArchetypeArray =
-                (ComponentTypeInArchetype*) UnsafeUtility.Malloc(sizeof(ComponentTypeInArchetype) * 32 * 1024, 16,
+                (ComponentTypeInArchetype*) UnsafeUtility.Malloc(sizeof(ComponentTypeInArchetype) * m_CachedComponentTypeInArchetypeArrayLength, 16,
                     Allocator.Persistent);
         }
 
@@ -225,9 +216,6 @@ namespace Unity.Entities
 
             m_SharedComponentManager.Dispose();
 
-            UnsafeUtility.Free(m_CachedComponentTypeArray, Allocator.Persistent);
-            m_CachedComponentTypeArray = null;
-
             UnsafeUtility.Free(m_CachedComponentTypeInArchetypeArray, Allocator.Persistent);
             m_CachedComponentTypeInArchetypeArray = null;
         }
@@ -236,36 +224,28 @@ namespace Unity.Entities
         {
         }
 
-        private int PopulatedCachedTypeArray(ComponentType* requiredComponents, int count)
-        {
-            m_CachedComponentTypeArray[0] = ComponentType.Create<Entity>();
-            for (var i = 0; i < count; ++i)
-                SortingUtilities.InsertSorted(m_CachedComponentTypeArray, i + 1, requiredComponents[i]);
-            return count + 1;
-        }
-
         private int PopulatedCachedTypeInArchetypeArray(ComponentType* requiredComponents, int count)
         {
+            #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (count + 1 > m_CachedComponentTypeInArchetypeArrayLength)
+                throw new System.ArgumentException($"Archetypes can't hold more than {m_CachedComponentTypeInArchetypeArrayLength}");
+            #endif
+            
             m_CachedComponentTypeInArchetypeArray[0] = new ComponentTypeInArchetype(ComponentType.Create<Entity>());
             for (var i = 0; i < count; ++i)
                 SortingUtilities.InsertSorted(m_CachedComponentTypeInArchetypeArray, i + 1, requiredComponents[i]);
             return count + 1;
         }
 
-        internal ComponentGroup CreateComponentGroup(ComponentType* requiredComponents, int count)
-        {
-            var typeArrayCount = PopulatedCachedTypeArray(requiredComponents, count);
-            return m_GroupManager.CreateEntityGroup(ArchetypeManager, Entities, m_CachedComponentTypeArray, typeArrayCount);
-        }
-
         internal ComponentGroup CreateComponentGroup(params ComponentType[] requiredComponents)
         {
-            fixed (ComponentType* requiredComponentsPtr = requiredComponents)
-            {
-                return CreateComponentGroup(requiredComponentsPtr, requiredComponents.Length);
-            }
+            return m_GroupManager.CreateEntityGroup(ArchetypeManager, Entities, requiredComponents);
         }
-
+        internal ComponentGroup CreateComponentGroup(params EntityArchetypeQuery[] queries)
+        {
+            return m_GroupManager.CreateEntityGroup(ArchetypeManager, Entities, queries);
+        }
+        
         internal EntityArchetype CreateArchetype(ComponentType* types, int count)
         {
             var cachedComponentCount = PopulatedCachedTypeInArchetypeArray(types, count);
@@ -402,6 +382,13 @@ namespace Unity.Entities
             BeforeStructuralChange();
             Entities->AssertEntitiesExist(&entity, 1);
             Entities->AddComponent(entity, type, ArchetypeManager, m_SharedComponentManager, m_GroupManager, m_CachedComponentTypeInArchetypeArray);
+        }
+
+        public void AddComponents(Entity entity, ComponentTypes types)
+        {
+            BeforeStructuralChange();
+            Entities->AssertEntitiesExist(&entity, 1);
+            Entities->AddComponents(entity, types, ArchetypeManager, m_SharedComponentManager, m_GroupManager, m_CachedComponentTypeInArchetypeArray);
         }
 
         public void RemoveComponent(Entity entity, ComponentType type)

@@ -8,6 +8,7 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         class BumpVersionSystemInJob : ComponentSystem
         {
+#pragma warning disable 649
             struct MyStruct
             {
                 public readonly int Length;
@@ -17,6 +18,7 @@ namespace Unity.Entities.Tests
 
             [Inject]
             MyStruct DataStruct;
+#pragma warning restore 649
 
             struct UpdateData : IJob
             {
@@ -53,6 +55,7 @@ namespace Unity.Entities.Tests
         {
             struct MyStruct
             {
+#pragma warning disable 649
                 public readonly int Length;
                 public ComponentDataArray<EcsTestData> Data;
                 public ComponentDataArray<EcsTestData2> Data2;
@@ -60,6 +63,7 @@ namespace Unity.Entities.Tests
 
             [Inject]
             MyStruct DataStruct;
+#pragma warning restore 649
 
             protected override void OnUpdate()
             {

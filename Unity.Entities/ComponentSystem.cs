@@ -221,47 +221,57 @@ namespace Unity.Entities
             }
         }
         
-        internal ComponentGroup GetComponentGroupInternal(ComponentType* componentTypes, int count)
+        internal ComponentGroup GetComponentGroupInternal(ComponentType[] componentTypes)
         {
             for (var i = 0; i != m_ComponentGroups.Length; i++)
             {
-                if (m_ComponentGroups[i].CompareComponents(componentTypes, count))
+                if (m_ComponentGroups[i].CompareComponents(componentTypes))
                     return m_ComponentGroups[i];
             }
 
-            var group = EntityManager.CreateComponentGroup(componentTypes, count);
-            group.SetFilterChangedRequiredVersion(m_LastSystemVersion);
-            #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            group.DisallowDisposing = "ComponentGroup.Dispose() may not be called on a ComponentGroup created with ComponentSystem.GetComponentGroup. The ComponentGroup will automatically be disposed by the ComponentSystem.";
-            #endif
-            
-            ArrayUtilityAdd(ref m_ComponentGroups, group);
-
-            for (int i = 0;i != count;i++)
+            var group = EntityManager.CreateComponentGroup(componentTypes);
+            for (int i = 0;i != componentTypes.Length;i++)
                 AddReaderWriter(componentTypes[i]);
 
-            //@TODO: Shouldn't this sync fence on the newly depent types?
+            AfterGroupCreated(group);
+            
+            return group;
+        }
+
+        internal ComponentGroup GetComponentGroupInternal(EntityArchetypeQuery[] query)
+        {
+            for (var i = 0; i != m_ComponentGroups.Length; i++)
+            {
+                if (m_ComponentGroups[i].CompareQuery(query))
+                    return m_ComponentGroups[i];
+            }
+
+            var group = EntityManager.CreateComponentGroup(query);
+            AfterGroupCreated(group);
 
             return group;
         }
 
-        internal ComponentGroup GetComponentGroupInternal(ComponentType[] componentTypes)
+        void AfterGroupCreated(ComponentGroup group)
         {
-            fixed (ComponentType* typesPtr = componentTypes)
-            {
-                return GetComponentGroupInternal(typesPtr, componentTypes.Length);
-            }
+            group.SetFilterChangedRequiredVersion(m_LastSystemVersion);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            group.DisallowDisposing = "ComponentGroup.Dispose() may not be called on a ComponentGroup created with ComponentSystem.GetComponentGroup. The ComponentGroup will automatically be disposed by the ComponentSystem.";
+#endif
+            
+            ArrayUtilityAdd(ref m_ComponentGroups, group);
         }
-
 
         protected ComponentGroup GetComponentGroup(params ComponentType[] componentTypes)
         {
-            fixed (ComponentType* typesPtr = componentTypes)
-            {
-                return GetComponentGroupInternal(typesPtr, componentTypes.Length);
-            }
+            return GetComponentGroupInternal(componentTypes);
         }
 
+        protected ComponentGroup GetComponentGroup(params EntityArchetypeQuery[] query)
+        {
+            return GetComponentGroupInternal(query);
+        }
+        
         protected ComponentGroupArray<T> GetEntities<T>() where T : struct
         {
             for (var i = 0; i != m_CachedComponentGroupArrays.Length; i++)

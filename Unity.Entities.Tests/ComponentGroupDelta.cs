@@ -54,6 +54,7 @@ namespace Unity.Entities.Tests
             ComponentGroupArray
         }
 
+#pragma warning disable 649
         unsafe struct GroupRW
         {
             public EcsTestData* Data;
@@ -64,7 +65,7 @@ namespace Unity.Entities.Tests
             [ReadOnly]
             public EcsTestData* Data;
         }
-
+#pragma warning restore 649
 
         unsafe void SetValue(int index, int value, ChangeMode mode)
         {

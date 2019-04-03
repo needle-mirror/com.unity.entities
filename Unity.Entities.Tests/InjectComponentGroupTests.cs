@@ -223,11 +223,13 @@ namespace Unity.Entities.Tests
 				}
 			}
 
+#pragma warning disable 649
 			[Inject]
 			BufferFromEntity<EcsIntElement> intArrayFromEntity;
 
 		    [Inject]
-			ComponentDataFromEntity<EcsTestData> ecsTestDataFromEntity;
+		    ComponentDataFromEntity<EcsTestData> ecsTestDataFromEntity;
+#pragma warning restore 649
 
 			public Entity entity;
 

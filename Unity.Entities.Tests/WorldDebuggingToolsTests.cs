@@ -10,13 +10,16 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         class RegularSystem : ComponentSystem
         {
+#pragma warning disable 649
             struct Entities
             {
+
                 public readonly int Length;
                 public ComponentDataArray<EcsTestData> tests;
             }
 
             [Inject] private Entities entities;
+#pragma warning restore 649
             
             protected override void OnUpdate()
             {
@@ -27,6 +30,7 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         class SubtractiveSystem : ComponentSystem
         {
+#pragma warning disable 649            
             struct Entities
             {
                 public readonly int Length;
@@ -35,6 +39,7 @@ namespace Unity.Entities.Tests
             }
 
             [Inject] private Entities entities;
+ #pragma warning restore 649
             
             protected override void OnUpdate()
             {

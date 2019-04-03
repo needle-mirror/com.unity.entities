@@ -75,6 +75,7 @@ namespace Unity.Entities.Editor
             {
                 Showing = true;
             }
+            public bool WasIndented { get; set; } = true;
             public bool Showing { get; set; }
         }
         private Dictionary<string, ComponentState> _states = new Dictionary<string, ComponentState>();
@@ -218,42 +219,11 @@ namespace Unity.Entities.Editor
                     }
                     state = _states[_currentPath.ToString()];
 
-                    if (context.Value is ObjectContainerProxy)
-                    {
-                        var c = context.Value as ObjectContainerProxy;
-                        if (typeof(UnityEngine.Object).IsAssignableFrom(c.o.GetType()))
-                        {
-                            GUI.enabled = true;
-
-                            Rect pos = EditorGUILayout.GetControlRect();
-
-                            state.Showing = EditorGUI.Foldout(
-                                pos,
-                                state.Showing,
-                                displayName + " (Right click to inspect)",
-                                new GUIStyle(EditorStyles.foldout) { fontStyle = FontStyle.Bold }
-                            );
-
-                            if (Event.current.type == EventType.MouseDown && pos.Contains(Event.current.mousePosition))
-                            {
-                                if (Event.current.clickCount == 1)
-                                {
-                                    Event.current.Use();
-                                    Selection.activeObject = (UnityEngine.Object)c.o;
-                                }
-                            }
-
-                            GUI.enabled = false;
-                        }
-                    }
-                    else
-                    {
-                        state.Showing = EditorGUILayout.Foldout(
-                            state.Showing,
-                            displayName,
-                            new GUIStyle(EditorStyles.foldout) { fontStyle = FontStyle.Bold }
-                        );
-                    }
+                    state.Showing = EditorGUILayout.Foldout(
+                        state.Showing,
+                        displayName,
+                        new GUIStyle(EditorStyles.foldout) { fontStyle = FontStyle.Bold }
+                    );
 
                     return state.Showing;
                 }
@@ -330,6 +300,32 @@ namespace Unity.Entities.Editor
             if (string.IsNullOrEmpty(displayName))
                 return true;
 
+            if (context.Value is ObjectContainerProxy)
+            {
+                var c = context.Value as ObjectContainerProxy;
+
+                if (typeof(UnityEngine.Object).IsAssignableFrom(c.o.GetType()))
+                {
+                    ComponentState state;
+                    if (!_states.ContainsKey(_currentPath.ToString()))
+                    {
+                        _states[_currentPath.ToString()] = new ComponentState();
+                    }
+                    state = _states[_currentPath.ToString()];
+
+                    state.WasIndented = false;
+
+                    EditorGUILayout.ObjectField(
+                        new GUIContent(displayName),
+                        (UnityEngine.Object)c.o,
+                        c.o.GetType(),
+                        false
+                        );
+
+                    return false;
+                }
+            }
+
             EditorGUI.indentLevel++;
 
             return ShowContainerFoldoutIfNecessary<TContainer, TValue>(displayName, context);
@@ -340,13 +336,25 @@ namespace Unity.Entities.Editor
             where TValue : IPropertyContainer
         {
             VisitSetup(ref container, ref context);
+
+            bool wasIndented = true;
+            
+            ComponentState state;
+            if (_states.TryGetValue(_currentPath.ToString(), out state))
+            {
+                wasIndented = state.WasIndented;
+            }
+
             _currentPath.Pop();
 
             var displayName = GetContainerDisplayName(context);
             if (string.IsNullOrEmpty(displayName))
                 return;
 
-            EditorGUI.indentLevel--;
+            if (wasIndented)
+            {
+                EditorGUI.indentLevel--;
+            }
         }
 
         public bool DoBeginCollection<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)

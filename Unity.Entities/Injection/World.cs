@@ -8,7 +8,9 @@ namespace Unity.Entities
     public class World : IDisposable
     {
         static readonly List<World> allWorlds = new List<World>();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         bool m_AllowGetManager = true;
+#endif
 
         //@TODO: What about multiple managers of the same type...
         Dictionary<Type, ScriptBehaviourManager> m_BehaviourManagerLookup =
@@ -62,8 +64,9 @@ namespace Unity.Entities
                     m_BehaviourManagers.Add(behaviourManager);
                     break;
                 }
-
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_AllowGetManager = false;
+#endif
             foreach (var behaviourManager in m_BehaviourManagers)
                 try
                 {
@@ -105,9 +108,9 @@ namespace Unity.Entities
                     throw new MissingMethodException(
                         $"Constructing {type} failed because the constructor was private, it must be public.");
             }
-#endif
-
+            
             m_AllowGetManager = true;
+#endif
             ScriptBehaviourManager manager;
             try
             {
@@ -115,7 +118,9 @@ namespace Unity.Entities
             }
             catch
             {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 m_AllowGetManager = false;
+#endif
                 throw;
             }
 

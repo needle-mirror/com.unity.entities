@@ -9,13 +9,15 @@ namespace Unity.Entities.Tests
     [TestFixture]
     public class TransformTests : ECSTestsFixture
     {
+        const float k_Tolerance = 0.01f;
+        
         unsafe bool AssertCloseEnough(float4x4 a, float4x4 b)
         {
             float* ap = (float*) &a.c0.x;
             float* bp = (float*) &b.c0.x;
             for (int i = 0; i < 16; i++)
             {
-                Assert.AreEqual(expected:ap[i],actual:bp[i],delta:0.01f);
+                Assert.That(bp[i], Is.EqualTo(ap[i]).Within(k_Tolerance));
             }
             return true;
         }
@@ -43,9 +45,9 @@ namespace Unity.Entities.Tests
             World.GetOrCreateManager<EndFrameTransformSystem>().Update();
 
             var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Value.c3;
-            Assert.AreEqual(expected:1.0f,actual:childWorldPosition.x,delta:0.01f);
-            Assert.AreEqual(expected:2.0f,actual:childWorldPosition.y,delta:0.01f);
-            Assert.AreEqual(expected:0.0f,actual:childWorldPosition.z,delta:0.01f);
+            Assert.That(childWorldPosition.x, Is.EqualTo(1f).Within(k_Tolerance));
+            Assert.That(childWorldPosition.y, Is.EqualTo(2f).Within(k_Tolerance));
+            Assert.That(childWorldPosition.z, Is.EqualTo(0f).Within(k_Tolerance));
         }
 
         [Test]
@@ -97,16 +99,16 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(m_Manager.HasComponent<Frozen>(child));
 
             var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Value.c3;
-            Assert.AreEqual(expected:1.0f,actual:childWorldPosition.x,delta:0.01f);
-            Assert.AreEqual(expected:2.0f,actual:childWorldPosition.y,delta:0.01f);
-            Assert.AreEqual(expected:0.0f,actual:childWorldPosition.z,delta:0.01f);
+            Assert.That(childWorldPosition.x, Is.EqualTo(1f).Within(k_Tolerance));
+            Assert.That(childWorldPosition.y, Is.EqualTo(2f).Within(k_Tolerance));
+            Assert.That(childWorldPosition.z, Is.EqualTo(0f).Within(k_Tolerance));
 
             m_Manager.DestroyEntity(parent);
             m_Manager.DestroyEntity(child);
 
             World.GetOrCreateManager<EndFrameTransformSystem>().Update();
 
-            Assert.AreEqual(0, m_ManagerDebug.EntityCount);
+            Assert.That(m_ManagerDebug.EntityCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -123,14 +125,14 @@ namespace Unity.Entities.Tests
 
             World.GetOrCreateManager<EndFrameTransformSystem>().Update();
 
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(0.0f, 1.0f, 0.0f), math.up())});
+            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(0.0f, 1.0f, 0.0f), new float3(0.0f, 0.0f, 1.0f)) });
 
             World.GetOrCreateManager<EndFrameTransformSystem>().Update();
 
             var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Value.c3;
-            Assert.AreEqual(expected:0.0f,actual:childWorldPosition.x,delta:0.01f);
-            Assert.AreEqual(expected:3.0f,actual:childWorldPosition.y,delta:0.01f);
-            Assert.AreEqual(expected:0.0f,actual:childWorldPosition.z,delta:0.01f);
+            Assert.That(childWorldPosition.x, Is.EqualTo(0f).Within(k_Tolerance));
+            Assert.That(childWorldPosition.y, Is.EqualTo(3f).Within(k_Tolerance));
+            Assert.That(childWorldPosition.z, Is.EqualTo(0f).Within(k_Tolerance));
         }
 
         [Test]
@@ -155,13 +157,13 @@ namespace Unity.Entities.Tests
             var parentDepth = m_Manager.GetSharedComponentData<Depth>(parent);
             var parent2Depth = m_Manager.GetSharedComponentData<Depth>(parent2);
 
-            Assert.AreEqual(0,parentDepth.Value);
-            Assert.AreEqual(1,parent2Depth.Value);
+            Assert.That(parentDepth.Value, Is.EqualTo(0));
+            Assert.That(parent2Depth.Value, Is.EqualTo(1));
 
             var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Value.c3;
-            Assert.AreEqual(expected:2.0f,actual:childWorldPosition.x,delta:0.01f);
-            Assert.AreEqual(expected:2.0f,actual:childWorldPosition.y,delta:0.01f);
-            Assert.AreEqual(expected:0.0f,actual:childWorldPosition.z,delta:0.01f);
+            Assert.That(childWorldPosition.x, Is.EqualTo(2f).Within(k_Tolerance));
+            Assert.That(childWorldPosition.y, Is.EqualTo(2f).Within(k_Tolerance));
+            Assert.That(childWorldPosition.z, Is.EqualTo(0f).Within(k_Tolerance));
         }
 
         [Test]
@@ -184,14 +186,14 @@ namespace Unity.Entities.Tests
             World.GetOrCreateManager<EndFrameTransformSystem>().Update();
 
             var parent2LocalPosition = m_Manager.GetComponentData<LocalToParent>(parent2).Value.c3;
-            Assert.AreEqual(expected:0.0f,actual:parent2LocalPosition.x,delta:0.01f);
-            Assert.AreEqual(expected:0.0f,actual:parent2LocalPosition.y,delta:0.01f);
-            Assert.AreEqual(expected:1.0f,actual:parent2LocalPosition.z,delta:0.01f);
+            Assert.That(parent2LocalPosition.x, Is.EqualTo(0f).Within(k_Tolerance));
+            Assert.That(parent2LocalPosition.y, Is.EqualTo(0f).Within(k_Tolerance));
+            Assert.That(parent2LocalPosition.z, Is.EqualTo(1f).Within(k_Tolerance));
 
             var childLocalPosition = m_Manager.GetComponentData<LocalToParent>(child).Value.c3;
-            Assert.AreEqual(expected:0.0f,actual:childLocalPosition.x,delta:0.01f);
-            Assert.AreEqual(expected:0.0f,actual:childLocalPosition.y,delta:0.01f);
-            Assert.AreEqual(expected:1.0f,actual:childLocalPosition.z,delta:0.01f);
+            Assert.That(childLocalPosition.x, Is.EqualTo(0f).Within(k_Tolerance));
+            Assert.That(childLocalPosition.y, Is.EqualTo(0f).Within(k_Tolerance));
+            Assert.That(childLocalPosition.z, Is.EqualTo(1f).Within(k_Tolerance));
         }
 
         [Test]
@@ -299,6 +301,22 @@ namespace Unity.Entities.Tests
 
             bodyEntities.Dispose();
             attachEntities.Dispose();
+        }
+
+        [Test]
+        public void AddRotationComponent_DefaultValueIsNormalized()
+        {
+            var rotationComponent =
+                new GameObject(TestContext.CurrentContext.Test.Name, typeof(RotationComponent)).GetComponent<RotationComponent>();
+            try
+            {
+                Assert.That(math.length(rotationComponent.Value.Value), Is.EqualTo(1f).Within(k_Tolerance));
+            }
+            finally
+            {
+                if (rotationComponent.gameObject != null)
+                    GameObject.DestroyImmediate(rotationComponent.gameObject);
+            }
         }
     }
 }

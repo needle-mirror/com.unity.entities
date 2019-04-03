@@ -22,6 +22,8 @@ namespace Unity.Entities
         internal abstract int InsertSharedComponent(EntityManager manager);
         internal abstract void UpdateSerializedData(EntityManager manager, int sharedComponentIndex);
 
+        internal abstract void ValidateSerializedData();
+
         protected virtual void OnEnable()
         {
             EntityManager entityManager;
@@ -66,8 +68,9 @@ namespace Unity.Entities
                    && entityManager.HasComponent(entity, GetComponentType());
         }
         
-        public void OnValidate()
+        void OnValidate()
         {
+            ValidateSerializedData();
             EntityManager entityManager;
             Entity entity;
             if (CanSynchronizeWithEntityManager(out entityManager, out entity))
@@ -92,8 +95,15 @@ namespace Unity.Entities
     //@TODO: This should be fully implemented in C++ for efficiency
     public abstract class ComponentDataWrapper<T> : ComponentDataWrapperBase where T : struct, IComponentData
     {
+        internal override void ValidateSerializedData()
+        {
+            ValidateSerializedData(ref m_SerializedData);
+        }
+
+        protected virtual void ValidateSerializedData(ref T serializedData) {}
+
         [SerializeField, WrappedComponentData]
-        protected T m_SerializedData;
+        T m_SerializedData;
 
         public T Value
         {
@@ -103,6 +113,7 @@ namespace Unity.Entities
             }
             set
             {
+                ValidateSerializedData(ref value);
                 m_SerializedData = value;
                 
                 EntityManager entityManager;
@@ -145,6 +156,13 @@ namespace Unity.Entities
     //@TODO: This should be fully implemented in C++ for efficiency
     public abstract class SharedComponentDataWrapper<T> : ComponentDataWrapperBase where T : struct, ISharedComponentData
     {
+        internal override void ValidateSerializedData()
+        {
+            ValidateSerializedData(ref m_SerializedData);
+        }
+
+        protected virtual void ValidateSerializedData(ref T serializedData) {}
+
         [SerializeField, WrappedComponentData]
         T m_SerializedData;
 
@@ -156,6 +174,7 @@ namespace Unity.Entities
             }
             set
             {
+                ValidateSerializedData(ref value);
                 m_SerializedData = value;
                 
                 EntityManager entityManager;
