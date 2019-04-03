@@ -66,35 +66,49 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        public void LockedEntityChunksCannotDestroy()
+        public void LockedEntityRestrictions()
         {
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
-            var chunkCapacity = archetype.ChunkCapacity;
-            var entityCount = 10000;
-            var chunkCount = (entityCount + (chunkCapacity-1)) / chunkCapacity;
-            var chunks = new NativeArray<ArchetypeChunk>(chunkCount, Allocator.Persistent);
-            var entities = new NativeArray<Entity>(entityCount, Allocator.Persistent);
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var chunk = m_Manager.GetChunk(entity);
+            m_Manager.LockChunk(chunk);
 
-            m_Manager.CreateChunk(archetype, chunks, entityCount);
-            m_Manager.LockChunk(chunks);
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.AddComponentData(entity, new EcsTestTag()) );
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.AddComponent(m_Manager.UniversalGroup, typeof(EcsTestTag)) );
 
-            var entityType = m_Manager.GetArchetypeChunkEntityType();
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.RemoveComponent<EcsTestData>(entity) );
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.RemoveComponent(m_Manager.UniversalGroup, typeof(EcsTestData)));
+            
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.DestroyEntity(entity));
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.DestroyEntity(m_Manager.UniversalGroup));
+        }
+        
+        [Test]
+        public void LockedEntityOrderRestrictions()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestTag));
+            var chunk = m_Manager.GetChunk(entity);
+            m_Manager.LockChunkOrder(chunk);
 
-            int count = 0;
-            for (int i = 0; i < chunkCount; i++)
-            {
-                var chunk = chunks[i];
-                var chunkEntities = chunk.GetNativeArray(entityType);
-                for (int j = 0; j < chunkEntities.Length; j++)
-                {
-                    entities[count + j] = chunkEntities[j];
-                }
-                count += chunkEntities.Length;
-            }
-            Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(entities) );
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.AddComponentData(entity, new EcsFooTest()));
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.AddComponent(m_Manager.UniversalGroup, typeof(EcsFooTest)));
 
-            chunks.Dispose();
-            entities.Dispose();
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.RemoveComponent<EcsTestData>(entity) );
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.RemoveComponent(m_Manager.UniversalGroup, typeof(EcsTestData)));
+            
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.DestroyEntity(entity));
+        }
+        
+        [Test]
+        public void LockedEntityOrderAllowsNonMovingOperations()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var chunk = m_Manager.GetChunk(entity);
+            m_Manager.LockChunkOrder(chunk);
+
+            m_Manager.AddComponent(m_Manager.UniversalGroup, typeof(EcsTestTag));
+            m_Manager.RemoveComponent(m_Manager.UniversalGroup, typeof(EcsTestTag));
+            m_Manager.AddChunkComponentData(m_Manager.UniversalGroup, new EcsFooTest());
+            m_Manager.DestroyEntity(m_Manager.UniversalGroup);
         }
         
         [Test]
@@ -134,6 +148,8 @@ namespace Unity.Entities.Tests
             extraEntities.Dispose();
         }
         
+        
+        
         [Test]
         public void LockedEntityAddsEntitytoUnlockedChunk()
         {
@@ -170,48 +186,6 @@ namespace Unity.Entities.Tests
 
             chunks.Dispose();
             extraEntities.Dispose();
-        }
-        
-        [Test]
-        public void LockedEntityCannotAddComponent()
-        {
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
-            var chunkCapacity = archetype.ChunkCapacity;
-            var entityCount = 10000;
-            var chunkCount = (entityCount + (chunkCapacity-1)) / chunkCapacity;
-            var chunks = new NativeArray<ArchetypeChunk>(chunkCount, Allocator.Persistent);
-            
-            m_Manager.CreateChunk(archetype, chunks, entityCount);
-            m_Manager.LockChunk(chunks);
-
-            var entityType = m_Manager.GetArchetypeChunkEntityType();
-            var chunk = chunks[0];
-            var chunkEntities = chunk.GetNativeArray(entityType);
-
-            Assert.Throws<InvalidOperationException>(() =>  m_Manager.AddComponentData(chunkEntities[0], new EcsTestTag()) );
-
-            chunks.Dispose();
-        }
-        
-        [Test]
-        public void LockedEntityCannotRemoveComponent()
-        {
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
-            var chunkCapacity = archetype.ChunkCapacity;
-            var entityCount = 10000;
-            var chunkCount = (entityCount + (chunkCapacity-1)) / chunkCapacity;
-            var chunks = new NativeArray<ArchetypeChunk>(chunkCount, Allocator.Persistent);
-            
-            m_Manager.CreateChunk(archetype, chunks, entityCount);
-            m_Manager.LockChunk(chunks);
-
-            var entityType = m_Manager.GetArchetypeChunkEntityType();
-            var chunk = chunks[0];
-            var chunkEntities = chunk.GetNativeArray(entityType);
-
-            Assert.Throws<InvalidOperationException>(() =>  m_Manager.RemoveComponent<EcsTestData>(chunkEntities[0]) );
-
-            chunks.Dispose();
         }
         
         struct ChunksFixedGrid2DTranspose : IJob

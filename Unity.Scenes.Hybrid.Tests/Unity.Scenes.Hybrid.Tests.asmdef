@@ -4,7 +4,8 @@
         "Unity.Entities.Tests",
         "Unity.Entities",
         "Unity.Scenes.Hybrid",
-        "Unity.Scenes.Editor"
+        "Unity.Scenes.Editor",
+        "Unity.Entities.Hybrid"
     ],
     "optionalUnityReferences": [
         "TestAssemblies"

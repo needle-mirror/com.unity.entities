@@ -1,7 +1,9 @@
-﻿using static Unity.Mathematics.math;
+﻿using System;
+using static Unity.Mathematics.math;
 
 namespace Unity.Mathematics
 {
+    [Serializable]
     public partial struct AABB
     {
         public float3 Center;
@@ -53,6 +55,5 @@ namespace Unity.Mathematics
             transformed.Center = math.transform(transform, localBounds.Center);
             return transformed;
         }
-
     }
 }

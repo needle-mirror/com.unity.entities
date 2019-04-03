@@ -84,6 +84,13 @@ namespace Unity.Entities
             return FromTypeIndex(typeIndex);
         }
 
+        public static ComponentType ChunkComponentReadOnly<T>()
+        {
+            var typeIndex = TypeManager.MakeChunkComponentTypeIndex(TypeManager.GetTypeIndex<T>());
+            return ReadOnly(typeIndex);
+        }
+
+        
         public static ComponentType Exclude(Type type)
         {
             ComponentType t = FromTypeIndex(TypeManager.GetTypeIndex(type));

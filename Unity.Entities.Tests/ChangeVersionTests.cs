@@ -136,6 +136,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // IJob
         public void CHG_IncrementedOnInjectionInJob()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -159,6 +160,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // IJob
         public void CHG_IncrementedOnInjection()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));

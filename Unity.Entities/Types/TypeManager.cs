@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -86,6 +87,7 @@ namespace Unity.Entities
 #if !UNITY_CSHARP_TINY
         public static IEnumerable<TypeInfo> AllTypes { get { return Enumerable.Take(s_Types, s_Count); } }
         private static Dictionary<ulong, int> s_StableTypeHashToTypeIndex;
+        private static Dictionary<Type, int> s_ManagedTypeToIndex;
 #endif
         static TypeInfo[] s_Types;
         static Type[] s_Systems;
@@ -131,15 +133,17 @@ namespace Unity.Entities
         public readonly struct TypeInfo
         {
 #if !UNITY_CSHARP_TINY
-            public TypeInfo(Type type, int typeIndex, int size, TypeCategory category, FastEquality.TypeInfo typeInfo, EntityOffsetInfo[] entityOffsets, ulong memoryOrdering, int bufferCapacity, int elementSize, int alignmentInBytes, ulong stableTypeHash, int* writeGroups, int writeGroupCount, int maximumChunkCapacity)
+            public TypeInfo(Type type, int typeIndex, int size, TypeCategory category, FastEquality.TypeInfo typeInfo, EntityOffsetInfo[] entityOffsets, EntityOffsetInfo[] blobAssetRefOffsets, ulong memoryOrdering, int bufferCapacity, int elementSize, int alignmentInBytes, ulong stableTypeHash, int* writeGroups, int writeGroupCount, int maximumChunkCapacity)
             {
                 Type = type;
                 TypeIndex = typeIndex;
                 SizeInChunk = size;
                 Category = category;
                 FastEqualityTypeInfo = typeInfo;
-                EntityOffsetCount = entityOffsets != null ? entityOffsets.Length : 0;
+                EntityOffsetCount = entityOffsets?.Length ?? 0;
                 EntityOffsets = entityOffsets;
+                BlobAssetRefOffsetCount = blobAssetRefOffsets?.Length ?? 0;
+                BlobAssetRefOffsets = blobAssetRefOffsets;
                 MemoryOrdering = memoryOrdering;
                 BufferCapacity = bufferCapacity;
                 ElementSize = elementSize;
@@ -189,6 +193,8 @@ namespace Unity.Entities
                 // While this information is available in the Array for EntityOffsets this field allows us to keep Tiny vs non-Tiny code paths the same
                 public readonly int EntityOffsetCount;
                 public readonly EntityOffsetInfo[] EntityOffsets;
+                public readonly int BlobAssetRefOffsetCount;
+                public readonly EntityOffsetInfo[] BlobAssetRefOffsets;
                 public readonly ulong MemoryOrdering;
                 public readonly ulong StableTypeHash;
                 public readonly int* WriteGroups;
@@ -204,6 +210,9 @@ namespace Unity.Entities
                 Category = category;
                 EntityOffsetCount = entityOffsetCount;
                 EntityOffsetStartIndex = entityOffsetStartIndex;
+                //TODO: add BlobAssetRefOffset support to the static type registry
+                BlobAssetRefOffsetCount = 0;
+                BlobAssetRefOffsetStartIndex = 0;
                 MemoryOrdering = memoryOrdering;
                 StableTypeHash = stableTypeHash;
                 BufferCapacity = bufferCapacity;
@@ -247,9 +256,12 @@ namespace Unity.Entities
             public readonly ulong StableTypeHash;
             public readonly int EntityOffsetCount;
             public readonly int EntityOffsetStartIndex;
+            public readonly int BlobAssetRefOffsetCount;
+            public readonly int BlobAssetRefOffsetStartIndex;
 
             public bool IsZeroSized => SizeInChunk == 0;
             public EntityOffsetInfo* EntityOffsets => EntityOffsetCount > 0 ? ((EntityOffsetInfo*) UnsafeUtility.AddressOf(ref StaticTypeRegistry.StaticTypeRegistry.EntityOffsets[0])) + EntityOffsetStartIndex : null;
+            public EntityOffsetInfo* BlobAssetRefOffsets => BlobAssetRefOffsetCount > 0 ? ((EntityOffsetInfo*) UnsafeUtility.AddressOf(ref StaticTypeRegistry.StaticTypeRegistry.EntityOffsets[0])) + BlobAssetRefOffsetStartIndex : null;
 #endif
         }
 
@@ -300,6 +312,7 @@ namespace Unity.Entities
         {
             s_Types[typeInfo.TypeIndex & ClearFlagsMask] = typeInfo;
             s_StableTypeHashToTypeIndex.Add(typeInfo.StableTypeHash, typeInfo.TypeIndex);
+            s_ManagedTypeToIndex.Add(typeInfo.Type, typeInfo.TypeIndex);
             ++s_Count;
         }
 #endif
@@ -313,6 +326,7 @@ namespace Unity.Entities
 
 #if !UNITY_CSHARP_TINY
             s_CreateTypeLock = new SpinLock();
+            s_ManagedTypeToIndex = new Dictionary<Type, int>(1000);
 #endif
             s_Types = new TypeInfo[MaximumTypesCount];
 
@@ -323,11 +337,11 @@ namespace Unity.Entities
             s_Count = 0;
 
             #if !UNITY_CSHARP_TINY
-                AddTypeInfoToTables(new TypeInfo(null, 0, 0, TypeCategory.ComponentData, FastEquality.TypeInfo.Null, null, 0, -1, 0, 1, 0, null, 0, int.MaxValue));
+                s_Types[s_Count++] = new TypeInfo(null, 0, 0, TypeCategory.ComponentData, FastEquality.TypeInfo.Null, null, null, 0, -1, 0, 1, 0, null, 0, int.MaxValue);
 
                 // This must always be first so that Entity is always index 0 in the archetype
                 AddTypeInfoToTables(new TypeInfo(typeof(Entity), 1, sizeof(Entity), TypeCategory.EntityData,
-                    FastEquality.CreateTypeInfo<Entity>(), EntityRemapUtility.CalculateEntityOffsets<Entity>(), 0, -1, sizeof(Entity), UnsafeUtility.AlignOf<Entity>(), CalculateStableTypeHash(typeof(Entity)), null, 0, int.MaxValue));
+                    FastEquality.CreateTypeInfo<Entity>(), EntityRemapUtility.CalculateEntityOffsets<Entity>(), null, 0, -1, sizeof(Entity), UnsafeUtility.AlignOf<Entity>(), CalculateStableTypeHash(typeof(Entity)), null, 0, int.MaxValue));
 
                 InitializeAllComponentTypes();
             #else
@@ -369,7 +383,9 @@ namespace Unity.Entities
 
                 foreach (var type in assembly.GetTypes())
                 {
-                    if (type.IsAbstract || !type.IsValueType || !UnsafeUtility.IsBlittable(type))
+                    if (type.IsAbstract || !type.IsValueType)
+                        continue;
+                    if (!UnsafeUtility.IsUnmanaged(type))
                         continue;
 
                     if (typeof(IComponentData).IsAssignableFrom(type) ||
@@ -471,14 +487,14 @@ namespace Unity.Entities
 
         private static int FindTypeIndex(Type type)
         {
-            for (var i = 0; i != s_Count; i++)
-            {
-                var c = s_Types[i];
-                if (c.Type == type)
-                    return c.TypeIndex;
-            }
+            if (type == null)
+                return 0;
 
-            return -1;
+            int res;
+            if (s_ManagedTypeToIndex.TryGetValue(type, out res))
+                return res;
+            else
+                return -1;
         }
 #else
         private static int FindTypeIndex(Type type)
@@ -587,6 +603,39 @@ namespace Unity.Entities
             return StaticTypeRegistry.StaticTypeRegistry.Systems;
         }
 
+        public static string[] SystemNames
+        {
+            get { return StaticTypeRegistry.StaticTypeRegistry.SystemName; }
+        }
+
+        public static string SystemName(Type t)
+        {
+            int index = GetSystemTypeIndex(t);
+            if (index < 0 || index >= SystemNames.Length) return "null";
+            return SystemNames[index];
+        }
+
+        public static int GetSystemTypeIndex(Type t)
+        {
+            var systems = StaticTypeRegistry.StaticTypeRegistry.Systems;
+            for (int i = 0; i < systems.Length; ++i)
+            {
+                if (t == systems[i]) return i;
+            }
+            throw new Exception("GetSystemTypeID invalid Type t");
+        }
+
+        public static bool IsSystemAGroup(Type t)
+        {
+#if !UNITY_CSHARP_TINY
+            return t.IsSubclassOf(typeof(ComponentSystemGroup));
+#else
+            int index = GetSystemTypeIndex(t);
+            var isGroup = StaticTypeRegistry.StaticTypeRegistry.SystemIsGroup[index];
+            return isGroup;
+#endif
+        }
+
         /// <summary>
         /// Construct a System from a Type. Uses the same list in GetSystems()
         /// </summary>
@@ -595,7 +644,7 @@ namespace Unity.Entities
             var obj = StaticTypeRegistry.StaticTypeRegistry.CreateSystem(systemType);
             var sys = obj as ComponentSystem;
             if (sys == null)
-                throw new Exception("Bad null.");
+                throw new Exception("Null casting in Construct System. Bug in TypeManager.");
             return sys;
         }
 
@@ -612,6 +661,14 @@ namespace Unity.Entities
         /// </summary>
         public static Attribute[] GetSystemAttributes(Type systemType, Type attributeType)
         {
+#if !UNITY_CSHARP_TINY
+            var objArr = systemType.GetCustomAttributes(attributeType, true);
+            var attr = new Attribute[objArr.Length];
+            for (int i = 0; i < objArr.Length; i++) {
+                attr[i] = objArr[i] as Attribute;
+            }
+            return attr;
+#else
             Attribute[] attr = StaticTypeRegistry.StaticTypeRegistry.GetSystemAttributes(systemType);
             int count = 0;
             for (int i = 0; i < attr.Length; ++i)
@@ -631,6 +688,7 @@ namespace Unity.Entities
                 }
             }
             return result;
+#endif
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -677,6 +735,33 @@ namespace Unity.Entities
         // A generics compile-time path is temporarily used (see later in the file) until we have
         // full static type info generation working.
         //
+        static EntityOffsetInfo[] CalculatBlobAssetRefOffsets(Type type)
+        {
+            var offsets = new List<EntityOffsetInfo>();
+            CalculatBlobAssetRefOffsetsRecurse(ref offsets, type, 0);
+            if (offsets.Count > 0)
+                return offsets.ToArray();
+            else
+                return null;
+        }
+
+        static void CalculatBlobAssetRefOffsetsRecurse(ref List<EntityOffsetInfo> offsets, Type type, int baseOffset)
+        {
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(BlobAssetReference<>))
+            {
+                offsets.Add(new EntityOffsetInfo { Offset = baseOffset });
+            }
+            else
+            {
+                var fields = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                foreach (var field in fields)
+                {
+                    if (field.FieldType.IsValueType && !field.FieldType.IsPrimitive)
+                        CalculatBlobAssetRefOffsetsRecurse(ref offsets, field.FieldType, baseOffset + UnsafeUtility.GetFieldOffset(field));
+                }
+            }
+        }
+
         static ulong CalculateMemoryOrdering(Type type)
         {
             if (type == typeof(Entity))
@@ -739,6 +824,44 @@ namespace Unity.Entities
             return HashStringWithFNV1A64(type.AssemblyQualifiedName);
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public static void CheckIsAllowedAsComponentData(Type type, string baseTypeDesc)
+        {
+            if (UnsafeUtility.IsUnmanaged(type))
+                return;
+
+            // it can't be used -- so we expect this to find and throw
+            ThrowOnDisallowedComponentData(type, type, baseTypeDesc);
+
+            // if something went wrong adnd the above didn't throw, then throw
+            throw new ArgumentException($"{type} cannot be used as component data for unknown reasons (BUG)");
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public static void ThrowOnDisallowedComponentData(Type type, Type baseType, string baseTypeDesc)
+        {
+            if (type.IsPrimitive)
+                return;
+
+            // if it's a pointer, we assume you know what you're doing
+            if (type.IsPointer)
+                return;
+
+            if (!type.IsValueType || type.IsByRef || type.IsClass || type.IsInterface || type.IsArray)
+            {
+                if (type == baseType)
+                    throw new ArgumentException(
+                        $"{type} is a {baseTypeDesc} and thus must be a struct containing only primitive or blittable members.");
+
+                throw new ArgumentException($"{baseType} contains a field of {type}, which is neither primitive nor blittable.");
+            }
+
+            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                ThrowOnDisallowedComponentData(field.FieldType, baseType, baseTypeDesc);
+            }
+        }
+
         internal static TypeInfo BuildComponentType(Type type)
         {
             return BuildComponentType(type, null, 0);
@@ -750,6 +873,7 @@ namespace Unity.Entities
             TypeCategory category;
             var typeInfo = FastEquality.TypeInfo.Null;
             EntityOffsetInfo[] entityOffsets = null;
+            EntityOffsetInfo[] blobAssetRefOffsets = null;
             int bufferCapacity = -1;
             var memoryOrdering = CalculateMemoryOrdering(type);
             var stableTypeHash = CalculateStableTypeHash(type);
@@ -767,13 +891,7 @@ namespace Unity.Entities
 #endif
             if (typeof(IComponentData).IsAssignableFrom(type))
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (!type.IsValueType)
-                    throw new ArgumentException($"{type} is an IComponentData, and thus must be a struct.");
-                if (!UnsafeUtility.IsBlittable(type))
-                    throw new ArgumentException(
-                        $"{type} is an IComponentData, and thus must be blittable (No managed object is allowed on the struct).");
-#endif
+                CheckIsAllowedAsComponentData(type, nameof(IComponentData));
 
                 category = TypeCategory.ComponentData;
                 if (TypeManager.IsZeroSizeStruct(type))
@@ -783,6 +901,7 @@ namespace Unity.Entities
 
                 typeInfo = FastEquality.CreateTypeInfo(type);
                 entityOffsets = EntityRemapUtility.CalculateEntityOffsets(type);
+                blobAssetRefOffsets = CalculatBlobAssetRefOffsets(type);
 
                 int sizeInBytes = UnsafeUtility.SizeOf(type);
                 // TODO: Implement UnsafeUtility.AlignOf(type)
@@ -792,13 +911,7 @@ namespace Unity.Entities
             }
             else if (typeof(IBufferElementData).IsAssignableFrom(type))
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (!type.IsValueType)
-                    throw new ArgumentException($"{type} is an IBufferElementData, and thus must be a struct.");
-                if (!UnsafeUtility.IsBlittable(type))
-                    throw new ArgumentException(
-                        $"{type} is an IBufferElementData, and thus must be blittable (No managed object is allowed on the struct).");
-#endif
+                CheckIsAllowedAsComponentData(type, nameof(IBufferElementData));
 
                 category = TypeCategory.BufferData;
                 elementSize = UnsafeUtility.SizeOf(type);
@@ -812,6 +925,7 @@ namespace Unity.Entities
                 componentSize = sizeof(BufferHeader) + bufferCapacity * elementSize;
                 typeInfo = FastEquality.CreateTypeInfo(type);
                 entityOffsets = EntityRemapUtility.CalculateEntityOffsets(type);
+                blobAssetRefOffsets = CalculatBlobAssetRefOffsets(type);
 
                 int sizeInBytes = UnsafeUtility.SizeOf(type);
                 // TODO: Implement UnsafeUtility.AlignOf(type)
@@ -852,7 +966,8 @@ namespace Unity.Entities
             CheckComponentType(type);
 #endif
             int typeIndex = s_Count;
-            return new TypeInfo(type, typeIndex, componentSize, category, typeInfo, entityOffsets, memoryOrdering, bufferCapacity, elementSize > 0 ? elementSize : componentSize, alignmentInBytes, stableTypeHash, writeGroups, writeGroupCount, maxChunkCapacity);
+            return new TypeInfo(type, typeIndex, componentSize, category, typeInfo, entityOffsets, blobAssetRefOffsets, memoryOrdering,
+                bufferCapacity, elementSize > 0 ? elementSize : componentSize, alignmentInBytes, stableTypeHash, writeGroups, writeGroupCount, maxChunkCapacity);
         }
 
         public static int CreateTypeIndexForComponent<T>() where T : struct, IComponentData

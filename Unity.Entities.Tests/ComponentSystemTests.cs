@@ -12,7 +12,7 @@ namespace Unity.Entities.Tests
         class TestSystem : ComponentSystem
         {
             public bool Created = false;
-            
+
             protected override void OnUpdate()
             {
             }
@@ -21,13 +21,13 @@ namespace Unity.Entities.Tests
             {
                 Created = true;
             }
-            
+
             protected override void OnDestroyManager()
             {
-                Created = false;        
+                Created = false;
             }
         }
-        
+
         [DisableAutoCreation]
         class DerivedTestSystem : TestSystem
         {
@@ -35,7 +35,7 @@ namespace Unity.Entities.Tests
             {
             }
         }
-        
+
         [DisableAutoCreation]
         class ThrowExceptionSystem : TestSystem
         {
@@ -47,7 +47,7 @@ namespace Unity.Entities.Tests
             {
             }
         }
-        
+
         [DisableAutoCreation]
         class ScheduleJobAndDestroyArray : JobComponentSystem
         {
@@ -72,7 +72,7 @@ namespace Unity.Entities.Tests
                 test.Dispose();
             }
         }
-        
+
         [Test]
         public void Create()
         {
@@ -111,22 +111,37 @@ namespace Unity.Entities.Tests
 
             Assert.IsFalse(system.Created);
         }
-        
+
+#if !UNITY_ZEROPLAYER
+        [Test]
+        public void CreateNonSystemThrows()
+        {
+            Assert.Throws<ArgumentException>(() => { World.CreateManager(typeof(Entity)); });
+        }
+
+        [Test]
+        public void GetOrCreateNonSystemThrows()
+        {
+            Assert.Throws<ArgumentException>(() => { World.GetOrCreateManager(typeof(Entity)); });
+        }
+#endif
+
         [Test]
         public void OnCreateThrowRemovesSystem()
         {
             Assert.Throws<Exception>(() => { World.CreateManager<ThrowExceptionSystem>(); });
             Assert.AreEqual(null, World.GetExistingManager<ThrowExceptionSystem>());
         }
-        
+
         [Test]
+        [TinyFixme] // IJob
         public void DestroySystemWhileJobUsingArrayIsRunningWorks()
         {
             var system = World.CreateManager<ScheduleJobAndDestroyArray>();
             system.Update();
             World.DestroyManager(system);
         }
-        
+
         [Test]
         public void DisposeSystemComponentGroupThrows()
         {
@@ -134,7 +149,7 @@ namespace Unity.Entities.Tests
             var group = system.GetComponentGroup(typeof(EcsTestData));
             Assert.Throws<ArgumentException>(() => group.Dispose());
         }
-        
+
         [Test]
         public void DestroyManagerTwiceThrows()
         {
@@ -153,34 +168,34 @@ namespace Unity.Entities.Tests
             // Return first system
             Assert.AreEqual(systemA, World.GetOrCreateManager<TestSystem>());
         }
-        
+
         [Test]
         public void CreateTwoSystemsAfterDestroyReturnSecond()
         {
             var systemA = World.CreateManager<TestSystem>();
             var systemB = World.CreateManager<TestSystem>();
             World.DestroyManager(systemA);
-            
+
             Assert.AreEqual(systemB, World.GetExistingManager<TestSystem>());;
         }
-        
+
         [Test]
         public void CreateTwoSystemsAfterDestroyReturnFirst()
         {
             var systemA = World.CreateManager<TestSystem>();
             var systemB = World.CreateManager<TestSystem>();
             World.DestroyManager(systemB);
-            
+
             Assert.AreEqual(systemA, World.GetExistingManager<TestSystem>());;
         }
-        
+
         [Test]
         public void GetComponentGroup()
         {
             ComponentType[] ro_rw = { ComponentType.ReadOnly<EcsTestData>(), typeof(EcsTestData2) };
             ComponentType[] rw_rw = { typeof(EcsTestData), typeof(EcsTestData2) };
             ComponentType[] rw = { typeof(EcsTestData) };
-            
+
             var ro_rw0_system = EmptySystem.GetComponentGroup(ro_rw);
             var rw_rw_system = EmptySystem.GetComponentGroup(rw_rw);
             var rw_system = EmptySystem.GetComponentGroup(rw);
@@ -188,17 +203,17 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(ro_rw0_system, EmptySystem.GetComponentGroup(ro_rw));
             Assert.AreEqual(rw_rw_system, EmptySystem.GetComponentGroup(rw_rw));
             Assert.AreEqual(rw_system, EmptySystem.GetComponentGroup(rw));
-            
+
             Assert.AreEqual(3, EmptySystem.ComponentGroups.Length);
         }
-        
+
         [Test]
         public void GetComponentGroupArchetypeQuery()
         {
             var query1 = new ComponentType[] { typeof(EcsTestData) };
             var query2 = new EntityArchetypeQuery { All = new ComponentType[] {typeof(EcsTestData)} };
             var query3 = new EntityArchetypeQuery { All = new ComponentType[] {typeof(EcsTestData), typeof(EcsTestData2)} };
-            
+
             var group1 = EmptySystem.GetComponentGroup(query1);
             var group2 = EmptySystem.GetComponentGroup(query2);
             var group3 = EmptySystem.GetComponentGroup(query3);
@@ -206,17 +221,17 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(group1, EmptySystem.GetComponentGroup(query1));
             Assert.AreEqual(group2, EmptySystem.GetComponentGroup(query2));
             Assert.AreEqual(group3, EmptySystem.GetComponentGroup(query3));
-            
+
             Assert.AreEqual(2, EmptySystem.ComponentGroups.Length);
         }
-        
+
         [Test]
         public void GetComponentGroupComponentTypeArchetypeQueryEquality()
         {
             var query1 = new ComponentType[] { typeof(EcsTestData) };
             var query2 = new EntityArchetypeQuery { All = new ComponentType[] {typeof(EcsTestData)} };
             var query3 = new EntityArchetypeQuery { All = new [] {ComponentType.ReadWrite<EcsTestData>()} };
-            
+
             var group1 = EmptySystem.GetComponentGroup(query1);
             var group2 = EmptySystem.GetComponentGroup(query2);
             var group3 = EmptySystem.GetComponentGroup(query3);
@@ -225,20 +240,20 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(group2, group3);
             Assert.AreEqual(1, EmptySystem.ComponentGroups.Length);
         }
-        
+
         [Test]
         public void GetComponentGroupRespectsRWAccessInequality()
         {
             var query1 = new EntityArchetypeQuery { All = new [] {ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>()} };
             var query2 = new EntityArchetypeQuery { All = new [] {ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>()} };
-            
+
             var group1 = EmptySystem.GetComponentGroup(query1);
             var group2 = EmptySystem.GetComponentGroup(query2);
 
             Assert.AreNotEqual(group1, group2);
             Assert.AreEqual(2, EmptySystem.ComponentGroups.Length);
         }
-        
+
         [Test]
         public void GetComponentGroupOrderIndependent()
         {
@@ -247,20 +262,20 @@ namespace Unity.Entities.Tests
 
             var group1 = EmptySystem.GetComponentGroup(query1);
             var group2 = EmptySystem.GetComponentGroup(query2);
-            
+
             Assert.AreEqual(group1, group2);
             Assert.AreEqual(1, EmptySystem.ComponentGroups.Length);
-            
+
             var query3 = new EntityArchetypeQuery { All = new ComponentType[] {typeof(EcsTestData2), typeof(EcsTestData3)} };
             var query4 = new EntityArchetypeQuery { All = new ComponentType[] {typeof(EcsTestData3), typeof(EcsTestData2)} };
 
             var group3 = EmptySystem.GetComponentGroup(query3);
             var group4 = EmptySystem.GetComponentGroup(query4);
-            
+
             Assert.AreEqual(group3, group4);
             Assert.AreEqual(2, EmptySystem.ComponentGroups.Length);
         }
-        
+
         //@TODO: Behaviour is a slightly dodgy... Should probably just ignore and return same as single typeof(EcsTestData)
         [Test]
         public void GetComponentGroupWithEntityThrows()
@@ -269,23 +284,23 @@ namespace Unity.Entities.Tests
             EmptySystem.GetComponentGroup(e);
             Assert.Throws<ArgumentException>(() => EmptySystem.GetComponentGroup(e));
         }
-        
+
         [Test]
         public void GetComponentGroupWithDuplicates()
         {
             // Currently duplicates will create two seperate groups doing the same thing...
             ComponentType[] dup_1 = { typeof(EcsTestData2) };
             ComponentType[] dup_2 = { typeof(EcsTestData2), typeof(EcsTestData2) };
-            
+
             var dup1_system = EmptySystem.GetComponentGroup(dup_1);
             var dup2_system = EmptySystem.GetComponentGroup(dup_2);
 
             Assert.AreEqual(dup1_system, EmptySystem.GetComponentGroup(dup_1));
             Assert.AreEqual(dup2_system, EmptySystem.GetComponentGroup(dup_2));
-            
+
             Assert.AreEqual(2, EmptySystem.ComponentGroups.Length);
         }
-        
+
         [Test]
         public void UpdateDestroyedSystemThrows()
         {

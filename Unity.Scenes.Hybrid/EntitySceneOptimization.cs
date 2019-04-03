@@ -10,7 +10,6 @@ namespace Unity.Entities.Streaming
     {
     }
 
-
     public static class EntitySceneOptimization
     {
         static void MarkStaticFrozen(EntityManager entityManager)
@@ -30,12 +29,12 @@ namespace Unity.Entities.Streaming
                     entityManager.RemoveComponent(entityManager.UniversalGroup, ComponentType.FromTypeIndex(s.TypeIndex));
                 }
             }
-            
         }
-
 
         public static void Optimize(World world)
         {
+            var entityManager = world.EntityManager;
+
             var group = world.GetOrCreateManager<OptimizationGroup>();
 
             var systemTypes = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.EntitySceneOptimizations);
@@ -43,9 +42,22 @@ namespace Unity.Entities.Streaming
                 AddSystemAndLogException(world, group, systemType);
             group.SortSystemUpdateList();
 
+            // foreach (var system in group.Systems)
+            //    Debug.Log(system.GetType());
+
+            // Run first pass (This might add / remove a bunch of components and thus invalidate some of chunk component data caches)
             group.Update();
 
-            var entityManager = world.GetOrCreateManager<EntityManager>();
+            // Freeze static objects.
+            // After this no more reordering is allowed
+            var staticGroup = entityManager.CreateComponentGroup(typeof(Static));
+            entityManager.LockChunkOrder(staticGroup);
+            staticGroup.Dispose();
+
+            // Run all systems again (For example chunk bounding volumes might be out of sync after various remove / add from previous pass)
+            // But now we are sure that no more re-ordering will happen.
+            group.Update();
+            
             RemoveSystemState(entityManager);
             MarkStaticFrozen(entityManager);
         }

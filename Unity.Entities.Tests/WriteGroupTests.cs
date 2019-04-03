@@ -47,6 +47,7 @@ namespace Unity.Entities.Tests
 
 
         [Test]
+        [TinyFixme]
         public void WG_AllOnlyMatchesExplicit()
         {
             var archetype0 = m_Manager.CreateArchetype(typeof(TestOutputA), typeof(TestInputB), typeof(TestInputC));
@@ -74,6 +75,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme]
         public void WG_AllOnlyMatchesExplicitLateDefinition()
         {
             var group0 = m_Manager.CreateComponentGroup(new EntityArchetypeQuery()
@@ -130,6 +132,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme]
         public void WG_AnyOnlyMatchesExplicit()
         {
             var archetype0 = m_Manager.CreateArchetype(typeof(TestOutputA), typeof(TestInputB), typeof(TestInputC));
@@ -243,6 +246,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme]
         public void WG_AllExcludesFromDependentWriteGroup()
         {
             var archetype0 = m_Manager.CreateArchetype(typeof(TestOutputA), typeof(TestOutputB), typeof(TestInputB),

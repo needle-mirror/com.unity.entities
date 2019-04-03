@@ -41,13 +41,14 @@ namespace Unity.Entities.Editor
                 return lastReading;
             }
         }
-        internal readonly Dictionary<int, ScriptBehaviourManager> managersById = new Dictionary<int, ScriptBehaviourManager>();
+        internal readonly Dictionary<int, ComponentSystemBase> managersById = new Dictionary<int, ComponentSystemBase>();
         private readonly Dictionary<int, World> worldsById = new Dictionary<int, World>();
         private readonly Dictionary<ScriptBehaviourManager, AverageRecorder> recordersByManager = new Dictionary<ScriptBehaviourManager, AverageRecorder>();
         private readonly Dictionary<int, HideNode> hideNodesById = new Dictionary<int, HideNode>();
 
         private const float kToggleWidth = 22f;
         private const float kTimingWidth = 70f;
+        private const int kAllEntitiesItemId = 0;
 
         private readonly SystemSelectionCallback systemSelectionCallback;
         private readonly WorldSelectionGetter getWorldSelection;
@@ -149,25 +150,29 @@ namespace Unity.Entities.Editor
             RebuildNodes();
         }
 
-        private HideNode CreateManagerItem(int id, int depth, ScriptBehaviourManager manager, World world)
+        private HideNode CreateNodeForManager(int id, ComponentSystemBase system)
         {
-            managersById.Add(id, manager);
-            worldsById.Add(id, world);
-            var recorder = Recorder.Get($"{world.Name} {manager.GetType().FullName}");
-            recordersByManager.Add(manager, new AverageRecorder(recorder));
-            recorder.enabled = true;
-            var name = getWorldSelection() == null ? $"{manager.GetType().Name} ({world.Name})" : manager.GetType().Name;
-            var item = new TreeViewItem { id = id, depth = depth, displayName = name };
+            var active = true;
+            if (!(system is ComponentSystemGroup))
+            {
+                managersById.Add(id, system);
+                worldsById.Add(id, system.World);
+                var recorder = Recorder.Get($"{system.World.Name} {system.GetType().FullName}");
+                recordersByManager.Add(system, new AverageRecorder(recorder));
+                recorder.enabled = true;
+                active = false;
+            }
+            var name = getWorldSelection() == null ? $"{system.GetType().Name} ({system.World.Name})" : system.GetType().Name;
+            var item = new TreeViewItem { id = id, displayName = name };
 
-            var componentSystemBase = manager as ComponentSystemBase;
-            var hideNode = new HideNode(item) { Active = componentSystemBase == null };
+            var hideNode = new HideNode(item) { Active = active };
             hideNodesById.Add(id, hideNode);
             return hideNode;
         }
 
         private PlayerLoopSystem lastPlayerLoop;
 
-        class HideNode
+        private class HideNode
         {
             public readonly TreeViewItem Item;
             public bool Active = true;
@@ -218,140 +223,139 @@ namespace Unity.Entities.Editor
             Reload();
         }
 
-        private List<int> BuildNodeTree()
+        private void AddNodeIgnoreNulls(ref List<HideNode> list, HideNode node)
+        {
+            if (node == null)
+                return;
+            if (list == null)
+                list = new List<HideNode>();
+            list.Add(node);
+        }
+
+        private HideNode BuildNodesForPlayerLoopSystem(PlayerLoopSystem system, ref int currentId)
+        {
+            List<HideNode> children = null;
+            if (system.subSystemList != null)
+            {
+                foreach (var subSystem in system.subSystemList)
+                {
+                    AddNodeIgnoreNulls(ref children, BuildNodesForPlayerLoopSystem(subSystem, ref currentId));
+                }
+            }
+            else
+            {
+                var executionDelegate = system.updateDelegate;
+                ScriptBehaviourUpdateOrder.DummyDelegateWrapper dummy;
+                if (executionDelegate != null &&
+                    (dummy = executionDelegate.Target as ScriptBehaviourUpdateOrder.DummyDelegateWrapper) != null)
+                {
+                    var rootSystem = dummy.Manager;
+                    return BuildNodesForComponentSystem(rootSystem, ref currentId);
+                }
+            }
+
+            if (children != null || getWorldSelection() == null)
+            {
+                var systemNode = new HideNode(new TreeViewItem() {id = currentId++, displayName = system.type?.Name});
+                systemNode.Children = children;
+                return systemNode;
+            }
+
+            return null;
+        }
+
+        private HideNode BuildNodesForComponentSystem(ScriptBehaviourManager manager, ref int currentId)
+        {
+            switch (manager)
+            {
+                case ComponentSystemGroup group:
+                    List<HideNode> children = null;
+                    if (group.Systems != null)
+                    {
+                        foreach (var child in group.Systems)
+                        {
+                            AddNodeIgnoreNulls(ref children, BuildNodesForComponentSystem(child, ref currentId));
+                        }
+                    }
+
+                    if (children != null || getWorldSelection() == null || getWorldSelection() == group.World)
+                    {
+                        var groupNode = CreateNodeForManager(currentId++, group);
+                        groupNode.Children = children;
+                        return groupNode;
+                    }
+                    break;
+                case ComponentSystemBase system:
+                {
+                    if (getWorldSelection() == null || getWorldSelection() == system.World)
+                    {
+                        return CreateNodeForManager(currentId++, system);
+                    }
+                }
+                    break;
+            }
+
+            return null;
+        }
+
+        private void BuildNodeTree()
         {
             managersById.Clear();
             worldsById.Clear();
             recordersByManager.Clear();
             hideNodesById.Clear();
 
-            var currentID = 0;
-            rootNode = new HideNode(new TreeViewItem {id = currentID++, depth = -1, displayName = "Root"});
+            var currentID = kAllEntitiesItemId + 1;
 
             lastPlayerLoop = ScriptBehaviourUpdateOrder.CurrentPlayerLoop;
 
-            var expandedIds = new List<int>();
-
-            if (ScriptBehaviourUpdateOrder.CurrentPlayerLoop.subSystemList != null)
-            {
-                foreach (var group in ScriptBehaviourUpdateOrder.CurrentPlayerLoop.subSystemList)
-                {
-                    var groupItem = new HideNode(new TreeViewItem
-                        {id = currentID++, depth = 0, displayName = group.type.Name});
-                    var hasManagerChildren = false;
-                    foreach (var child in group.subSystemList)
-                    {
-                        var executionDelegate = child.updateDelegate;
-                        ScriptBehaviourUpdateOrder.DummyDelegateWrapper dummy;
-                        if (executionDelegate != null &&
-                            (dummy = executionDelegate.Target as ScriptBehaviourUpdateOrder.DummyDelegateWrapper) != null)
-                        {
-                            var system = dummy.Manager;
-                            if (getWorldSelection() == null)
-                            {
-                                foreach (var world in World.AllWorlds)
-                                {
-                                    if (world.BehaviourManagers.Contains(system))
-                                    {
-                                        currentID = AddNodeForSystem(groupItem, currentID, 1, system, world, expandedIds);
-                                        hasManagerChildren = true;
-                                    }
-                                }
-                            }
-                            else if (getWorldSelection().BehaviourManagers.Contains(system))
-                            {
-                                currentID = AddNodeForSystem(groupItem, currentID, 1, system, getWorldSelection(), expandedIds);
-                                hasManagerChildren = true;
-                            }
-                            else if (system is ComponentSystemGroup)
-                            {
-                                var nextId = AddNodeForSystem(groupItem, currentID, 1, system, null, expandedIds);
-                                hasManagerChildren |= (nextId != currentID);
-                                currentID = nextId;
-                            }
-                        }
-                        else if (getWorldSelection() == null)
-                        {
-                            groupItem.AddChild(new HideNode(new TreeViewItem(currentID++, 1, child.type.Name)));
-                        }
-                    }
-
-                    if (groupItem.Children != null)
-                    {
-                        rootNode.AddChild(groupItem);
-                        if (hasManagerChildren)
-                            expandedIds.Add(groupItem.Item.id);
-                    }
-                    else
-                    {
-                        --currentID;
-                    }
-                }
-            }
-
-            // The list of IDs to expand must be sorted.
-            expandedIds.Sort();
-            return expandedIds;
+            rootNode = BuildNodesForPlayerLoopSystem(ScriptBehaviourUpdateOrder.CurrentPlayerLoop, ref currentID)
+                       ?? new HideNode(new TreeViewItem {id = currentID, displayName = "Root"});
+            return;
         }
 
-        private int AddNodeForSystem(HideNode node, int currentID, int depth, ScriptBehaviourManager system, World world,
-            List<int> expandedIds)
+        private bool GetDefaultExpandedIds(HideNode parent, List<int> ids)
         {
-            var groupSys = system as ComponentSystemGroup;
-            if (groupSys != null)
+            var shouldExpand = managersById.ContainsKey(parent.Item.id);
+            if (parent.Children != null)
             {
-                if (world != null)
+                foreach (var child in parent.Children)
                 {
-                    var groupNode = CreateManagerItem(currentID++, depth, groupSys, world);
-                    expandedIds.Add(groupNode.Item.id);
-                    node.AddChild(groupNode);
-                    foreach (var child in groupSys.Systems)
-                    {
-                        if (world.BehaviourManagers.Contains(child))
-                            currentID = AddNodeForSystem(groupNode, currentID, depth + 1, child, world, expandedIds);
-                        else if (getWorldSelection() == null)
-                        {
-                            foreach (var w in World.AllWorlds)
-                            {
-                                if (w.BehaviourManagers.Contains(child))
-                                    currentID = AddNodeForSystem(groupNode, currentID, depth + 1, child, w, expandedIds);
-                            }
-                        }
-                        else if (child is ComponentSystemGroup)
-                        {
-                            currentID = AddNodeForSystem(groupNode, currentID, depth + 1, child, null, expandedIds);
-                        }
-                    }
+                    shouldExpand |= GetDefaultExpandedIds(child, ids);
                 }
-                else
-                {
-                    foreach (var child in groupSys.Systems)
-                    {
-                        if (getWorldSelection().BehaviourManagers.Contains(child))
-                            currentID = AddNodeForSystem(node, currentID, depth, child, getWorldSelection(), expandedIds);
-                        else if (child is ComponentSystemGroup)
-                            currentID = AddNodeForSystem(node, currentID, depth, child, null, expandedIds);
-                    }
-                }
-            }
-            else if (world != null)
-            {
-                node.AddChild(CreateManagerItem(currentID++, depth, system, world));
-            }
 
-            return currentID;
+                if (shouldExpand)
+                {
+                    ids.Add(parent.Item.id);
+                }
+            }
+            
+            return shouldExpand;
         }
 
         protected override TreeViewItem BuildRoot()
         {
             if (rootNode == null)
-                state.expandedIDs = BuildNodeTree();
+            {
+                BuildNodeTree(); 
+                var expanded = new List<int>();
+                GetDefaultExpandedIds(rootNode, expanded);
+                expanded.Sort();
+                state.expandedIDs = expanded;
+            }
 
             var root = rootNode.BuildList(getShowInactiveSystems());
 
             if (!root.hasChildren)
                 root.children = new List<TreeViewItem>(0);
 
+            if (getWorldSelection() != null)
+            {
+                root.children.Insert(0, new TreeViewItem(kAllEntitiesItemId, 0, $"All Entities ({getWorldSelection().Name})"));
+            }
+            
+            root.depth = -1;
+            
             SetupDepthsFromParentsAndChildren(root);
             return root;
         }
@@ -361,9 +365,7 @@ namespace Unity.Entities.Editor
             var becameVisible = false;
             foreach (var idManagerPair in managersById)
             {
-                var componentSystemBase = idManagerPair.Value as ComponentSystemBase;
-                if (componentSystemBase == null)
-                    continue;
+                var componentSystemBase = idManagerPair.Value;
                 var hideNode = hideNodesById[idManagerPair.Key];
                 if (componentSystemBase.LastSystemVersion != 0 && !hideNode.Active)
                 {
@@ -411,6 +413,10 @@ namespace Unity.Entities.Editor
                     }
                 }
             }
+            else if (args.item.id == kAllEntitiesItemId)
+            {
+                
+            }
             else
             {
                 GUI.enabled = false;
@@ -441,7 +447,7 @@ namespace Unity.Entities.Editor
             else
             {
                 systemSelectionCallback(null, null);
-                SetSelection(new List<int>());
+                SetSelection(getWorldSelection() == null ? new List<int>() : new List<int> {kAllEntitiesItemId});
             }
         }
 

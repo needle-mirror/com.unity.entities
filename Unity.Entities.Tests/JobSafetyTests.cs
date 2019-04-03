@@ -7,6 +7,7 @@ using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
+    [TinyFixme] // Tiny ignores because of the assert in the constructor.
     class JobSafetyTests : ECSTestsFixture
 	{
         public JobSafetyTests()
@@ -104,7 +105,9 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityManagerDestructionDetectsUnregisteredJob()
         {
+            #if !UNITY_ZEROPLAYER
             LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("job is still running"));
+            #endif
 
             /*var entity =*/ m_Manager.CreateEntity(typeof(EcsTestData));
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));

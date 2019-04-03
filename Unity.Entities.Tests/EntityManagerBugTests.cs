@@ -150,7 +150,11 @@ namespace Unity.Entities.Tests
         [Test]
         public void Test1()
         {
+#if !UNITY_ZEROPLAYER
             World w = new World("TestWorld");
+#else
+            World w = DefaultTinyWorldInitialization.Initialize("TestWorld");
+#endif
             World.Active = w;
             EntityManager em = World.Active.GetOrCreateManager<EntityManager>();
             List<Entity> remember = new List<Entity>();
@@ -175,7 +179,11 @@ namespace Unity.Entities.Tests
         [Test]
         public void Test2()
         {
+#if !UNITY_ZEROPLAYER
             World w = new World("TestWorld");
+#else
+            World w = DefaultTinyWorldInitialization.Initialize("TestWorld");
+#endif
             World.Active = w;
             EntityManager em = World.Active.GetOrCreateManager<EntityManager>();
 
@@ -188,7 +196,11 @@ namespace Unity.Entities.Tests
             w = null;
             World.DisposeAllWorlds();
 
+#if !UNITY_ZEROPLAYER
             w = new World("TestWorld2");
+#else
+            w = DefaultTinyWorldInitialization.Initialize("TestWorld");
+#endif
             World.Active = w;
             em = World.Active.GetOrCreateManager<EntityManager>();
             var allEnt = em.GetAllEntities(Allocator.Temp);

@@ -3,6 +3,7 @@
     "references": [
         "Unity.Entities",
         "Unity.Mathematics",
+        "Unity.Mathematics.Extensions",
         "Unity.Entities.Hybrid",
         "Unity.Scenes.Hybrid"
     ],

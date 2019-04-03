@@ -3,7 +3,8 @@
     "references": [
         "Unity.Entities",
         "Unity.Collections",
-        "Unity.Jobs"
+        "Unity.Jobs",
+        "Unity.Mathematics.Extensions"
     ],
     "optionalUnityReferences": [],
     "includePlatforms": [],

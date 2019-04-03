@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if !UNITY_ZEROPLAYER
+using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 
@@ -73,3 +74,4 @@ namespace Unity.Entities.Tests
         
     }
 }
+#endif

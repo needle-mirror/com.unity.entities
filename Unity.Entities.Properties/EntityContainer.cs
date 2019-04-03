@@ -135,24 +135,21 @@ namespace Unity.Entities.Properties
 
                     // We skip the property bag & proxy creation for zero sized types (e.g. MonoBehaviors, etc).
                     // They wont get displayed at all in the inspector since we dont know 
-                    if (bag.PropertyCount > 1 && ! TypeManager.GetTypeInfo(typeIndex).IsZeroSized)
+                    byte* data = null;
+                    if (!TypeManager.GetTypeInfo(typeIndex).IsZeroSized)
                     {
-                        byte* data = (byte*)container.m_Manager.GetComponentDataRawRW(container.m_Entity, typeIndex);
-                        if (data != null)
-                        {
-                            p = new StructProxy
-                            {
-                                bag = bag,
-                                data = data,
-                                type = propertyType
-                            };
-
-                            return true;
-                        }
+                        data = (byte*)container.m_Manager.GetComponentDataRawRW(container.m_Entity, typeIndex);
                     }
-                }
+                    
+                    p = new StructProxy
+                    {
+                        bag = bag,
+                        data = data,
+                        type = propertyType
+                    };
 
-                return false;
+                    return true;
+                }
             }
         }
         

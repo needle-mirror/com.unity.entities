@@ -42,9 +42,11 @@ namespace Unity.Entities
         public static void Initialize(string worldName, bool editorWorld)
         {
             // Register hybrid injection hooks
+            #pragma warning disable 0618
             InjectionHookSupport.RegisterHook(new GameObjectArrayInjectionHook());
             InjectionHookSupport.RegisterHook(new TransformAccessArrayInjectionHook());
             InjectionHookSupport.RegisterHook(new ComponentArrayInjectionHook());
+            #pragma warning restore 0618
 
             PlayerLoopManager.RegisterDomainUnload(DomainUnloadShutdown, 10000);
 
@@ -95,15 +97,24 @@ namespace Unity.Entities
                     var group = g as UpdateInGroupAttribute;
                     if (group == null)
                         continue;
-                    var groupSys = GetOrCreateManagerAndLogException(world, group.GroupType) as ComponentSystemGroup;
+
+                    if (!(typeof(ComponentSystemGroup)).IsAssignableFrom(group.GroupType))
+                    {
+                        Debug.LogError($"Invalid [UpdateInGroup] attribute for {type}: {group.GroupType} must be derived from ComponentSystemGroup.");
+                        continue;
+                    }
+
+                    var groupMgr = GetOrCreateManagerAndLogException(world, group.GroupType);
+                    if (groupMgr == null)
+                    {
+                        Debug.LogWarning(
+                            $"Skipping creation of {type} due to errors creating the group {group.GroupType}. Fix these errors before continuing.");
+                        continue;
+                    }
+                    var groupSys = groupMgr as ComponentSystemGroup;
                     if (groupSys != null)
                     {
                         groupSys.AddSystemToUpdateList(GetOrCreateManagerAndLogException(world, type) as ComponentSystemBase);
-                    }
-                    else
-                    {
-                        Debug.LogWarning("Type " + type + " has an invalid system group " + group.GroupType +
-                                         ". The specified type must be derived from ComponentSystemGroup.");
                     }
                 }
             }

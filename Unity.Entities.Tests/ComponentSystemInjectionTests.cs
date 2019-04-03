@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿#if !UNITY_ZEROPLAYER
+using NUnit.Framework;
 
 // Injection is deprecated
 #pragma warning disable 618
@@ -67,3 +68,4 @@ namespace Unity.Entities.Tests
         }
     }
 }
+#endif

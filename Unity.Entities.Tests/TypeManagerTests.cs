@@ -23,6 +23,15 @@ namespace Unity.Entities.Tests
         {
             int empty;
         }
+        struct TestTypeWithBool : IComponentData
+        {
+            bool empty;
+        }
+        struct TestTypeWithChar : IComponentData
+        {
+            char empty;
+        }
+
         [Test]
         public void CreateArchetypes()
         {
@@ -35,6 +44,13 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(archetype2Same, archetype2Same);
 
             Assert.AreNotEqual(archetype1, archetype2);
+        }
+
+        [Test]
+        public void TestPrimitiveButNotBlittableTypesAllowed()
+        {
+            Assert.AreEqual(1, TypeManager.GetTypeInfo<TestTypeWithBool>().SizeInChunk);
+            Assert.AreEqual(2, TypeManager.GetTypeInfo<TestTypeWithChar>().SizeInChunk);
         }
 
         [InternalBufferCapacity(99)]
@@ -68,9 +84,15 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(typeof(Entity), entity.GetManagedType());
         }
 
+#if !UNITY_ZEROPLAYER
         struct NonBlittableComponentData : IComponentData
         {
             string empty;
+        }
+
+        struct NonBlittableComponentData2 : IComponentData
+        {
+            IComponentData empty;
         }
 
         class ClassComponentData : IComponentData
@@ -104,11 +126,12 @@ namespace Unity.Entities.Tests
 
         [TestCase(typeof(InterfaceComponentData), @"\binterface\b", TestName = "Interface implementing IComponentData")]
         [TestCase(typeof(ClassComponentData), @"\b(struct|class)\b", TestName = "Class implementing IComponentData")]
-        [TestCase(typeof(NonBlittableComponentData), @"\b(not )?blittable\b", TestName = "Non-blittable component data")]
+        [TestCase(typeof(NonBlittableComponentData), @"\bblittable\b", TestName = "Non-blittable component data (string)")]
+        [TestCase(typeof(NonBlittableComponentData2), @"\bblittable\b", TestName = "Non-blittable component data (interface)")]
 
         [TestCase(typeof(InterfaceBuffer), @"\binterface\b", TestName = "Interface implementing IBufferElementData")]
         [TestCase(typeof(ClassBuffer), @"\b(struct|class)\b", TestName = "Class implementing IBufferElementData")]
-        [TestCase(typeof(NonBlittableBuffer), @"\b(not )?blittable\b", TestName = "Non-blittable IBufferElementData")]
+        [TestCase(typeof(NonBlittableBuffer), @"\bblittable\b", TestName = "Non-blittable IBufferElementData")]
 
         [TestCase(typeof(InterfaceShared), @"\binterface\b", TestName = "Interface implementing ISharedComponentData")]
         [TestCase(typeof(ClassShared), @"\b(struct|class)\b", TestName = "Class implementing ISharedComponentData")]
@@ -186,7 +209,7 @@ namespace Unity.Entities.Tests
         {
             Assert.Throws<ArgumentException>(() => TypeManager.RegisterUnityEngineComponentType(type));
         }
-        
+
         [Test]
         public void IsAssemblyReferencingEntities()
         {
@@ -197,6 +220,6 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(TypeManager.IsAssemblyReferencingEntities(typeof(IComponentData).Assembly));
             Assert.IsTrue(TypeManager.IsAssemblyReferencingEntities(typeof(EcsTestData).Assembly));
         }
-
+#endif
     }
 }

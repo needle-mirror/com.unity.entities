@@ -20,7 +20,7 @@ namespace Unity.Entities.Tests
 
         public SharedData2(int val) { value = val; }
     }
-
+    [TinyFixme] // ISharedComponentData
     class SharedComponentDataTests : ECSTestsFixture
     {
         //@TODO: No tests for invalid shared components / destroyed shared component data

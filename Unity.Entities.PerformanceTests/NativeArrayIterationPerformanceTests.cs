@@ -1,3 +1,4 @@
+using NUnit.Framework;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -22,7 +23,7 @@ namespace Unity.Entities.PerformanceTests
                 Source[index] = math.@select(0, projectedValue, projectedValue < ResetThreshold);
             }
         }
-        
+
         [BurstCompile(CompileSynchronously = true)]
         unsafe struct AddDeltaAndResetPtr : IJobParallelFor
         {
@@ -37,7 +38,7 @@ namespace Unity.Entities.PerformanceTests
                 Source[index] = math.@select(0, projectedValue, projectedValue < ResetThreshold);
             }
         }
-        
+
         [BurstCompile(CompileSynchronously = true)]
         struct AddDelta : IJobParallelFor
         {
@@ -50,7 +51,7 @@ namespace Unity.Entities.PerformanceTests
                 Source[index] = projectedValue;
             }
         }
-        
+
         [BurstCompile(CompileSynchronously = true)]
         struct Reset : IJobParallelFor
         {
@@ -63,7 +64,7 @@ namespace Unity.Entities.PerformanceTests
                 Source[index] = math.@select(0, value, value < ResetThreshold);
             }
         }
-            
+
         void SingleIterationWork(NativeArray<int> source, int delta, int resetThreshold, int batchSize)
         {
             var addDeltaAndResetJob = new AddDeltaAndReset
@@ -75,7 +76,7 @@ namespace Unity.Entities.PerformanceTests
             var addDeltaAndResetJobHandle = addDeltaAndResetJob.Schedule(source.Length, batchSize);
             addDeltaAndResetJobHandle.Complete();
         }
-        
+
         unsafe void SingleIterationWorkPtr(NativeArray<int> source, int delta, int resetThreshold, int batchSize)
         {
             var sourcePtr = (int*)source.GetUnsafePtr();
@@ -88,7 +89,7 @@ namespace Unity.Entities.PerformanceTests
             var addDeltaAndResetJobHandle = addDeltaAndResetJob.Schedule(source.Length, batchSize);
             addDeltaAndResetJobHandle.Complete();
         }
-        
+
         void SplitIterationWork(NativeArray<int> source, int delta, int resetThreshold, int batchSize)
         {
             var addDeltaJob = new AddDelta
@@ -106,7 +107,11 @@ namespace Unity.Entities.PerformanceTests
             resetJobHandle.Complete();
         }
 
+        #if UNITY_2019_2_OR_NEWER
+        [Test, Performance]
+        #else
         [PerformanceTest]
+        #endif
         public void NAI_SingleVsSplitIterationJob()
         {
             var count = 10 * 1024 * 1024;

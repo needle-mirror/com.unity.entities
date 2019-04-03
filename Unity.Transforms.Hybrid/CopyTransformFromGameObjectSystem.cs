@@ -60,6 +60,9 @@ namespace Unity.Transforms
                 ComponentType.ReadOnly(typeof(CopyTransformFromGameObject)),
                 typeof(UnityEngine.Transform),
                 ComponentType.ReadWrite<LocalToWorld>());
+
+            //@TODO this should not be required, see https://github.com/Unity-Technologies/dots/issues/1122
+            RequireForUpdate(m_TransformGroup);
         }
 
         protected override JobHandle OnUpdate(JobHandle inputDeps)

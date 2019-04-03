@@ -80,6 +80,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void ACS_WriteMixed()
         {
             CreateMixedEntities(64);
@@ -177,6 +178,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void ACS_WriteMixedFilterShared()
         {
             CreateMixedEntities(64);
@@ -280,6 +282,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void ACS_Buffers()
         {
             CreateEntities(128);
@@ -357,6 +360,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void ACS_BufferHas()
         {
             CreateEntities(128);
@@ -383,6 +387,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void ACS_BufferVersions()
         {
             CreateEntities(128);
@@ -425,6 +430,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void ACS_BuffersRO()
         {
             CreateEntities(128);
@@ -444,6 +450,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void ACS_ChunkArchetypeTypesMatch()
         {
             var entityTypes = new ComponentType[] {typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsIntElement)};
@@ -474,6 +481,7 @@ namespace Unity.Entities.Tests
         struct Max3Capacity : IComponentData { }
 
         [Test]
+        [TinyFixme] // MaximumChunkCapacityAttribute not supported in Tiny?
         public void MaximumChunkCapacityIsRespected()
         {
             for (int i = 0; i != 4; i++)

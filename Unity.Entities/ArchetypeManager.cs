@@ -142,7 +142,8 @@ namespace Unity.Entities
     internal enum ChunkFlags
     {
         None = 0,
-        Locked = 1 << 0
+        Locked = 1 << 0,
+        LockedEntityOrder = 1 << 1
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -273,6 +274,7 @@ namespace Unity.Entities
         /// Returns true if Chunk is Locked
         /// </summary>
         public bool Locked => (Flags & (uint) ChunkFlags.Locked) != 0;
+        public bool LockedEntityOrder => (Flags & (uint) ChunkFlags.LockedEntityOrder) != 0;
     }
 
     [DebuggerTypeProxy(typeof(ChunkListDebugView))]
@@ -360,7 +362,7 @@ namespace Unity.Entities
         {
             return (uint*)data + (typeOffset+SharedComponentCount)*Capacity;
         }
-        
+
         public int GetChunkEntityCount(int chunkIndex)
         {
             return data[(EntityCountIndex)*Capacity+chunkIndex];
@@ -481,6 +483,7 @@ namespace Unity.Entities
         public bool Prefab;
         public bool HasChunkComponents;
         public bool HasChunkHeader;
+        public bool ContainsBlobAssetRefs;
 
         public override string ToString()
         {
@@ -619,7 +622,7 @@ namespace Unity.Entities
                     EntityDataManager.DeallocateBuffers(m_Entities, chunk);
                     UnsafeUtility.Free(archetype->Chunks.p[c], Allocator.Persistent);
                 }
-                    
+
                 archetype->Chunks.Dispose();
                 archetype->ChunksWithEmptySlotsUnsafePtrList.Dispose();
                 archetype->FreeChunksBySharedComponents.Dispose();
@@ -687,7 +690,7 @@ namespace Unity.Entities
             return m_TypeLookup.TryGet(typesSorted, count);
         }
 
-        internal Archetype* GetEntityOnlyArchetype(EntityGroupManager groupManager)
+        public Archetype* GetEntityOnlyArchetype(EntityGroupManager groupManager)
         {
             if (m_entityOnlyArchetype == null)
             {
@@ -851,7 +854,6 @@ namespace Unity.Entities
                     srcArchetype->MetaChunkArchetype = GetOrCreateArchetype(types, metaArchetypeTypeCount, groupManager);
                 }
             }
-
             return srcArchetype;
         }
 
@@ -927,6 +929,7 @@ namespace Unity.Entities
             type->Prefab = false;
             type->HasChunkHeader = false;
             type->HasChunkComponents = false;
+            type->ContainsBlobAssetRefs = false;
             type->NonZeroSizedTypesCount = 0;
             for (var i = 0; i < count; ++i)
             {
@@ -942,6 +945,8 @@ namespace Unity.Entities
                     type->HasChunkHeader = true;
                 if (types[i].IsChunkComponent)
                     type->HasChunkComponents = true;
+                if (TypeManager.GetTypeInfo(types[i].TypeIndex).BlobAssetRefOffsetCount > 0)
+                    type->ContainsBlobAssetRefs = true;
             }
 
             var chunkDataSize = Chunk.GetChunkBufferSize();
@@ -1249,6 +1254,7 @@ namespace Unity.Entities
                 chunk->Archetype->FreeChunksBySharedComponents.Remove(chunk);
         }
 
+
         /// <summary>
         /// Add chunk to archetype tracking of chunks with available slots.
         /// - Does not check if chunk has space.
@@ -1266,13 +1272,14 @@ namespace Unity.Entities
         public void DestroyMetaChunkEntity(Entity entity)
         {
             EntityDataManager.RemoveComponent(entity, ComponentType.ReadWrite<ChunkHeader>(), m_Entities, this, m_SharedComponentManager, m_groupManager);
-            EntityDataManager.TryRemoveEntityId(&entity, 1, m_Entities, this, m_SharedComponentManager);	
+            EntityDataManager.TryRemoveEntityId(&entity, 1, m_Entities, this, m_SharedComponentManager);
         }
 
         public void SetChunkCount(Chunk* chunk, int newCount)
         {
             Assert.AreNotEqual(newCount, chunk->Count);
             Assert.IsFalse(chunk->Locked);
+            Assert.IsTrue(!chunk->LockedEntityOrder || newCount == 0);
 
             var capacity = chunk->Capacity;
 
@@ -1496,6 +1503,10 @@ namespace Unity.Entities
                     var dstArray = dstArchetype->Chunks.GetChangeVersionArrayForType(i) + dstChunkCount;
                     UnsafeUtility.MemClear(dstArray, srcChunkCount*sizeof(uint));
                 }
+
+                // Copy chunk count array
+                var dstCountArray = dstArchetype->Chunks.GetChunkEntityCountArray() + dstChunkCount;
+                UnsafeUtility.MemCpy(dstCountArray, srcArchetype->Chunks.GetChunkEntityCountArray(), sizeof(int) * srcChunkCount);
 
                 // Fix up chunk pointers in ChunkHeaders
                 if (dstArchetype->HasChunkComponents)
@@ -1819,6 +1830,7 @@ namespace Unity.Entities
                     var chunk = archetype->Chunks.p[j];
                     Assert.IsTrue(chunk->Archetype == archetype);
                     Assert.IsTrue(chunk->Capacity >= chunk->Count);
+                    Assert.AreEqual(chunk->Count, archetype->Chunks.GetChunkEntityCount(j));
 
                     var chunkEntities = (Entity*)chunk->Buffer;
                     entities->AssertEntitiesExist(chunkEntities, chunk->Count);

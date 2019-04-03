@@ -66,13 +66,10 @@ namespace Unity.Entities
             if (world != null)
             {
                 // Insert the root-level systems into the appropriate PlayerLoopSystem subsystems:
-                // - InitializationSystemGroup -> Initialization
-                // - SimulationSystemGroup -> FixedUpdate
-                // - PresentationSystemGroup -> Update
                 for (var i = 0; i < playerLoop.subSystemList.Length; ++i)
                 {
                     int subsystemListLength = playerLoop.subSystemList[i].subSystemList.Length;
-                    if (playerLoop.subSystemList[i].type == typeof(FixedUpdate))
+                    if (playerLoop.subSystemList[i].type == typeof(Update))
                     {
                         var newSubsystemList = new PlayerLoopSystem[subsystemListLength + 1];
                         for (var j = 0; j < subsystemListLength; ++j)
@@ -81,7 +78,7 @@ namespace Unity.Entities
                             subsystemListLength + 0, world.GetOrCreateManager<SimulationSystemGroup>());
                         playerLoop.subSystemList[i].subSystemList = newSubsystemList;
                     }
-                    else if (playerLoop.subSystemList[i].type == typeof(Update))
+                    else if (playerLoop.subSystemList[i].type == typeof(PreLateUpdate))
                     {
                         var newSubsystemList = new PlayerLoopSystem[subsystemListLength + 1];
                         for (var j = 0; j < subsystemListLength; ++j)

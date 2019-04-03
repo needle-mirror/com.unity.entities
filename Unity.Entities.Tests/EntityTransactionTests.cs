@@ -1,13 +1,16 @@
 ﻿using System;
-using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Unity.Jobs;
 using Unity.Collections;
 using UnityEngine;
+#if !UNITY_ZEROPLAYER
+using System.Text.RegularExpressions;
+#endif
 using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
+    [TinyFixme] // Asserts on JobDebugger in constructor
     class EntityTransactionTests : ECSTestsFixture
     {
         ComponentGroup m_Group;
@@ -81,6 +84,7 @@ namespace Unity.Entities.Tests
 
 
         [Test]
+        [TinyFixme]
         public void CommitAfterNotRegisteredTransactionJobLogsError()
         {
             var job = new CreateEntityJob();
@@ -88,8 +92,10 @@ namespace Unity.Entities.Tests
 
             /*var jobHandle =*/ job.Schedule(m_Manager.ExclusiveEntityTransactionDependency);
 
-            // Commit transaction expects an error not exception otherwise errors might occurr after a system has completed...
+            // Commit transaction expects an error nt exception otherwise errors might occurr after a system has completed...
+            #if !UNITY_ZEROPLAYER
             LogAssert.Expect(LogType.Error, new Regex("ExclusiveEntityTransaction job has not been registered"));
+            #endif
             m_Manager.EndExclusiveEntityTransaction();
         }
 

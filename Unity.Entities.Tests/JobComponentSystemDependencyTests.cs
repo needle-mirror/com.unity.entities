@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿#if !UNITY_ZEROPLAYER
+using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
 #pragma warning disable 649
@@ -247,3 +248,4 @@ namespace Unity.Entities.Tests
         }
     }
 }
+#endif

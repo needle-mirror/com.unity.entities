@@ -61,6 +61,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void SharedComponentNoChangeVersionUnchanged()
         {
             AddEvenOddTestData();
@@ -78,7 +79,7 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(i * 2, testData[i].value);
             }
-            
+
             testData.Dispose();
         }
 
@@ -92,11 +93,12 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(1 + (i * 2), testData[i].value);
             }
-            
+
             testData.Dispose();
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void SharedComponentNoChangeValuesUnchanged()
         {
             AddEvenOddTestData();
@@ -121,6 +123,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void SharedComponentChangeOddGroupOrderOnlyOddVersionChanged()
         {
             AddEvenOddTestData();
@@ -131,6 +134,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void SharedComponentChangeOddGroupOrderEvenValuesUnchanged()
         {
             AddEvenOddTestData();
@@ -153,6 +157,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void SharedComponentDestroyAllButOneEntityInOddGroupOnlyOddVersionChanged()
         {
             AddEvenOddTestData();
@@ -163,6 +168,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void SharedComponentDestroyAllButOneEntityInOddGroupEvenValuesUnchanged()
         {
             AddEvenOddTestData();
@@ -170,7 +176,7 @@ namespace Unity.Entities.Tests
             ActionEvenOdd((version, group) => { }, DestroyAllButOneEntityInGroup);
             ActionEvenOdd(TestSourceEvenValues, (version, group) => { });
         }
-        
+
         [Test]
         public void CreateEntity()
         {
@@ -178,13 +184,13 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, m_Manager.GetComponentOrderVersion<EcsTestData>());
             Assert.AreEqual(0, m_Manager.GetComponentOrderVersion<EcsTestData2>());
         }
-        
+
         [Test]
         public void DestroyEntity()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.DestroyEntity(entity);
-            
+
             Assert.AreEqual(2, m_Manager.GetComponentOrderVersion<EcsTestData>());
             Assert.AreEqual(0, m_Manager.GetComponentOrderVersion<EcsTestData2>());
         }
@@ -194,34 +200,35 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.AddComponentData(entity, new EcsTestData2());
-            
+
             Assert.AreEqual(2, m_Manager.GetComponentOrderVersion<EcsTestData>());
             Assert.AreEqual(1, m_Manager.GetComponentOrderVersion<EcsTestData2>());
         }
-        
+
         [Test]
         public void RemoveComponent()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             m_Manager.RemoveComponent<EcsTestData2>(entity);
-            
+
             Assert.AreEqual(2, m_Manager.GetComponentOrderVersion<EcsTestData>());
             Assert.AreEqual(2, m_Manager.GetComponentOrderVersion<EcsTestData2>());
         }
-        
+
         [Test]
         public void ChangedOnlyAffectedArchetype()
         {
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData3));
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             m_Manager.RemoveComponent<EcsTestData2>(entity1);
-            
+
             Assert.AreEqual(3, m_Manager.GetComponentOrderVersion<EcsTestData>());
             Assert.AreEqual(2, m_Manager.GetComponentOrderVersion<EcsTestData2>());
             Assert.AreEqual(1, m_Manager.GetComponentOrderVersion<EcsTestData3>());
-        } 
-        
+        }
+
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void SetSharedComponent()
         {
             var entity = m_Manager.CreateEntity(typeof(SharedData1), typeof(SharedData2));
@@ -229,15 +236,16 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(2, m_Manager.GetComponentOrderVersion<SharedData2>());
             Assert.AreEqual(2, m_Manager.GetComponentOrderVersion<SharedData1>());
-            
+
             Assert.AreEqual(1, m_Manager.GetSharedComponentOrderVersion(new SharedData1(1)));
         }
-        
+
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void DestroySharedComponentEntity()
         {
             var sharedData = new SharedData1(1);
-            
+
             var destroyEntity = m_Manager.CreateEntity(typeof(SharedData1));
             m_Manager.SetSharedComponentData(destroyEntity, sharedData );
             /*var dontDestroyEntity = */ m_Manager.Instantiate(destroyEntity);
@@ -248,14 +256,15 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(3, m_Manager.GetSharedComponentOrderVersion(sharedData));
         }
-        
+
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void DestroySharedComponentDataSetsOrderVersionToZero()
         {
             var sharedData = new SharedData1(1);
             var entity = m_Manager.CreateEntity();
             m_Manager.AddSharedComponentData(entity, sharedData);
-            
+
             m_Manager.DestroyEntity(entity);
 
             Assert.AreEqual(0, m_Manager.GetSharedComponentOrderVersion(sharedData));

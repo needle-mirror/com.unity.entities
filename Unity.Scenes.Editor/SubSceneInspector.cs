@@ -1,4 +1,5 @@
 ﻿using Unity.Entities;
+using Unity.Mathematics;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -6,6 +7,7 @@ using UnityEngine;
 namespace Unity.Scenes.Editor
 {
     [CustomEditor(typeof(SubScene))]
+    [CanEditMultipleObjects]
     class SubSceneInspector : UnityEditor.Editor
     {
         public override void OnInspectorGUI()
@@ -70,10 +72,6 @@ namespace Unity.Scenes.Editor
             
             var scenes = SubSceneInspectorUtility.GetLoadableScenes(subscenes);
 
-
-
-    
-            
             EditorGUILayout.TextArea("",GUI.skin.horizontalSlider);
     
             bool requireRebuild;
@@ -90,7 +88,6 @@ namespace Unity.Scenes.Editor
             
             if (World.Active != null)
             {
-                GUILayout.BeginHorizontal();
                 var entityManager = World.Active.GetOrCreateManager<EntityManager>();
 
                 foreach (var scene in scenes)
@@ -112,7 +109,6 @@ namespace Unity.Scenes.Editor
                         }
                     }
                 }
-                GUILayout.EndHorizontal();
             }
        
             
@@ -152,6 +148,43 @@ namespace Unity.Scenes.Editor
             if (SubSceneInspectorUtility.HasChildren(subscenes))
             {
                 EditorGUILayout.HelpBox($"SubScenes can not have child game objects. Close the scene and delete the child game objects.", MessageType.Warning, true);
+            }
+        }
+
+        MinMaxAABB GetMinMax()
+        {
+            MinMaxAABB bounds = MinMaxAABB.Empty;
+            foreach (SubScene subScene in targets)
+                bounds.Encapsulate(subScene.SceneBoundingVolume);
+            
+            return bounds;
+        }
+
+
+        // Invoked by Unity magically for FrameSelect command.
+        // Frames the whole sub scene in scene view
+        bool HasFrameBounds()     { return !GetMinMax().Equals(MinMaxAABB.Empty); }
+        Bounds OnGetFrameBounds() { AABB aabb = GetMinMax(); return new Bounds(aabb.Center, aabb.Size); }
+        
+        
+        // Visualize SubScene using bounding volume when it is selected.
+        [DrawGizmo(GizmoType.Selected)]
+        static void DrawSubsceneBounds(SubScene scene, GizmoType gizmoType)
+        {
+            var isEditing = scene.IsLoaded; 
+
+            var minMax = scene.SceneBoundingVolume;
+
+            if (!minMax.Equals(MinMaxAABB.Empty))
+            {
+                AABB aabb = minMax;
+
+                if (isEditing)
+                    Gizmos.color = Color.green;
+                else
+                    Gizmos.color = Color.gray;
+                
+                Gizmos.DrawWireCube(aabb.Center, aabb.Size);
             }
         }
     }

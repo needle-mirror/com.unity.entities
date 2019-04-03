@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Unity.Collections;
 
 namespace Unity.Entities
 {
@@ -142,7 +143,18 @@ namespace Unity.Entities
 #if !UNITY_CSHARP_TINY
     sealed unsafe class DebugViewUtility
     {
-        public static object GetObject(void* pointer, Type type)
+        [DebuggerDisplay("{name} {entity} Components: {components.Count}")]
+        public struct Components
+        {
+            [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+            public string name;
+            [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+            public Entity entity;
+            [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+            public List<object> components;
+        }
+        
+        public static object GetComponent(void* pointer, Type type)
         {
             if (typeof(IBufferElementData).IsAssignableFrom(type))
             {
@@ -165,10 +177,83 @@ namespace Unity.Entities
             }
             return null;
         }        
+        
+        public static Components GetComponents(EntityManager m, Entity e)
+        {
+            Components components = new Components();
+            components.entity = e;
+            components.components = new List<object>();
+            if (!m.Exists(e))
+                return components;
+#if UNITY_EDITOR                
+            components.name = m.GetName(e);            
+            components.components.Add(components.name);  
+#endif
+            m.Entities->GetComponentChunk(e, out var chunk, out var chunkIndex);
+            if (chunk == null)
+                return components;
+            var archetype = chunk->Archetype;
+            var types = chunk->Archetype->TypesCount;
+            for (var i = 0; i < types; ++i)
+            {
+                var componentType = chunk->Archetype->Types[i];
+                if (componentType.IsSharedComponent)
+                    continue;
+                var typeInfo = TypeManager.GetTypeInfo(componentType.TypeIndex);
+                var type = typeInfo.Type;
+                var offset = archetype->Offsets[i];
+                var size = archetype->SizeOfs[i];
+                var pointer = chunk->Buffer + (offset + size * chunkIndex);
+                components.components.Add(GetComponent(pointer, type));
+            }
+            return components;
+        }
+        
     }
 #endif
     
 #if !UNITY_CSHARP_TINY
+    sealed class EntityManagerDebugView
+    {
+        private EntityManager m_target;
+        public EntityManagerDebugView(EntityManager target)
+        {
+            m_target = target;
+        }
+
+        struct Comparer : IComparer<Entity>
+        {
+            public int Compare(Entity x, Entity y)
+            {
+                if (x.Index < y.Index)
+                    return -1;
+                if (x.Index > y.Index)
+                    return 1;
+                if (x.Version < y.Version)
+                    return -1;
+                if (x.Version > y.Version)
+                    return 1;
+                return 0;
+            }
+        }
+        
+        unsafe public List<DebugViewUtility.Components> Entities
+        {
+            get
+            {
+                var entities = m_target.GetAllEntities();
+                entities.Sort(new Comparer());
+                using(entities)
+                {
+                    var result = new List<DebugViewUtility.Components>();
+                    for (var i = 0; i < entities.Length; ++i)
+                        result.Add(DebugViewUtility.GetComponents(m_target, entities[i]));
+                    return result;
+                }
+            }
+        }
+    }
+
     sealed class ArchetypeChunkDebugView
     {
         private ArchetypeChunk m_ArchetypeChunk;
@@ -205,7 +290,7 @@ namespace Unity.Entities
                     for (var j = 0; j < entities; ++j)
                     {
                        var pointer = chunk->Buffer + (offset + size * j);
-                       instance.Add(DebugViewUtility.GetObject(pointer, type));
+                       instance.Add(DebugViewUtility.GetComponent(pointer, type));
                     }
                     result[i] = instance;
                 }
@@ -238,7 +323,7 @@ namespace Unity.Entities
                         var offset = archetype->Offsets[i];
                         var size = archetype->SizeOfs[i];
                         var pointer = chunk->Buffer + (offset + size * j);
-                        instance.Add(DebugViewUtility.GetObject(pointer,type));
+                        instance.Add(DebugViewUtility.GetComponent(pointer,type));
                     }
                     result[j] = instance;
                 }
@@ -279,6 +364,9 @@ namespace Unity.Entities
 
     }
 #else
+    sealed class EntityManagerDebugView
+    {
+    }
     sealed class ArchetypeChunkDebugView
     {
     }
@@ -293,6 +381,18 @@ namespace Unity.Entities
             m_EntityArchetype = entityArchetype;
         }
 
+        unsafe public List<ArchetypeChunk> Chunks
+        {
+            get
+            {
+                List<ArchetypeChunk> result = new List<ArchetypeChunk>();
+                var archetype = m_EntityArchetype.Archetype;
+                for (var i = 0; i < archetype->Chunks.Count; ++i)
+                    result.Add(new ArchetypeChunk{m_Chunk = archetype->Chunks.p[i]});
+                return result;
+            }
+        }
+        
         public unsafe Type[] Types
         {
             get
@@ -379,33 +479,6 @@ namespace Unity.Entities
             target = diffApplier;
         }
                 
-        unsafe List<object> DebugDestEntity(Entity e)
-        {
-            var instance = new List<object>();
-            if (!target.DestWorldManager.Exists(e))
-                return instance;
-#if UNITY_EDITOR                
-            instance.Add(target.DestWorldManager.Entities->GetName(e));  
-#endif
-            target.DestWorldManager.Entities->GetComponentChunk(e, out var chunk, out var chunkIndex);
-            if (chunk == null)
-                return instance;
-            var archetype = chunk->Archetype;
-            var types = chunk->Archetype->TypesCount;
-            for (var i = 0; i < types; ++i)
-            {
-                var componentType = chunk->Archetype->Types[i];
-                if (componentType.IsSharedComponent)
-                    continue;
-                var typeInfo = TypeManager.GetTypeInfo(componentType.TypeIndex);
-                var type = typeInfo.Type;
-                var offset = archetype->Offsets[i];
-                var size = archetype->SizeOfs[i];
-                var pointer = chunk->Buffer + (offset + size * chunkIndex);
-                instance.Add(DebugViewUtility.GetObject(pointer, type));
-            }
-            return instance;
-        }
 
         bool Ready()
         {
@@ -418,24 +491,13 @@ namespace Unity.Entities
             return true;
         }
 
-        [DebuggerDisplay("{name} {entity} Components: {components.Count}")]
-        public struct Components
-        {
-            [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-            public string name;
-            [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-            public Entity entity;
-            [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-            public List<object> components;
-        }
-
         [DebuggerDisplay("Entities = {entities.Count} GUID = {guid}")]
         public struct Entities
         {
             [DebuggerBrowsable(DebuggerBrowsableState.Never)]
             public EntityGuid guid;
             [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-            public List<Components> entities;
+            public List<DebugViewUtility.Components> entities;
         }
         
         unsafe object DebugDestEntities(int begin, int end)
@@ -443,14 +505,14 @@ namespace Unity.Entities
             var entitiesForAllGuids = new List<Entities>();
             for (var i = begin; i < end; ++i)
             {
-                var entitiesForOneGuid = new List<Components>();
+                var entitiesForOneGuid = new List<DebugViewUtility.Components>();
                 if (target.DiffIndexToDestWorldEntities.TryGetFirstValue(i, out var entity, out var it))
                 {
                     do
                     {
 #if UNITY_EDITOR                        
                         var name = target.DestWorldManager.Entities->GetName(entity);
-                        entitiesForOneGuid.Add(new Components{name = name, entity = entity, components = DebugDestEntity(entity)});
+                        entitiesForOneGuid.Add(DebugViewUtility.GetComponents(target.DestWorldManager,entity));
 #endif                        
                     } while (target.DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref it));
                 }

@@ -216,7 +216,7 @@ namespace Unity.Entities
             m_LastSystemVersion = EntityManager.Entities->GlobalSystemVersion;
         }
 
-        protected EntityManager EntityManager => m_EntityManager;
+        protected internal EntityManager EntityManager => m_EntityManager;
         protected internal World World => m_World;
 
         // TODO: this should be made part of UnityEngine?
@@ -267,7 +267,7 @@ namespace Unity.Entities
 
         public void RequireSingletonForUpdate<T>()
         {
-            var type = ComponentType.ReadWrite<T>();
+            var type = ComponentType.ReadOnly<T>();
             var group = GetComponentGroupInternal(&type, 1);
             RequireForUpdate(group);
         }
@@ -275,7 +275,7 @@ namespace Unity.Entities
         public bool HasSingleton<T>()
             where T : struct, IComponentData
         {
-            var type = ComponentType.ReadWrite<T>();
+            var type = ComponentType.ReadOnly<T>();
             var group = GetComponentGroupInternal(&type, 1);
             return !group.IsEmptyIgnoreFilter;
         }
@@ -283,7 +283,7 @@ namespace Unity.Entities
         public T GetSingleton<T>()
             where T : struct, IComponentData
         {
-            var type = ComponentType.ReadWrite<T>();
+            var type = ComponentType.ReadOnly<T>();
             var group = GetComponentGroupInternal(&type, 1);
 
             return group.GetSingleton<T>();
@@ -325,6 +325,7 @@ namespace Unity.Entities
 
             return group;
         }
+
         internal ComponentGroup GetComponentGroupInternal(ComponentType[] componentTypes)
         {
             fixed (ComponentType* componentTypesPtr = componentTypes)
@@ -359,7 +360,7 @@ namespace Unity.Entities
             ArrayUtilityAdd(ref m_ComponentGroups, group);
         }
 
-        protected ComponentGroup GetComponentGroup(params ComponentType[] componentTypes)
+        protected internal ComponentGroup GetComponentGroup(params ComponentType[] componentTypes)
         {
             return GetComponentGroupInternal(componentTypes);
         }
@@ -368,12 +369,13 @@ namespace Unity.Entities
             return GetComponentGroupInternal((ComponentType*)componentTypes.GetUnsafeReadOnlyPtr(), componentTypes.Length);
         }
 
-        protected ComponentGroup GetComponentGroup(params EntityArchetypeQuery[] query)
+        protected internal ComponentGroup GetComponentGroup(params EntityArchetypeQuery[] query)
         {
             return GetComponentGroupInternal(query);
         }
 
 #if !UNITY_CSHARP_TINY
+        [Obsolete("GetEntities has been deprecated. Use ComponentSystem.ForEach to access managed components.")]
         protected ComponentGroupArray<T> GetEntities<T>() where T : struct
         {
             for (var i = 0; i != m_CachedComponentGroupArrays.Length; i++)
@@ -410,7 +412,7 @@ namespace Unity.Entities
                 throw;
             }
             UnsafeUtility.ReleaseGCObject(gchandle);
- #endif
+#endif
         }
 
         internal void CompleteDependencyInternal()
@@ -422,8 +424,17 @@ namespace Unity.Entities
     public abstract partial class ComponentSystem : ComponentSystemBase
     {
         EntityCommandBuffer m_DeferredEntities;
+        ComponentQueryCache m_ComponentQueryCache;
 
         public EntityCommandBuffer PostUpdateCommands => m_DeferredEntities;
+
+        protected internal void InitComponentQueryCache(int cacheSize) =>
+            m_ComponentQueryCache = new ComponentQueryCache(cacheSize);
+
+        internal ComponentQueryCache GetOrCreateComponentQueryCache()
+            => m_ComponentQueryCache ?? (m_ComponentQueryCache = new ComponentQueryCache());
+
+        protected internal ComponentQueryBuilder Entities => new ComponentQueryBuilder(this);
 
         unsafe void BeforeOnUpdate()
         {
@@ -507,7 +518,7 @@ namespace Unity.Entities
         /// Called once per frame on the main thread.
         /// </summary>
         protected abstract void OnUpdate();
-}
+    }
 
     public abstract class JobComponentSystem : ComponentSystemBase
     {

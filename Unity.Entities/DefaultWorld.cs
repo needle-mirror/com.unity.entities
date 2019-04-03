@@ -96,6 +96,7 @@ namespace Unity.Entities
             }
             m_systemsToUpdate = toSort;
             base.SortSystemUpdateList();
+            m_lateSimulationGroup.SortSystemUpdateList(); // not handled by base-class sort call
             // Re-insert built-in systems to construct the final list
             var finalSystemList = new List<ComponentSystemBase>(1 + m_systemsToUpdate.Count + 2);
             finalSystemList.Add(m_BeginEntityCommandBufferSystem);

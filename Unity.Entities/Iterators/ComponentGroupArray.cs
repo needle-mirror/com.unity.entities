@@ -313,6 +313,7 @@ namespace Unity.Entities
 #endif
     }
 
+    [Obsolete("ComponentGroupArray has been deprecated. Use ComponentSystem.ForEach to access managed components.")]
     public struct ComponentGroupArray<T> : IDisposable where T : struct
     {
         internal ComponentGroupArrayData m_Data;

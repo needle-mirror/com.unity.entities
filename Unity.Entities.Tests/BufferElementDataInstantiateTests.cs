@@ -18,7 +18,6 @@ namespace Unity.Entities.Tests
             var original = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
             buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 }); // greater than 8
-
             var clone = m_Manager.Instantiate(original);
 
             buffer = m_Manager.GetBuffer<EcsIntElement>(original);
@@ -51,8 +50,8 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(buffer[i].Value, buffer2[i].Value);
             }
         }
-        
-        	    struct MockData0 : IComponentData { public double Value; }
+
+        struct MockData0 : IComponentData { public double Value; }
 
 	    struct MockData1 : IComponentData { public double Value; }
 

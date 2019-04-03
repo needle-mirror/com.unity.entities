@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿#if !UNITY_ZEROPLAYER
+using NUnit.Framework;
 using Unity.Collections;
 using System;
 using Unity.Collections.LowLevel.Unsafe;
@@ -167,12 +168,12 @@ namespace Unity.Entities.Tests
                 var new_e2 = entities2[0];
                 var new_e3 = entities3[0];
                 var new_e4 = entities4[0];
-                
+
                 entities1.Dispose();
                 entities2.Dispose();
                 entities3.Dispose();
                 entities4.Dispose();
-                
+
                 Assert.AreEqual(1, entityManager.GetComponentData<EcsTestData>(new_e1).value);
                 Assert.AreEqual(-1, entityManager.GetComponentData<EcsTestData2>(new_e1).value0);
                 Assert.AreEqual(-1, entityManager.GetComponentData<EcsTestData2>(new_e1).value1);
@@ -326,7 +327,7 @@ namespace Unity.Entities.Tests
 
                 var new_e1 = entities1[0];
                 var new_e2 = entities2[0];
-                
+
                 entities1.Dispose();
                 entities2.Dispose();
 
@@ -390,10 +391,10 @@ namespace Unity.Entities.Tests
 
                 var entities1 = group1.ToEntityArray(Allocator.TempJob);
                 var entities2 = group2.ToEntityArray(Allocator.TempJob);
-                
+
                 var new_e1 = entities1[0];
                 var new_e2 = entities2[0];
-                
+
                 entities1.Dispose();
                 entities2.Dispose();
 
@@ -442,15 +443,92 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(e2, buffer1[i].entity);
                 Assert.AreEqual(2, buffer1[i].value);
             }
-            
+
             buffer2 = m_Manager.GetBuffer<TestBufferElement>(e2);
             for (int i = 0; i < buffer2.Length; ++i)
             {
                 Assert.AreEqual(e1, buffer2[i].entity);
                 Assert.AreEqual(1, buffer2[i].value);
             }
-            
+
             writer.Dispose();
+        }
+
+        [Test]
+        public unsafe void SerializeEntitiesWorksWithBlobAssetReferences()
+        {
+            var dummyEntity = CreateEntityWithDefaultData(0); //To ensure entity indices are offset
+
+            var allocator = new BlobAllocator(-1);
+            ref var blobArray = ref allocator.ConstructRoot<BlobArray<float>>();
+            allocator.Allocate(5, ref blobArray);
+            blobArray[0] = 1.7f;
+            blobArray[1] = 2.6f;
+            blobArray[2] = 3.5f;
+            blobArray[3] = 4.4f;
+            blobArray[4] = 5.3f;
+
+            var arrayComponent = new EcsTestDataBlobAssetArray {array = allocator.CreateBlobAssetReference<BlobArray<float>>(Allocator.Temp)};
+            allocator.Dispose();
+
+            var e1 = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(e1, arrayComponent);
+            var e2 = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(e2, arrayComponent);
+
+            var e3 = m_Manager.CreateEntity();
+
+            var intComponent = new EcsTestDataBlobAssetRef {value = BlobAssetReference<int>.Create(42)};
+            m_Manager.AddComponentData(e3, intComponent);
+
+
+            m_Manager.DestroyEntity(dummyEntity);
+            var writer = new TestBinaryWriter();
+
+            int[] sharedData;
+            SerializeUtility.SerializeWorld(m_Manager, writer, out sharedData);
+
+            m_Manager.DestroyEntity(e1);
+            m_Manager.DestroyEntity(e2);
+            m_Manager.DestroyEntity(e3);
+
+            arrayComponent.array.Release();
+            intComponent.value.Release();
+
+            var reader = new TestBinaryReader(writer);
+
+            var deserializedWorld = new World("SerializeEntities Test World 3");
+            var entityManager = deserializedWorld.GetOrCreateManager<EntityManager>();
+
+            SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, 0);
+            entityManager.EndExclusiveEntityTransaction();
+
+            try
+            {
+                var group = entityManager.CreateComponentGroup(typeof(EcsTestDataBlobAssetArray));
+
+                Assert.AreEqual(2, group.CalculateLength());
+                var entities1 = group.ToEntityArray(Allocator.TempJob);
+                var new_e1 = entities1[0];
+                arrayComponent = entityManager.GetComponentData<EcsTestDataBlobAssetArray>(new_e1);
+                var a = arrayComponent.array;
+                Assert.AreEqual(1.7f, a.Value[0]);
+                Assert.AreEqual(2.6f, a.Value[1]);
+                Assert.AreEqual(3.5f, a.Value[2]);
+                Assert.AreEqual(4.4f, a.Value[3]);
+                Assert.AreEqual(5.3f, a.Value[4]);
+
+                entities1.Dispose();
+            }
+            finally
+            {
+                deserializedWorld.Dispose();
+                reader.Dispose();
+            }
+
+            float f = 1.0f;
+            Assert.Throws<InvalidOperationException>(() => f = arrayComponent.array.Value[0]);
         }
     }
 }
+#endif

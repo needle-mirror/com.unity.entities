@@ -14,10 +14,18 @@ namespace Unity.Entities.Tests
         }
 
         [DisableAutoCreation]
+#if UNITY_CSHARP_TINY
+        private class TestSystemBase :ComponentSystem
+        {
+            protected override void OnUpdate() => throw new System.NotImplementedException();
+        }
+
+#else
         private class TestSystemBase : JobComponentSystem
         {
             protected override JobHandle OnUpdate(JobHandle inputDeps) => throw new System.NotImplementedException();
         }
+#endif
 
         [Test]
         public void SortEmptyParentSystem()
@@ -102,6 +110,9 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+#if UNITY_CSHARP_TINY
+        [Ignore("Tiny pre-compiles systems. Many tests will fail if they exist, not just this one.")]
+#endif
         public void DetectCircularDependency_Throws()
         {
             var parent = new TestGroup();

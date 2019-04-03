@@ -45,7 +45,7 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(WordStorage.Instance.Entries == 2);
             array.Dispose();
         }
-        
+
         [Test]
         public void InstantiateKeepsName()
         {
@@ -126,6 +126,45 @@ namespace Unity.Entities.Tests
         [Ignore("NOT IMPLEMENTED")]
         public void UsingComponentGroupOrArchetypeorEntityFromDifferentEntityManagerGivesExceptions()
         {
+        }
+
+        [Test]
+        public unsafe void ComponentsWithBool()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestComponentWithBool));
+            var count = 128;
+            var array = new NativeArray<Entity>(count, Allocator.Temp);
+            m_Manager.CreateEntity(archetype, array);
+
+            var hash = new NativeHashMap<Entity, bool>(count, Allocator.Temp);
+
+            var cg = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestComponentWithBool>());
+            using (var chunks = cg.CreateArchetypeChunkArray(Allocator.TempJob))
+            {
+                var boolsType = m_Manager.GetArchetypeChunkComponentType<EcsTestComponentWithBool>(false);
+                var entsType = m_Manager.GetArchetypeChunkEntityType();
+
+                foreach (var chunk in chunks)
+                {
+                    var bools = chunk.GetNativeArray(boolsType);
+                    var entities = chunk.GetNativeArray(entsType);
+
+                    for (var i = 0; i < chunk.Count; ++i)
+                    {
+                        bools[i] = new EcsTestComponentWithBool {value = (entities[i].Index & 1) == 1};
+                        Assert.IsTrue(hash.TryAdd(entities[i], bools[i].value));
+                    }
+                }
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                var data = m_Manager.GetComponentData<EcsTestComponentWithBool>(array[i]);
+                Assert.AreEqual((array[i].Index & 1) == 1, data.value);
+            }
+
+            array.Dispose();
+            hash.Dispose();
         }
     }
 }

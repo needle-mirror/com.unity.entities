@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿#if !UNITY_ZEROPLAYER
+using NUnit.Framework;
 using Unity.Collections;
 
 namespace Unity.Entities.Tests
@@ -222,3 +223,4 @@ namespace Unity.Entities.Tests
         }
     }
 }
+#endif

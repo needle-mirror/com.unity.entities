@@ -90,7 +90,7 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety1);
 #endif
         }
-        
+
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         void CheckWriteAccessAndInvalidateArrayAliases()
         {
@@ -226,11 +226,11 @@ namespace Unity.Entities
         public NativeArray<T> AsNativeArray()
         {
             CheckReadAccess();
-            
+
             var shadow = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(BufferHeader.GetElementPointer(m_Buffer), Length, Allocator.Invalid);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var handle = m_Safety1;
-            AtomicSafetyHandle.UseSecondaryVersion(ref handle);          
+            AtomicSafetyHandle.UseSecondaryVersion(ref handle);
             NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref shadow, handle);
 
 #endif
@@ -243,7 +243,7 @@ namespace Unity.Entities
             return AsNativeArray();
         }
 
-        
+
         public void CopyFrom(NativeArray<T> v)
         {
             ResizeUninitialized(v.Length);
@@ -252,8 +252,16 @@ namespace Unity.Entities
 
         public void CopyFrom(T[] v)
         {
+#if UNITY_CSHARP_TINY
+            Clear();
+            foreach (var d in v)
+            {
+                Add(d);
+            }
+#else
             ResizeUninitialized(v.Length);
             AsNativeArray().CopyFrom(v);
+#endif
         }
     }
 }

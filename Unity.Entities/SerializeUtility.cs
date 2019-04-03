@@ -2,13 +2,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
+using Unity.Mathematics;
 
 namespace Unity.Entities.Serialization
 {
@@ -21,7 +20,14 @@ namespace Unity.Entities.Serialization
             public int AllocSizeBytes;
         }
 
-        public static int CurrentFileFormatVersion = 15;
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct BlobAssetRefPatchRecord
+        {
+            public int ChunkOffset;
+            public int BlobDataOffset;
+        }
+
+        public static int CurrentFileFormatVersion = 17;
 
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, int numSharedComponents)
         {
@@ -51,13 +57,33 @@ namespace Unity.Entities.Serialization
             int totalChunkCount = reader.ReadInt();
             var chunksWithMetaChunkEntities = new NativeList<ArchetypeChunk>(totalChunkCount, Allocator.Temp);
 
+            int totalBlobAssetSize = reader.ReadInt();
+            byte* allBlobAssetData = null;
+
+            NativeList<ArchetypeChunk> blobAssetRefChunks = new NativeList<ArchetypeChunk>();
+            int blobAssetOwnerIndex = -1;
+            if (totalBlobAssetSize != 0)
+            {
+                allBlobAssetData = (byte*)UnsafeUtility.Malloc(totalBlobAssetSize, 16, Allocator.Persistent);
+                reader.ReadBytes(allBlobAssetData, totalBlobAssetSize);
+                blobAssetOwnerIndex = manager.SharedComponentDataManager.InsertSharedComponent(new BlobAssetOwner(allBlobAssetData, totalBlobAssetSize));
+                blobAssetRefChunks = new NativeList<ArchetypeChunk>(32, Allocator.Temp);
+                var end = allBlobAssetData + totalBlobAssetSize;
+                var header = (BlobAssetHeader*)allBlobAssetData;
+                while (header < end)
+                {
+                    header->ValidationPtr = header + 1;
+                    header = (BlobAssetHeader*)OffsetFromPointer(header+1, header->Length);
+                }
+            }
+
             int sharedComponentArraysIndex = 0;
             for (int i = 0; i < totalChunkCount; ++i)
             {
                 var chunk = (Chunk*) UnsafeUtility.Malloc(Chunk.kChunkSize, 64, Allocator.Persistent);
                 reader.ReadBytes(chunk, Chunk.kChunkSize);
 
-                chunk->Archetype = archetypes[(int)chunk->Archetype].Archetype;
+                var archetype = chunk->Archetype = archetypes[(int)chunk->Archetype].Archetype;
                 var numSharedComponentsInArchetype = chunk->Archetype->NumSharedComponents;
                 int* sharedComponentValueArray = (int*)sharedComponentArrays.GetUnsafePtr() + sharedComponentArraysIndex;
 
@@ -71,8 +97,8 @@ namespace Unity.Entities.Serialization
                     }
                 }
 
-                var remapedSharedComponentValues = stackalloc int[chunk->Archetype->NumSharedComponents];
-                RemapSharedComponentIndices(remapedSharedComponentValues, chunk->Archetype, sharedComponentValueArray);
+                var remapedSharedComponentValues = stackalloc int[archetype->NumSharedComponents];
+                RemapSharedComponentIndices(remapedSharedComponentValues, archetype, sharedComponentValueArray);
 
                 sharedComponentArraysIndex += numSharedComponentsInArchetype;
 
@@ -97,12 +123,26 @@ namespace Unity.Entities.Serialization
                     bufferPatches.Dispose();
                 }
 
+                if (totalBlobAssetSize != 0 && archetype->ContainsBlobAssetRefs)
+                {
+                    blobAssetRefChunks.Add(new ArchetypeChunk {m_Chunk = chunk});
+                    PatchBlobAssetsInChunkAfterLoad(chunk, allBlobAssetData);
+                }
+
                 manager.AddExistingChunk(chunk, remapedSharedComponentValues);
 
                 if (chunk->metaChunkEntity != Entity.Null)
                 {
                     chunksWithMetaChunkEntities.Add(new ArchetypeChunk{ m_Chunk = chunk});
                 }
+
+            }
+
+            if (totalBlobAssetSize != 0)
+            {
+                manager.DataManager->AddSharedComponent(blobAssetRefChunks, ComponentType.ReadWrite<BlobAssetOwner>(), manager.ArchetypeManager, manager.EntityGroupManager, blobAssetOwnerIndex);
+                manager.SharedComponentDataManager.AddReference(blobAssetRefChunks.Length - 1);
+                blobAssetRefChunks.Dispose();
             }
 
             for (int i = 0; i < chunksWithMetaChunkEntities.Length; ++i)
@@ -281,6 +321,33 @@ namespace Unity.Entities.Serialization
 
             writer.Write(totalChunkCount);
 
+            GatherAllUsedBlobAssets(archetypeArray, out var blobAssetRefs, out var blobAssets);
+
+            var blobAssetOffsets = new NativeArray<int>(blobAssets.Length, Allocator.Temp);
+            int totalBlobAssetSize = 0;
+
+            int Align16(int x) => (x+15)&~15;
+
+            for(int i = 0; i<blobAssets.Length; ++i)
+            {
+                totalBlobAssetSize += sizeof(BlobAssetHeader);
+                blobAssetOffsets[i] = totalBlobAssetSize;
+                totalBlobAssetSize += Align16(blobAssets[i].header->Length);
+            }
+
+            writer.Write(totalBlobAssetSize);
+
+            var zeroBytes = int4.zero;
+            for(int i = 0; i<blobAssets.Length; ++i)
+            {
+                var blobAssetLength = blobAssets[i].header->Length;
+                BlobAssetHeader header = new BlobAssetHeader
+                    {ValidationPtr = null, Allocator = Allocator.None, Length = Align16(blobAssetLength)};
+                writer.WriteBytes(&header, sizeof(BlobAssetHeader));
+                writer.WriteBytes(blobAssets[i].header + 1, blobAssetLength);
+                writer.WriteBytes(&zeroBytes, header.Length - blobAssetLength);
+            }
+
             var tempChunk = (Chunk*)UnsafeUtility.Malloc(Chunk.kChunkSize, 16, Allocator.Temp);
 
             for(int archetypeIndex = 0; archetypeIndex < archetypeArray.Length; ++archetypeIndex)
@@ -299,35 +366,10 @@ namespace Unity.Entities.Serialization
 
                     byte* tempChunkBuffer = tempChunk->Buffer;
                     EntityRemapUtility.PatchEntities(archetype->ScalarEntityPatches, archetype->ScalarEntityPatchCount, archetype->BufferEntityPatches, archetype->BufferEntityPatchCount, tempChunkBuffer, tempChunk->Count, ref entityRemapInfos);
+                    if(archetype->ContainsBlobAssetRefs)
+                        PatchBlobAssetsInChunkBeforeSave(tempChunk, chunk, blobAssetOffsets, blobAssetRefs);
 
-                    // Find all buffer pointer locations and work out how much memory the deserializer must allocate on load.
-                    for (int ti = 0; ti < archetype->TypesCount; ++ti)
-                    {
-                        int index = archetype->TypeMemoryOrder[ti];
-
-                        if (!archetype->Types[index].IsBuffer)
-                            continue;
-
-                        int subArrayOffset = archetype->Offsets[index];
-                        BufferHeader* header = (BufferHeader*) OffsetFromPointer(tempChunkBuffer, subArrayOffset);
-                        int stride = archetype->SizeOfs[index];
-                        int count = chunk->Count;
-                        var ct = TypeManager.GetTypeInfo(archetype->Types[index].TypeIndex);
-
-                        for (int bi = 0; bi < count; ++bi)
-                        {
-                            if (header->Pointer != null)
-                            {
-                                // TODO: Find a way to null header->Pointer so it doesn't get written
-                                bufferPatches.Add(new BufferPatchRecord
-                                {
-                                    ChunkOffset = (int)(((byte*)header) - (byte*)tempChunkBuffer),
-                                    AllocSizeBytes = ct.ElementSize * header->Capacity,
-                                });
-                            }
-                            header = (BufferHeader*)OffsetFromPointer(header, stride);
-                        }
-                    }
+                    FillPatchRecordsForChunk(chunk, bufferPatches);
 
                     ClearChunkHeaderComponents(tempChunk);
                     ChunkDataUtility.MemsetUnusedChunkData(tempChunk, 0);
@@ -359,6 +401,9 @@ namespace Unity.Entities.Serialization
                 }
             }
 
+            blobAssetRefs.Dispose();
+            blobAssets.Dispose();
+
             bufferPatches.Dispose();
             UnsafeUtility.Free(tempChunk, Allocator.Temp);
 
@@ -367,6 +412,250 @@ namespace Unity.Entities.Serialization
             foreach (var i in sharedComponentMapping)
                 if(i.Key != 0)
                     sharedComponentsToSerialize[i.Value - 1] = i.Key;
+        }
+
+        unsafe struct BlobAssetRefKey : IEquatable<BlobAssetRefKey>
+        {
+            public Chunk* chunk;
+            public int offsetInBuffer;
+
+
+            public bool Equals(BlobAssetRefKey other)
+            {
+                return chunk == other.chunk && offsetInBuffer == other.offsetInBuffer;
+            }
+        }
+
+        unsafe struct BlobAssetPtr : IEquatable<BlobAssetPtr>
+        {
+            public BlobAssetPtr(BlobAssetHeader* header)
+            {
+                this.header = header;
+            }
+            public readonly BlobAssetHeader* header;
+            public bool Equals(BlobAssetPtr other)
+            {
+                return header == other.header;
+            }
+
+            public override int GetHashCode()
+            {
+                BlobAssetHeader* onStack = header;
+                return (int)math.hash(&onStack, sizeof(BlobAssetHeader*));
+            }
+        }
+
+        private static unsafe void GatherAllUsedBlobAssets(EntityArchetype[] archetypeArray, out NativeHashMap<BlobAssetRefKey, int> blobAssetRefs, out NativeList<BlobAssetPtr> blobAssets)
+        {
+            var blobAssetMap = new NativeHashMap<BlobAssetPtr, int>(100, Allocator.Temp);
+
+            blobAssetRefs = new NativeHashMap<BlobAssetRefKey, int>(100, Allocator.Temp);
+            blobAssets = new NativeList<BlobAssetPtr>(100, Allocator.Temp);
+            for (int archetypeIndex = 0; archetypeIndex < archetypeArray.Length; ++archetypeIndex)
+            {
+                var archetype = archetypeArray[archetypeIndex].Archetype;
+                if (!archetype->ContainsBlobAssetRefs)
+                    continue;
+
+                var typeCount = archetype->TypesCount;
+                for (var ci = 0; ci < archetype->Chunks.Count; ++ci)
+                {
+                    var chunk = archetype->Chunks.p[ci];
+                    var entityCount = chunk->Count;
+                    for (var unordered_ti = 0; unordered_ti < typeCount; ++unordered_ti)
+                    {
+                        var ti = archetype->TypeMemoryOrder[unordered_ti];
+                        var type = archetype->Types[ti];
+                        if(type.IsZeroSized)
+                            continue;
+
+                        var ct = TypeManager.GetTypeInfo(type.TypeIndex);
+                        var blobAssetRefCount = ct.BlobAssetRefOffsetCount;
+                        if(blobAssetRefCount == 0)
+                            continue;
+
+                        var chunkBuffer = chunk->Buffer;
+
+                        if (type.IsBuffer)
+                        {
+
+                        }
+                        else if (blobAssetRefCount > 0)
+                        {
+                            int subArrayOffset = archetype->Offsets[ti];
+                            byte* componentArrayStart = OffsetFromPointer(chunkBuffer , subArrayOffset);
+                            int size = archetype->SizeOfs[ti];
+                            byte* end = componentArrayStart + size * entityCount;
+                            for (var componentData = componentArrayStart; componentData < end; componentData += size)
+                            {
+                                for (int i = 0; i < blobAssetRefCount; ++i)
+                                {
+                                    var offset = ct.BlobAssetRefOffsets[i].Offset;
+                                    var blobAssetRefPtr = (BlobAssetReferenceData*)(componentData + offset);
+                                    if(blobAssetRefPtr->m_Ptr == null)
+                                        continue;
+
+                                    var blobAssetPtr = new BlobAssetPtr((*(BlobAssetHeader**)blobAssetRefPtr)-1);
+                                    var key = new BlobAssetRefKey { chunk = chunk, offsetInBuffer = (int)((byte*)blobAssetRefPtr - chunkBuffer)};
+
+
+                                    if (!blobAssetMap.TryGetValue(blobAssetPtr, out var blobAssetIndex))
+                                    {
+                                        blobAssetIndex = blobAssets.Length;
+                                        blobAssets.Add(blobAssetPtr);
+                                        blobAssetMap.TryAdd(blobAssetPtr, blobAssetIndex);
+                                    }
+                                    blobAssetRefs.TryAdd(key, blobAssetIndex);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            blobAssetMap.Dispose();
+        }
+
+        private static unsafe void PatchBlobAssetsInChunkBeforeSave(Chunk* tempChunk, Chunk* originalChunk,
+            NativeArray<int> blobAssetOffsets, NativeHashMap<BlobAssetRefKey, int> blobAssetRefs)
+        {
+            var archetype = originalChunk->Archetype;
+            var typeCount = archetype->TypesCount;
+            var entityCount = originalChunk->Count;
+            for (var unordered_ti = 0; unordered_ti < typeCount; ++unordered_ti)
+            {
+                var ti = archetype->TypeMemoryOrder[unordered_ti];
+                var type = archetype->Types[ti];
+                if(type.IsZeroSized)
+                    continue;
+
+                var ct = TypeManager.GetTypeInfo(type.TypeIndex);
+                var blobAssetRefCount = ct.BlobAssetRefOffsetCount;
+                if(blobAssetRefCount == 0)
+                    continue;
+
+                var chunkBuffer = tempChunk->Buffer;
+
+                if (type.IsBuffer)
+                {
+                    throw new InvalidOperationException("BlobAssetReferences are not supported inside DynamicBuffer components");
+                }
+                else if (blobAssetRefCount > 0)
+                {
+                    int subArrayOffset = archetype->Offsets[ti];
+                    byte* componentArrayStart = OffsetFromPointer(chunkBuffer , subArrayOffset);
+                    int size = archetype->SizeOfs[ti];
+                    byte* end = componentArrayStart + size * entityCount;
+                    for (var componentData = componentArrayStart; componentData < end; componentData += size)
+                    {
+                        for (int i = 0; i < blobAssetRefCount; ++i)
+                        {
+                            var offset = ct.BlobAssetRefOffsets[i].Offset;
+                            var blobAssetRefPtr = (BlobAssetReferenceData*)(componentData + offset);
+                            int value = -1;
+                            if (blobAssetRefPtr->m_Ptr != null)
+                            {
+                                var blobAssetPtr = new BlobAssetPtr((*(BlobAssetHeader**)blobAssetRefPtr)-1);
+                                var key = new BlobAssetRefKey { chunk = originalChunk, offsetInBuffer = (int)((byte*)blobAssetRefPtr - chunkBuffer)};
+
+                                bool found = blobAssetRefs.TryGetValue(key, out value);
+                                value = blobAssetOffsets[value];
+                                Assert.IsTrue(found);
+                            }
+                            blobAssetRefPtr->m_Ptr = (byte*)value;
+                        }
+                    }
+                }
+            }
+        }
+
+        private static unsafe void PatchBlobAssetsInChunkAfterLoad(Chunk* chunk, byte* allBlobAssetData)
+        {
+            var blobAssetMap = new NativeHashMap<BlobAssetPtr, int>(100, Allocator.Temp);
+
+            var archetype = chunk->Archetype;
+            var typeCount = archetype->TypesCount;
+            var entityCount = chunk->Count;
+            for (var unordered_ti = 0; unordered_ti < typeCount; ++unordered_ti)
+            {
+                var ti = archetype->TypeMemoryOrder[unordered_ti];
+                var type = archetype->Types[ti];
+                if(type.IsZeroSized)
+                    continue;
+
+                var ct = TypeManager.GetTypeInfo(type.TypeIndex);
+                var blobAssetRefCount = ct.BlobAssetRefOffsetCount;
+                if(blobAssetRefCount == 0)
+                    continue;
+
+                var chunkBuffer = chunk->Buffer;
+
+                if (type.IsBuffer)
+                {
+                    throw new InvalidOperationException("BlobAssetReferences are not supported inside DynamicBuffer components");
+                }
+                else if (blobAssetRefCount > 0)
+                {
+                    int subArrayOffset = archetype->Offsets[ti];
+                    byte* componentArrayStart = OffsetFromPointer(chunkBuffer , subArrayOffset);
+                    int size = archetype->SizeOfs[ti];
+                    byte* end = componentArrayStart + size * entityCount;
+                    for (var componentData = componentArrayStart; componentData < end; componentData += size)
+                    {
+                        for (int i = 0; i < blobAssetRefCount; ++i)
+                        {
+                            var offset = ct.BlobAssetRefOffsets[i].Offset;
+                            var blobAssetRefPtr = (BlobAssetReferenceData*)(componentData + offset);
+                            int value = (int) blobAssetRefPtr->m_Ptr;
+                            byte* ptr = null;
+                            if (value != -1)
+                            {
+                                ptr = allBlobAssetData + value;
+                            }
+                            blobAssetRefPtr->m_Ptr = ptr;
+                        }
+                    }
+                }
+            }
+        }
+
+        private static unsafe void FillPatchRecordsForChunk(Chunk* chunk, NativeList<BufferPatchRecord> bufferPatches)
+        {
+            var archetype = chunk->Archetype;
+            byte* tempChunkBuffer = chunk->Buffer;
+            int entityCount = chunk->Count;
+
+            // Find all buffer pointer locations and work out how much memory the deserializer must allocate on load.
+            for (int ti = 0; ti < archetype->TypesCount; ++ti)
+            {
+                int index = archetype->TypeMemoryOrder[ti];
+                var type = archetype->Types[index];
+                if(type.IsZeroSized)
+                    continue;
+
+                if (type.IsBuffer)
+                {
+                    var ct = TypeManager.GetTypeInfo(type.TypeIndex);
+                    int subArrayOffset = archetype->Offsets[index];
+                    BufferHeader* header = (BufferHeader*) OffsetFromPointer(tempChunkBuffer, subArrayOffset);
+                    int stride = archetype->SizeOfs[index];
+                    var elementSize = ct.ElementSize;
+
+                    for (int bi = 0; bi < entityCount; ++bi)
+                    {
+                        if (header->Pointer != null)
+                        {
+                            int capacityInBytes = elementSize * header->Capacity;
+                            bufferPatches.Add(new BufferPatchRecord
+                            {
+                                ChunkOffset = (int) (((byte*) header) - tempChunkBuffer),
+                                AllocSizeBytes = capacityInBytes
+                            });
+                        }
+
+                        header = (BufferHeader*) OffsetFromPointer(header, stride);
+                    }
+                }
+            }
         }
 
         static unsafe void FillSharedComponentIndexRemap(int* remapArray, Archetype* archetype)

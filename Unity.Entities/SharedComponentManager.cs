@@ -28,6 +28,8 @@ namespace Unity.Entities
 
         public void Dispose()
         {
+            for (var i = 1; i != m_SharedComponentData.Count; i++)
+                (m_SharedComponentData[i] as IDisposable)?.Dispose();
             m_SharedComponentType.Dispose();
             m_SharedComponentRefCount.Dispose();
             m_SharedComponentVersion.Dispose();
@@ -190,15 +192,18 @@ namespace Unity.Entities
             return (T) m_SharedComponentData[index];
         }
 
-#if !UNITY_CSHARP_TINY
         public object GetSharedComponentDataBoxed(int index, int typeIndex)
         {
+#if !UNITY_CSHARP_TINY
             if (index == 0)
                 return Activator.CreateInstance(TypeManager.GetType(typeIndex));
-
+#else
+            if (index == 0)
+                throw new InvalidOperationException("Implement TypeManager.GetType(typeIndex).DefaultValue");
+            throw new NotImplementedException("SharedComponents not supported (yet) in Tiny");
+#endif
             return m_SharedComponentData[index];
         }
-#endif
 
         public object GetSharedComponentDataNonDefaultBoxed(int index)
         {
@@ -244,6 +249,9 @@ namespace Unity.Entities
 
             var typeIndex = m_SharedComponentType[index];
             var hashCode = GetHashCodeFast(m_SharedComponentData[index], typeIndex);
+
+            object sharedComponent = m_SharedComponentData[index];
+            (sharedComponent as IDisposable)?.Dispose();
 
             m_SharedComponentData[index] = null;
             m_SharedComponentType[index] = -1;

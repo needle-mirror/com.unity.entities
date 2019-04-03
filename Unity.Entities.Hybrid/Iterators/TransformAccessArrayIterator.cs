@@ -34,11 +34,11 @@ namespace Unity.Entities
             state.OrderVersion = orderVersion;
 
             UnityEngine.Profiling.Profiler.BeginSample("DirtyTransformAccessArrayUpdate");
-            var trans = group.GetComponentArray<Transform>();
+            var trans = group.ToComponentArray<Transform>();
             if (!state.Data.isCreated)
-                state.Data = new TransformAccessArray(trans.ToArray());
+                state.Data = new TransformAccessArray(trans);
             else
-                state.Data.SetTransforms(trans.ToArray());
+                state.Data.SetTransforms(trans);
             UnityEngine.Profiling.Profiler.EndSample();
 
             group.m_CachedState = state;
@@ -52,6 +52,7 @@ namespace Unity.Entities
 {
     [Preserve]
     [CustomInjectionHook]
+    [Obsolete("Injection has been deprecated. Use ComponentGroup.GetTransformAccessArray instead.")]
     sealed class TransformAccessArrayInjectionHook : InjectionHook
     {
         public override Type FieldTypeOfInterest => typeof(TransformAccessArray);

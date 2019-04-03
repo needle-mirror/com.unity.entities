@@ -11,7 +11,7 @@ namespace Unity.Entities.Tests
         class TestSystem : ComponentSystem
         {
             public ComponentGroup m_TestGroup;
-            
+
             public const string OnStartRunningString =
                 nameof(TestSystem) + ".OnStartRunning()";
 
@@ -22,7 +22,8 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate()
             {
                 var componentData = m_TestGroup.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
-                var index = StoredData[0] + componentData[0].value + 1;
+                var cd0 = componentData[0].value;
+                var index = StoredData[0] + cd0 + 1;
                 StoredData.Dispose();
                 componentData.Dispose();
 
@@ -104,6 +105,7 @@ namespace Unity.Entities.Tests
 
 
         [Test]
+        [TinyFixme] // UnityEngine.Debug.Log is at a very basic level in ZeroJobs
         public void OnStartRunning_FirstUpdate_CalledOnce()
         {
             LogAssert.Expect(LogType.Log, TestSystem.OnStartRunningString);
@@ -113,6 +115,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // UnityEngine.Debug.Log is at a very basic level in ZeroJobs
         public void OnStartRunning_WhenReEnabled_CalledOnce()
         {
             system.Enabled = false;
@@ -128,6 +131,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // UnityEngine.Debug.Log is at a very basic level in ZeroJobs
         public void OnStartRunning_WithEnabledAndShouldRun_CalledOnce()
         {
             LogAssert.Expect(LogType.Log, TestSystem.OnStartRunningString);
@@ -149,6 +153,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // Not obvious reasons
         public void OnStartRunning_WithEnabledAndShouldNotRun_NotCalled()
         {
             system.Enabled = true;
@@ -158,7 +163,7 @@ namespace Unity.Entities.Tests
             LogAssert.NoUnexpectedReceived();
         }
 
-        [Test]
+        [Test] // UnityEngine.Debug.Log is at a very basic level in ZeroJobs
         public void OnStartRunning_WithDisabledAndShouldNotRun_NotCalled()
         {
             system.Enabled = false;
@@ -169,6 +174,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // UnityEngine.Debug.Log is at a very basic level in ZeroJobs
         public void OnStartRunning_EnablingWhenShouldRunSystemIsTrue_CalledOnce()
         {
             LogAssert.Expect(LogType.Log, TestSystem.OnStartRunningString);
@@ -184,6 +190,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // UnityEngine.Debug.Log is at a very basic level in ZeroJobs
         public void OnStartRunning_WhenShouldRunSystemBecomesTrue_CalledOnce()
         {
             LogAssert.Expect(LogType.Log, TestSystem.OnStartRunningString);
@@ -203,6 +210,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // UnityEngine.Debug.Log is at a very basic level in ZeroJobs
         public void OnStopRunning_WithEnabledAndShouldRun_NotCalled()
         {
             LogAssert.Expect(LogType.Log, TestSystem.OnStartRunningString);
@@ -216,6 +224,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // UnityEngine.Debug.Log is at a very basic level in ZeroJobs
         public void OnStopRunning_WithDisabledAndShouldRun_CalledOnce()
         {
             LogAssert.Expect(LogType.Log, TestSystem.OnStartRunningString);
@@ -229,6 +238,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // UnityEngine.Debug.Log is at a very basic level in ZeroJobs
         public void OnStopRunning_WithEnabledAndShouldNotRun_CalledOnce()
         {
             LogAssert.Expect(LogType.Log, TestSystem.OnStartRunningString);
@@ -242,6 +252,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // UnityEngine.Debug.Log is at a very basic level in ZeroJobs
         public void OnStopRunning_WithDisabledAndShouldNotRun_CalledOnce()
         {
             LogAssert.Expect(LogType.Log, TestSystem.OnStartRunningString);
@@ -264,6 +275,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // UnityEngine.Debug.Log is at a very basic level in ZeroJobs
         public void OnStopRunning_WhenDestroyingActiveManager_CalledOnce()
         {
             LogAssert.Expect(LogType.Log, TestSystem.OnStartRunningString);
@@ -289,6 +301,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // UnityEngine.Debug.Log is at a very basic level in ZeroJobs
         public void OnStopRunning_WhenShouldRunSystemBecomesFalse_CalledOnce()
         {
             LogAssert.Expect(LogType.Log, TestSystem.OnStartRunningString);
@@ -302,6 +315,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // UnityEngine.Debug.Log is at a very basic level in ZeroJobs
         public void OnStopRunning_DisablingWhenShouldRunSystemIsFalse_NotCalled()
         {
             LogAssert.Expect(LogType.Log, TestSystem.OnStartRunningString);

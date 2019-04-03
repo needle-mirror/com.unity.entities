@@ -1,15 +1,15 @@
 {
     "name": "com.unity.entities", 
     "unity": "2019.1", 
-    "version": "0.0.12-preview.26", 
+    "version": "0.0.12-preview.27", 
     "dependencies": {
         "nuget.mono-cecil": "0.1.6-preview", 
-        "com.unity.test-framework.performance": "0.1.50-preview", 
+        "com.unity.test-framework.performance": "1.0.6-preview", 
         "com.unity.properties": "0.4.0-preview", 
-        "com.unity.mathematics": "0.0.12-preview.20", 
-        "com.unity.collections": "0.0.9-preview.13", 
+        "com.unity.mathematics": "1.0.0-preview.1", 
+        "com.unity.collections": "0.0.9-preview.14", 
         "com.unity.burst": "0.2.4-preview.48", 
-        "com.unity.jobs": "0.0.7-preview.7"
+        "com.unity.jobs": "0.0.7-preview.8"
     }, 
     "keywords": [
         "entities", 

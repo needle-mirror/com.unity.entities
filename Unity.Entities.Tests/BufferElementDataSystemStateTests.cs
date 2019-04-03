@@ -49,14 +49,26 @@ namespace Unity.Entities.Tests
 		[Test]
 		public void CreateEntityWithIntThrows()
 		{
-			Assert.Throws<System.ArgumentException>(() => { m_Manager.CreateEntity(typeof(int));});
+			Assert.Throws<
+#if UNITY_CSHARP_TINY
+                System.InvalidOperationException
+#else
+                System.ArgumentException
+#endif
+            >(() => { m_Manager.CreateEntity(typeof(int));});
 		}
 
 		[Test]
 		public void AddComponentWithIntThrows()
 		{
 			var entity = m_Manager.CreateEntity();
-			Assert.Throws<System.ArgumentException>(() => { m_Manager.AddComponent(entity, ComponentType.ReadWrite<int>()); });
+			Assert.Throws<
+#if UNITY_CSHARP_TINY
+                System.InvalidOperationException
+#else
+                System.ArgumentException
+#endif
+            >(() => { m_Manager.AddComponent(entity, ComponentType.ReadWrite<int>()); });
 		}
 
 		[Test]
@@ -337,7 +349,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(13, buffers[0][1].Value);
 
             Assert.AreEqual(0, buffers[1].Length);
-            
+
             chunks.Dispose();
         }
 
@@ -355,6 +367,7 @@ namespace Unity.Entities.Tests
 		}
 
         [Test]
+        [TinyFixme] // Real issue - Safety & Sentinel should be invalid after Destroy
         public void OutOfBoundsAccessThrows()
         {
 			var entityInt = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -369,6 +382,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // Real issue - Safety & Sentinel should be invalid after Destroy
         public void UseAfterStructuralChangeThrows()
         {
 			var entityInt = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -382,6 +396,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // Real issue - Safety & Sentinel should be invalid after Destroy
         public void UseAfterStructuralChangeThrows2()
         {
 			var entityInt = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -396,6 +411,7 @@ namespace Unity.Entities.Tests
         }
 
 	    [Test]
+	    [TinyFixme] // Real issue - Safety & Sentinel should be invalid after Add on structural change
 	    public void UseAfterStructuralChangeThrows3()
 	    {
 	        var entityInt = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -407,6 +423,7 @@ namespace Unity.Entities.Tests
 
 
         [Test]
+        [TinyFixme] // Real issue - Safety & Sentinel should be invalid after Add on structural change
         public void WritingReadOnlyThrows()
         {
 			var entityInt = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -447,7 +464,7 @@ namespace Unity.Entities.Tests
                 buffer.Reinterpret<ushort>();
             });
         }
-        
+
 // Injection is obsolete
         [DisableAutoCreation]
         public class InjectionTestSystem : JobComponentSystem
@@ -478,6 +495,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // IJob -  InjectionTestSystem : JobComponentSystem
         public void Injection()
         {
             var system = World.Active.GetOrCreateManager<InjectionTestSystem>();
@@ -560,6 +578,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
+        [TinyFixme] // Real issue : buffer.AsNativeArray should invalidate the Safety
 	    public void ArrayInvalidationWorks()
 	    {
 	        var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -573,14 +592,14 @@ namespace Unity.Entities.Tests
 	        {
 	            int value = array[0].Value;
 	        });
-	        
 	        Assert.Throws<InvalidOperationException>(() =>
 	        {
 	            array[0] = 5;
 	        });
-	    }
+        }
 
 	    [Test]
+	    [TinyFixme] // Real issue : buffer.AsNativeArray should invalidate the Safety
 	    public void ArrayInvalidationHappensForAllInstances()
 	    {
 	        var e0 = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -631,6 +650,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
+	    [TinyFixme] // IJob
 	    public void BufferInvalidationNotPossibleWhenArraysAreGivenToJobs()
 	    {
 	        var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -649,11 +669,11 @@ namespace Unity.Entities.Tests
 	        public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
 	        {
 	            var intValue = chunk.GetBufferAccessor(Int)[0];
-	            
+
 	            Assert.AreEqual(intValue.Length, 1);
 
 	            var intValueArray = intValue.AsNativeArray();
-	            
+
 	            Assert.AreEqual(5, intValue[0].Value);
 	            Assert.AreEqual(5, intValueArray[0].Value);
 
@@ -665,6 +685,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
+	    [TinyFixme] // IJob
 	    public void ReadWriteDynamicBuffer()
 	    {
 	        var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -677,10 +698,10 @@ namespace Unity.Entities.Tests
 	            //@TODO: Throw exception when read only flag is not accurately passed to job for buffers...
 	            Int = EmptySystem.GetArchetypeChunkBufferType<EcsIntStateElement>()
 	        };
-        
+
 	        job.Schedule(group).Complete();
 	    }
-	    
+
 	    struct ReadOnlyJob : IJobChunk
 	    {
 	        [ReadOnly]
@@ -689,7 +710,7 @@ namespace Unity.Entities.Tests
 	        public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
 	        {
 	            var intValue = chunk.GetBufferAccessor(Int)[0];
-	            
+
 	            // Reading buffer
 	            Assert.AreEqual(intValue.Length, 1);
 	            Assert.AreEqual(5, intValue[0].Value);
@@ -716,11 +737,12 @@ namespace Unity.Entities.Tests
             {
                 Int = EmptySystem.GetArchetypeChunkBufferType<EcsIntStateElement>(readOnlyType)
             };
-        
+
             job.Schedule(group).Complete();
 	    }
 
 	    [Test]
+	    [TinyFixme] // IJob
 	    public void ReadOnlyDynamicBufferReadOnly()
 	    {
 	        ReadOnlyDynamicBufferImpl(true);
@@ -743,6 +765,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
+	    [TinyFixme] // IJob
 	    public void BufferInvalidationNotPossibleWhenBuffersAreGivenToJobs()
 	    {
 	        var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -753,7 +776,7 @@ namespace Unity.Entities.Tests
 	        Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(original));
 	        handle.Complete();
 	    }
-	    
+
 	    struct ReadOnlyNativeArrayJob : IJob
 	    {
 	        [ReadOnly]
@@ -762,7 +785,7 @@ namespace Unity.Entities.Tests
 	        public void Execute()
 	        {
 	            var array = IntArray;
-	            
+
 	            // Reading casted native array
 	            Assert.AreEqual(array.Length, 1);
 	            Assert.AreEqual(5, array[0].Value);
@@ -774,6 +797,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
+	    [TinyFixme] // IJob
 	    public void NativeArrayInJobReadOnly()
 	    {
 	        var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -793,7 +817,7 @@ namespace Unity.Entities.Tests
 
 	        Assert.AreEqual(5, buffer[0].Value);
 	        Assert.AreEqual(5, job.IntArray[0].Value);
- 
+
             jobHandle.Complete();
 	    }
 

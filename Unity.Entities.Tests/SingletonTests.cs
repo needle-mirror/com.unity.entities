@@ -6,6 +6,7 @@ namespace Unity.Entities.Tests
     class SingletonTests : ECSTestsFixture
     {
         [Test]
+        [TinyFixme]
         public void GetSetSingleton()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -15,6 +16,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
+        [TinyFixme]
         public void GetSetSingletonZeroThrows()
         {
             Assert.Throws<InvalidOperationException>(() => EmptySystem.SetSingleton(new EcsTestData()));
@@ -22,6 +24,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
+        [TinyFixme]
         public void GetSetSingletonMultipleThrows()
         {
             m_Manager.CreateEntity(typeof(EcsTestData));
@@ -32,6 +35,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
+        [TinyFixme]
         public void RequireSingletonWorks()
         {
             EmptySystem.RequireSingletonForUpdate<EcsTestData>();
@@ -44,6 +48,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme]
         public void HasSingletonWorks()
         {
             Assert.IsFalse(EmptySystem.HasSingleton<EcsTestData>());

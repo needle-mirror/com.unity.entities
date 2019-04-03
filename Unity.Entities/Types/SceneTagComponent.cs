@@ -1,4 +1,5 @@
 ﻿using System;
+using Unity.Mathematics;
 
 namespace Unity.Entities
 {
@@ -9,6 +10,7 @@ namespace Unity.Entities
         public int              SubSectionIndex;
         public int              FileSize;
         public int              SharedComponentCount;
+        public AABB             BoundingVolume;
 
         //public int              IsLiveLink;
     }

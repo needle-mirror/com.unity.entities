@@ -316,7 +316,7 @@ namespace Unity.Scenes
                                 }
                                 else
                                 {
-                                    Debug.Log("MoveEntities on hold, waiting for main section");
+                                    // Debug.Log("MoveEntities on hold, waiting for main section");
                                 }
                             }
                             // The SubScene is no longer being requested for load

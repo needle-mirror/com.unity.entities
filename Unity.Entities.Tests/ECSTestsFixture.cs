@@ -5,6 +5,34 @@ using Unity.Jobs;
 namespace Unity.Entities.Tests
 {
     [DisableAutoCreation]
+
+#if UNITY_CSHARP_TINY
+    public class EmptySystem : ComponentSystem
+    {
+        protected override void OnUpdate()
+        {
+
+        }
+        public new ComponentGroup GetComponentGroup(params EntityArchetypeQuery[] queries)
+        {
+            return base.GetComponentGroup(queries);
+        }
+
+        public new ComponentGroup GetComponentGroup(params ComponentType[] componentTypes)
+        {
+            return base.GetComponentGroup(componentTypes);
+        }
+        public new ComponentGroup GetComponentGroup(NativeArray<ComponentType> componentTypes)
+        {
+            return base.GetComponentGroup(componentTypes);
+        }
+        public BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : struct, IBufferElementData
+        {
+            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
+            return EntityManager.GetBufferFromEntity<T>(isReadOnly);
+        }
+    }
+#else
     public class EmptySystem : JobComponentSystem
     {
         protected override JobHandle OnUpdate(JobHandle dep) { return dep; }
@@ -24,13 +52,15 @@ namespace Unity.Entities.Tests
             return base.GetComponentGroup(componentTypes);
         }
 #if !UNITY_ZEROPLAYER
+        #pragma warning disable 618
         new public ComponentGroupArray<T> GetEntities<T>() where T : struct
         {
             return base.GetEntities<T>();
         }
+        #pragma warning restore 618
 #endif
     }
-
+#endif
     public class ECSTestsFixture
     {
         protected World m_PreviousWorld;
@@ -39,22 +69,28 @@ namespace Unity.Entities.Tests
         protected EntityManager.EntityManagerDebug m_ManagerDebug;
 
         protected int StressTestEntityCount = 1000;
-        
+
         [SetUp]
         public virtual void Setup()
         {
             m_PreviousWorld = World.Active;
+#if !UNITY_ZEROPLAYER
             World = World.Active = new World("Test World");
+#else
+            World = DefaultTinyWorldInitialization.Initialize("Test World");
+#endif
 
             m_Manager = World.GetOrCreateManager<EntityManager>();
             m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
 
-#if !UNITY_2019_2_OR_NEWER 
+#if !UNITY_ZEROPLAYER
+#if !UNITY_2019_2_OR_NEWER
             // Not raising exceptions can easily bring unity down with massive logging when tests fail.
             // From Unity 2019.2 on this field is always implicitly true and therefore removed.
 
             UnityEngine.Assertions.Assert.raiseExceptions = true;
-#endif
+#endif  // #if !UNITY_2019_2_OR_NEWER
+#endif  // #if !UNITY_ZEROPLAYER
         }
 
         [TearDown]
@@ -72,7 +108,7 @@ namespace Unity.Entities.Tests
                 }
 
                 m_ManagerDebug.CheckInternalConsistency();
-                
+
                 World.Dispose();
                 World = null;
 

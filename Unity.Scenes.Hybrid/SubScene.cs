@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -14,6 +16,7 @@ namespace Unity.Scenes
     public class SubScene : MonoBehaviour
     {
     #if UNITY_EDITOR
+        [FormerlySerializedAs("sceneAsset")]
         [SerializeField] SceneAsset _SceneAsset;
         [SerializeField] Color _HierarchyColor = Color.gray;
     
@@ -36,6 +39,23 @@ namespace Unity.Scenes
         SubSceneHeader m_SubSceneHeader = null;
         
     #if UNITY_EDITOR
+
+        public MinMaxAABB SceneBoundingVolume
+        {
+            get
+            {
+                var bounds = MinMaxAABB.Empty;
+
+                if (m_SubSceneHeader != null && m_SubSceneHeader.Sections != null)
+                {
+                    foreach (var sceneData in m_SubSceneHeader.Sections)
+                        bounds.Encapsulate(sceneData.BoundingVolume);
+                }
+
+                return bounds;
+            }
+        }
+
         public SceneAsset SceneAsset
         {
             get { return _SceneAsset; }
@@ -154,7 +174,7 @@ namespace Unity.Scenes
                 {
                     var sceneEntity = _SceneEntityManager.CreateEntity();
                     #if UNITY_EDITOR
-                    _SceneEntityManager.SetName(sceneEntity, "Scene: " + SceneName);
+                    _SceneEntityManager.SetName(sceneEntity, i == 0 ? $"Scene: {SceneName}" : $"Scene: {SceneName} ({i})");
                     #endif
 
                     _SceneEntities.Add(sceneEntity);
@@ -164,6 +184,7 @@ namespace Unity.Scenes
                         _SceneEntityManager.AddComponentData(sceneEntity, new RequestSceneLoaded());
     
                     _SceneEntityManager.AddComponentData(sceneEntity, m_SubSceneHeader.Sections[i]);
+                    _SceneEntityManager.AddComponentData(sceneEntity, new SceneBoundingVolume { Value = m_SubSceneHeader.Sections[i].BoundingVolume });
                 }
             }
         }
@@ -223,5 +244,4 @@ namespace Unity.Scenes
             UnloadScene();
         }
     }
-    
 }

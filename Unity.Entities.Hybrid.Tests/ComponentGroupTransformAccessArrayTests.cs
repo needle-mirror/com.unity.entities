@@ -7,10 +7,10 @@ namespace Unity.Entities.Tests
 {
     class ComponentGroupTransformAccessArrayTests : ECSTestsFixture
 	{
-
+#pragma warning disable 618
 	    TransformAccessArrayInjectionHook m_TransformAccessArrayInjectionHook = new TransformAccessArrayInjectionHook();
 	    ComponentArrayInjectionHook m_ComponentArrayInjectionHook = new ComponentArrayInjectionHook();
-
+#pragma warning restore 618
 	    [OneTimeSetUp]
 	    public void Init()
 	    {
@@ -146,6 +146,7 @@ namespace Unity.Entities.Tests
             }
         }
 
+        #pragma warning disable 618
 	    [Test]
 	    public void GameObjectArrayWorksWithTransformAccessArray()
 	    {
@@ -169,6 +170,7 @@ namespace Unity.Entities.Tests
 
 	        TearDown();
 	    }
+        #pragma warning restore 618
 
 	    [DisableAutoCreation]
 	    public class TransformWithTransformAccessSystem : ComponentSystem
@@ -190,6 +192,7 @@ namespace Unity.Entities.Tests
             }
         }
 
+        #pragma warning disable 618
 	    [Test]
 	    public void TransformArrayWorksWithTransformAccessArray()
 	    {
@@ -206,5 +209,6 @@ namespace Unity.Entities.Tests
 	        Object.DestroyImmediate (go);
 	        TearDown();
 	    }
+        #pragma warning restore 618
     }
 }

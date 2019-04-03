@@ -1,4 +1,5 @@
 using System;
+using Unity.Entities;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
@@ -162,8 +163,10 @@ namespace Unity.Entities.Tests
             metaChunkHeaders.Dispose();
         }
 
+#if !UNITY_ZEROPLAYER
         [DisableAutoCreation]
         [UpdateInGroup(typeof(PresentationSystemGroup))]
+        [TinyFixme]
         private class ChunkBoundsUpdateSystem : JobComponentSystem
         {
             struct UpdateChunkBoundsJob : IJobProcessComponentData<ChunkBoundsComponent, ChunkHeader>
@@ -191,6 +194,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme]
         public void SystemProcessMetaChunkComponent()
         {
             var chunkBoundsUpdateSystem = World.GetOrCreateManager<ChunkBoundsUpdateSystem> ();
@@ -207,6 +211,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(new float3(-10,-10,-10), val.boundsMin);
             Assert.AreEqual(new float3(10,10,10), val.boundsMax);
         }
+#endif
 
         [Test]
         public void ChunkHeaderMustBeQueriedExplicitly()

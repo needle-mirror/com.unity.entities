@@ -40,6 +40,7 @@ namespace Unity.Entities.Tests
 
 
         [Test]
+        [TinyFixme] // Real problem : Atomic Safety
         public void ReadOnlyComponentDataArray()
         {
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData2), ComponentType.ReadOnly(typeof(EcsTestData)));
@@ -61,6 +62,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // Real problem : Atomic Safety
         public void AccessComponentArrayAfterCreationThrowsException()
         {
             CreateEntityWithDefaultData(0);
@@ -74,6 +76,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // Real problem : Atomic Safety
         public void CreateEntityInvalidatesArray()
         {
             CreateEntityWithDefaultData(0);
@@ -85,7 +88,7 @@ namespace Unity.Entities.Tests
 
             Assert.Throws<InvalidOperationException>(() => { var value = arr[0]; });
         }
-        
+
         #pragma warning restore 618
 
         [Test]
@@ -103,6 +106,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // Real problem : Atomic Safety
         public void ComponentDataArrayFromEntityThrowsIfNotExist()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -151,7 +155,7 @@ namespace Unity.Entities.Tests
 	        m_Manager.DestroyEntity(destroyedEntity);
 	        m_Manager.RemoveComponent<EcsTestData>(destroyedEntity);
 	    }
-	    
+
         [Test]
         public void RemoveComponentOnEntityIsIgnored()
         {
@@ -182,7 +186,7 @@ namespace Unity.Entities.Tests
 	        Assert.IsFalse(m_Manager.Exists(notYetCreatedEntitySameVersion));
 	        Assert.Throws<ArgumentException>(() => m_Manager.AddComponentData(notYetCreatedEntitySameVersion , new EcsTestData()));
 	    }
-	    
+
 	    [Test]
 	    public void CreateEntityWithNullTypeThrows()
 	    {
@@ -206,6 +210,7 @@ namespace Unity.Entities.Tests
         }
 
 	    [Test]
+        [TinyFixme] // Real problem - sizeof(BigComponentData1) = 4 vs 40000 expected
 	    public void CreateTooBigArchetypeThrows()
 	    {
 	        Assert.Throws<System.ArgumentException>(() =>

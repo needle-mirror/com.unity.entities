@@ -28,6 +28,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // IJob
         public void SingleWriterEnforced()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -56,6 +57,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // IJob
         public void DisposeWhileJobRunningThrows()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -71,6 +73,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // IJob
         public void ModifiesWhileJobRunningThrows()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -86,6 +89,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // IJob
         public void PlaybackWhileJobRunningThrows()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -112,6 +116,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // IJob
         public void EntityCommandBufferConcurrent_PlaybackDuringWrite_ThrowsInvalidOperation()
         {
             EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -125,6 +130,7 @@ namespace Unity.Entities.Tests
             cmds.Dispose();
         }
         [Test]
+        [TinyFixme] // IJob
         public void EntityCommandBufferConcurrent_DisposeDuringWrite_ThrowsInvalidOperation()
         {
             EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -240,6 +246,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void AddSharedComponent()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -257,6 +264,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void AddSharedComponentDefault()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -284,6 +292,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void SetSharedComponent()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -324,6 +333,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void RemoveSharedComponent()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -354,6 +364,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // IJob
         public void JobWithSharedComponentData()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -528,7 +539,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void DestroyEntityTwiceThrows()
+        public void DestroyEntityTwiceWorks()
         {
             var e = m_Manager.CreateEntity();
             m_Manager.AddComponentData(e, new EcsTestData(5));
@@ -538,8 +549,10 @@ namespace Unity.Entities.Tests
             cmds.DestroyEntity(e);
             cmds.DestroyEntity(e);
 
-            Assert.Throws<ArgumentException>(() => cmds.Playback(m_Manager) );
+            cmds.Playback(m_Manager);
             cmds.Dispose();
+            
+            Assert.IsFalse(m_Manager.Exists(e));
         }
 
         [Test]
@@ -570,6 +583,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // IJob
         public void ConcurrentRecord()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -597,6 +611,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // IJob
         public void ConcurrentRecordParallelFor()
         {
             const int kCreateCount = 10000;
@@ -644,6 +659,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // IJob
         public void ConcurrentRecordInstantiate()
         {
             const int kInstantiateCount = 10000;
@@ -683,6 +699,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] //  // Real problem: Atomic Safety
         public void PlaybackInvalidatesBuffers()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -700,6 +717,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // Real problem: Atomic Safety
         public void ArrayAliasesOfPendingBuffersAreInvalidateOnResize()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -799,6 +817,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // IJob
         public void DeterminismTest()
         {
             const int kRepeat = 10000;
@@ -877,6 +896,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // IJob
         public void BufferCopyFromDoesNotThrowInJob()
         {
             var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>());
@@ -904,6 +924,7 @@ namespace Unity.Entities.Tests
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
+        [TinyFixme]
         public void EntityCommandBufferSystemPlaybackExceptionIsolation()
         {
             var entityCommandBufferSystem = World.GetOrCreateManager<EndSimulationEntityCommandBufferSystem>();
@@ -934,6 +955,7 @@ namespace Unity.Entities.Tests
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
+        [TinyFixme] // IJob
         public void EntityCommandBufferSystem_OmitAddJobHandleForProducer_ThrowArgumentException()
         {
             var barrier = World.GetOrCreateManager<EndSimulationEntityCommandBufferSystem>();
@@ -951,6 +973,7 @@ namespace Unity.Entities.Tests
 #endif
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void AddSharedComponent_WhenComponentHasEntityField_ThrowsArgumentException()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -1029,4 +1052,5 @@ namespace Unity.Entities.Tests
         }
 
     }
+
 }

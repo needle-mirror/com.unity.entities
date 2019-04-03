@@ -38,11 +38,12 @@ namespace Unity.Entities.Tests
                 ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
             };
             job.Run(group);
-            
+
             Assert.AreEqual(5, m_Manager.GetComponentData<EcsTestData>(entity).value);
         }
-                
+
         [Test]
+        [TinyFixme] // IJob
         public void IJobChunkProcessFiltered()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
@@ -89,10 +90,10 @@ namespace Unity.Entities.Tests
 
             for (int i = 0; i < 50000; ++i)
                 Assert.AreEqual(copyIndices[i].value, i);
-            
+
             copyIndices.Dispose();
         }
-        
+
         struct ProcessChunkIndex : IJobChunk
         {
             public ArchetypeChunkComponentType<EcsTestData> ecsTestType;
@@ -106,7 +107,7 @@ namespace Unity.Entities.Tests
                 };
             }
         }
-        
+
         struct ProcessEntityOffset : IJobChunk
         {
             public ArchetypeChunkComponentType<EcsTestData> ecsTestType;
@@ -120,8 +121,9 @@ namespace Unity.Entities.Tests
                 };
             }
         }
-        
+
         [Test]
+        [TinyFixme] // IJob
         public void IJobChunkProcessChunkIndex()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
@@ -143,7 +145,7 @@ namespace Unity.Entities.Tests
                 ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
             };
             job.Schedule(group).Complete();
-            
+
             group.SetFilter(new SharedData1 { value = 20 });
             job.Schedule(group).Complete();
 
@@ -152,8 +154,9 @@ namespace Unity.Entities.Tests
 
             group.Dispose();
         }
-        
+
         [Test]
+        [TinyFixme] // IJob
         public void IJobChunkProcessEntityOffset()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
@@ -175,7 +178,7 @@ namespace Unity.Entities.Tests
                 ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
             };
             job.Schedule(group).Complete();
-            
+
             group.SetFilter(new SharedData1 { value = 20 });
             job.Schedule(group).Complete();
 
@@ -184,21 +187,22 @@ namespace Unity.Entities.Tests
 
             group.Dispose();
         }
-        
+
         [Test]
+        [TinyFixme] // IJob
         public void IJobChunkProcessChunkMultiArchetype()
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
             var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
             var archetypeC = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
-            
+
             var entity1A = m_Manager.CreateEntity(archetypeA);
             var entity2A = m_Manager.CreateEntity(archetypeA);
-            
+
             var entityB = m_Manager.CreateEntity(archetypeB);
-            
+
             var entityC = m_Manager.CreateEntity(archetypeC);
-            
+
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
 
             m_Manager.SetComponentData<EcsTestData>(entity1A, new EcsTestData { value = -1 });

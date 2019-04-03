@@ -113,6 +113,11 @@ namespace Unity.Entities
 
         ScriptBehaviourManager CreateManagerInternal(Type type, object[] constructorArguments)
         {
+            if (!typeof(ScriptBehaviourManager).IsAssignableFrom(type))
+            {
+                throw new ArgumentException($"Type {type} must be derived from ScriptBehaviourManager.");
+            }
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
 
             if (constructorArguments != null && constructorArguments.Length != 0)
@@ -216,18 +221,18 @@ namespace Unity.Entities
 #endif
         }
 
-        public ScriptBehaviourManager CreateManager(Type type, params object[] constructorArgumnents)
+        public ScriptBehaviourManager CreateManager(Type type, params object[] constructorArguments)
         {
             CheckGetOrCreateManager();
 
-            return CreateManagerInternal(type, constructorArgumnents);
+            return CreateManagerInternal(type, constructorArguments);
         }
 
-        public T CreateManager<T>(params object[] constructorArgumnents) where T : ScriptBehaviourManager
+        public T CreateManager<T>(params object[] constructorArguments) where T : ScriptBehaviourManager
         {
             CheckGetOrCreateManager();
 
-            return (T) CreateManagerInternal(typeof(T), constructorArgumnents);
+            return (T) CreateManagerInternal(typeof(T), constructorArguments);
         }
 
         public T GetOrCreateManager<T>() where T : ScriptBehaviourManager
@@ -285,6 +290,8 @@ namespace Unity.Entities
             RemoveManagerInternal(manager);
             manager.DestroyInstance();
         }
+
+        public bool QuitUpdate { get; set; }
 
         internal static int AllocateSystemID()
         {
@@ -396,7 +403,11 @@ namespace Unity.Entities
             ScriptBehaviourManager manager;
             try
             {
+#if !UNITY_CSHARP_TINY
                 manager = new T() as ScriptBehaviourManager;
+#else
+                manager = TypeManager.ConstructSystem(typeof(T));
+#endif
             }
             catch
             {
@@ -452,7 +463,6 @@ namespace Unity.Entities
         private ScriptBehaviourManager GetOrCreateManagerInternal<T>() where T : new()
         {
             var manager = GetExistingManagerInternal<T>();
-
             return manager ?? CreateManagerInternal<T>();
         }
 
@@ -511,6 +521,23 @@ namespace Unity.Entities
         {
             return ++ms_SystemIDAllocator;
         }
+
+        public bool QuitUpdate { get; set; }
+
+        public void Update()
+        {
+            InitializationSystemGroup initializationSystemGroup =
+                GetExistingManager(typeof(InitializationSystemGroup)) as InitializationSystemGroup;
+            SimulationSystemGroup simulationSystemGroup =
+                GetExistingManager(typeof(SimulationSystemGroup)) as SimulationSystemGroup;
+            PresentationSystemGroup presentationSystemGroup =
+                GetExistingManager(typeof(PresentationSystemGroup)) as PresentationSystemGroup;
+
+            initializationSystemGroup?.Update();
+            simulationSystemGroup?.Update();
+            presentationSystemGroup?.Update();
+        }
+
     }
 #endif
 }

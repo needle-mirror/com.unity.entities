@@ -9,6 +9,7 @@ namespace Unity.Entities
 {
     public static class ComponentGroupExtensionsForComponentArray
     {
+        [Obsolete("GetComponentArray has been deprecated. Use ComponentSystem.ForEach to access managed components.")]
         public static ComponentArray<T> GetComponentArray<T>(this ComponentGroup group) where T : Component
         {
             int length = group.CalculateLength();
@@ -18,11 +19,33 @@ namespace Unity.Entities
             iterator.IndexInComponentGroup = indexInComponentGroup;
             return new ComponentArray<T>(iterator, length, group.ArchetypeManager);
         }
+        
+        public static T[] ToComponentArray<T>(this ComponentGroup group) where T : Component
+        {
+            int length = group.CalculateLength();
+            ComponentChunkIterator iterator = group.GetComponentChunkIterator();
+            var indexInComponentGroup = group.GetIndexInComponentGroup(TypeManager.GetTypeIndex<T>());
+
+            iterator.IndexInComponentGroup = indexInComponentGroup;
+
+            var arr = new T[length];
+            var cache = default(ComponentChunkCache);
+            for (int i = 0; i < length; ++i)
+            {
+                if (i < cache.CachedBeginIndex || i >= cache.CachedEndIndex)
+                    iterator.MoveToEntityIndexAndUpdateCache(i, out cache, true);
+                
+                arr[i] = (T)iterator.GetManagedObject(group.ArchetypeManager, cache.CachedBeginIndex, i);
+            }
+
+            return arr;
+        }
     }
 }
 
 namespace Unity.Entities
 {
+    [Obsolete("ComponentArray has been deprecated. Use ComponentSystem.ForEach to access managed components.")]
     public struct ComponentArray<T> where T: Component
     {
         ComponentChunkIterator  m_Iterator;
@@ -79,6 +102,7 @@ namespace Unity.Entities
 
     [Preserve]
     [CustomInjectionHook]
+    [Obsolete("ComponentArray and injection have been deprecated. Use ComponentSystem.ForEach to access managed components.")]
     sealed class ComponentArrayInjectionHook : InjectionHook
     {
         public override Type FieldTypeOfInterest => typeof(ComponentArray<>);

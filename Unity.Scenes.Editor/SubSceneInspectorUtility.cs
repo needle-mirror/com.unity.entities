@@ -1,9 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Unity.Entities;
 using UnityEditor;
 using UnityEditor.Experimental.SceneManagement;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Profiling;
 using UnityEngine.SceneManagement;
 
 namespace Unity.Scenes.Editor
@@ -217,20 +219,46 @@ namespace Unity.Scenes.Editor
     
             return false;    
         }
-    
+
         public static void RebuildEntityCache(params SubScene[] scenes)
         {
-            foreach (var scene in scenes)
-            {    
-                var isLoaded = scene.IsLoaded;
-                if (!isLoaded)
-                    EditScene(scene);
-    
-                EditorEntityScenes.WriteEntityScene(scene);
-                scene.UpdateSceneEntities();
+            try
+            {
+                Profiler.BeginSample("AssetDatabase.StartAssetEditing");
+                AssetDatabase.StartAssetEditing();
+                Profiler.EndSample();
                 
-                if (!isLoaded)
-                    CloseSceneWithoutSaving(scene);
+                for (int i = 0; i != scenes.Length; i++)
+                {
+                    var scene = scenes[i];
+                    EditorUtility.DisplayProgressBar("Rebuilding Entity Cache", scene.SceneName, (float) i / scenes.Length);
+
+                    var isLoaded = scene.IsLoaded;
+                    if (!isLoaded)
+                        EditScene(scene);
+
+                    try
+                    {
+                        EditorEntityScenes.WriteEntityScene(scene);
+                        scene.UpdateSceneEntities();
+                    }
+                    catch (Exception exception)
+                    {
+                        Debug.LogException(exception);
+                    }
+
+
+                    if (!isLoaded)
+                        CloseSceneWithoutSaving(scene);
+                }
+            }
+            finally
+            {
+                Profiler.BeginSample("AssetDatabase.StopAssetEditing");
+                AssetDatabase.StopAssetEditing();
+                Profiler.EndSample();
+
+                EditorUtility.ClearProgressBar();
             }
         }
     

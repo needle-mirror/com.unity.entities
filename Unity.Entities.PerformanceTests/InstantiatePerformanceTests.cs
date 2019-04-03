@@ -54,14 +54,17 @@ namespace Unity.Entities.PerformanceTests
             return sliced;
         }
 
-        
 
+
+        #if UNITY_2019_2_OR_NEWER
+        [Test, Performance]
+        #else
         [PerformanceTest]
-        [Test]
+        #endif
         public void InstantiateBatch_100k([Values(1, 10, 100, 1000)]int batchSize, [Values]EntityType entityType)
         {
             Entity srcEntity = default(Entity);
-            
+
             var totalCount = 100 * 1000;
             if (entityType == EntityType.Hierarchy_10)
                 totalCount /= 10;
@@ -82,21 +85,24 @@ namespace Unity.Entities.PerformanceTests
                 .CleanUp(() =>
                 {
                     m_Manager.DestroyEntity(entities);
-                    Assert.IsTrue(m_Manager.Debug.EntityCount <= 10); 
+                    Assert.IsTrue(m_Manager.Debug.EntityCount <= 10);
                 })
                 .IterationsPerMeasurement(1) //@TODO: Ask gyntautas what the idea behind IterationsPerMeasurement is.
                 .Run();
 
             entities.Dispose();
         }
-        
+
         //@TODO: Couldn't figure out how to make this test be a single one with above...
+        #if UNITY_2019_2_OR_NEWER
+        [Test, Performance]
+        #else
         [PerformanceTest]
-        [Test]
+        #endif
         public void DestroyBatch_100k([Values(1, 10, 100, 1000)]int batchSize, [Values]EntityType entityType)
         {
             Entity srcEntity = default(Entity);
-            
+
             var totalCount = 100 * 1000;
             if (entityType == EntityType.Hierarchy_10)
                 totalCount /= 10;
@@ -116,7 +122,7 @@ namespace Unity.Entities.PerformanceTests
                     })
                 .SetUp(() =>
                 {
-                    Assert.IsTrue(m_Manager.Debug.EntityCount <= 10); 
+                    Assert.IsTrue(m_Manager.Debug.EntityCount <= 10);
                     m_Manager.Instantiate(srcEntity, entities);
                 })
                 .IterationsPerMeasurement(1) //@TODO: Ask gyntautas what the idea behind IterationsPerMeasurement is.

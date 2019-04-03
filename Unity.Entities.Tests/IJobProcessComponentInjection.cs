@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿#if !UNITY_ZEROPLAYER
+using NUnit.Framework;
 using Unity.Jobs;
 
 namespace Unity.Entities.Tests
@@ -41,3 +42,4 @@ namespace Unity.Entities.Tests
         }
     }
 }
+#endif

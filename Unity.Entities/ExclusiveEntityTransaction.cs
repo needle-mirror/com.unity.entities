@@ -20,22 +20,11 @@ namespace Unity.Entities
 
         [NativeDisableUnsafePtrRestriction] private EntityDataManager* m_Entities;
 
-        internal SharedComponentDataManager SharedComponentDataManager
-        {
-            get
-            {
-                return (SharedComponentDataManager) m_SharedComponentDataManager.Target;
-            }
-        }
-
-        internal ArchetypeManager ArchetypeManager
-        {
-            get
-            {
-                return (ArchetypeManager) m_ArchetypeManager.Target;
-            }
-        }
-
+        internal SharedComponentDataManager SharedComponentDataManager =>
+            (SharedComponentDataManager) m_SharedComponentDataManager.Target;
+        internal ArchetypeManager ArchetypeManager => (ArchetypeManager) m_ArchetypeManager.Target;
+        internal EntityGroupManager EntityGroupManager => (EntityGroupManager) m_EntityGroupManager.Target;
+        internal EntityDataManager* DataManager => m_Entities;
 
 
         internal ExclusiveEntityTransaction(ArchetypeManager archetypes, EntityGroupManager entityGroupManager,
@@ -157,7 +146,7 @@ namespace Unity.Entities
         private void DestroyEntityInternal(Entity* entities, int count)
         {
             CheckAccess();
-            m_Entities->AssertEntitiesExist(entities, count);
+            m_Entities->AssertCanDestroy(entities, count);
 
             EntityDataManager.TryRemoveEntityId(entities, count, m_Entities, ArchetypeManager, SharedComponentDataManager);
         }
@@ -168,10 +157,10 @@ namespace Unity.Entities
 
             var groupManager = (EntityGroupManager) m_EntityGroupManager.Target;
 
-            m_Entities->AssertEntitiesExist(&entity, 1);
+            m_Entities->AssertCanAddComponent(entity, type);
             m_Entities->AddComponent(entity, type, ArchetypeManager, SharedComponentDataManager, groupManager);
         }
-        
+
         public DynamicBuffer<T> AddBuffer<T>(Entity entity) where T : struct, IBufferElementData
         {
             AddComponent(entity, ComponentType.ReadWrite<T>());
@@ -193,7 +182,7 @@ namespace Unity.Entities
 
             return m_Entities->Exists(entity);
         }
-        
+
         public bool HasComponent(Entity entity, ComponentType type)
         {
             CheckAccess();

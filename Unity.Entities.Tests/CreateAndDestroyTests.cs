@@ -12,6 +12,20 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
             AssertDoesNotExist(entity);
         }
+	    
+	    [Test]
+	    unsafe public void DestroyNullIsIgnored()
+	    {
+	        m_Manager.DestroyEntity(default(Entity));
+	    }
+
+	    [Test]
+	    unsafe public void DestroyTwiceIsIgnored()
+	    {
+	        var entity = CreateEntityWithDefaultData(10);
+	        m_Manager.DestroyEntity(entity);
+	        m_Manager.DestroyEntity(entity);
+	    }
 
         [Test]
         unsafe public void EmptyEntityIsNull()
@@ -400,6 +414,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
+        [TinyFixme] // ISharedComponent
 	    public void InstantiateWithSharedSystemStateComponent()
 	    {
 	        var srcEntity = m_Manager.CreateEntity();

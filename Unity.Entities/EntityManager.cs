@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -104,6 +104,7 @@ namespace Unity.Entities
     }
 
     [Preserve]
+    [DebuggerTypeProxy(typeof(EntityManagerDebugView))]
     public sealed unsafe class EntityManager : ScriptBehaviourManager
     {
         EntityDataManager* m_Entities;
@@ -120,7 +121,22 @@ namespace Unity.Entities
         public ComponentGroup             UniversalGroup => m_UniversalGroup;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal int                      m_InsideForEach;
+        int m_InsideForEach;
+        internal bool IsInsideForEach => m_InsideForEach != 0;
+
+        internal struct InsideForEach : IDisposable
+        {
+            EntityManager m_Manager;
+
+            public InsideForEach(EntityManager manager)
+            {
+                m_Manager = manager;
+                ++m_Manager.m_InsideForEach;
+            }
+
+            public void Dispose()
+                => --m_Manager.m_InsideForEach;
+        }
 #endif
 
         internal EntityDataManager* Entities
@@ -304,31 +320,60 @@ namespace Unity.Entities
 
         public void LockChunk(ArchetypeChunk chunk)
         {
-            LockChunksInternal(&chunk, 1);
+            LockChunksInternal(&chunk, 1, ChunkFlags.Locked);
         }
 
         public void LockChunk(NativeArray<ArchetypeChunk> chunks)
         {
-            LockChunksInternal((ArchetypeChunk*) chunks.GetUnsafePtr(), chunks.Length);
+            LockChunksInternal(chunks.GetUnsafePtr(), chunks.Length, ChunkFlags.Locked);
         }
 
-        internal void LockChunksInternal(ArchetypeChunk* chunks, int count)
-        {
-            Entities->LockChunks(chunks, count);
-        }
         public void UnlockChunk(ArchetypeChunk chunk)
         {
-            UnlockChunksInternal(&chunk, 1);
+            UnlockChunksInternal(&chunk, 1, ChunkFlags.Locked);
         }
 
         public void UnlockChunk(NativeArray<ArchetypeChunk> chunks)
         {
-            UnlockChunksInternal((ArchetypeChunk*) chunks.GetUnsafePtr(), chunks.Length);
+            UnlockChunksInternal(chunks.GetUnsafePtr(), chunks.Length, ChunkFlags.Locked);
         }
 
-        internal void UnlockChunksInternal(ArchetypeChunk* chunks, int count)
+
+        public void LockChunkOrder(ComponentGroup group)
         {
-            Entities->UnlockChunks(chunks, count);
+            using (var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob))
+            {
+                LockChunksInternal(chunks.GetUnsafePtr(), chunks.Length, ChunkFlags.LockedEntityOrder);
+            }
+        }
+        
+        public void LockChunkOrder(ArchetypeChunk chunk)
+        {
+            LockChunksInternal(&chunk, 1, ChunkFlags.LockedEntityOrder);
+        }
+        
+
+        public void UnlockChunkOrder(ComponentGroup group)
+        {
+            using (var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob))
+            {
+                UnlockChunksInternal(chunks.GetUnsafePtr(), chunks.Length, ChunkFlags.LockedEntityOrder);
+            }
+        }
+        
+        public void UnlockChunkOrder(ArchetypeChunk chunk)
+        {
+            UnlockChunksInternal(&chunk, 1, ChunkFlags.LockedEntityOrder);
+        }
+
+        internal void UnlockChunksInternal(void* chunks, int count, ChunkFlags flags)
+        {
+            Entities->UnlockChunks((Chunk**)chunks, count, flags);
+        }
+        
+        internal void LockChunksInternal(void* chunks, int count, ChunkFlags flags)
+        {
+            Entities->LockChunks((Chunk**)chunks, count, flags);
         }
 
         /// <summary>
@@ -360,6 +405,14 @@ namespace Unity.Entities
             return CreateEntity(CreateArchetype(types));
         }
 
+        public Entity CreateEntity()
+        {
+            BeforeStructuralChange();
+            Entity entity;
+            Entities->CreateEntities(ArchetypeManager, ArchetypeManager.GetEntityOnlyArchetype(GroupManager), &entity, 1);
+            return entity;
+        }
+        
         internal void CreateEntityInternal(EntityArchetype archetype, Entity* entities, int count)
         {
             BeforeStructuralChange();
@@ -384,17 +437,24 @@ namespace Unity.Entities
             //@TODO: When destroying entities with componentGroupFilter we assume that any LinkedEntityGroup also get destroyed
             //       We should have some sort of validation that everything is included, and either give an error message or have a fast enough path to handle it...
 
+            //@TODO: Locked checks...
+            
             Profiler.BeginSample("DestroyEntity(ComponentGroup componentGroupFilter)");
 
             Profiler.BeginSample("GetAllMatchingChunks");
-            var chunks = componentGroupFilter.CreateArchetypeChunkArray(Allocator.TempJob);
-            Profiler.EndSample();
+            using (var chunks = componentGroupFilter.CreateArchetypeChunkArray(Allocator.TempJob))
+            {
+                Profiler.EndSample();
 
-            Profiler.BeginSample("DeleteChunks");
-            EntityDataManager.DeleteChunks(chunks, Entities, ArchetypeManager, m_SharedComponentManager);
-            Profiler.EndSample();
+                Profiler.BeginSample("EditorOnlyChecks");
+                Entities->AssertCanDestroy(chunks);
+                Profiler.EndSample();
 
-            chunks.Dispose();
+                Profiler.BeginSample("DeleteChunks");
+                EntityDataManager.DeleteChunks(chunks, Entities, ArchetypeManager, m_SharedComponentManager);
+                Profiler.EndSample();
+            }
+
             Profiler.EndSample();
         }
 
@@ -416,8 +476,7 @@ namespace Unity.Entities
         internal void DestroyEntityInternal(Entity* entities, int count)
         {
             BeforeStructuralChange();
-            Entities->AssertEntitiesExist(entities, count);
-            Entities->AssertChunksUnlocked(entities, count);
+            Entities->AssertCanDestroy(entities, count);
             EntityDataManager.TryRemoveEntityId(entities, count, Entities, ArchetypeManager, m_SharedComponentManager);
         }
 
@@ -468,13 +527,13 @@ namespace Unity.Entities
         internal void InstantiateInternal(Entity srcEntity, Entity* outputEntities, int count)
         {
             BeforeStructuralChange();
+            Entities->AssertEntitiesExist(&srcEntity, 1);
             Entities->InstantiateEntities(ArchetypeManager, m_SharedComponentManager, srcEntity, outputEntities, count);
         }
 
         public void AddComponent(Entity entity, ComponentType componentType)
         {
             BeforeStructuralChange();
-            Entities->AssertEntitiesExist(&entity, 1);
             Entities->AssertCanAddComponent(entity, componentType);
             Entities->AddComponent(entity, componentType, ArchetypeManager, m_SharedComponentManager, m_GroupManager);
         }
@@ -501,7 +560,6 @@ namespace Unity.Entities
         public void AddComponents(Entity entity, ComponentTypes types)
         {
             BeforeStructuralChange();
-            Entities->AssertEntitiesExist(&entity, 1);
             Entities->AssertCanAddComponents(entity, types);
             Entities->AddComponents(entity, types, ArchetypeManager, m_SharedComponentManager, m_GroupManager);
         }
@@ -519,6 +577,7 @@ namespace Unity.Entities
                 if (chunks.Length == 0)
                     return;
                 BeforeStructuralChange();
+                Entities->AssertCanRemoveComponent(chunks, componentType);
                 Entities->RemoveComponent(chunks, componentType, ArchetypeManager, m_GroupManager, m_SharedComponentManager);
             }
         }
@@ -1012,7 +1071,6 @@ namespace Unity.Entities
             return ptr;
         }
 
-#if !UNITY_CSHARP_TINY
         internal object GetSharedComponentData(Entity entity, int typeIndex)
         {
             Entities->AssertEntityHasComponent(entity, typeIndex);
@@ -1020,7 +1078,7 @@ namespace Unity.Entities
             var sharedComponentIndex = Entities->GetSharedComponentDataIndex(entity, typeIndex);
             return m_SharedComponentManager.GetSharedComponentDataBoxed(sharedComponentIndex, typeIndex);
         }
-#endif
+
         public int GetComponentOrderVersion<T>()
         {
             return Entities->GetComponentTypeOrderVersion(TypeManager.GetTypeIndex<T>());

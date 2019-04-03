@@ -4,10 +4,12 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.Serialization;
 using Unity.Entities.Streaming;
+using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using static Unity.Entities.GameObjectConversionUtility;
 using Hash128 = Unity.Entities.Hash128;
 using Object = UnityEngine.Object;
 
@@ -23,7 +25,7 @@ namespace Unity.Scenes.Editor
         public static void WriteEntityScene(SubScene scene)
         {
             Entities.Hash128 guid = new GUID(AssetDatabase.AssetPathToGUID(scene.EditableScenePath));
-            WriteEntityScene(scene.LoadedScene, guid);
+            WriteEntityScene(scene.LoadedScene, guid, 0);
         }
 
         public static bool HasEntitySceneCache(Hash128 sceneGUID)
@@ -32,15 +34,20 @@ namespace Unity.Scenes.Editor
             return File.Exists(headerPath);
         }
 
-
-        public static SceneData[] WriteEntityScene(Scene scene, Hash128 sceneGUID)
+        public static SceneData[] WriteEntityScene(Scene scene, Hash128 sceneGUID, ConversionFlags conversionFlags)
         {
             var world = new World("ConversionWorld");
             var entityManager = world.GetOrCreateManager<EntityManager>();
             
-            GameObjectConversionUtility.ConvertScene(scene, sceneGUID, world);
+            var boundsEntity = entityManager.CreateEntity(typeof(SceneBoundingVolume));
+            entityManager.SetComponentData(boundsEntity, new SceneBoundingVolume { Value = MinMaxAABB.Empty } );
+            
+            ConvertScene(scene, sceneGUID, world, conversionFlags);
             EntitySceneOptimization.Optimize(world);
 
+            var bounds = entityManager.GetComponentData<SceneBoundingVolume>(boundsEntity).Value;
+            entityManager.DestroyEntity(boundsEntity);
+            
             var sceneSections = new List<SceneData>();
 
             var subSectionList = new List<SceneSection>();
@@ -108,7 +115,8 @@ namespace Unity.Scenes.Editor
                     FileSize = sectionFileSize,
                     SceneGUID = sceneGUID,
                     SharedComponentCount = sectionManager.GetSharedComponentCount() - 1,
-                    SubSectionIndex = 0
+                    SubSectionIndex = 0,
+                    BoundingVolume = bounds
                 });
 
                 entityRemapping.Dispose();
@@ -185,7 +193,8 @@ namespace Unity.Scenes.Editor
                             FileSize = fileSize,
                             SceneGUID = sceneGUID,
                             SharedComponentCount = sectionManager.GetSharedComponentCount() - 1,
-                            SubSectionIndex = subSection.Section
+                            SubSectionIndex = subSection.Section,
+                            BoundingVolume = bounds
                         });
 
                         entityRemapping.Dispose();

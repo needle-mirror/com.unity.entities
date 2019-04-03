@@ -1,8 +1,9 @@
+using System;
 using static Unity.Mathematics.math;
 
 namespace Unity.Mathematics
 {
-    public struct MinMaxAABB
+    public struct MinMaxAABB : IEquatable<MinMaxAABB>
     {
         public float3 Min;
         public float3 Max;
@@ -23,7 +24,7 @@ namespace Unity.Mathematics
             Min = math.min(Min, point);
             Max = math.max(Max, point);
         }
-        
+                
         public static implicit operator MinMaxAABB(AABB aabb)
         {
             return new MinMaxAABB {Min = aabb.Center - aabb.Extents, Max = aabb.Center + aabb.Extents};
@@ -32,6 +33,11 @@ namespace Unity.Mathematics
         public static implicit operator AABB(MinMaxAABB aabb)
         {
             return new AABB { Center = (aabb.Min + aabb.Max) * 0.5F, Extents = (aabb.Max - aabb.Min) * 0.5F};
+        }
+
+        public bool Equals(MinMaxAABB other)
+        {
+            return Min.Equals(Min) && Max.Equals(other.Max);
         }
     }
 }

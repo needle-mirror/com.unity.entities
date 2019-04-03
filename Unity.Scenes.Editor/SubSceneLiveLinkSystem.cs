@@ -204,7 +204,7 @@ namespace Unity.Scenes.Editor
                 }
                 
                 // Convert scene
-                GameObjectConversionUtility.ConvertScene(scene.LoadedScene, scene.SceneGUID, cleanConvertedEntityWorld, true);
+                GameObjectConversionUtility.ConvertScene(scene.LoadedScene, scene.SceneGUID, cleanConvertedEntityWorld, GameObjectConversionUtility.ConversionFlags.AddEntityGUID | GameObjectConversionUtility.ConversionFlags.AssignName);
 
                 var convertedEntityManager = cleanConvertedEntityWorld.GetOrCreateManager<EntityManager>();
 

@@ -92,6 +92,16 @@ namespace Unity.Entities.Tests
         }
     }
 
+    public struct EcsTestDataBlobAssetRef : IComponentData
+    {
+        public BlobAssetReference<int> value;
+    }
+
+    public struct EcsTestDataBlobAssetArray : IComponentData
+    {
+        public BlobAssetReference<BlobArray<float>> array;
+    }
+
     public struct EcsTestSharedCompEntity : ISharedComponentData
     {
         public Entity value;
@@ -132,7 +142,7 @@ namespace Unity.Entities.Tests
 
         public int Value;
     }
-    
+
     [InternalBufferCapacity(8)]
     public struct EcsIntStateElement : ISystemStateBufferElementData
     {
@@ -148,7 +158,7 @@ namespace Unity.Entities.Tests
 
         public int Value;
     }
-    
+
     [InternalBufferCapacity(4)]
     public struct EcsComplexEntityRefElement : IBufferElementData
     {
@@ -158,5 +168,10 @@ namespace Unity.Entities.Tests
 
     public struct EcsTestTag : IComponentData
     {
+    }
+
+    public struct EcsTestComponentWithBool : IComponentData
+    {
+        public bool value;
     }
 }

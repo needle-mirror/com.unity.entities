@@ -14,7 +14,9 @@ namespace Unity.Entities
             Console.WriteLine($"The following systems form a circular dependency cycle (check their [UpdateBefore]/[UpdateAfter] attributes):");
             foreach (var s in Chain)
             {
-                Console.WriteLine($"- {s.GetType().ToString()}");
+                int index = TypeManager.GetSystemTypeIndex(s.GetType());
+                string name = TypeManager.SystemNames[index];
+                Console.WriteLine(name);
             }
 #endif
         }
@@ -131,7 +133,7 @@ namespace Unity.Entities
         {
             public ComponentSystemBase system;
             public List<Type> updateBefore;
-            public List<Type> updateAfter;
+            public int nAfter;
         }
         public struct TypeHeapElement : IComparable<TypeHeapElement>
         {
@@ -153,115 +155,197 @@ namespace Unity.Entities
             }
         }
 
+        // Tiny doesn't have a data structure that can take Type as a key.
+        // For now, this gives Tiny a linear search. Would like to do better.
+#if !UNITY_CSHARP_TINY
+        private Dictionary<Type, int> lookupDictionary = null;
+
+        private int LookupSysAndDep(Type t, SysAndDep[] array) {
+            if (lookupDictionary == null) {
+                lookupDictionary = new Dictionary<Type, int>();
+                for(int i=0; i<array.Length; ++i) {
+                    lookupDictionary[array[i].system.GetType()] = i;
+                }
+            }
+            if (lookupDictionary.ContainsKey(t))
+               return lookupDictionary[t];
+            return -1;
+        }
+#else
+        private int LookupSysAndDep(Type t, SysAndDep[] array)
+        {
+            for (int i = 0; i < array.Length; ++i)
+            {
+                if (array[i].system != null && array[i].system.GetType() == t)
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
+#endif
+
         public virtual void SortSystemUpdateList()
         {
 #if !UNITY_CSHARP_TINY
-            // Populate dictionary mapping systemType to system-and-before/after-types
-            // TODO: Can't use Dictionary in Tiny.
-            var lookup = new Dictionary<Type, SysAndDep>();
-            foreach (var sys in m_systemsToUpdate)
+            lookupDictionary = null;
+#endif
+            // Populate dictionary mapping systemType to system-and-before/after-types.
+            // This is clunky - it is easier to understand, and cleaner code, to
+            // just use a Dictionary<Type, SysAndDep>. However, Tiny doesn't currently have
+            // the ability to use Type as a key to a NativeHash, so we're stuck until that gets addressed.
+            //
+            // Likewise, this is important shared code. It can be done cleaner with 2 versions, but then...
+            // 2 sets of bugs and slightly different behavior will creep in.
+            //
+            var sysAndDep = new SysAndDep[m_systemsToUpdate.Count];
+
+            for(int i=0; i<m_systemsToUpdate.Count; ++i)
             {
-                if (sys.GetType().IsSubclassOf(typeof(ComponentSystemGroup)))
+                var sys = m_systemsToUpdate[i];
+                if (TypeManager.IsSystemAGroup(sys.GetType()))
                 {
                     (sys as ComponentSystemGroup).SortSystemUpdateList();
                 }
-                lookup[sys.GetType()] = new SysAndDep
+                sysAndDep[i] = new SysAndDep
                 {
                     system = sys,
                     updateBefore = new List<Type>(),
-                    updateAfter = new List<Type>(),
+                    nAfter = 0,
                 };
             }
-            foreach (var sys in m_systemsToUpdate)
+            for(int i=0; i<m_systemsToUpdate.Count; ++i)
             {
-                var depsLists = lookup[sys.GetType()];
-                var before = sys.GetType().GetCustomAttributes(typeof(UpdateBeforeAttribute), true);
-                var after = sys.GetType().GetCustomAttributes(typeof(UpdateAfterAttribute), true);
+                var sys = m_systemsToUpdate[i];
+                var before = TypeManager.GetSystemAttributes(sys.GetType(), typeof(UpdateBeforeAttribute));
+                var after = TypeManager.GetSystemAttributes(sys.GetType(), typeof(UpdateAfterAttribute));
                 foreach (var attr in before)
                 {
                     var dep = attr as UpdateBeforeAttribute;
-                    if (!lookup.ContainsKey(dep.SystemType))
+                    int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
+                    if (depIndex < 0)
                     {
+#if !UNITY_CSHARP_TINY
                         Debug.LogWarning("Ignoring invalid [UpdateBefore] dependency for " + sys.GetType() + ": " + dep.SystemType + " must be a member of the same ComponentSystemGroup.");
+#else
+                        Debug.LogWarning("WARNING: invalid [UpdateBefore] dependency:");
+                        Debug.LogWarning(TypeManager.SystemName(sys.GetType()));
+                        Debug.LogWarning("  depends on a non-sibling or non-ComponentSystem.");
+#endif
                         continue;
                     }
 
-                    depsLists.updateBefore.Add(dep.SystemType);
-                    lookup[dep.SystemType].updateAfter.Add(sys.GetType());
+                    sysAndDep[i].updateBefore.Add(dep.SystemType);
+                    sysAndDep[depIndex].nAfter++;
                 }
                 foreach (var attr in after)
                 {
                     var dep = attr as UpdateAfterAttribute;
-                    if (!lookup.ContainsKey(dep.SystemType))
+                    int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
+                    if (depIndex < 0)
                     {
+#if !UNITY_CSHARP_TINY
                         Debug.LogWarning("Ignoring invalid [UpdateAfter] dependency for " + sys.GetType() + ": " + dep.SystemType + " must be a member of the same ComponentSystemGroup.");
+#else
+                        Debug.LogWarning("WARNING: invalid [UpdateAfter] dependency:");
+                        Debug.LogWarning(TypeManager.SystemName(sys.GetType()));
+                        Debug.LogWarning("  depends on a non-sibling or non-ComponentSystem.");
+#endif
                         continue;
                     }
-                    lookup[dep.SystemType].updateBefore.Add(sys.GetType());
-                    depsLists.updateAfter.Add(dep.SystemType);
+                    sysAndDep[depIndex].updateBefore.Add(sys.GetType());
+                    sysAndDep[i].nAfter++;
                 }
             }
 
             // Clear the systems list and rebuild it in sorted order from the lookup table
-            var readySystems = new Heap<TypeHeapElement>(m_systemsToUpdate.Count);
+            var readySystems = new Heap<int>(m_systemsToUpdate.Count);
             m_systemsToUpdate.Clear();
-            foreach (var sd in lookup.Values)
+            for (int i = 0; i < sysAndDep.Length; ++i)
             {
-                if (sd.updateAfter.Count == 0)
+                if (sysAndDep[i].nAfter == 0)
                 {
-                    readySystems.Insert(new TypeHeapElement(sd.system.GetType()));
+                    readySystems.Insert(i);
                 }
             }
             while (!readySystems.Empty)
             {
-                var sysType = readySystems.Extract().type;
-                var sd = lookup[sysType];
-                lookup.Remove(sysType);
+                int sysIndex = readySystems.Extract();
+                SysAndDep sd = sysAndDep[sysIndex];
+                Type sysType = sd.system.GetType();
+
+                sysAndDep[sysIndex] = new SysAndDep();  // "Remove()"
                 m_systemsToUpdate.Add(sd.system);
                 foreach (var beforeType in sd.updateBefore)
                 {
-                    if (lookup[beforeType].updateAfter.Remove(sysType))
+                    int beforeIndex = LookupSysAndDep(beforeType, sysAndDep);
+                    if (beforeIndex <  0) throw new Exception("Bug in SortSystemUpdateList(), beforeIndex < 0");
+                    if (sysAndDep[beforeIndex].nAfter <= 0) throw new Exception("Bug in SortSystemUpdateList(), nAfter <= 0");
+
+                    sysAndDep[beforeIndex].nAfter--;
+                    if (sysAndDep[beforeIndex].nAfter == 0)
                     {
-                        if (lookup[beforeType].updateAfter.Count == 0)
-                        {
-                            readySystems.Insert(new TypeHeapElement(beforeType));
-                        }
+                        readySystems.Insert(beforeIndex);
                     }
                 }
             }
 
-            if (lookup.Count > 0)
+            for(int i=0; i<sysAndDep.Length; ++i)
             {
+                if (sysAndDep[i].system != null)
+                {
+                    // Since no System in the circular dependency would have ever been added
+                    // to the heap, we should have values for everything in sysAndDep. Check,
+                    // just in case.
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                var visitedSystems = new List<ComponentSystemBase>();
-                var start = lookup.First().Value;
-                var current = start;
-                while (true)
-                {
-                    visitedSystems.Add(current.system);
-                    current = lookup[current.updateAfter.First()];
-                    var indexOf = visitedSystems.IndexOf(current.system);
-                    if (indexOf != -1)
+                    var visitedSystems = new List<ComponentSystemBase>();
+                    var startIndex = i;
+                    var currentIndex = i;
+                    while (true)
                     {
-                        throw new CircularSystemDependencyException(visitedSystems.Skip(indexOf).Reverse());
+                        if (sysAndDep[currentIndex].system != null)
+                            visitedSystems.Add(sysAndDep[currentIndex].system);
+
+                        currentIndex = LookupSysAndDep(sysAndDep[currentIndex].updateBefore[0], sysAndDep);
+                        if (currentIndex < 0 || currentIndex == startIndex || sysAndDep[currentIndex].system == null)
+                        {
+                            throw new CircularSystemDependencyException(visitedSystems);
+                        }
                     }
-                }
 #else
-                foreach (var sd in lookup)
-                {
-                    sd.Value.updateBefore.Clear();
-                    sd.Value.updateAfter.Clear();
+                    sysAndDep[i] = new SysAndDep();
+#endif
                 }
-#endif
             }
-#endif
         }
+
+
+#if UNITY_CSHARP_TINY
+        public void RecursiveLogToConsole()
+        {
+            foreach (var sys in m_systemsToUpdate)
+            {
+                if (sys is ComponentSystemGroup)
+                {
+                    (sys as ComponentSystemGroup).RecursiveLogToConsole();
+                }
+
+                var index = TypeManager.GetSystemTypeIndex(sys.GetType());
+                var names = TypeManager.SystemNames;
+                var name = names[index];
+                Debug.Log(name);
+            }
+        }
+
+#endif
 
         protected override void OnUpdate()
         {
             foreach (var sys in m_systemsToUpdate)
             {
                 sys.Update();
+                if (World.QuitUpdate)
+                    break;
             }
         }
     }

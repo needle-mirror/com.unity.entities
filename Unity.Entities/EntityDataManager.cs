@@ -342,19 +342,20 @@ namespace Unity.Entities
             }
         }
 
-        public void AssertChunksUnlocked(Entity* entities, int count)
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void AssertCanDestroy(Entity* entities, int count)
         {
             for (var i = 0; i != count; i++)
             {
                 var entity = entities + i;
+                if (!Exists(*entity))
+                    continue;
+
                 int index = entity->Index;
                 var chunk = m_Entities.ChunkData[index].Chunk;
-                if (chunk->Locked)
+                if (chunk->Locked || chunk->LockedEntityOrder)
                 {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    throw new InvalidOperationException(
-                        "Cannot destroy entities in locked Chunks. Unlock Chunk first.");
-#endif
+                    throw new InvalidOperationException("Cannot destroy entities in locked Chunks. Unlock Chunk first.");
                 }
             }
         }
@@ -380,15 +381,28 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void AssertCanAddComponent(Entity entity, ComponentType componentType)
         {
-            if (!HasComponent(entity, componentType))
-                return;
-
             if (!Exists(entity))
                 throw new ArgumentException("The entity does not exist");
 
-            throw new ArgumentException($"The component of type:{componentType} has already been added to the entity.");
+            if (HasComponent(entity, componentType))
+                throw new ArgumentException($"The component of type:{componentType} has already been added to the entity.");
+            
+            var chunk = GetComponentChunk(entity);
+            if (chunk->Locked || chunk->LockedEntityOrder)
+                throw new InvalidOperationException("Cannot add components to locked Chunks. Unlock Chunk first.");
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void AssertCanRemoveComponent(Entity entity, ComponentType componentType)
+        {
+            if (HasComponent(entity, componentType))
+            {
+                var chunk = GetComponentChunk(entity);
+                if (chunk->Locked || chunk->LockedEntityOrder)
+                    throw new ArgumentException($"The component of type:{componentType} has already been added to the entity.");
+            }
+        }
+        
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void AssertCanAddComponent(Entity entity, int componentType)
         {
@@ -403,6 +417,13 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void AssertCanRemoveComponents(Entity entity, ComponentTypes types)
+        {
+            for(int i=0;i<types.Length;++i)
+                AssertCanRemoveComponent(entity, ComponentType.FromTypeIndex(types.GetTypeIndex(i)));
+        }
+        
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void AssertCanAddComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType componentType)
         {
             var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
@@ -413,9 +434,40 @@ namespace Unity.Entities
                     throw new ArgumentException($"A component with type:{componentType} has already been added to the chunk.");
                 if(chunk->Locked)
                     throw new InvalidOperationException("Cannot add components to locked Chunks. Unlock Chunk first.");
+                if(chunk->LockedEntityOrder && !componentType.IsZeroSized)
+                    throw new InvalidOperationException("Cannot add non-zero sized components to LockedEntityOrder Chunks. Unlock Chunk first.");
             }
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void AssertCanRemoveComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType componentType)
+        {
+            var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
+            for (int i = 0; i < chunkArray.Length; ++i)
+            {
+                var chunk = chunks[i].m_Chunk;
+                if (ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, componentType.TypeIndex) != -1)
+                {
+                    if(chunk->Locked)
+                        throw new InvalidOperationException("Cannot remove components from locked Chunks. Unlock Chunk first.");
+                    if(chunk->LockedEntityOrder && !componentType.IsZeroSized)
+                        throw new InvalidOperationException("Cannot remove non-zero sized components to LockedEntityOrder Chunks. Unlock Chunk first.");
+                }
+            }
+        }
+        
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void AssertCanDestroy(NativeArray<ArchetypeChunk> chunkArray)
+        {
+            var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
+            for (int i = 0; i < chunkArray.Length; ++i)
+            {
+                var chunk = chunks[i].m_Chunk;
+                if (chunk->Locked)
+                    throw new InvalidOperationException("Cannot destroy entities from locked Chunks. Unlock Chunk first.");
+            }
+        }
+        
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void AssertCanAddChunkComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType componentType)
         {
@@ -429,6 +481,8 @@ namespace Unity.Entities
                     throw new InvalidOperationException("Cannot add chunk components to locked Chunks. Unlock Chunk first.");
                 if((chunk->metaChunkEntity != Entity.Null) && GetComponentChunk(chunk->metaChunkEntity)->Locked)
                     throw new InvalidOperationException("Cannot add chunk components if Meta Chunk is locked. Unlock Meta Chunk first.");
+                if((chunk->metaChunkEntity != Entity.Null) && GetComponentChunk(chunk->metaChunkEntity)->LockedEntityOrder)
+                    throw new InvalidOperationException("Cannot add chunk components if Meta Chunk is LockedEntityOrder. Unlock Meta Chunk first.");
             }
         }
 
@@ -1008,15 +1062,6 @@ namespace Unity.Entities
         {
             var archetype = GetArchetype(entity);
             var chunk = m_Entities.ChunkData[entity.Index].Chunk;
-            if (chunk->Locked)
-            {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                throw new InvalidOperationException(
-                    "Cannot add components in locked Chunks. Unlock Chunk first.");
-#else
-                    return;
-#endif
-            }
 
             int indexInTypeArray=0;
             var newType = archetypeManager.GetArchetypeWithAddedComponentType(archetype, type, groupManager, &indexInTypeArray);
@@ -1438,7 +1483,7 @@ namespace Unity.Entities
 
             var archetype = entityDataManager->GetArchetype(entity);
             var chunk = entityDataManager->m_Entities.ChunkData[entity.Index].Chunk;
-            if (chunk->Locked)
+            if (chunk->Locked || chunk->LockedEntityOrder)
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 throw new InvalidOperationException(
@@ -1537,41 +1582,32 @@ namespace Unity.Entities
         }
 
 
-        public void LockChunks(ArchetypeChunk* chunks, int count)
+        public void LockChunks(Chunk** chunks, int count, ChunkFlags flags)
         {
             for (int i = 0; i < count; i++)
             {
-                var chunk = chunks[i].m_Chunk;
+                var chunk = chunks[i];
 
                 Assert.IsFalse(chunk->Locked);
 
-                chunk->Flags |= (uint)ChunkFlags.Locked;
-                if (chunk->Count < chunk->Capacity)
+                chunk->Flags |= (uint)flags;
+                if (chunk->Count < chunk->Capacity && (flags & ChunkFlags.Locked) != 0)
                     ArchetypeManager.EmptySlotTrackingRemoveChunk(chunk);
             }
         }
 
-        public void UnlockChunks(ArchetypeChunk* chunks, int count)
+        public void UnlockChunks(Chunk** chunks, int count, ChunkFlags flags)
         {
             for (int i = 0; i < count; i++)
             {
-                var chunk = chunks[i].m_Chunk;
+                var chunk = chunks[i];
 
                 Assert.IsTrue(chunk->Locked);
 
-                chunk->Flags &= ~(uint)ChunkFlags.Locked;
-                if (chunk->Count < chunk->Capacity)
+                chunk->Flags &= ~(uint)flags;
+                if (chunk->Count < chunk->Capacity && (flags & ChunkFlags.Locked) != 0)
                     ArchetypeManager.EmptySlotTrackingAddChunk(chunk);
             }
-        }
-
-        public void UnlockChunk(Chunk* chunk)
-        {
-            Assert.IsTrue(chunk->Locked);
-
-            chunk->Flags &= ~(uint)ChunkFlags.Locked;
-            if (chunk->Count < chunk->Capacity)
-                ArchetypeManager.EmptySlotTrackingAddChunk(chunk);
         }
 
         public void CreateChunks(ArchetypeManager archetypeManager, Archetype* archetype, ArchetypeChunk* chunks, int count)

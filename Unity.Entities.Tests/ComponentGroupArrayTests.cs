@@ -1,6 +1,9 @@
-﻿using NUnit.Framework;
+﻿#if !UNITY_ZEROPLAYER
+using NUnit.Framework;
 using Unity.Jobs;
 using Unity.Collections;
+
+#pragma warning disable 618
 
 namespace Unity.Entities.Tests
 {
@@ -56,6 +59,7 @@ namespace Unity.Entities.Tests
 #pragma warning restore 649	
 	    
 	    [Test]
+        [TinyFixme]
 	    public void ComponentAccessAfterScheduledJobThrowsEntityArray()
 	    {
 	        m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -72,6 +76,7 @@ namespace Unity.Entities.Tests
 	    }
 			
 	    [Test]
+        [TinyFixme]
 	    public void ComponentGroupArrayJobScheduleDetectsWriteDependency()
 	    {
 	        var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -87,6 +92,7 @@ namespace Unity.Entities.Tests
 	    }
 		
 		[Test]
+        [TinyFixme]
 		public void ComponentGroupArrayJobScheduleReadOnlyParallelIsAllowed()
 		{
 			var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -110,6 +116,7 @@ namespace Unity.Entities.Tests
 	    }
 		
 		[Test]
+        [TinyFixme]
 		public void ComponentGroupArrayExclude()
 		{
 			m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -120,3 +127,4 @@ namespace Unity.Entities.Tests
 		}
     }
 }
+#endif

@@ -146,21 +146,20 @@ namespace Unity.Entities.Editor.Tests
         }
 
         [Test]
-        [Ignore("Must be updated for new system ordering code")]
         public void SystemListView_ShowExactlyWorldSystems()
         {
             var listView = new SystemListView(
                 new TreeViewState(),
                 new MultiColumnHeader(SystemListView.GetHeaderState()),
                 (manager, world) => { },
-                () => World.Active,
+                () => World2,
                 () => true);
             var managerItems = listView.GetRows().Where(x => listView.managersById.ContainsKey(x.id)).Select(x => listView.managersById[x.id]);
-            Assert.AreEqual(World.Active.BehaviourManagers.Count(), managerItems.Intersect(World.Active.BehaviourManagers).Count());
+            var managerList = managerItems.ToList();
+            Assert.AreEqual(World2.BehaviourManagers.Count(x => !(x is EntityManager)), managerList.Intersect(World2.BehaviourManagers).Count());
         }
 
         [Test]
-        [Ignore("Must be updated for new system ordering code")]
         public void SystemListView_NullWorldShowsAllSystems()
         {
             var listView = new SystemListView(
@@ -171,9 +170,10 @@ namespace Unity.Entities.Editor.Tests
                 () => true);
             var managerItems = listView.GetRows().Where(x => listView.managersById.ContainsKey(x.id)).Select(x => listView.managersById[x.id]);
             var allManagers = new List<ScriptBehaviourManager>();
-            foreach (var world in World.AllWorlds)
-                allManagers.AddRange(world.BehaviourManagers);
-            Assert.AreEqual(allManagers.Count, allManagers.Intersect(managerItems).Count());
+            allManagers.AddRange(World.Active.BehaviourManagers);
+            allManagers.AddRange(World2.BehaviourManagers);
+            var managerList = managerItems.ToList();
+            Assert.AreEqual(allManagers.Count(x => !(x is EntityManager || x is ComponentSystemGroup) ), allManagers.Intersect(managerList).Count());
         }
 
     }

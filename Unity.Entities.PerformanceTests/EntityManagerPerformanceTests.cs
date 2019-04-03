@@ -68,7 +68,11 @@ namespace Unity.Entities.PerformanceTests
             m_Manager.DestroyEntity(entities3);
         }
 
+        #if UNITY_2019_2_OR_NEWER
+        [Test, Performance]
+        #else
         [PerformanceTest]
+        #endif
         public void AddComponentWithGroup()
         {
             Measure.Method(() =>
@@ -80,7 +84,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
+        #if UNITY_2019_2_OR_NEWER
+        [Test, Performance]
+        #else
         [PerformanceTest]
+        #endif
         public void AddTagComponentWithGroup()
         {
             Measure.Method(() =>
@@ -92,7 +100,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
+        #if UNITY_2019_2_OR_NEWER
+        [Test, Performance]
+        #else
         [PerformanceTest]
+        #endif
         public void AddSharedComponentWithGroup()
         {
             Measure.Method(() =>
@@ -104,7 +116,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
+        #if UNITY_2019_2_OR_NEWER
+        [Test, Performance]
+        #else
         [PerformanceTest]
+        #endif
         public void AddChunkComponentWithGroup()
         {
             Measure.Method(() =>
@@ -116,7 +132,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
+        #if UNITY_2019_2_OR_NEWER
+        [Test, Performance]
+        #else
         [PerformanceTest]
+        #endif
         public void RemoveComponentWithGroup()
         {
             Measure.Method(() =>
@@ -132,7 +152,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
+        #if UNITY_2019_2_OR_NEWER
+        [Test, Performance]
+        #else
         [PerformanceTest]
+        #endif
         public void RemoveTagComponentWithGroup()
         {
             Measure.Method(() =>
@@ -148,7 +172,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
+        #if UNITY_2019_2_OR_NEWER
+        [Test, Performance]
+        #else
         [PerformanceTest]
+        #endif
         public void RemoveSharedComponentWithGroup()
         {
             Measure.Method(() =>
@@ -164,7 +192,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
+        #if UNITY_2019_2_OR_NEWER
+        [Test, Performance]
+        #else
         [PerformanceTest]
+        #endif
         public void RemoveChunkComponentWithGroup()
         {
             Measure.Method(() =>

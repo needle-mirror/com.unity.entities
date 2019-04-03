@@ -1,3 +1,4 @@
+#if !UNITY_ZEROPLAYER
 using System;
 using System.Globalization;
 using System.Threading;
@@ -45,6 +46,75 @@ namespace Unity.Entities.Tests
 	    {
 	    }
 
+        [Test]
+        unsafe public void Utf8EncodeDecode([Range(0, 0xD7FF, 997)] int input_ucs)
+        {
+            var converted = new byte[4];
+            fixed (byte* c = converted)
+            {
+                ConversionError error;
+                int write_length = 0;
+                error = NativeString.UcsToUtf8(c, ref write_length, converted.Length, input_ucs);
+                Assert.AreEqual(ConversionError.None, error);
+                int read_length = 0;
+                error = NativeString.Utf8ToUcs(out int output_ucs, c, ref read_length, write_length);
+                Assert.AreEqual(ConversionError.None, error);
+                Assert.AreEqual(write_length, read_length);
+                Assert.AreEqual(output_ucs, input_ucs);
+            }
+        }
+
+        [Test]
+        unsafe public void Utf16EncodeDecode([Range(0, 0xD7FF,997)] int input_ucs)
+        {
+            var converted = new char[2];
+            fixed (char* c = converted)
+            {
+                ConversionError error;
+                int write_length = 0;
+                error = NativeString.UcsToUtf16(c, ref write_length, converted.Length, input_ucs);
+                Assert.AreEqual(ConversionError.None, error);
+                int read_length = 0;
+                error = NativeString.Utf16ToUcs(out int output_ucs, c, ref read_length, write_length);
+                Assert.AreEqual(ConversionError.None, error);
+                Assert.AreEqual(write_length, read_length);
+                Assert.AreEqual(output_ucs, input_ucs);
+            }
+        }
+
+        unsafe void Utf16ToUtf8(string source)
+        {
+            var converted = new byte[source.Length * 4]; // UTF-8 text can be up to 2x as long as UTF-16 text
+            var destination = new char[source.Length];
+            fixed(byte* c = converted)
+            fixed(char* s = source)
+            fixed(char* d = destination)
+            {
+                NativeString.Utf16ToUtf8(s, source.Length, c, out var converted_length, converted.Length);
+                NativeString.Utf8ToUtf16(c, converted_length, d, out var destination_length, destination.Length);
+                Assert.AreEqual(source, destination);
+            }
+        }
+
+        [TestCase("The Quick Brown Fox Jumps Over The Lazy Dog")]
+        [TestCase("Albert osti fagotin ja töräytti puhkuvan melodian.")]
+        [TestCase("Franz jagt im komplett verwahrlosten Taxi quer durch Bayern.")]
+        [TestCase("איך בלש תפס גמד רוצח עז קטנה?")]
+        [TestCase("PORTEZ CE VIEUX WHISKY AU JUGE BLOND QUI FUME.")]
+        [TestCase("いろはにほへとちりぬるをわかよたれそつねならむうゐのおくやまけふこえてあさきゆめみしゑひもせす")]
+        [TestCase("키스의 고유조건은 입술끼리 만나야 하고 특별한 기술은 필요치 않다.")]
+        unsafe public void Utf16ToUtf8BMP(string source)
+        {
+            Utf16ToUtf8(source);
+        }
+
+        [TestCase("🌕🌖🌗🌘🌑🌒🌓🌔")]
+        [TestCase("𝒞𝒯𝒮𝒟𝒳𝒩𝒫𝒢")]        
+        unsafe public void Utf16ToUtf8TransBMP(string source)
+        {
+            Utf16ToUtf8(source);
+        }
+        
         [TestCase("This is supposed to be too long to fit into a fixed-length string.", CopyError.Truncation)]
         [TestCase("This should fit.", CopyError.None)]
         public void NativeStringCopyFrom(String s, CopyError expectedError)
@@ -682,3 +752,4 @@ namespace Unity.Entities.Tests
 	    }
 	}
 }
+#endif

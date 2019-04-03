@@ -8,16 +8,24 @@ namespace Unity.Entities.Tests
     [TestFixture]
     class ComponentGroupTests : ECSTestsFixture
     {
-        ArchetypeChunk[] CreateEntitiesAndReturnChunks(EntityArchetype archetype, int entityCount, Action<Entity> action = null)
+            ArchetypeChunk[] CreateEntitiesAndReturnChunks(EntityArchetype archetype, int entityCount, Action<Entity> action = null)
         {
             var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
             m_Manager.CreateEntity(archetype, entities);
+#if UNITY_CSHARP_TINY
+            var managedEntities = new Entity[entities.Length];
+            for (int i = 0; i < entities.Length; i++)
+            {
+                managedEntities[i] = entities[i];
+            }
+#else
             var managedEntities = entities.ToArray();
+#endif
             entities.Dispose();
 
             if(action != null)
-            foreach(var e in managedEntities)
-                action(e);
+                foreach(var e in managedEntities)
+                    action(e);
 
             return managedEntities.Select(e => m_Manager.GetChunk(e)).Distinct().ToArray();
         }
@@ -57,6 +65,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponent
         public void CreateArchetypeChunkArray_FiltersSharedComponents()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
@@ -92,6 +101,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponent
         public void CreateArchetypeChunkArray_FiltersTwoSharedComponents()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));

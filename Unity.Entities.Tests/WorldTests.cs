@@ -23,18 +23,19 @@ namespace Unity.Entities.Tests
 
         
         [Test]
+        [TinyFixme]
         public void ActiveWorldResets()
         {
-            int count = World.AllWorlds.Count;
+            int count = World.AllWorlds.Count();
             var worldA = new World("WorldA");
             var worldB = new World("WorldB");
 
             World.Active = worldB; 
             
             Assert.AreEqual(worldB, World.Active);
-            Assert.AreEqual(count + 2, World.AllWorlds.Count);
-            Assert.AreEqual(worldA, World.AllWorlds[World.AllWorlds.Count-2]);
-            Assert.AreEqual(worldB, World.AllWorlds[World.AllWorlds.Count-1]);
+            Assert.AreEqual(count + 2, World.AllWorlds.Count());
+            Assert.AreEqual(worldA, World.AllWorlds[World.AllWorlds.Count()-2]);
+            Assert.AreEqual(worldB, World.AllWorlds[World.AllWorlds.Count()-1]);
             
             worldB.Dispose();
             
@@ -44,7 +45,7 @@ namespace Unity.Entities.Tests
             
             worldA.Dispose();
             
-            Assert.AreEqual(count, World.AllWorlds.Count);
+            Assert.AreEqual(count, World.AllWorlds.Count());
         }
 
         [DisableAutoCreation]
@@ -54,6 +55,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme]
         public void WorldVersionIsConsistent()
         {
             var world = new World("WorldX");
@@ -76,6 +78,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
+        [TinyFixme]
         public void UsingDisposedWorldThrows()
         {
             var world = new World("WorldX");
@@ -96,6 +99,7 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate() { }
         }
         [Test]
+        [TinyFixme]
         public void AddWorldDuringConstructorThrows ()
         {
             var world = new World("WorldX");
@@ -120,6 +124,7 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate() { }
         }
         [Test]
+        [TinyFixme]
         public void SystemThrowingInOnCreateManagerIsRemoved()
         {
             var world = new World("WorldX");
@@ -145,6 +150,7 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate() { }
         }
         [Test]
+        [TinyFixme]
         public void SystemIsAccessibleDuringOnCreateManager ()
         {
             var world = new World("WorldX");

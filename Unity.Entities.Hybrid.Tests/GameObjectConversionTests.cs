@@ -7,6 +7,7 @@ using Unity.Transforms;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
+using static Unity.Entities.GameObjectConversionUtility;
 
 namespace UnityEngine.Entities.Tests
 {
@@ -16,7 +17,7 @@ namespace UnityEngine.Entities.Tests
         {
             using (var cleanConvertedEntityWorld = new World("Clean Entity Conversion World"))
             {
-                GameObjectConversionUtility.ConvertScene(scene, default(Unity.Entities.Hash128), cleanConvertedEntityWorld, true);
+                ConvertScene(scene, default(Unity.Entities.Hash128), cleanConvertedEntityWorld, ConversionFlags.AddEntityGUID);
                 WorldDiffer.DiffAndApply(cleanConvertedEntityWorld, previousStateShadowWorld, dstEntityWorld);
             }
         }
@@ -40,7 +41,7 @@ namespace UnityEngine.Entities.Tests
             }
             else
             {
-                GameObjectConversionUtility.ConvertScene(scene, default(Unity.Entities.Hash128), m_Manager.World);
+                ConvertScene(scene, default(Unity.Entities.Hash128), m_Manager.World);
             }
             
             // Check
@@ -69,7 +70,7 @@ namespace UnityEngine.Entities.Tests
             TestTools.LogAssert.Expect(LogType.Warning, new Regex("missing"));
             var scene = EditorSceneManager.OpenScene("Packages/com.unity.entities/Unity.Entities.Hybrid.Tests/MissingMonoBehaviour.unity");
             var world = new World("Temp");
-            GameObjectConversionUtility.ConvertScene(scene, default(Unity.Entities.Hash128), world);
+            ConvertScene(scene, default(Unity.Entities.Hash128), world);
             world.Dispose();
         }
         
@@ -77,7 +78,7 @@ namespace UnityEngine.Entities.Tests
         public void ConversionOfGameObject()
         {
             var gameObject = new GameObject();
-            var entity = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, World);
+            var entity = ConvertGameObjectHierarchy(gameObject, World);
 
             Assert.IsFalse(m_Manager.HasComponent<Prefab>(entity));
             Object.DestroyImmediate(gameObject);
@@ -89,7 +90,7 @@ namespace UnityEngine.Entities.Tests
             var path = "Assets/ConversionOfPrefabIsEntityPrefab.prefab";
             var gameObject = new GameObject();
             var prefab = PrefabUtility.SaveAsPrefabAsset(gameObject, path);
-            var entity = GameObjectConversionUtility.ConvertGameObjectHierarchy(prefab, World);
+            var entity = ConvertGameObjectHierarchy(prefab, World);
 
             Assert.IsTrue(m_Manager.HasComponent<Prefab>(entity));
 

@@ -53,9 +53,220 @@ namespace Unity.Entities
         None,
         Truncation
     }
+
+    public enum ConversionError
+    {
+        None,
+        Overflow,
+        Encoding,
+        CodePoint,
+    }
     
     internal unsafe struct NativeString
     {
+        public static bool IsValidCodePoint(int ucs)
+        {
+            if (ucs > 0x10FFFF) // maximum valid code point
+                return false;
+            if (ucs >= 0xD800 && ucs <= 0xDFFF) // surrogate pair
+                return false;
+            if (ucs < 0) // negative?
+                return false;
+            return true;
+        }
+
+        public static bool NotTrailer(byte b)
+        {
+            return (b & 0xC0) != 0x80;
+        }
+
+        private const int ReplacementCharacter = 0xFFFD;
+        public static ConversionError Utf8ToUcs(out int ucs, byte* buffer, ref int offset, int capacity)
+        {
+            int code = 0;
+            ucs = ReplacementCharacter;
+            if (offset + 1 > capacity)
+                return ConversionError.Overflow;
+            if ((buffer[offset] & 0b10000000) == 0b00000000) // if high bit is 0, 1 byte
+            {
+                ucs = buffer[offset+0];
+                offset += 1;
+                return ConversionError.None;
+            }
+            if ((buffer[offset] & 0b11100000) == 0b11000000) // if high 3 bits are 110, 2 bytes
+            {
+                if (offset + 2 > capacity)
+                {
+                    offset += 1;
+                    return ConversionError.Overflow;
+                }
+                code =              (buffer[offset+0] & 0b00011111);
+                code = (code<<6) |  (buffer[offset+1] & 0b00111111);
+                if (code < (1<<7) || NotTrailer(buffer[offset+1]))
+                {
+                    offset += 1;
+                    return ConversionError.Encoding;
+                }
+                ucs = code;
+                offset += 2;
+                return ConversionError.None;
+            }
+            if ((buffer[offset] & 0b11110000) == 0b11100000) // if high 4 bits are 1110, 3 bytes
+            {
+                if (offset + 3 > capacity)
+                {
+                    offset += 1;
+                    return ConversionError.Overflow;
+                }
+                code =              (buffer[offset+0] & 0b00001111);
+                code = (code<<6) |  (buffer[offset+1] & 0b00111111); 
+                code = (code<<6) |  (buffer[offset+2] & 0b00111111);
+                if (code < (1<<11) || !IsValidCodePoint(code) || NotTrailer(buffer[offset+1]) || NotTrailer(buffer[offset+2]))
+                {
+                    offset += 1;
+                    return ConversionError.Encoding;
+                }
+                ucs = code;
+                offset += 3;
+                return ConversionError.None;
+            }
+            if ((buffer[offset] & 0b11111000) == 0b11110000) // if high 5 bits are 11110, 4 bytes
+            {
+                if (offset + 4 > capacity)
+                {
+                    offset += 1;
+                    return ConversionError.Overflow;
+                }
+                code =              (buffer[offset+0] & 0b00000111);
+                code = (code<<6) |  (buffer[offset+1] & 0b00111111); 
+                code = (code<<6) |  (buffer[offset+2] & 0b00111111); 
+                code = (code<<6) |  (buffer[offset+3] & 0b00111111);
+                if (code < (1 << 16) || !IsValidCodePoint(code) || NotTrailer(buffer[offset+1]) || NotTrailer(buffer[offset+2]) || NotTrailer(buffer[offset+3]))
+                {
+                    offset += 1;
+                    return ConversionError.Encoding;
+                }
+                ucs = code;
+                offset += 4;
+                return ConversionError.None;
+            }
+            offset += 1;
+            return ConversionError.Encoding;
+        }
+        public static ConversionError Utf16ToUcs(out int ucs, char* buffer, ref int offset, int capacity)
+        {
+            int code = 0;
+            ucs = ReplacementCharacter;
+            if (offset + 1 > capacity)
+                return ConversionError.Overflow;
+            if (buffer[offset] >= 0xD800 && buffer[offset] <= 0xDBFF)
+            {
+                if (offset + 2 > capacity)
+                {
+                    offset += 1;
+                    return ConversionError.Overflow;
+                }
+                code =               (buffer[offset+0] & 0x03FF);
+                char next = buffer[offset + 1];
+                if (next < 0xDC00 || next > 0xDFFF)
+                {
+                    offset += 1;
+                    return ConversionError.Encoding;
+                }
+                code = (code << 10) | (buffer[offset+1] & 0x03FF);
+                code += 0x10000;
+                ucs = code;
+                offset += 2;
+                return ConversionError.None;
+            }
+            ucs = buffer[offset+0];
+            offset += 1;
+            return ConversionError.None;
+        }
+        public static ConversionError UcsToUtf8(byte* buffer, ref int offset, int capacity, int ucs)
+        {
+            if(!IsValidCodePoint(ucs))
+                return ConversionError.CodePoint;
+            if (offset + 1 > capacity)
+                return ConversionError.Overflow;
+            if (ucs <= 0x7F)
+            {
+                buffer[offset++] = (byte) ucs;
+                return ConversionError.None;
+            }
+            if (ucs <= 0x7FF)
+            {
+                if (offset + 2 > capacity)
+                    return ConversionError.Overflow;
+                buffer[offset++] = (byte)(0xC0 | (ucs >> 6));
+                buffer[offset++] = (byte)(0x80 | ((ucs >> 0) & 0x3F));
+                return ConversionError.None;
+            }
+            if (ucs <= 0xFFFF)
+            {
+                if (offset + 3 > capacity)
+                    return ConversionError.Overflow;
+                buffer[offset++] = (byte)(0xE0 | (ucs >> 12));
+                buffer[offset++] = (byte)(0x80 | ((ucs >> 6) & 0x3F));
+                buffer[offset++] = (byte)(0x80 | ((ucs >> 0) & 0x3F));
+                return ConversionError.None;
+            }
+            if (ucs <= 0x1FFFFF)
+            {
+                if (offset + 4 > capacity)
+                    return ConversionError.Overflow;
+                buffer[offset++] = (byte)(0xF0 | (ucs >> 18));
+                buffer[offset++] = (byte)(0x80 | ((ucs >> 12) & 0x3F));
+                buffer[offset++] = (byte)(0x80 | ((ucs >> 6) & 0x3F));
+                buffer[offset++] = (byte)(0x80 | ((ucs >> 0) & 0x3F));
+                return ConversionError.None;
+            }
+            return ConversionError.Encoding;
+        }
+        public static ConversionError UcsToUtf16(char* buffer, ref int offset, int capacity, int ucs)
+        {
+            if(!IsValidCodePoint(ucs))
+                return ConversionError.CodePoint;
+            if (offset + 1 > capacity)
+                return ConversionError.Overflow;
+            if (ucs >= 0x10000)
+            {
+                if (offset + 2 > capacity)
+                    return ConversionError.Overflow;
+                int code = ucs - 0x10000;
+                if (code >= (1 << 20))
+                    return ConversionError.Encoding;
+                buffer[offset++] = (char)(0xD800 | (code >> 10));
+                buffer[offset++] = (char)(0xDC00 | (code & 0x3FF));
+                return ConversionError.None;
+            }
+            buffer[offset++] = (char)ucs;
+            return ConversionError.None;
+        }
+        public static ConversionError Utf16ToUtf8(char* utf16_buffer, int utf16_length, byte* utf8_buffer, out int utf8_length, int utf8_capacity)
+        {
+            utf8_length = 0;
+            for(var utf16_offset = 0; utf16_offset < utf16_length;)
+            {
+                Utf16ToUcs(out var ucs, utf16_buffer, ref utf16_offset, utf16_length);
+                if (UcsToUtf8(utf8_buffer, ref utf8_length, utf8_capacity, ucs) == ConversionError.Overflow)
+                    return ConversionError.Overflow;
+            }
+            return ConversionError.None;            
+        }
+
+        public static ConversionError Utf8ToUtf16(byte* utf8_buffer, int utf8_length, char* utf16_buffer, out int utf16_length, int utf16_capacity)
+        {
+            utf16_length = 0;
+            for(var utf8_offset = 0; utf8_offset < utf8_length;)
+            {
+                Utf8ToUcs(out var ucs, utf8_buffer, ref utf8_offset, utf8_length);
+                if (UcsToUtf16(utf16_buffer, ref utf16_length, utf16_capacity, ucs) == ConversionError.Overflow)
+                    return ConversionError.Overflow;
+            }
+            return ConversionError.None;
+        }
+        
         public static unsafe int CompareTo(char *a, int aa, char* b, int bb)
         {
             int chars = aa < bb ? aa : bb;

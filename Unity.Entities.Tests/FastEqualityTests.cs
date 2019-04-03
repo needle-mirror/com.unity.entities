@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿#if !UNITY_ZEROPLAYER
+using System.Linq;
 using System.Runtime.InteropServices;
 using NUnit.Framework;
 using Unity.Mathematics;
@@ -231,3 +232,4 @@ namespace Unity.Entities.Tests
         }
     }
 }
+#endif

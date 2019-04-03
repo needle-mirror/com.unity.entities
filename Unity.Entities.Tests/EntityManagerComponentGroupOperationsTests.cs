@@ -78,6 +78,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void AddRemoveAnyComponentWithGroupWorksWith([ValueSource(nameof(GetTestTypes))] ComponentType type)
         {
             var metaChunkGroup = m_Manager.CreateComponentGroup(typeof(ChunkHeader));
@@ -116,6 +117,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void RemoveAnyComponentWithGroupIgnoresChunksThatDontHaveTheComponent([ValueSource(nameof(GetTestTypes))] ComponentType type)
         {
             var metaChunkGroup = m_Manager.CreateComponentGroup(typeof(ChunkHeader));
@@ -159,6 +161,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void AddRemoveComponentWithGroupPreservesChangeVersions()
         {
             m_ManagerDebug.SetGlobalSystemVersion(10);

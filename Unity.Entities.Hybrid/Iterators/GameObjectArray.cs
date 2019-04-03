@@ -10,6 +10,7 @@ namespace Unity.Entities
 {
     public static class ComponentGroupExtensionsForGameObjectArray
     {
+        [Obsolete("GetGameObjectArray has been deprecated. Use ComponentSystem.ForEach or ToTransformArray()[index].gameObject to access entity GameObjects.")]
         public static GameObjectArray GetGameObjectArray(this ComponentGroup group)
         {
             int length = group.CalculateLength();
@@ -22,6 +23,7 @@ namespace Unity.Entities
 
 namespace Unity.Entities
 {
+    [Obsolete("GameObjectArray has been deprecated. Use ComponentSystem.ForEach or ToTransformArray()[index].gameObject to access entity GameObjects.")]
 	public struct GameObjectArray
 	{
 	    ComponentChunkIterator  m_Iterator;
@@ -80,6 +82,7 @@ namespace Unity.Entities
 
     [Preserve]
     [CustomInjectionHook]
+    [Obsolete("GameObjectArray and injection have been deprecated. Use ComponentSystem.ForEach or ToTransformArray()[index].gameObject to access entity GameObjects.")]
     sealed class GameObjectArrayInjectionHook : InjectionHook
     {
         public override Type FieldTypeOfInterest => typeof(GameObjectArray);

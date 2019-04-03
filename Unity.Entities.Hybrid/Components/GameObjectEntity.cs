@@ -49,7 +49,25 @@ namespace Unity.Entities
             Component[] components;
             GetComponents(gameObject, true, out types, out components);
 
-            var archetype = entityManager.CreateArchetype(types);
+            EntityArchetype archetype;
+            try
+            {
+                archetype = entityManager.CreateArchetype(types);
+            }
+            catch (Exception e)
+            {
+                for (int i = 0; i < types.Length; ++i)
+                {
+                    if (Array.IndexOf(types, types[i]) != i)
+                    {
+                        Debug.LogWarning($"GameObject '{gameObject}' has multiple {types[i]} components and cannot be converted, skipping.");
+                        return Entity.Null;
+                    }
+                }
+
+                throw e;
+            }
+
             var entity = CreateEntity(entityManager, archetype, components, types);
 
             return entity;
@@ -76,7 +94,7 @@ namespace Unity.Entities
         }
 
         static void GetComponents(GameObject gameObject, bool includeGameObjectComponents, out ComponentType[] types, out Component[] components)
-        {
+        {            
             components = gameObject.GetComponents<Component>();
 
             var componentCount = 0;

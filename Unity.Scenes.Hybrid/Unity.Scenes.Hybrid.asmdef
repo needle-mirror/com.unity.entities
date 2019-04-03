@@ -4,6 +4,7 @@
         "Unity.Entities",
         "Unity.Entities.Hybrid",
         "Unity.Mathematics",
+        "Unity.Mathematics.Extensions",
         "Unity.Collections",
         "Unity.Transforms"
     ],

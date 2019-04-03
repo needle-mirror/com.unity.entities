@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
 
@@ -29,7 +30,7 @@ public abstract class GameObjectConversionSystem : ComponentSystem
         return m_MappingSystem.CreateAdditionalEntity(component != null ? component.gameObject : null);
     }
     
-    public IEnumerable<Entity> GetEntities(Component component)
+    public EntitiesEnumerator GetEntities(Component component)
     {
         return m_MappingSystem.GetEntities(component != null ? component.gameObject : null);
     }
@@ -44,7 +45,7 @@ public abstract class GameObjectConversionSystem : ComponentSystem
         return m_MappingSystem.CreateAdditionalEntity(gameObject);
     }
     
-    public IEnumerable<Entity> GetEntities(GameObject gameObject)
+    public EntitiesEnumerator GetEntities(GameObject gameObject)
     {
         return m_MappingSystem.GetEntities(gameObject);
     }

@@ -1,47 +1,119 @@
-﻿using System.Collections.Generic;
+﻿#define DETAIL_MARKERS
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using Unity.Profiling;
 using Unity.Transforms;
-using UnityEditor;
 using UnityEngine;
-using UnityEngine.Assertions;
 using UnityEngine.SceneManagement;
+using UnityEngine.Scripting;
 using Hash128 = Unity.Entities.Hash128;
+using ConversionFlags = Unity.Entities.GameObjectConversionUtility.ConversionFlags;
+
+
+
+public struct EntitiesEnumerator : IEnumerable<Entity>, IEnumerator<Entity>
+{
+    Entity[]                         m_Entities;
+    int[]                            m_Next;
+    int m_FirstIndex;
+    int m_CurIndex;
+
+
+    internal EntitiesEnumerator(Entity[] entities, int[] next, int index)
+    {
+        m_Entities = entities;
+        m_Next = next;
+        m_FirstIndex = index;
+        m_CurIndex = -1;
+    }
+
+    public EntitiesEnumerator GetEnumerator()
+    {
+        return this;
+    }
+
+    IEnumerator<Entity> IEnumerable<Entity>.GetEnumerator()
+    {
+        return this;
+    }
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return this;
+    }
+    
+    
+    public bool MoveNext()
+    {
+        if (m_CurIndex == -1)
+            m_CurIndex = m_FirstIndex;
+        else
+            m_CurIndex = m_Next[m_CurIndex];
+
+        return m_CurIndex != -1;
+    }
+
+    public void Reset()
+    {
+        m_CurIndex = -1;
+    }
+
+    public Entity Current
+    {
+        get
+        {
+            return m_Entities[m_CurIndex];
+        }
+    }
+    
+    object IEnumerator.Current => Current;
+
+    public void Dispose()
+    {
+    }
+}
 
 [DisableAutoCreation]
+[Preserve]
 class GameObjectConversionMappingSystem : ComponentSystem
 {
-    Dictionary<GameObject, List<Entity>>  m_GameObjectToEntity = new Dictionary<GameObject, List<Entity>>();
+    NativeHashMap<int, int>       m_GameObjectToEntity = new NativeHashMap<int, int>(100 * 1000, Allocator.Persistent);
+
+    int                              m_EntitiesCount;
+    Entity[]                         m_Entities;
+    int[]                            m_Next;
     
     HashSet<GameObject>                   m_ReferencedPrefabs = new HashSet<GameObject>();
     HashSet<GameObject>                   m_LinkedEntityGroup = new HashSet<GameObject>();
     
     World                                 m_DstWorld;
     EntityManager                         m_DstManager;
-    bool                                  m_AddEntityGUID;
-    Hash128                m_SceneGUID;
+    ConversionFlags                       m_ConversionFlags;
+    Hash128                               m_SceneGUID;
     
     public World DstWorld { get { return m_DstWorld; } }
-    public bool AddEntityGUID { get { return m_AddEntityGUID; } }
+    public bool AddEntityGUID { get { return (m_ConversionFlags & ConversionFlags.AddEntityGUID) != 0; } }
+    public bool ForceStaticOptimization { get { return (m_ConversionFlags & ConversionFlags.ForceStaticOptimization) != 0; } }
+    public bool AssignName { get { return (m_ConversionFlags & ConversionFlags.AssignName) != 0; } }
 
-    public GameObjectConversionMappingSystem(World DstWorld, Hash128 sceneGUID, bool addEntityGuid)
+    public GameObjectConversionMappingSystem(World DstWorld, Hash128 sceneGUID, ConversionFlags conversionFlags)
     {
         m_DstWorld = DstWorld;
         m_SceneGUID = sceneGUID;
-        m_AddEntityGUID = addEntityGuid;
+        m_ConversionFlags = conversionFlags;
         m_DstManager = DstWorld.GetOrCreateManager<EntityManager>();
+
+        m_Entities = new Entity[128];
+        m_Next = new int[128];
+        m_EntitiesCount = 0;
     }
 
-    List<Entity> GetList(GameObject go)
+    protected override void OnDestroyManager()
     {
-        List<Entity> list;
-        if (!m_GameObjectToEntity.TryGetValue(go, out list))
-            m_GameObjectToEntity[go] = list = new List<Entity>();
-
-        return list;
-    }
-   
+        m_GameObjectToEntity.Dispose();
+    }   
     unsafe public static EntityGuid GetEntityGuid(GameObject go, int index)
     {
 #if false
@@ -63,76 +135,151 @@ class GameObjectConversionMappingSystem : ComponentSystem
 #endif
     }
 
+    #if DETAIL_MARKERS
+    ProfilerMarker m_CreateEntity = new ProfilerMarker("GameObjectConversion.CreateEntity");
+    ProfilerMarker m_GetPrimaryEntity = new ProfilerMarker("GameObjectConversion.GetPrimaryEntity");
+    ProfilerMarker m_CreateAdditional = new ProfilerMarker("GameObjectConversionCreateAdditionalEntity");
+    #endif
+
     Entity CreateEntity(GameObject go, int index)
     {
-        Entity entity;
-
-        if (m_AddEntityGUID)
+        #if DETAIL_MARKERS
+        using (m_CreateEntity.Auto())
+        #endif            
         {
-            entity = m_DstManager.CreateEntity(ComponentType.ReadWrite<EntityGuid>());
-            var entityGuid = GetEntityGuid(go, index);
-            m_DstManager.SetComponentData(entity, entityGuid);
-        }
-        else
-        {
-            entity = m_DstManager.CreateEntity();
-        }
+            Entity entity;
 
-        var section = go.GetComponentInParent<SceneSectionComponent>();
-        if (m_SceneGUID != default(Hash128))
-            m_DstManager.AddSharedComponentData(entity, new SceneSection { SceneGUID = m_SceneGUID, Section = section != null ? section.SectionIndex : 0});
-        
+            if (AddEntityGUID)
+            {
+                entity = m_DstManager.CreateEntity(ComponentType.ReadWrite<EntityGuid>());
+                var entityGuid = GetEntityGuid(go, index);
+                m_DstManager.SetComponentData(entity, entityGuid);
+            }
+            else
+            {
+                entity = m_DstManager.CreateEntity();
+            }
 
-        if (go.GetComponentInParent<StaticOptimizeEntity>() != null)
-            m_DstManager.AddComponentData(entity, new Static());
+
+            var section = go.GetComponentInParent<SceneSectionComponent>();
+            if (m_SceneGUID != default(Hash128))
+            {
+                m_DstManager.AddSharedComponentData(entity, new SceneSection { SceneGUID = m_SceneGUID, Section = section != null ? section.SectionIndex : 0});
+            }
+
+            if (ForceStaticOptimization || go.GetComponentInParent<StaticOptimizeEntity>() != null)
+                m_DstManager.AddComponentData(entity, new Static());
 
 #if UNITY_EDITOR
-        m_DstManager.SetName(entity, go.name);
+            if (AssignName)
+                m_DstManager.SetName(entity, go.name);
 #endif
 
 
-        return entity;
+            return entity;
+        }
     }
 
     public Entity GetPrimaryEntity(GameObject go)
     {
-        if (go == null)
-            return new Entity();
-        
-        var list = GetList(go);
-        if (list.Count == 0)
+        #if DETAIL_MARKERS
+        using (m_GetPrimaryEntity.Auto())
+        #endif
         {
-            var entity = CreateEntity(go, list.Count);
-            #if UNITY_EDITOR
-            m_DstManager.SetName(entity, go.name);
-            #endif
+            if (go == null)
+                return new Entity();
 
-            list.Add(entity);
-            return entity;
+            var instanceID = go.GetInstanceID();
+            int index;
+            if (m_GameObjectToEntity.TryGetValue(instanceID, out index))
+            {
+                return m_Entities[index];
+            }
+            else
+            {
+                var entity = CreateEntity(go, 0);
+
+                if (!m_GameObjectToEntity.TryAdd(instanceID, m_EntitiesCount))
+                    throw  new InvalidOperationException();
+                AddFirst(entity);
+
+                return entity;
+            }
         }
-        else
+    }
+    int Count(int index)
+    {
+        int count = 1;
+        while ((index = m_Next[index]) != -1)
+            count++;
+
+        return count;
+    }
+    
+    void AddFirst(Entity entity)
+    {
+        if (m_EntitiesCount == m_Entities.Length)
         {
-            return list[0];
+            Array.Resize(ref m_Entities, m_EntitiesCount * 2);
+            Array.Resize(ref m_Next, m_EntitiesCount * 2);
         }
+            
+        m_Entities[m_EntitiesCount] = entity;
+        m_Next[m_EntitiesCount] = -1;
+        m_EntitiesCount++;
+    }
+    
+    void AddAdditional(int index, Entity entity)
+    {
+        if (m_EntitiesCount == m_Entities.Length)
+        {
+            Array.Resize(ref m_Entities, m_EntitiesCount * 2);
+            Array.Resize(ref m_Next, m_EntitiesCount * 2);
+        }
+
+        int lastIndex = index;
+        while ((index = m_Next[index]) != -1)
+            lastIndex = index;
+
+        m_Entities[m_EntitiesCount] = entity;
+        m_Next[m_EntitiesCount] = -1;
+        m_Next[lastIndex] = m_EntitiesCount;
+        m_EntitiesCount++;
     }
     
     public Entity CreateAdditionalEntity(GameObject go)
     {
-        if (go == null)
-            throw new System.ArgumentException("CreateAdditionalEntity must be called with a valid game object");
+        #if DETAIL_MARKERS
+        using (m_CreateAdditional.Auto())
+        #endif
+        {
+            if (go == null)
+                throw new System.ArgumentException("CreateAdditionalEntity must be called with a valid game object");
 
-        var list = GetList(go);
-        if (list.Count == 0)
-            throw new System.ArgumentException("CreateAdditionalEntity can't be called before GetPrimaryEntity is called for that game object");
+            var instanceID = go.GetInstanceID();
+            int index;
+            if (!m_GameObjectToEntity.TryGetValue(instanceID, out index))
+                throw new System.ArgumentException("CreateAdditionalEntity can't be called before GetPrimaryEntity is called for that game object");
 
-        var entity = CreateEntity(go, list.Count);
-        list.Add(entity);
-        return entity;
+            int count = Count(index);
+            var entity = CreateEntity(go, count);
+            AddAdditional(index, entity);
+        
+            return entity;
+        }
     }
-    
-    public IEnumerable<Entity> GetEntities(GameObject go)
+
+    public EntitiesEnumerator GetEntities(GameObject go)
     {
-        return GetList(go);
+        var instanceID = go != null ? go.GetInstanceID() : 0;
+        int index;
+        if (go != null)
+        {
+            if (m_GameObjectToEntity.TryGetValue(instanceID, out index))
+                return new EntitiesEnumerator(m_Entities, m_Next, index);
+        }
+
+        return new EntitiesEnumerator(m_Entities, m_Next, -1);
     }
 
     public void AddGameObjectOrPrefabAsGroup(GameObject prefab)
@@ -170,15 +317,10 @@ class GameObjectConversionMappingSystem : ComponentSystem
     internal void AddPrefabComponentDataTag()
     {
         // Add prefab tag to all entities that were converted from a prefab game object source
-        foreach (var i in m_GameObjectToEntity)
+        foreach (var prefab in m_ReferencedPrefabs)
         {
-            if (m_ReferencedPrefabs.Contains(i.Key))
-            {
-                foreach (var e in i.Value)
-                {
-                    m_DstManager.AddComponentData(e, new Prefab());
-                }
-            }
+            foreach(var e in GetEntities(prefab))
+                m_DstManager.AddComponentData(e, new Prefab());
         }
 
         // Create LinkedEntityGroup for each root prefab entity
@@ -192,11 +334,7 @@ class GameObjectConversionMappingSystem : ComponentSystem
 
             foreach (Transform t in allChildren)
             {
-                List<Entity> entities;
-                if (!m_GameObjectToEntity.TryGetValue(t.gameObject, out entities))
-                    continue;
-
-                foreach (var e in entities)
+                foreach (var e in GetEntities(t.gameObject))
                     buffer.Add(e);                    
             }
         }
@@ -207,9 +345,10 @@ class GameObjectConversionMappingSystem : ComponentSystem
         GameObjectEntity.AddToEntityManager(gameObjectEntityManager, transform.gameObject);
         if (gameObjects != null)
             gameObjects.Add(transform.gameObject);
-        
-        foreach (Transform child in transform)
-            CreateEntitiesForGameObjectsRecurse(child, gameObjectEntityManager, gameObjects);
+
+        int childCount = transform.childCount;
+        for (int i = 0; i != childCount;i++)
+            CreateEntitiesForGameObjectsRecurse(transform.GetChild(i), gameObjectEntityManager, gameObjects);
     }
     
 

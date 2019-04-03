@@ -7,6 +7,8 @@ namespace Unity.Entities.StaticTypeRegistry
 #pragma warning disable 0649
         static public readonly Type[] Types;
         static public readonly Type[] Systems;
+        static public readonly bool[] SystemIsGroup;
+        static public readonly string[] SystemName;    // Debugging. And a reason to have a TinyReflectionSystem
         static public readonly int[] EntityOffsets;
         // This field will be generated in the replacement assembly
         //static public readonly TypeManager.TypeInfo[] TypeInfos;

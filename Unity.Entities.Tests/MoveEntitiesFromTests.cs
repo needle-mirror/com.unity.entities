@@ -6,6 +6,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.Tests
 {
+    [TinyFixme] // MultiWorlds
     class MoveEntitiesFromTests : ECSTestsFixture
     {
         [Test]
@@ -53,6 +54,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void MoveEntitiesWithSharedComponentData()
         {
             var creationWorld = new World("CreationWorld");
@@ -192,7 +194,7 @@ namespace Unity.Entities.Tests
                 {
                     Assert.AreEqual(shared.value, testDataArray[i].value % 5);
                 }
-                
+
                 for (int j = 0;j != testDataArray.Length; ++j)
                     Assert.AreEqual(shared.value, 2);
             }
@@ -204,6 +206,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         public void MoveEntitiesWithComponentGroupMovesChunkComponents()
         {
             var creationWorld = new World("CreationWorld");
@@ -406,6 +409,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TinyFixme] // ISharedComponentData
         [Ignore("This behaviour is currently not intended. It prevents streaming efficiently.")]
         public void MoveEntitiesPatchesEntityReferencesInSharedComponentData()
         {
@@ -443,17 +447,17 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestSharedCompEntity));
             Assert.AreEqual(numberOfEntitiesPerManager * 2, group.CalculateLength());
             Assert.AreEqual(0, sourceManager.CreateComponentGroup(typeof(EcsTestData)).CalculateLength());
-            
+
             var testDataArray = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             var entities = group.ToEntityArray(Allocator.TempJob);
 
             for (int i = 0; i != numberOfEntitiesPerManager; i++)
-                Assert.AreEqual(testDataArray[i].value % frequency, 
+                Assert.AreEqual(testDataArray[i].value % frequency,
                     m_Manager.GetComponentData<EcsTestData>(m_Manager.GetSharedComponentData<EcsTestSharedCompEntity>(entities[i]).value).value);
             for (int i = numberOfEntitiesPerManager; i != numberOfEntitiesPerManager * 2; i++)
-                Assert.AreEqual(numberOfEntitiesPerManager + testDataArray[i].value % frequency, 
+                Assert.AreEqual(numberOfEntitiesPerManager + testDataArray[i].value % frequency,
                     m_Manager.GetComponentData<EcsTestData>(m_Manager.GetSharedComponentData<EcsTestSharedCompEntity>(entities[i]).value).value);
-            
+
             testDataArray.Dispose();
             entities.Dispose();
             targetEntities.Dispose();
@@ -501,6 +505,42 @@ namespace Unity.Entities.Tests
 
             references.Dispose();
             movedEntities.Dispose();
+            entities.Dispose();
+            creationWorld.Dispose();
+        }
+
+        [Test]
+        public unsafe void MoveEntitiesArchetypeChunkCountMatches()
+        {
+            var creationWorld = new World("CreationWorld");
+            var creationManager = creationWorld.GetOrCreateManager<EntityManager>();
+
+            var archetype = creationManager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+
+            var entities = new NativeArray<Entity>(10000, Allocator.Temp);
+            creationManager.CreateEntity(archetype, entities);
+            for (int i = 0; i != entities.Length; i++)
+                creationManager.SetComponentData(entities[i], new EcsTestData(i));
+
+            m_Manager.Debug.CheckInternalConsistency();
+            creationManager.Debug.CheckInternalConsistency();
+
+            var chunkData = archetype.Archetype->Chunks;
+            int sizeOfBuffer = sizeof(int) * chunkData.Count;
+            var chunkDataCopy =
+                (int*)UnsafeUtility.Malloc(sizeOfBuffer, 64, Allocator.Temp);
+            UnsafeUtility.MemCpy(chunkDataCopy, chunkData.GetChunkEntityCountArray(), sizeOfBuffer);
+
+            m_Manager.MoveEntitiesFrom(creationManager);
+
+            var archetypeAfter = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+            var chunkDataAfter = archetypeAfter.Archetype->Chunks;
+
+            Assert.IsTrue(UnsafeUtility.MemCmp(chunkDataCopy, chunkDataAfter.GetChunkEntityCountArray(), sizeOfBuffer) == 0);
+
+            m_Manager.Debug.CheckInternalConsistency();
+            creationManager.Debug.CheckInternalConsistency();
+
             entities.Dispose();
             creationWorld.Dispose();
         }

@@ -113,7 +113,7 @@ namespace Unity.Entities
 
         public static void ConvertHierarchy(GameObject root)
         {
-            var gameObjectWorld = GameObjectConversionUtility.CreateConversionWorld(World.Active, default(Hash128), false);
+            var gameObjectWorld = GameObjectConversionUtility.CreateConversionWorld(World.Active, default(Hash128), 0);
             
             AddRecurse(gameObjectWorld.EntityManager, root.transform);
             
@@ -129,7 +129,7 @@ namespace Unity.Entities
         
         public static void ConvertAndInjectOriginal(GameObject root)
         {
-            var gameObjectWorld = GameObjectConversionUtility.CreateConversionWorld(World.Active, default(Hash128), false);
+            var gameObjectWorld = GameObjectConversionUtility.CreateConversionWorld(World.Active, default(Hash128), 0);
             
             GameObjectEntity.AddToEntityManager(gameObjectWorld.EntityManager, root);
             
