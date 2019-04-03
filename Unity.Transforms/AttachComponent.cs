@@ -1,4 +1,5 @@
-﻿using Unity.Entities;
+﻿using System;
+using Unity.Entities;
 
 namespace Unity.Transforms
 {
@@ -10,6 +11,7 @@ namespace Unity.Transforms
     /// To detach: Remove Attached component from child.
     /// To change parent: Create new entity with Attach component defining new relationship.
     /// </summary>
+    [Serializable]
     public struct Attach : IComponentData
     {
         public Entity Parent;

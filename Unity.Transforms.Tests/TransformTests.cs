@@ -28,7 +28,7 @@ namespace Unity.Entities.Tests
             Debug.Log($"{a.c2.x:0.000} {a.c2.y:0.000} {a.c2.z:0.000} {a.c2.w:0.000}");
             Debug.Log($"{a.c3.x:0.000} {a.c3.y:0.000} {a.c3.z:0.000} {a.c3.w:0.000}");
         }
-            
+
         [Test]
         public void TRS_ChildPosition()
         {
@@ -37,7 +37,7 @@ namespace Unity.Entities.Tests
             var attach = m_Manager.CreateEntity(typeof(Attach));
 
             m_Manager.SetComponentData(parent, new Position {Value = new float3(0, 2, 0)});
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.lookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
+            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
             m_Manager.SetComponentData(child, new Position {Value = new float3(0, 0, 1)});
             m_Manager.SetComponentData(attach, new Attach {Parent = parent, Child = child});
 
@@ -57,7 +57,7 @@ namespace Unity.Entities.Tests
             var attach = m_Manager.CreateEntity(typeof(Attach));
 
             m_Manager.SetComponentData(parent, new Position {Value = new float3(0, 2, 0)});
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.lookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
+            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
             m_Manager.SetComponentData(child, new Position {Value = new float3(0, 0, 1)});
             m_Manager.SetComponentData(attach, new Attach {Parent = parent, Child = child});
 
@@ -84,13 +84,13 @@ namespace Unity.Entities.Tests
             var attach = m_Manager.CreateEntity(typeof(Attach));
 
             m_Manager.SetComponentData(parent, new Position {Value = new float3(0, 2, 0)});
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.lookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
+            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
             m_Manager.SetComponentData(child, new Position {Value = new float3(0, 0, 1)});
             m_Manager.SetComponentData(attach, new Attach {Parent = parent, Child = child});
 
             World.GetOrCreateManager<EndFrameTransformSystem>().Update();
 
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.lookRotation(new float3(0.0f, 1.0f, 0.0f), math.up())});
+            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(0.0f, 1.0f, 0.0f), math.up())});
 
             World.GetOrCreateManager<EndFrameTransformSystem>().Update();
 
@@ -118,13 +118,13 @@ namespace Unity.Entities.Tests
             var attach = m_Manager.CreateEntity(typeof(Attach));
 
             m_Manager.SetComponentData(parent, new Position {Value = new float3(0, 2, 0)});
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.lookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
+            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
             m_Manager.SetComponentData(child, new Position {Value = new float3(0, 0, 1)});
             m_Manager.SetComponentData(attach, new Attach {Parent = parent, Child = child});
 
             World.GetOrCreateManager<EndFrameTransformSystem>().Update();
 
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.lookRotation(new float3(0.0f, 1.0f, 0.0f), math.up())});
+            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(0.0f, 1.0f, 0.0f), math.up())});
 
             World.GetOrCreateManager<EndFrameTransformSystem>().Update();
 
@@ -144,7 +144,7 @@ namespace Unity.Entities.Tests
             var attach2 = m_Manager.CreateEntity(typeof(Attach));
 
             m_Manager.SetComponentData(parent, new Position {Value = new float3(0, 2, 0)});
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.lookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
+            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
             m_Manager.SetComponentData(parent2, new Position {Value = new float3(0, 0, 1)});
             m_Manager.SetComponentData(child, new Position {Value = new float3(0, 0, 1)});
 
@@ -175,7 +175,7 @@ namespace Unity.Entities.Tests
             var attach2 = m_Manager.CreateEntity(typeof(Attach));
 
             m_Manager.SetComponentData(parent, new Position {Value = new float3(0, 2, 0)});
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.lookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
+            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
             m_Manager.SetComponentData(parent2, new Position {Value = new float3(0, 0, 1)});
             m_Manager.SetComponentData(child, new Position {Value = new float3(0, 0, 1)});
 
@@ -201,9 +201,9 @@ namespace Unity.Entities.Tests
             var pi = 3.14159265359f;
             var rotations = new quaternion[]
             {
-                quaternion.eulerYZX(new float3(0.125f * pi, 0.0f, 0.0f)),
-                quaternion.eulerYZX(new float3(0.5f * pi, 0.0f, 0.0f)),
-                quaternion.eulerYZX(new float3(pi, 0.0f, 0.0f)),
+                quaternion.EulerYZX(new float3(0.125f * pi, 0.0f, 0.0f)),
+                quaternion.EulerYZX(new float3(0.5f * pi, 0.0f, 0.0f)),
+                quaternion.EulerYZX(new float3(pi, 0.0f, 0.0f)),
             };
             var translations = new float3[]
             {

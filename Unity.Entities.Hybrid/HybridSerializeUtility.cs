@@ -17,7 +17,7 @@ namespace Unity.Entities.Serialization
         {
             int sharedComponentCount = DeserializeSharedComponents(manager, sharedData, "");
             var transaction = manager.BeginExclusiveEntityTransaction();
-            SerializeUtility.DeserializeWorld(transaction, reader);
+            SerializeUtility.DeserializeWorld(transaction, reader, sharedComponentCount);
             ReleaseSharedComponents(transaction, sharedComponentCount);
             manager.EndExclusiveEntityTransaction();
         }
@@ -42,7 +42,7 @@ namespace Unity.Entities.Serialization
 
             for (int i = 0; i != sharedComponentIndices.Length; i++)
             {
-                var sharedData = manager.m_SharedComponentManager.GetSharedComponentDataBoxed(sharedComponentIndices[i]);
+                var sharedData = manager.m_SharedComponentManager.GetSharedComponentDataNonDefaultBoxed(sharedComponentIndices[i]);
 
                 var typeName = sharedData.GetType().FullName + "Component";
                 var componentType = sharedData.GetType().Assembly.GetType(typeName);
@@ -77,7 +77,7 @@ namespace Unity.Entities.Serialization
                 if (index != i + 1)
                 {
                     var newComponent = sharedData[i];
-                    var existingComponent = manager.m_SharedComponentManager.GetSharedComponentDataBoxed(index);
+                    var existingComponent = manager.m_SharedComponentManager.GetSharedComponentDataNonDefaultBoxed(index);
                     throw new System.ArgumentException($"Shared Component {i} was inserted but got index {index} at load time than at build time when loading {debugSceneName}..\n{newComponent} vs {existingComponent}");
                 }
 #endif

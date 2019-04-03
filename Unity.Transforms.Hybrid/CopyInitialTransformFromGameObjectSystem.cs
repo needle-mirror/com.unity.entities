@@ -8,6 +8,7 @@ using UnityEngine.Jobs;
 namespace Unity.Transforms
 {
     [UpdateBefore(typeof(EndFrameTransformSystem))]
+    [UpdateBefore(typeof(CopyTransformToGameObjectSystem))]
     public class CopyInitialTransformFromGameObjectSystem : JobComponentSystem
     {
         [Inject] ComponentDataFromEntity<Position> m_Positions;
@@ -34,7 +35,7 @@ namespace Unity.Transforms
             }
         }
 
-        // [BurstCompile]
+        [BurstCompile]
         struct CopyTransforms : IJobParallelFor
         {
             [NativeDisableParallelForRestriction] public ComponentDataFromEntity<Position> positions;
@@ -78,7 +79,7 @@ namespace Unity.Transforms
 
         ComponentGroup m_InitialTransformGroup;
 
-        protected override void OnCreateManager(int capacity)
+        protected override void OnCreateManager()
         {
             m_InitialTransformGroup = GetComponentGroup(ComponentType.ReadOnly(typeof(CopyInitialTransformFromGameObject)),typeof(UnityEngine.Transform));
         }

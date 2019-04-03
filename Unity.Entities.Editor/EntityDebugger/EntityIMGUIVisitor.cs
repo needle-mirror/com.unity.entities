@@ -49,6 +49,15 @@ namespace Unity.Entities.Editor
             }
         }
 
+        public delegate void EntityDoubleClick(Entity entity);
+
+        private EntityDoubleClick m_entityDoubleClickCallback;
+
+        public EntityIMGUIVisitor(EntityDoubleClick entityDoubleClick)
+        {
+            m_entityDoubleClickCallback = entityDoubleClick;
+        }
+
         public HashSet<Type> SupportedPrimitiveTypes()
         {
             return _primitiveTypes;
@@ -101,7 +110,7 @@ namespace Unity.Entities.Editor
 
             EditorGUI.indentLevel++;
 
-            return ShowContainerFoldoutIfNecessary<TValue>(displayName);
+            return ShowContainerFoldoutIfNecessary<TContainer, TValue>(displayName, context);
         }
 
         public override void EndContainer<TContainer, TValue>(TContainer container, VisitContext<TValue> context)
@@ -135,12 +144,95 @@ namespace Unity.Entities.Editor
             return string.Empty;
         }
 
-        private bool ShowContainerFoldoutIfNecessary<TValue>(string displayName)
+        private void RenderBufferData()
+        {
+
+        }
+
+        //
+        private static readonly string s_EntityIdFieldName = "Index";
+        private static readonly string s_EntityVersionFieldName = "Version";
+        private GUIStyle m_EntityStyle;
+
+        private void RenderEntityView<TValue>(VisitContext<TValue> context)
+            where TValue : IPropertyContainer
+        {
+            if (m_EntityStyle == null)
+            {
+                m_EntityStyle = new GUIStyle(EditorStyles.label);
+                m_EntityStyle.normal.textColor = new Color(0.2f, 0.2f, 0.2f);
+                m_EntityStyle.onHover.textColor = new Color(0.0f, 0.7f, 0.7f);
+            }
+
+            // @TODO register a TypeConverter
+
+            string index = string.Empty;
+            var f = context.Value?.PropertyBag?.FindProperty(s_EntityIdFieldName);
+            if (f != null)
+            {
+                index = (f as IValueProperty).GetObjectValue(context.Value).ToString();
+            }
+
+            string version = string.Empty;
+            f = context.Value?.PropertyBag?.FindProperty(s_EntityVersionFieldName);
+            if (f != null)
+            {
+                version = (f as IValueProperty).GetObjectValue(context.Value).ToString();
+            }
+
+            {
+                GUI.enabled = true;
+
+                Rect pos = EditorGUILayout.GetControlRect();
+                EditorGUI.LabelField(
+                    pos,
+                    string.Format("Entity - Index: {0}, Version: {1}", index, version),
+                    m_EntityStyle);
+
+                if (Event.current.type == EventType.MouseDown && pos.Contains(Event.current.mousePosition))
+                {
+                    if (Event.current.clickCount == 2)
+                    {
+                        Event.current.Use();
+                        m_entityDoubleClickCallback?.Invoke(
+                            new Entity { Index = int.Parse(index), Version = int.Parse(version)});
+                    }
+                }
+
+                GUI.enabled = false;
+            }
+        }
+
+        private bool RenderPropertyContainerEditorNode()
+        {
+            return false;
+        }
+
+        private bool ShowContainerFoldoutIfNecessary<TContainer, TValue>(string displayName, VisitContext<TValue> context)
+            where TContainer : IPropertyContainer
+            where TValue : IPropertyContainer
         {
             var t = typeof(TValue);
 
             if (typeof(IPropertyContainer).IsAssignableFrom(t))
             {
+                if (displayName == typeof(Entity).Name)
+                {
+                    // special treatment for Entities
+                    // To allow clickable behavior
+
+                    // @TODO improve the visitcontext environment for better type coersion
+                    RenderEntityView(new VisitContext<IPropertyContainer>
+                    {
+                        Property = context.Property,
+                        Value = context.Value as IPropertyContainer,
+                        Index = context.Index,
+                    }
+                    );
+
+                    return false;
+                }
+
                 ComponentState state;
                 if (!_states.ContainsKey(_currentPath.ToString()))
                 {
@@ -154,6 +246,13 @@ namespace Unity.Entities.Editor
                     new GUIStyle(EditorStyles.foldout) { fontStyle = FontStyle.Bold }
                 );
 
+                // @TODO make sure that we dont rely on strings
+                if (typeof(UnityEngine.Object).IsAssignableFrom(t))
+                {
+                    // We have a plane object, render the header as is
+
+                }
+
                 return state.Showing;
             }
             return true;
@@ -165,13 +264,26 @@ namespace Unity.Entities.Editor
 
             _currentPath.Push(Property.Name, context.Index);
 
-            var displayName = GetContainerDisplayName(context);
+            var displayName = string.Empty;
+
+            // @TODO Fix ReadOnlyComponentsProperty that treats entity components as list containers
+            //       It messes up a potential generic list visitor here.
+            if (Property is BufferListProxyProperty)
+            {
+                displayName = string.Format("Element {0}", context.Index);
+            }
+            else
+            {
+                displayName = GetContainerDisplayName(context);
+            }
+
+            // Bail out for empty display names, dont show the foldout
             if (string.IsNullOrEmpty(displayName))
                 return true;
 
             EditorGUI.indentLevel++;
 
-            return ShowContainerFoldoutIfNecessary<TValue>(displayName);
+            return ShowContainerFoldoutIfNecessary<TContainer, TValue>(displayName, context);
         }
 
         public override void EndContainer<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
@@ -189,12 +301,34 @@ namespace Unity.Entities.Editor
         public override bool BeginCollection<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
         {
             VisitSetup(ref container, ref context);
-            return true;
+
+            _currentPath.Push(Property.Name, context.Index);
+
+            EditorGUI.indentLevel++;
+
+            //
+            ComponentState state;
+            if (!_states.ContainsKey(_currentPath.ToString()))
+            {
+                _states[_currentPath.ToString()] = new ComponentState();
+            }
+            state = _states[_currentPath.ToString()];
+
+            state.Showing = EditorGUILayout.Foldout(
+                state.Showing,
+                Property.Name,
+                new GUIStyle(EditorStyles.foldout) { fontStyle = FontStyle.Bold }
+            );
+
+            return state.Showing;
         }
 
         public override void EndCollection<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
         {
             VisitSetup(ref container, ref context);
+            _currentPath.Pop();
+
+            EditorGUI.indentLevel--;
         }
 
         void ICustomVisit<quaternion>.CustomVisit(quaternion q)

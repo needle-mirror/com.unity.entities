@@ -7,7 +7,7 @@ namespace Unity.Entities.Editor
     [CustomEditor(typeof(ComponentDataWrapperBase), true), CanEditMultipleObjects]
     public class ComponentDataWrapperBaseEditor : UnityEditor.Editor
     {
-        private string m_SerializableError;
+        string m_SerializableError;
 
         protected virtual void OnEnable()
         {
@@ -23,7 +23,11 @@ namespace Unity.Entities.Editor
                 if (field != null)
                     break;
             }
-            if (field != null && !Attribute.IsDefined(field, typeof(SerializableAttribute)))
+            if (
+                field != null
+                && !Attribute.IsDefined(field, typeof(SerializableAttribute))
+                && field.FieldType.GetFields(BindingFlags.Public | BindingFlags.Instance).Length > 0
+            )
             {
                 m_SerializableError = string.Format(
                     L10n.Tr("Component type {0} is not marked with {1}"), field.FieldType, typeof(SerializableAttribute)

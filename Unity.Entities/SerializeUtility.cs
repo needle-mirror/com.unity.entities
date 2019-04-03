@@ -22,14 +22,13 @@ namespace Unity.Entities.Serialization
 
         public static int CurrentFileFormatVersion = 6;
 
-        public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader)
+        public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, int numSharedComponents)
         {
             if (manager.ArchetypeManager.CountEntities() != 0)
             {
                 throw new ArgumentException(
                     $"DeserializeWorld can only be used on completely empty EntityManager. Please create a new empty World and use EntityManager.MoveEntitiesFrom to move the loaded entities into the destination world instead.");
             }
-            
             int storedVersion = reader.ReadInt();
             if (storedVersion != CurrentFileFormatVersion)
             {
@@ -38,7 +37,8 @@ namespace Unity.Entities.Serialization
             }
 
             var types = ReadTypeArray(reader);
-            var archetypes = ReadArchetypes(reader, types, manager, out var totalEntityCount);
+            int totalEntityCount;
+            var archetypes = ReadArchetypes(reader, types, manager, out totalEntityCount);
             manager.AllocateConsecutiveEntitiesForLoading(totalEntityCount);
 
             int totalChunkCount = reader.ReadInt();
@@ -52,6 +52,18 @@ namespace Unity.Entities.Serialization
                 // Fixup the pointer to the shared component values
                 // todo: more generic way of fixing up pointers?
                 chunk->SharedComponentValueArray = (int*)((byte*)(chunk) + Chunk.GetSharedComponentOffset(chunk->Archetype->NumSharedComponents));
+
+                var numSharedComponentsInArchetype = chunk->Archetype->NumSharedComponents;
+                for (int j = 0; j < numSharedComponentsInArchetype; ++j)
+                {
+                    // The shared component 0 is not part of the array, so an index equal to the array size is valid.
+                    if (chunk->SharedComponentValueArray[j] > numSharedComponents)
+                    {
+                        throw new ArgumentException(
+                            $"Archetype uses shared component at index {chunk->SharedComponentValueArray[j]} but only {numSharedComponents} are available, check if the shared scene has been properly loaded.");
+                    }
+                }
+
                 chunk->ChangeVersion = (uint*) ((byte*) chunk +
                                                 Chunk.GetChangedComponentOffset(chunk->Archetype->TypesCount,
                                                     chunk->Archetype->NumSharedComponents));
@@ -196,7 +208,9 @@ namespace Unity.Entities.Serialization
             writer.Write(CurrentFileFormatVersion);
             var archetypeManager = entityManager.ArchetypeManager;
 
-            GetAllArchetypes(archetypeManager, out var archetypeToIndex, out var archetypeArray);
+            Dictionary<EntityArchetype, int> archetypeToIndex;
+            EntityArchetype[] archetypeArray;
+            GetAllArchetypes(archetypeManager, out archetypeToIndex, out archetypeArray);
 
             var typeindices = new HashSet<int>();
             foreach (var archetype in archetypeArray)

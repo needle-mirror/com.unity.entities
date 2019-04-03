@@ -185,7 +185,8 @@ namespace Unity.Entities.Editor
                     foreach (var child in group.subSystemList)
                     {
                         var executionDelegate = child.updateDelegate;
-                        if (executionDelegate != null && executionDelegate.Target is ScriptBehaviourUpdateOrder.DummyDelagateWrapper dummy)
+                        ScriptBehaviourUpdateOrder.DummyDelagateWrapper dummy;
+                        if (executionDelegate != null && (dummy = executionDelegate.Target as ScriptBehaviourUpdateOrder.DummyDelagateWrapper ) != null)
                         {
                             var system = dummy.Manager;
                             if (getWorldSelection() == null)

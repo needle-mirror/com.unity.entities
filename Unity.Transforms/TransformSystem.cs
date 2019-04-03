@@ -56,15 +56,15 @@ namespace Unity.Transforms
     public class EndFrameTransformSystem : TransformSystem
     {
     }
-        
+
     public abstract class TransformSystem : JobComponentSystem
     {
         uint LastSystemVersion = 0;
-        
+
         // Internally tracked state of Parent->Child relationships.
         // Child->Parent relationship stored in Parent component.
         NativeMultiHashMap<Entity, Entity> ParentToChildTree;
-        
+
         EntityArchetypeQuery NewRootQuery;
         EntityArchetypeQuery AttachQuery;
         EntityArchetypeQuery DetachQuery;
@@ -76,7 +76,7 @@ namespace Unity.Transforms
         EntityArchetypeQuery InnerTreeLocalToWorldQuery;
         EntityArchetypeQuery LeafLocalToWorldQuery;
         EntityArchetypeQuery DepthQuery;
-        
+
         NativeArray<ArchetypeChunk> NewRootChunks;
         NativeArray<ArchetypeChunk> AttachChunks;
         NativeArray<ArchetypeChunk> DetachChunks;
@@ -105,12 +105,12 @@ namespace Unity.Transforms
         ArchetypeChunkComponentType<PendingFrozen> PendingFrozenTypeRO;
         ArchetypeChunkSharedComponentType<Depth> DepthTypeRO;
 
-        protected override void OnCreateManager(int capacity)
+        protected override void OnCreateManager()
         {
             ParentToChildTree = new NativeMultiHashMap<Entity, Entity>(1024, Allocator.Persistent);
             GatherQueries();
         }
-        
+
         protected override void OnDestroyManager()
         {
             ParentToChildTree.Dispose();
@@ -171,7 +171,7 @@ namespace Unity.Transforms
                     entityCommandBuffer.AddComponent(entity, new LocalToWorld {Value = float4x4.identity});
                 }
             }
-            
+
             NewRootChunks.Dispose();
         }
 
@@ -226,7 +226,7 @@ namespace Unity.Transforms
                     }
 
                     AddChildTree(parentEntity, childEntity);
-                    
+
                     entityCommandBuffer.DestroyEntity(entities[i]);
                 }
             }
@@ -282,7 +282,7 @@ namespace Unity.Transforms
                 PendingFrozenChunks.Dispose();
                 return;
             }
-            
+
             EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
             for (int chunkIndex = 0; chunkIndex < PendingFrozenChunks.Length; chunkIndex++)
@@ -305,7 +305,7 @@ namespace Unity.Transforms
 
             entityCommandBuffer.Playback(EntityManager);
             entityCommandBuffer.Dispose();
-            
+
         }
 
         void UpdateFrozen()
@@ -315,7 +315,7 @@ namespace Unity.Transforms
                 FrozenChunks.Dispose();
                 return;
             }
-            
+
             EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
             for (int chunkIndex = 0; chunkIndex < FrozenChunks.Length; chunkIndex++)
@@ -338,7 +338,7 @@ namespace Unity.Transforms
             entityCommandBuffer.Playback(EntityManager);
             entityCommandBuffer.Dispose();
         }
-        
+
         private static readonly ProfilerMarker k_ProfileUpdateNewRootTransforms = new ProfilerMarker("UpdateNewRootTransforms");
         private static readonly ProfilerMarker k_ProfileUpdateDAGAttachDetach = new ProfilerMarker("UpdateDAG.AttachDetach");
         private static readonly ProfilerMarker k_ProfileUpdateDAGPlayback = new ProfilerMarker("UpdateDAG.Playback");
@@ -349,12 +349,12 @@ namespace Unity.Transforms
             k_ProfileUpdateNewRootTransforms.Begin();
             UpdateNewRootTransforms(entityCommandBuffer);
             k_ProfileUpdateNewRootTransforms.End();
-            
+
             k_ProfileUpdateDAGAttachDetach.Begin();
             bool changedAttached = UpdateAttach(entityCommandBuffer);
             bool changedDetached = UpdateDetach(entityCommandBuffer);
             k_ProfileUpdateDAGAttachDetach.End();
-            
+
             k_ProfileUpdateDAGPlayback.Begin();
             entityCommandBuffer.Playback(EntityManager);
             entityCommandBuffer.Dispose();
@@ -402,7 +402,7 @@ namespace Unity.Transforms
                     {
                         chunkLocalToWorlds[i] = new LocalToWorld
                         {
-                            Value = float4x4.scale(chunkScales[i].Value)
+                            Value = float4x4.Scale(chunkScales[i].Value)
                         };
                     }
                 }
@@ -425,7 +425,7 @@ namespace Unity.Transforms
                         chunkLocalToWorlds[i] = new LocalToWorld
                         {
                             Value = math.mul(new float4x4(chunkRotations[i].Value, new float3()),
-                                float4x4.scale(chunkScales[i].Value))
+                                float4x4.Scale(chunkScales[i].Value))
                         };
                     }
                 }
@@ -436,7 +436,7 @@ namespace Unity.Transforms
                     {
                         chunkLocalToWorlds[i] = new LocalToWorld
                         {
-                            Value = float4x4.translate(chunkPositions[i].Value)
+                            Value = float4x4.Translate(chunkPositions[i].Value)
                         };
                     }
                 }
@@ -447,8 +447,8 @@ namespace Unity.Transforms
                     {
                         chunkLocalToWorlds[i] = new LocalToWorld
                         {
-                            Value = math.mul(float4x4.translate(chunkPositions[i].Value),
-                                float4x4.scale(chunkScales[i].Value))
+                            Value = math.mul(float4x4.Translate(chunkPositions[i].Value),
+                                float4x4.Scale(chunkScales[i].Value))
                         };
                     }
                 }
@@ -471,7 +471,7 @@ namespace Unity.Transforms
                         chunkLocalToWorlds[i] = new LocalToWorld
                         {
                             Value = math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value),
-                                float4x4.scale(chunkScales[i].Value))
+                                float4x4.Scale(chunkScales[i].Value))
                         };
                     }
                 }
@@ -538,7 +538,7 @@ namespace Unity.Transforms
                     {
                         chunkLocalToParents[i] = new LocalToParent
                         {
-                            Value = float4x4.scale(chunkScales[i].Value)
+                            Value = float4x4.Scale(chunkScales[i].Value)
                         };
                     }
                 }
@@ -561,7 +561,7 @@ namespace Unity.Transforms
                         chunkLocalToParents[i] = new LocalToParent
                         {
                             Value = math.mul(new float4x4(chunkRotations[i].Value, new float3()),
-                                float4x4.scale(chunkScales[i].Value))
+                                float4x4.Scale(chunkScales[i].Value))
                         };
                     }
                 }
@@ -572,7 +572,7 @@ namespace Unity.Transforms
                     {
                         chunkLocalToParents[i] = new LocalToParent
                         {
-                            Value = float4x4.translate(chunkPositions[i].Value)
+                            Value = float4x4.Translate(chunkPositions[i].Value)
                         };
                     }
                 }
@@ -583,8 +583,8 @@ namespace Unity.Transforms
                     {
                         chunkLocalToParents[i] = new LocalToParent
                         {
-                            Value = math.mul(float4x4.translate(chunkPositions[i].Value),
-                                float4x4.scale(chunkScales[i].Value))
+                            Value = math.mul(float4x4.Translate(chunkPositions[i].Value),
+                                float4x4.Scale(chunkScales[i].Value))
                         };
                     }
                 }
@@ -607,7 +607,7 @@ namespace Unity.Transforms
                         chunkLocalToParents[i] = new LocalToParent
                         {
                             Value = math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value),
-                                float4x4.scale(chunkScales[i].Value))
+                                float4x4.Scale(chunkScales[i].Value))
                         };
                     }
                 }
@@ -674,7 +674,7 @@ namespace Unity.Transforms
                     {
                         chunkLocalToParents[i] = new LocalToParent
                         {
-                            Value = float4x4.scale(chunkScales[i].Value)
+                            Value = float4x4.Scale(chunkScales[i].Value)
                         };
                     }
                 }
@@ -697,7 +697,7 @@ namespace Unity.Transforms
                         chunkLocalToParents[i] = new LocalToParent
                         {
                             Value = math.mul(new float4x4(chunkRotations[i].Value, new float3()),
-                                float4x4.scale(chunkScales[i].Value))
+                                float4x4.Scale(chunkScales[i].Value))
                         };
                     }
                 }
@@ -708,7 +708,7 @@ namespace Unity.Transforms
                     {
                         chunkLocalToParents[i] = new LocalToParent
                         {
-                            Value = float4x4.translate(chunkPositions[i].Value)
+                            Value = float4x4.Translate(chunkPositions[i].Value)
                         };
                     }
                 }
@@ -719,8 +719,8 @@ namespace Unity.Transforms
                     {
                         chunkLocalToParents[i] = new LocalToParent
                         {
-                            Value = math.mul(float4x4.translate(chunkPositions[i].Value),
-                                float4x4.scale(chunkScales[i].Value))
+                            Value = math.mul(float4x4.Translate(chunkPositions[i].Value),
+                                float4x4.Scale(chunkScales[i].Value))
                         };
                     }
                 }
@@ -743,7 +743,7 @@ namespace Unity.Transforms
                         chunkLocalToParents[i] = new LocalToParent
                         {
                             Value = math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value),
-                                float4x4.scale(chunkScales[i].Value))
+                                float4x4.Scale(chunkScales[i].Value))
                         };
                     }
                 }
@@ -835,7 +835,7 @@ namespace Unity.Transforms
             {
                 // Slow and dirty sort inner tree by depth
                 var chunkIndex = 0;
-                
+
                 for (int depth = -1; depth <= maxDepth; depth++)
                 {
                     for (int i = 0; i < chunks.Length; i++)
@@ -843,7 +843,7 @@ namespace Unity.Transforms
                         var chunk = chunks[i];
                         var chunkDepthSharedIndex = chunk.GetSharedComponentIndex(depthType);
                         var chunkDepth = -1;
-                        
+
                         // -1 = Depth has been removed, but still matching archetype for some reason. #todo
                         if (chunkDepthSharedIndex != -1)
                         {
@@ -867,7 +867,7 @@ namespace Unity.Transforms
                 InnerTreeLocalToWorldChunks.Dispose();
                 return inputDeps;
             }
-            
+
             var sharedDepths = new List<Depth>();
             var sharedDepthIndices = new List<int>();
 
@@ -878,7 +878,7 @@ namespace Unity.Transforms
             var depthCount = sharedDepths.Count;
             var depths = new NativeArray<int>(sharedComponentCount, Allocator.TempJob);
             var maxDepth = 0;
-            
+
             for (int i = 0; i < depthCount; i++)
             {
                 var index = sharedDepthIndices[i];
@@ -890,7 +890,7 @@ namespace Unity.Transforms
 
                 depths[index] = depth;
             }
-            
+
             var chunkIndices = new NativeArray<int>(InnerTreeLocalToWorldChunks.Length, Allocator.TempJob);
             var sortDepthsJob = new SortDepths
             {
@@ -913,7 +913,7 @@ namespace Unity.Transforms
                 lastSystemVersion = LastSystemVersion
             };
             var innerTreeLocalToWorldJobHandle = innerTreeLocalToWorldJob.Schedule(sortDepthsJobHandle);
-            
+
             return innerTreeLocalToWorldJobHandle;
         }
 
@@ -987,7 +987,7 @@ namespace Unity.Transforms
 
         private static readonly ProfilerMarker k_ProfileUpdateDepthChunks = new ProfilerMarker("UpdateDepth.Chunks");
         private static readonly ProfilerMarker k_ProfileUpdateDepthPlayback = new ProfilerMarker("UpdateDepth.Playback");
-        
+
         void UpdateDepth()
         {
             if (DepthChunks.Length == 0)
@@ -995,7 +995,7 @@ namespace Unity.Transforms
                 DepthChunks.Dispose();
                 return;
             }
-            
+
             EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
             k_ProfileUpdateDepthChunks.Begin();
@@ -1014,26 +1014,26 @@ namespace Unity.Transforms
                 }
             }
             k_ProfileUpdateDepthChunks.End();
-            
+
             k_ProfileUpdateDepthPlayback.Begin();
             entityCommandBuffer.Playback(EntityManager);
             entityCommandBuffer.Dispose();
             k_ProfileUpdateDepthPlayback.End();
-            
+
             DepthChunks.Dispose();
         }
-        
+
         void GatherQueries()
         {
             NewRootQuery = new EntityArchetypeQuery
             {
-                Any = new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)}, 
+                Any = new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)},
                 None = new ComponentType[] {typeof(Frozen), typeof(Parent), typeof(LocalToWorld), typeof(Depth)},
                 All = Array.Empty<ComponentType>(),
             };
             AttachQuery = new EntityArchetypeQuery
             {
-                Any = Array.Empty<ComponentType>(), 
+                Any = Array.Empty<ComponentType>(),
                 None = Array.Empty<ComponentType>(),
                 All = new ComponentType[] {typeof(Attach)},
             };
@@ -1092,13 +1092,13 @@ namespace Unity.Transforms
                 All = new ComponentType[] {typeof(Depth), typeof(Parent)},
             };
         }
-        
+
         void GatherFrozenChunks()
         {
             PendingFrozenChunks = EntityManager.CreateArchetypeChunkArray(PendingFrozenQuery, Allocator.TempJob);
             FrozenChunks = EntityManager.CreateArchetypeChunkArray(FrozenQuery, Allocator.TempJob);
         }
-        
+
         void GatherDAGChunks()
         {
             NewRootChunks = EntityManager.CreateArchetypeChunkArray(NewRootQuery, Allocator.TempJob);
@@ -1126,7 +1126,7 @@ namespace Unity.Transforms
             LocalToWorldFromEntityRW = GetComponentDataFromEntity<LocalToWorld>(false);
             LocalToWorldTypeRW = GetArchetypeChunkComponentType<LocalToWorld>(false);
             LocalToParentTypeRW = GetArchetypeChunkComponentType<LocalToParent>(false);
-            
+
             ParentFromEntityRO = GetComponentDataFromEntity<Parent>(true);
             EntityTypeRO = GetArchetypeChunkEntityType();
             ParentTypeRO = GetArchetypeChunkComponentType<Parent>(true);
@@ -1136,7 +1136,7 @@ namespace Unity.Transforms
             PositionTypeRO = GetArchetypeChunkComponentType<Position>(true);
             ScaleTypeRO = GetArchetypeChunkComponentType<Scale>(true);
             AttachTypeRO = GetArchetypeChunkComponentType<Attach>(true);
-            
+
             FrozenTypeRO = GetArchetypeChunkComponentType<Frozen>(true);
             PendingFrozenTypeRO = GetArchetypeChunkComponentType<PendingFrozen>(true);
         }
@@ -1203,11 +1203,11 @@ namespace Unity.Transforms
             k_ProfileUpdateRootLocalToWorld.Begin();
             var updateRootLocalToWorldJobHandle = UpdateRootLocalToWorld(inputDeps);
             k_ProfileUpdateRootLocalToWorld.End();
-            
+
             k_ProfileUpdateInnerTreeLocalToParent.Begin();
             var updateInnerTreeLocalToParentJobHandle = UpdateInnerTreeLocalToParent(updateRootLocalToWorldJobHandle);
             k_ProfileUpdateInnerTreeLocalToParent.End();
-            
+
             k_ProfileUpdateLeafLocalToParent.Begin();
             var updateLeafLocaltoParentJobHandle = UpdateLeafLocalToParent(updateInnerTreeLocalToParentJobHandle);
             k_ProfileUpdateLeafLocalToParent.End();
@@ -1215,11 +1215,11 @@ namespace Unity.Transforms
             k_ProfileUpdateInnerTreeLocalToWorld.Begin();
             var updateInnerTreeLocalToWorldJobHandle = UpdateInnerTreeLocalToWorld(updateLeafLocaltoParentJobHandle);
             k_ProfileUpdateInnerTreeLocalToWorld.End();
-            
+
             k_ProfileUpdateLeafLocalToWorld.Begin();
             var updateLeafLocalToWorldJobHandle = UpdateLeafLocalToWorld(updateInnerTreeLocalToWorldJobHandle);
             k_ProfileUpdateLeafLocalToWorld.End();
-            
+
             LastSystemVersion = GlobalSystemVersion;
             return updateLeafLocalToWorldJobHandle;
         }

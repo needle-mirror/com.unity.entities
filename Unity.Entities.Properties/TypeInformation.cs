@@ -268,7 +268,7 @@ namespace Unity.Entities.Properties
         }
 
         private static readonly IStructProperty<StructProxy> ComponentIdProperty = new TypeIdStructProperty(
-            (ref StructProxy c) => c.type.FullName);
+            (ref StructProxy c) => c.type.Name);
 
         private readonly Dictionary<Type, IPropertyBag> _propertyBagCache = new Dictionary<Type, IPropertyBag>();
     }

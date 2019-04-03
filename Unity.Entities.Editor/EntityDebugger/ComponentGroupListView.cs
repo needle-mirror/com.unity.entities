@@ -100,7 +100,8 @@ namespace Unity.Entities.Editor
 
         private static List<EntityArchetypeQuery> GetQueriesForSystem(ComponentSystemBase system)
         {
-            if (queriesBySystem.TryGetValue(system, out var queries))
+            List<EntityArchetypeQuery> queries;
+            if (queriesBySystem.TryGetValue(system, out queries))
                 return queries;
             
             queries = new List<EntityArchetypeQuery>();
@@ -179,7 +180,11 @@ namespace Unity.Entities.Editor
             heightsById.Clear();
             foreach (var idGroupPair in componentGroupsById)
             {
-                ComponentGroupGUI.CalculateDrawingParts(new List<ComponentType>(idGroupPair.Value.Types.Skip(1)), false, width, out var height, out var styles, out var names, out var rects);
+                float height;
+                List<GUIStyle> styles;
+                List<GUIContent> names;
+                List<Rect> rects;
+                ComponentGroupGUI.CalculateDrawingParts(new List<ComponentType>(idGroupPair.Value.Types.Skip(1)), false, width, out height, out styles, out names, out rects);
                 stylesById.Add(idGroupPair.Key, styles);
                 namesById.Add(idGroupPair.Key, names);
                 rectsById.Add(idGroupPair.Key, rects);
@@ -191,8 +196,12 @@ namespace Unity.Entities.Editor
                 types.AddRange(idQueryPair.Value.All);
                 types.AddRange(idQueryPair.Value.Any);
                 types.AddRange(idQueryPair.Value.None.Select(x => ComponentType.Subtractive(x.GetManagedType())));
-                
-                ComponentGroupGUI.CalculateDrawingParts(types, true, width, out var height, out var styles, out var names, out var rects);
+
+                float height;
+                List<GUIStyle> styles;
+                List<GUIContent> names;
+                List<Rect> rects;
+                ComponentGroupGUI.CalculateDrawingParts(types, true, width, out height, out styles, out names, out rects);
                 stylesById.Add(idQueryPair.Key, styles);
                 namesById.Add(idQueryPair.Key, names);
                 rectsById.Add(idQueryPair.Key, rects);
@@ -221,18 +230,23 @@ namespace Unity.Entities.Editor
 
         protected void DrawCount(RowGUIArgs args)
         {
-            if (componentGroupsById.TryGetValue(args.item.id, out var componentGroup))
+            ComponentGroup componentGroup;
+            if (componentGroupsById.TryGetValue(args.item.id, out componentGroup))
             {
                 var countString = componentGroup.CalculateLength().ToString();
                 DefaultGUI.LabelRightAligned(args.rowRect, countString, args.selected, args.focused);
             }
-            else if (queriesById.TryGetValue(args.item.id, out var query))
+            else
             {
-                var entityManager = getWorldSelection().GetExistingManager<EntityManager>();
-                var chunkArray = entityManager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-                var count = chunkArray.Sum(x => x.Count);
-                chunkArray.Dispose();
-                DefaultGUI.LabelRightAligned(args.rowRect, count.ToString(), args.selected, args.focused);
+                EntityArchetypeQuery query;
+                if (queriesById.TryGetValue(args.item.id, out query))
+                {
+                    var entityManager = getWorldSelection().GetExistingManager<EntityManager>();
+                    var chunkArray = entityManager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+                    var count = chunkArray.Sum(x => x.Count);
+                    chunkArray.Dispose();
+                    DefaultGUI.LabelRightAligned(args.rowRect, count.ToString(), args.selected, args.focused);
+                }
             }
         }
 
@@ -259,10 +273,15 @@ namespace Unity.Entities.Editor
         {
             if (selectedIds.Count > 0)
             {
-                if (componentGroupsById.TryGetValue(selectedIds[0], out var componentGroup))
+                ComponentGroup componentGroup;
+                if (componentGroupsById.TryGetValue(selectedIds[0], out componentGroup))
                     entityListSelectionCallback(new EntityListQuery(componentGroup));
-                else if (queriesById.TryGetValue(selectedIds[0], out var query))
-                    entityListSelectionCallback(new EntityListQuery(query));
+                else
+                {
+                    EntityArchetypeQuery query;
+                    if (queriesById.TryGetValue(selectedIds[0], out query))
+                        entityListSelectionCallback(new EntityListQuery(query));
+                }
             }
             else
             {

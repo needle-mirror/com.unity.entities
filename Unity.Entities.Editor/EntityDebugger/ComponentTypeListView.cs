@@ -32,7 +32,7 @@ namespace Unity.Entities.Editor
             {
                 for (var i = 0; i < types.Count; ++i)
                 {
-                    var displayName = (types[i].AccessModeType == ComponentType.AccessMode.Subtractive ? "-" : "") + types[i].GetManagedType().Name;
+                    var displayName = (types[i].AccessModeType == ComponentType.AccessMode.Subtractive ? "-" : "") + ComponentGroupGUI.SpecifiedTypeName(types[i].GetManagedType());
                     root.AddChild(new TreeViewItem {id = i, displayName = displayName});
                 }
             }
@@ -49,7 +49,7 @@ namespace Unity.Entities.Editor
                 ? EntityDebuggerStyles.ComponentSubtractive
                 : EntityDebuggerStyles.ComponentRequired;
             var indent = GetContentIndent(args.item);
-            var content = new GUIContent(types[args.item.id].GetManagedType().Name);
+            var content = new GUIContent(args.item.displayName);
             var labelRect = args.rowRect;
             labelRect.xMin = labelRect.xMin + indent;
             labelRect.size = style.CalcSize(content);

@@ -42,22 +42,22 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        public void SIZ_TagCannotGetComponentData()
+        public void SIZ_TagCanGetComponentData()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestTag));
 
-            Assert.Throws<ArgumentException>(() =>
+            Assert.DoesNotThrow(() =>
             {
                var data = m_Manager.GetComponentData<EcsTestTag>(entity0);
             });
         }
         
         [Test]
-        public void SIZ_TagCannotSetComponentData()
+        public void SIZ_TagCanSetComponentData()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestTag));
 
-            Assert.Throws<ArgumentException>(() =>
+            Assert.DoesNotThrow(() =>
             {
                m_Manager.SetComponentData(entity0, default(EcsTestTag));
             });
@@ -76,12 +76,12 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        public void SIZ_TagCannotGetComponentDataArrayFromEntity()
+        public void SIZ_TagCanGetComponentDataFromEntity()
         {
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestTag));
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestTag));
 
-            Assert.Throws<ArgumentException>(() =>
+            Assert.DoesNotThrow(() =>
             {
                 var array = m_Manager.GetComponentDataFromEntity<EcsTestTag>();
             });

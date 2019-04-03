@@ -59,7 +59,7 @@ namespace Unity.Transforms
 
         ComponentGroup m_TransformGroup;
 
-        protected override void OnCreateManager(int capacity)
+        protected override void OnCreateManager()
         {
             m_TransformGroup = GetComponentGroup(ComponentType.ReadOnly(typeof(CopyTransformFromGameObject)),typeof(UnityEngine.Transform));
         }

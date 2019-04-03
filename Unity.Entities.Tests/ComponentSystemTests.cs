@@ -18,7 +18,7 @@ namespace Unity.Entities.Tests
             {
             }
 
-            protected override void OnCreateManager(int capacity)
+            protected override void OnCreateManager()
             {
                 Created = true;
             }
@@ -40,7 +40,7 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         class ThrowExceptionSystem : TestSystem
         {
-            protected override void OnCreateManager(int capacity)
+            protected override void OnCreateManager()
             {
                 throw new System.Exception();
             }
@@ -249,8 +249,8 @@ namespace Unity.Entities.Tests
             {
                 var job = new Issue101Job()
                 {
-                    hashMap = hashMap,
-                    keys = keys,
+                    hashMap = hashMap.ToConcurrent(),
+                    keys = keys.ToConcurrent(),
                     Index = 1,
                 };
 

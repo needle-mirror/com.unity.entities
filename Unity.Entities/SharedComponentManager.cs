@@ -195,11 +195,17 @@ namespace Unity.Entities
             return (T) m_SharedComponentData[index];
         }
 
-        public object GetSharedComponentDataBoxed(int index)
+        public object GetSharedComponentDataBoxed(int index, int typeIndex)
         {
             if (index == 0)
-                return Activator.CreateInstance(TypeManager.GetType(m_SharedComponentType[index]));
+                return Activator.CreateInstance(TypeManager.GetType(typeIndex));
 
+            return m_SharedComponentData[index];
+        }
+
+        public object GetSharedComponentDataNonDefaultBoxed(int index)
+        {
+            Assert.AreNotEqual(0, index);
             return m_SharedComponentData[index];
         }
 

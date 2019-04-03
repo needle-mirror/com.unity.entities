@@ -16,8 +16,6 @@ namespace Unity.Entities
 
         private List<ScriptBehaviourManager> m_BehaviourManagers = new List<ScriptBehaviourManager>();
 
-        private int m_DefaultCapacity = 10;
-
         public World(string name)
         {
             // Debug.LogError("Create World "+ name + " - " + GetHashCode());
@@ -85,23 +83,13 @@ namespace Unity.Entities
             m_BehaviourManagerLookup = null;
         }
 
-        private int GetCapacityForType(Type type)
-        {
-            return m_DefaultCapacity;
-        }
-
-        public void SetDefaultCapacity(int value)
-        {
-            m_DefaultCapacity = value;
-        }
-
         public static void DisposeAllWorlds()
         {
             while (allWorlds.Count != 0)
                 allWorlds[0].Dispose();
         }
 
-        private ScriptBehaviourManager CreateManagerInternal(Type type, int capacity, object[] constructorArguments)
+        private ScriptBehaviourManager CreateManagerInternal(Type type, object[] constructorArguments)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (!m_AllowGetManager)
@@ -135,7 +123,7 @@ namespace Unity.Entities
 
             try
             {
-                manager.CreateInstance(this, capacity);
+                manager.CreateInstance(this);
             }
             catch
             {
@@ -168,7 +156,7 @@ namespace Unity.Entities
         {
             var manager = GetExistingManagerInternal(type);
 
-            return manager ?? CreateManagerInternal(type, GetCapacityForType(type), null);
+            return manager ?? CreateManagerInternal(type, null);
         }
 
         private void AddTypeLookup(Type type, ScriptBehaviourManager manager)
@@ -206,12 +194,12 @@ namespace Unity.Entities
 
         public ScriptBehaviourManager CreateManager(Type type, params object[] constructorArgumnents)
         {
-            return CreateManagerInternal(type, GetCapacityForType(type), constructorArgumnents);
+            return CreateManagerInternal(type, constructorArgumnents);
         }
 
         public T CreateManager<T>(params object[] constructorArgumnents) where T : ScriptBehaviourManager
         {
-            return (T) CreateManagerInternal(typeof(T), GetCapacityForType(typeof(T)), constructorArgumnents);
+            return (T) CreateManagerInternal(typeof(T), constructorArgumnents);
         }
 
         public T GetOrCreateManager<T>() where T : ScriptBehaviourManager

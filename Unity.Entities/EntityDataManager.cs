@@ -41,9 +41,9 @@ namespace Unity.Entities
             ChangeVersionUtility.IncrementGlobalSystemVersion(ref GlobalSystemVersion);
         }
 
-        public void OnCreate(int capacity)
+        public void OnCreate()
         {
-            m_EntitiesCapacity = capacity;
+            m_EntitiesCapacity = 10;
             m_Entities = (EntityData*) UnsafeUtility.Malloc(m_EntitiesCapacity * sizeof(EntityData), 64, Allocator.Persistent);
             m_EntitiesFreeIndex = 0;
             GlobalSystemVersion = ChangeVersionUtility.InitialGlobalSystemVersion;
@@ -94,7 +94,7 @@ namespace Unity.Entities
 
         public int Capacity
         {
-            get => m_EntitiesCapacity;
+            get { return m_EntitiesCapacity; }
             set
             {
                 if (value <= m_EntitiesCapacity)
@@ -431,6 +431,12 @@ namespace Unity.Entities
             var archetype = m_Entities[entity.Index].Archetype;
 
             return ChunkDataUtility.GetIndexInTypeArray(archetype, type.TypeIndex) != -1;
+        }
+
+        public int GetSizeInChunk(Entity entity, int typeIndex, ref int typeLookupCache)
+        {
+            var entityData = m_Entities + entity.Index;
+            return ChunkDataUtility.GetSizeInChunk(entityData->Chunk, typeIndex, ref typeLookupCache);
         }
 
         public byte* GetComponentDataWithTypeRO(Entity entity, int typeIndex)

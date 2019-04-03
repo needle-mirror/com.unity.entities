@@ -17,7 +17,7 @@ namespace Unity.Entities.Editor
 
         public EntityListQuery SelectedEntityQuery
         {
-            get => selectedEntityQuery;
+            get { return selectedEntityQuery; }
             set
             {
                 if (value == null || selectedEntityQuery != value)
@@ -27,6 +27,7 @@ namespace Unity.Entities.Editor
                 }
             }
         }
+
         private EntityListQuery selectedEntityQuery;
 
         private readonly EntitySelectionCallback setEntitySelection;
@@ -81,6 +82,7 @@ namespace Unity.Entities.Editor
             
             if (chunkArray.IsCreated)
                 chunkArray.Dispose();
+
             var query = SelectedEntityQuery?.Query ?? allQuery;
             
             entityManager.CompleteAllJobs();
@@ -106,11 +108,17 @@ namespace Unity.Entities.Editor
                 base.OnGUI(rect);
         }
 
+        public void OnEntitySelected(Entity entity)
+        {
+            setEntitySelection(entity);
+        }
+
         protected override void SelectionChanged(IList<int> selectedIds)
         {
             if (selectedIds.Count > 0)
             {
-                if (rows.GetById(selectedIds[0], out var selectedEntity))
+                Entity selectedEntity;
+                if (rows.GetById(selectedIds[0], out selectedEntity))
                     setEntitySelection(selectedEntity);
             }
             else
@@ -137,7 +145,9 @@ namespace Unity.Entities.Editor
 
         public void TouchSelection()
         {
-            SetSelection(GetSelection(), TreeViewSelectionOptions.FireSelectionChanged);
+            SetSelection(
+                GetSelection()
+                , TreeViewSelectionOptions.RevealAndFrame);
         }
 
         public void FrameSelection()

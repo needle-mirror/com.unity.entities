@@ -15,7 +15,14 @@ namespace Unity.Entities.Editor
         
         void OnEnable()
         {
-            visitor = new EntityIMGUIVisitor();
+            visitor = new EntityIMGUIVisitor((entity) =>
+                {
+                    var targetProxy = (EntitySelectionProxy) target;
+                    if (!targetProxy.Exists)
+                        return;
+                    targetProxy.OnEntityControlDoubleClick(entity);
+                });
+
             inclusionList = new SystemInclusionList();
         }
 
@@ -24,7 +31,9 @@ namespace Unity.Entities.Editor
             var targetProxy = (EntitySelectionProxy) target;
             if (!targetProxy.Exists)
                 return;
+
             var container = targetProxy.Container;
+
             (targetProxy.Container.PropertyBag as StructPropertyBag<EntityContainer>)?.Visit(ref container, visitor);
 
             GUI.enabled = true;

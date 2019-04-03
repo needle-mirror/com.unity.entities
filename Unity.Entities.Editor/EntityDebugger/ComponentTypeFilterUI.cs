@@ -66,7 +66,7 @@ namespace Unity.Entities.Editor
                 {
                     ++filterCount;
                     var style = filterTypes[i].AccessModeType == ComponentType.AccessMode.Subtractive ? EntityDebuggerStyles.ComponentSubtractive : EntityDebuggerStyles.ComponentRequired;
-                    GUILayout.Label(filterTypes[i].GetManagedType().Name, style);
+                    GUILayout.Label(ComponentGroupGUI.SpecifiedTypeName(filterTypes[i].GetManagedType()), style);
                 }
             }
             if (filterCount == 0)

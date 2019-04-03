@@ -42,13 +42,17 @@ namespace Unity.Entities
         
         void OnValidate()
         {
-            if (CanSynchronizeWithEntityManager(out var entityManager, out var entity))
+            EntityManager entityManager;
+            Entity entity;
+            if (CanSynchronizeWithEntityManager(out entityManager, out entity))
                 UpdateComponentData(entityManager, entity);
         }
         
         public void OnBeforeSerialize()
         {
-            if (CanSynchronizeWithEntityManager(out var entityManager, out var entity))
+            EntityManager entityManager;
+            Entity entity;
+            if (CanSynchronizeWithEntityManager(out entityManager, out entity))
                 UpdateSerializedData(entityManager, entity);
         }
 
@@ -74,7 +78,11 @@ namespace Unity.Entities
             set
             {
                 m_SerializedData = value;
-                if (CanSynchronizeWithEntityManager(out var entityManager, out var entity))
+                
+                EntityManager entityManager;
+                Entity entity;
+
+                if (CanSynchronizeWithEntityManager(out entityManager, out entity))
                     UpdateComponentData(entityManager, entity);
             }
         }
@@ -87,21 +95,11 @@ namespace Unity.Entities
 
         internal override void UpdateComponentData(EntityManager manager, Entity entity)
         {
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-            var componentType = ComponentType.FromTypeIndex(typeIndex);
-            if (componentType.IsZeroSized)
-                return;
-
             manager.SetComponentData(entity, m_SerializedData);
         }
         
         internal override void UpdateSerializedData(EntityManager manager, Entity entity)
-        {
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-            var componentType = ComponentType.FromTypeIndex(typeIndex);
-            if (componentType.IsZeroSized) 
-                return;
-                
+        {                
             m_SerializedData = manager.GetComponentData<T>(entity);
         }
         
@@ -131,7 +129,11 @@ namespace Unity.Entities
             set
             {
                 m_SerializedData = value;
-                if (CanSynchronizeWithEntityManager(out var entityManager, out var entity))
+                
+                EntityManager entityManager;
+                Entity entity;
+
+                if (CanSynchronizeWithEntityManager(out entityManager, out entity))
                     UpdateComponentData(entityManager, entity);
             }
         }

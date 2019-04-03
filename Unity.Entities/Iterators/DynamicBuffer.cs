@@ -17,16 +17,22 @@ namespace Unity.Entities
         BufferHeader* m_Buffer;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-	    internal AtomicSafetyHandle m_Safety;
-	    internal AtomicSafetyHandle m_ArrayInvalidationSafety;
+	    internal AtomicSafetyHandle m_Safety0;
+	    internal AtomicSafetyHandle m_Safety1;
+        internal int m_SafetyReadOnlyCount;
+        internal int m_SafetyReadWriteCount;
+        internal bool m_IsReadOnly;
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal DynamicBuffer(BufferHeader* header, AtomicSafetyHandle safety, AtomicSafetyHandle arrayInvalidationSafety)
+        internal DynamicBuffer(BufferHeader* header, AtomicSafetyHandle safety, AtomicSafetyHandle arrayInvalidationSafety, bool isReadOnly)
         {
             m_Buffer = header;
-            m_Safety = safety;
-            m_ArrayInvalidationSafety = arrayInvalidationSafety;
+            m_Safety0 = safety;
+            m_Safety1 = arrayInvalidationSafety;
+            m_SafetyReadOnlyCount = isReadOnly ? 2 : 0;
+            m_SafetyReadWriteCount = isReadOnly ? 0 : 2;
+            m_IsReadOnly = isReadOnly;
         }
 #else
         internal DynamicBuffer(BufferHeader* header)
@@ -58,7 +64,7 @@ namespace Unity.Entities
         private void CheckReadAccess()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
 #endif
         }
 
@@ -66,7 +72,7 @@ namespace Unity.Entities
         private void CheckWriteAccess()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety0);
 #endif
         }
 
@@ -96,7 +102,7 @@ namespace Unity.Entities
         private void InvalidateArrayAliases()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckWriteAndBumpSecondaryVersion(m_ArrayInvalidationSafety);
+            AtomicSafetyHandle.CheckWriteAndBumpSecondaryVersion(m_Safety1);
 #endif
         }
 
@@ -175,7 +181,7 @@ namespace Unity.Entities
                 throw new InvalidOperationException($"Types {typeof(U)} and {typeof(T)} are of different sizes; cannot reinterpret");
 #endif
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new DynamicBuffer<U>(m_Buffer, m_Safety, m_ArrayInvalidationSafety);
+            return new DynamicBuffer<U>(m_Buffer, m_Safety0, m_Safety1, m_IsReadOnly);
 #else
             return new DynamicBuffer<U>(m_Buffer);
 #endif
@@ -188,7 +194,7 @@ namespace Unity.Entities
         {
             var shadow = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(GetBasePointer(), Length, Allocator.Invalid);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var handle = m_ArrayInvalidationSafety;
+            var handle = m_Safety1;
             AtomicSafetyHandle.UseSecondaryVersion(ref handle);
             NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref shadow, handle);
 #endif

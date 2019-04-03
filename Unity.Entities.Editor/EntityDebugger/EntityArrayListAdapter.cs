@@ -19,6 +19,7 @@ namespace Unity.Entities.Editor
 
         public void SetSource(NativeArray<ArchetypeChunk> newChunkArray, EntityManager newEntityManager)
         {
+            lastRequestedIndex = int.MaxValue;
             chunkArray = newChunkArray;
             Count = 0;
             if (chunkArray.IsCreated)
@@ -30,25 +31,37 @@ namespace Unity.Entities.Editor
             entityManager = newEntityManager;
         }
 
+        private int lastRequestedIndex;
+        private int currentLocalIndex;
+        private int currentChunk;
+
         public TreeViewItem this[int index]
         {
             get
             {
-                var requestedIndex = index;
-                var currentChunk = 0;
-                while (chunkArray[currentChunk].Count <= index)
-                    index -= chunkArray[currentChunk++].Count;
+                if (index >= lastRequestedIndex)
+                {
+                    currentLocalIndex += index - lastRequestedIndex;
+                }
+                else
+                {
+                    currentLocalIndex = index;
+                    currentChunk = 0;
+                }
+                lastRequestedIndex = index;
+                while (chunkArray[currentChunk].Count <= currentLocalIndex)
+                    currentLocalIndex -= chunkArray[currentChunk++].Count;
                 
                 var entityArray = chunkArray[currentChunk].GetNativeArray(entityManager.GetArchetypeChunkEntityType());
-                var entity = entityArray[index];
+                var entity = entityArray[currentLocalIndex];
             
                 currentItem.id = entity.Index;
                 currentItem.displayName = $"Entity {entity.Index}";
                 return currentItem;
             }
-            set => throw new System.NotImplementedException();
+            set { throw new System.NotImplementedException(); }
         }
-        
+
         public bool IsReadOnly => false;
 
         public bool GetById(int id, out Entity foundEntity)

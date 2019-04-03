@@ -78,7 +78,8 @@ namespace Unity.Entities
 
             if (componentGroupIndexField != null)
             {
-                var pinnedSystemPtr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(system, out var gchandle);
+                ulong gchandle;
+                var pinnedSystemPtr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(system, out gchandle);
                 var groupIndexPtr = pinnedSystemPtr + m_GroupFieldOffset + UnsafeUtility.GetFieldOffset(componentGroupIndexField);
 
                 int groupIndex = m_ComponentGroupIndex;

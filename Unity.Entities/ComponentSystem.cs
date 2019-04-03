@@ -63,7 +63,7 @@ namespace Unity.Entities
             return false;
         }
 
-        protected override void OnBeforeCreateManagerInternal(World world, int capacity)
+        protected override void OnBeforeCreateManagerInternal(World world)
         {
             m_World = world;
             m_EntityManager = world.GetOrCreateManager<EntityManager>();
@@ -335,9 +335,9 @@ namespace Unity.Entities
             }
         }
 
-        protected sealed override void OnBeforeCreateManagerInternal(World world, int capacity)
+        protected sealed override void OnBeforeCreateManagerInternal(World world)
         {
-            base.OnBeforeCreateManagerInternal(world, capacity);
+            base.OnBeforeCreateManagerInternal(world);
         }
 
         protected sealed override void OnBeforeDestroyManagerInternal()
@@ -454,9 +454,9 @@ namespace Unity.Entities
             }
         }
 
-        protected sealed override void OnBeforeCreateManagerInternal(World world, int capacity)
+        protected sealed override void OnBeforeCreateManagerInternal(World world)
         {
-            base.OnBeforeCreateManagerInternal(world, capacity);
+            base.OnBeforeCreateManagerInternal(world);
 
             m_BarrierList = ComponentSystemInjection.GetAllInjectedManagers<BarrierSystem>(this, world);
         }
@@ -549,9 +549,9 @@ namespace Unity.Entities
             m_ProducerHandle = JobHandle.CombineDependencies(m_ProducerHandle, foo);
         }
 
-        protected override void OnCreateManager(int capacity)
+        protected override void OnCreateManager()
         {
-            base.OnCreateManager(capacity);
+            base.OnCreateManager();
             
 #if ENABLE_UNITY_COLLECTIONS_CHECKS	
             m_PendingBuffers = new List<EntityCommandBuffer>();	

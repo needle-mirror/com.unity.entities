@@ -41,8 +41,8 @@ namespace Unity.Entities.Editor
 
         public World SystemSelectionWorld
         {
-            get => systemSelectionWorld?.IsCreated == true ? systemSelectionWorld : null;
-            private set => systemSelectionWorld = value;
+            get { return systemSelectionWorld?.IsCreated == true ? systemSelectionWorld : null; }
+            private set { systemSelectionWorld = value; }
         }
 
         public void SetSystemSelection(ScriptBehaviourManager manager, World world, bool updateList, bool propagate)
@@ -162,7 +162,14 @@ namespace Unity.Entities.Editor
         private void CreateEntityListView()
         {
             entityListView?.Dispose();
-            entityListView = new EntityListView(entityListState, EntityListQuerySelection, x => SetEntitySelection(x, false), () => SystemSelectionWorld ?? WorldSelection, () => SystemSelection);
+
+            entityListView = new EntityListView(
+                entityListState,
+                EntityListQuerySelection,
+                x => SetEntitySelection(x, false),
+                () => SystemSelectionWorld ?? WorldSelection,
+                () => SystemSelection
+                );
         }
 
         private void CreateSystemListView()
@@ -186,15 +193,28 @@ namespace Unity.Entities.Editor
         private void OnEnable()
         {
             Instance = this;
-            selectionProxy = ScriptableObject.CreateInstance<EntitySelectionProxy>();
-            selectionProxy.hideFlags = HideFlags.HideAndDontSave;
             filterUI = new ComponentTypeFilterUI(SetAllEntitiesFilter, () => WorldSelection);
+
+            CreateEntitySelectionProxy();
             CreateWorldPopup();
             CreateSystemListView();
             CreateComponentGroupListView();
             CreateEntityListView();
+
             systemListView.TouchSelection();
+
             EditorApplication.playModeStateChanged += OnPlayModeStateChange;
+        }
+
+        private void CreateEntitySelectionProxy()
+        {
+            selectionProxy = ScriptableObject.CreateInstance<EntitySelectionProxy>();
+            selectionProxy.hideFlags = HideFlags.HideAndDontSave;
+
+            selectionProxy.EntityControlDoubleClick += entity =>
+            {
+                entityListView?.OnEntitySelected(entity);
+            };
         }
 
         private void OnDestroy()

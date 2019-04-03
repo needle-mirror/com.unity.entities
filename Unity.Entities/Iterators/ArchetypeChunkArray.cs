@@ -11,7 +11,7 @@ namespace Unity.Entities
     {
         [NativeDisableUnsafePtrRestriction] internal Chunk* m_Chunk;
         public int Count => m_Chunk->Count;
-        
+
         public static bool operator ==(ArchetypeChunk lhs, ArchetypeChunk rhs)
         {
             return lhs.m_Chunk == rhs.m_Chunk;
@@ -100,13 +100,13 @@ namespace Unity.Entities
             var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentType.m_TypeIndex);
             return (typeIndexInArchetype != -1);
         }
-        
+
         public NativeArray<T> GetNativeArray<T>(ArchetypeChunkComponentType<T> chunkComponentType)
             where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (chunkComponentType.m_IsZeroSized)
-                throw new ArgumentException($"GetArchetypeChunkComponentType<{typeof(T)}> cannot be called on zero-sized IComponentData");
+                throw new ArgumentException($"ArchetypeChunk.GetNativeArray<{typeof(T)}> cannot be called on zero-sized IComponentData");
             
             AtomicSafetyHandle.CheckReadAndThrow(chunkComponentType.m_Safety);
 #endif
@@ -180,8 +180,10 @@ namespace Unity.Entities
         public int Length => m_Length;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        private AtomicSafetyHandle m_Safety;
+        private AtomicSafetyHandle m_Safety0;
         private AtomicSafetyHandle m_ArrayInvalidationSafety;
+        private int m_SafetyReadOnlyCount;
+        private int m_SafetyReadWriteCount;
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -190,9 +192,11 @@ namespace Unity.Entities
             m_BasePointer = basePointer;
             m_Length = length;
             m_Stride = stride;
-            m_Safety = safety;
+            m_Safety0 = safety;
             m_ArrayInvalidationSafety = arrayInvalidationSafety;
             m_IsReadOnly = readOnly;
+            m_SafetyReadOnlyCount = readOnly ? 2 : 0;
+            m_SafetyReadWriteCount = readOnly ? 0 : 2;
         }
 #else
         public BufferAccessor(byte* basePointer, int length, int stride, bool readOnly)
@@ -210,9 +214,9 @@ namespace Unity.Entities
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (m_IsReadOnly)
-                    AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+                    AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
                 else
-                    AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
+                    AtomicSafetyHandle.CheckWriteAndThrow(m_Safety0);
 
                 if (index < 0 || index >= Length)
                     throw new InvalidOperationException($"index {index} out of range in LowLevelBufferAccessor of length {Length}");
@@ -220,7 +224,7 @@ namespace Unity.Entities
                 BufferHeader* hdr = (BufferHeader*) (m_BasePointer + index * m_Stride);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                return new DynamicBuffer<T>(hdr, m_Safety, m_ArrayInvalidationSafety);
+                return new DynamicBuffer<T>(hdr, m_Safety0, m_ArrayInvalidationSafety, m_IsReadOnly);
 #else
                 return new DynamicBuffer<T>(hdr);
 #endif
@@ -243,7 +247,7 @@ namespace Unity.Entities
             var chunk = (Chunk*) archetype.Archetype->ChunkList.Begin;
             var offset = Offsets[index];
             var dstChunksPtr = (Chunk**) Chunks.GetUnsafePtr();
-            
+
             for (int j = 0; j < chunkCount; j++)
             {
                 dstChunksPtr[offset + j] = chunk;
@@ -268,7 +272,7 @@ namespace Unity.Entities
                 offsets[i] = length;
                 length += archetypes[i].Archetype->ChunkCount;
             }
-            
+
             var chunks = new NativeArray<ArchetypeChunk>(length, allocator, NativeArrayOptions.UninitializedMemory);
             var gatherChunksJob = new GatherChunks
             {
@@ -278,7 +282,7 @@ namespace Unity.Entities
             };
             var gatherChunksJobHandle = gatherChunksJob.Schedule(archetypeCount,1);
             gatherChunksJobHandle.Complete();
-            
+
             offsets.Dispose();
             return chunks;
         }

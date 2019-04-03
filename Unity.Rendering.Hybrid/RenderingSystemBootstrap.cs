@@ -7,7 +7,7 @@ namespace Unity.Rendering
     [ExecuteInEditMode]
     public class RenderingSystemBootstrap : ComponentSystem
     {
-        protected override void OnCreateManager(int capacity)
+        protected override void OnCreateManager()
         {
             RenderPipeline.beginCameraRendering += OnBeforeCull;
             Camera.onPreCull += OnBeforeCull;
@@ -25,6 +25,13 @@ namespace Unity.Rendering
         
         public void OnBeforeCull(Camera camera)
         {
+#if UNITY_EDITOR && UNITY_2018_3_OR_NEWER
+            var prefabEditMode = UnityEditor.SceneManagement.StageUtility.GetCurrentStageHandle() !=
+                                 UnityEditor.SceneManagement.StageUtility.GetMainStageHandle();
+            var gameCamera = (camera.hideFlags & HideFlags.DontSave) == 0;
+            if (prefabEditMode && !gameCamera)
+                return;
+#endif
             
             m_LODSystem.ActiveCamera = camera;
             m_LODSystem.Update();

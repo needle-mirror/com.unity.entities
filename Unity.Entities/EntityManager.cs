@@ -128,14 +128,14 @@ namespace Unity.Entities
 
         internal EntityDataManager* Entities
         {
-            get => m_Entities;
-            private set => m_Entities = value;
+            get { return m_Entities; }
+            private set { m_Entities = value; }
         }
 
         internal ArchetypeManager ArchetypeManager
         {
-            get => m_ArchetypeManager;
-            private set => m_ArchetypeManager = value;
+            get { return m_ArchetypeManager; }
+            private set { m_ArchetypeManager = value; }
         }
 
         public int Version => IsCreated ? m_Entities->Version : 0;
@@ -146,7 +146,7 @@ namespace Unity.Entities
 
         public int EntityCapacity
         {
-            get => Entities->Capacity;
+            get { return Entities->Capacity; }
             set
             {
                 BeforeStructuralChange();
@@ -158,15 +158,15 @@ namespace Unity.Entities
 
         public JobHandle ExclusiveEntityTransactionDependency
         {
-            get => ComponentJobSafetyManager.ExclusiveTransactionDependency;
-            set => ComponentJobSafetyManager.ExclusiveTransactionDependency = value;
+            get { return ComponentJobSafetyManager.ExclusiveTransactionDependency; }
+            set { ComponentJobSafetyManager.ExclusiveTransactionDependency = value; }
         }
 
         EntityManagerDebug m_Debug;
 
         public EntityManagerDebug Debug => m_Debug ?? (m_Debug = new EntityManagerDebug(this));
 
-        protected override void OnBeforeCreateManagerInternal(World world, int capacity)
+        protected override void OnBeforeCreateManagerInternal(World world)
         {
         }
 
@@ -178,12 +178,12 @@ namespace Unity.Entities
         {
         }
 
-        protected override void OnCreateManager(int capacity)
+        protected override void OnCreateManager()
         {
             TypeManager.Initialize();
 
             Entities = (EntityDataManager*) UnsafeUtility.Malloc(sizeof(EntityDataManager), 64, Allocator.Persistent);
-            Entities->OnCreate(capacity);
+            Entities->OnCreate();
 
             m_SharedComponentManager = new SharedComponentDataManager();
 
@@ -449,10 +449,6 @@ namespace Unity.Entities
             where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var componentType = ComponentType.FromTypeIndex(typeIndex);
-            if (componentType.IsZeroSized)
-                throw new ArgumentException($"GetComponentDataFromEntity<{typeof(T)}> cannot be called on zero-sized IComponentData");
-            
             return new ComponentDataFromEntity<T>(typeIndex, Entities,
                 ComponentJobSafetyManager.GetSafetyHandle(typeIndex, isReadOnly));
 #else
@@ -481,14 +477,15 @@ namespace Unity.Entities
         public T GetComponentData<T>(Entity entity) where T : struct, IComponentData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
-            
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+
+            Entities->AssertEntityHasComponent(entity, typeIndex);
+
+            // If the user attempts to get a zero-sized type, we return a default-initialized value instead.
+            // This is to prevent requiring users from checking for zero-size before calling this API.
             var componentType = ComponentType.FromTypeIndex(typeIndex);
             if (componentType.IsZeroSized)
-                throw new ArgumentException($"GetComponentData<{typeof(T)}> cannot be called on zero-sized IComponentData");
-#endif
-                
-            Entities->AssertEntityHasComponent(entity, typeIndex);
+                return default(T);
+
             ComponentJobSafetyManager.CompleteWriteDependency(typeIndex);
 
             var ptr = Entities->GetComponentDataWithTypeRO(entity, typeIndex);
@@ -501,15 +498,15 @@ namespace Unity.Entities
         public void SetComponentData<T>(Entity entity, T componentData) where T : struct, IComponentData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
-            
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var componentType = ComponentType.FromTypeIndex(typeIndex);
-            if (componentType.IsZeroSized)
-                throw new ArgumentException($"GetComponentData<{typeof(T)}> cannot be called on zero-sized IComponentData");
-#endif
-            
+
             Entities->AssertEntityHasComponent(entity, typeIndex);
 
+            // If the user attempts to set a zero-sized type, we do nothing instead.
+            // This is to prevent requiring users from checking for zero-size before calling this API.
+            var componentType = ComponentType.FromTypeIndex(typeIndex);
+            if (componentType.IsZeroSized)
+                return;
+            
             ComponentJobSafetyManager.CompleteReadAndWriteDependency(typeIndex);
 
             var ptr = Entities->GetComponentDataWithTypeRW(entity, typeIndex, Entities->GlobalSystemVersion);
@@ -617,16 +614,38 @@ namespace Unity.Entities
             BufferHeader* header = (BufferHeader*) Entities->GetComponentDataWithTypeRW(entity, typeIndex, Entities->GlobalSystemVersion);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new DynamicBuffer<T>(header, ComponentJobSafetyManager.GetSafetyHandle(typeIndex, false), ComponentJobSafetyManager.GetBufferSafetyHandle(typeIndex));
+            return new DynamicBuffer<T>(header, ComponentJobSafetyManager.GetSafetyHandle(typeIndex, false), ComponentJobSafetyManager.GetBufferSafetyHandle(typeIndex), false);
 #else
             return new DynamicBuffer<T>(header);
 #endif
         }
 
+        internal void* GetBufferRawRW(Entity entity, int typeIndex)
+        {
+            Entities->AssertEntityHasComponent(entity, typeIndex);
+
+            ComponentJobSafetyManager.CompleteReadAndWriteDependency(typeIndex);
+
+            BufferHeader* header = (BufferHeader*)Entities->GetComponentDataWithTypeRW(entity, typeIndex, Entities->GlobalSystemVersion);
+
+            return BufferHeader.GetElementPointer(header);
+        }
+
+        internal int GetBufferLength(Entity entity, int typeIndex)
+        {
+            Entities->AssertEntityHasComponent(entity, typeIndex);
+
+            ComponentJobSafetyManager.CompleteReadAndWriteDependency(typeIndex);
+
+            BufferHeader* header = (BufferHeader*)Entities->GetComponentDataWithTypeRW(entity, typeIndex, Entities->GlobalSystemVersion);
+
+            return header->Length;
+        }
+
         public NativeArray<Entity> GetAllEntities(Allocator allocator = Allocator.Temp)
         {
             BeforeStructuralChange();
-            
+
             var enabledQuery = new EntityArchetypeQuery
             {
                 Any = Array.Empty<ComponentType>(),
@@ -646,11 +665,11 @@ namespace Unity.Entities
                 All = new ComponentType[] {typeof(Prefab)}
             };
             var archetypes = new NativeList<EntityArchetype>(Allocator.TempJob);
-            
+
             AddMatchingArchetypes(enabledQuery, archetypes);
             AddMatchingArchetypes(disabledQuery, archetypes);
             AddMatchingArchetypes(prefabQuery, archetypes);
-            
+
             var chunks = CreateArchetypeChunkArray(archetypes, Allocator.TempJob);
             var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
             var array = new NativeArray<Entity>(count, allocator);
@@ -664,10 +683,10 @@ namespace Unity.Entities
                 array.Slice(offset, entities.Length).CopyFrom(entities);
                 offset += entities.Length;
             }
-            
+
             chunks.Dispose();
             archetypes.Dispose();
-            
+
             return array;
         }
 
@@ -740,7 +759,7 @@ namespace Unity.Entities
             Entities->AssertEntityHasComponent(entity, typeIndex);
 
             var sharedComponentIndex = Entities->GetSharedComponentDataIndex(entity, typeIndex);
-            return m_SharedComponentManager.GetSharedComponentDataBoxed(sharedComponentIndex);
+            return m_SharedComponentManager.GetSharedComponentDataBoxed(sharedComponentIndex, typeIndex);
         }
 
         public int GetComponentOrderVersion<T>()

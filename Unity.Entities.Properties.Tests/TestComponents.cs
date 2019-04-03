@@ -64,6 +64,14 @@ namespace Unity.Entities.Properties.Tests
     }
 
     [System.Serializable]
+    [InternalBufferCapacity(8)]
+    public struct TestBufferElementData : IBufferElementData
+    {
+        public BlitMe blit;
+        public float flt;
+    }
+
+    [System.Serializable]
     public struct TestSharedComponent : ISharedComponentData
     {
         public float value;

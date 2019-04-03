@@ -76,7 +76,7 @@ namespace Unity.Entities.Tests
             var reader = new TestBinaryReader(writer);
 
             Assert.Throws<ArgumentException>(()=>
-                SerializeUtility.DeserializeWorld(m_Manager.BeginExclusiveEntityTransaction(), reader)
+                SerializeUtility.DeserializeWorld(m_Manager.BeginExclusiveEntityTransaction(), reader, 0)
             );
             reader.Dispose();
         }
@@ -116,7 +116,7 @@ namespace Unity.Entities.Tests
             var deserializedWorld = new World("SerializeEntities Test World 3");
             var entityManager = deserializedWorld.GetOrCreateManager<EntityManager>();
 
-            SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader);
+            SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, 0);
             entityManager.EndExclusiveEntityTransaction();
 
             try

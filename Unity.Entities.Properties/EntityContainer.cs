@@ -71,19 +71,43 @@ namespace Unity.Entities.Properties
 
                 if (typeof(ISharedComponentData).IsAssignableFrom(propertyType))
                 {
-                    var o = container.m_Manager.GetSharedComponentData(container.m_Entity, typeIndex);
+                    try
+                    {
+                        var o = container.m_Manager.GetSharedComponentData(container.m_Entity, typeIndex);
 
-                    // TODO: skip the StructObjectProxyProperty adapter and have the Accept()
-                    // TODO:    handle Struct & Object proxies
+                        // TODO: skip the StructObjectProxyProperty adapter and have the Accept()
+                        // TODO:    handle Struct & Object proxies
+                        var p = new StructProxy
+                        {
+                            bag = new StructPropertyBag<StructProxy>(
+                                new StructObjectProxyProperty(propertyType, o, primitiveTypes)
+                                ),
+                            data = default(byte*),
+                            type = propertyType
+                        };
+
+                        return p;
+                    }
+                    catch (Exception)
+                    {
+
+                    }
+                }
+
+                if (typeof(IBufferElementData).IsAssignableFrom(propertyType))
+                {
                     var p = new StructProxy
                     {
                         bag = new StructPropertyBag<StructProxy>(
-                            new StructObjectProxyProperty(propertyType, o, primitiveTypes)
-                            ),
-                        data = default(byte*),
+                                new BufferListProxyProperty(
+                                    TypeInformation.GetOrCreate(propertyType, primitiveTypes),
+                                    propertyType,
+                                    container.m_Manager.GetBufferLength(container.m_Entity, typeIndex)
+                                    )
+                                ),
+                        data = (byte*)container.m_Manager.GetBufferRawRW(container.m_Entity, typeIndex),
                         type = propertyType
                     };
-
                     return p;
                 }
 
@@ -99,7 +123,7 @@ namespace Unity.Entities.Properties
                 }
             }
         }
-
+        
         private static readonly IListStructProperty<EntityContainer> s_ComponentsProperty = new ReadOnlyComponentsProperty(
             "Components");
 

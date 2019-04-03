@@ -19,7 +19,11 @@ namespace Unity.Entities.Tests
 
         class MockWrapper : ComponentDataWrapper<MockData>, IIntegerContainer
         {
-            public int Integer { get => Value.Value; set => Value = new MockData { Value = value }; }
+            public int Integer
+            {
+                get { return Value.Value; }
+                set { Value = new MockData {Value = value}; }
+            }
         }
 
         struct MockSharedData : ISharedComponentData
@@ -29,7 +33,11 @@ namespace Unity.Entities.Tests
 
         class MockSharedWrapper : SharedComponentDataWrapper<MockSharedData>, IIntegerContainer
         {
-            public int Integer { get => Value.Value; set => Value = new MockSharedData { Value = value }; }
+            public int Integer
+            {
+                get { return Value.Value; }
+                set { Value = new MockSharedData {Value = value}; }
+            }
         }
 
         GameObject m_GameObject;
@@ -51,8 +59,10 @@ namespace Unity.Entities.Tests
             // represents loading GameObjectEntity when wrappers already exist (e.g., loading a scene, domain reload)
             var gameObjectEntity = wrapper.GetComponent<GameObjectEntity>();
             gameObjectEntity.OnEnable();
+            EntityManager entityManager;
+            Entity entity;
             Assert.That(
-                wrapper.CanSynchronizeWithEntityManager(out var entityManager, out var entity), Is.True,
+                wrapper.CanSynchronizeWithEntityManager(out entityManager, out entity), Is.True,
                 "EntityManager is not in correct state in arrangement for synchronization to occur"
             );
             var integerWrapper = wrapper as IIntegerContainer;

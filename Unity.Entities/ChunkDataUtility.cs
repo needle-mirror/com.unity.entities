@@ -39,6 +39,17 @@ namespace Unity.Entities
 #endif
         }
 
+        public static int GetSizeInChunk(Chunk* chunk, int typeIndex, ref int typeLookupCache)
+        {
+            var archetype = chunk->Archetype;
+            GetIndexInTypeArray(archetype, typeIndex, ref typeLookupCache);
+            var indexInTypeArray = typeLookupCache;
+
+            var sizeOf = archetype->SizeOfs[indexInTypeArray];
+
+            return sizeOf;
+        }
+
         public static byte* GetComponentDataWithTypeRO(Chunk* chunk, int index, int typeIndex, ref int typeLookupCache)
         {
             var archetype = chunk->Archetype;

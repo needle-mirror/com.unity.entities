@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Runtime.Remoting.Messaging;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -7,6 +6,7 @@ using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.Profiling;
@@ -117,7 +117,7 @@ namespace Unity.Rendering
             }
         }
         
-        protected override void OnCreateManager(int capacity)
+        protected override void OnCreateManager()
         {
             m_FrozenChunksQuery = new EntityArchetypeQuery
             {
@@ -637,9 +637,11 @@ namespace Unity.Rendering
                     {
                         Graphics.DrawMesh(renderer.mesh, m_MatricesArray[i], renderer.material, 0, ActiveCamera, renderer.subMesh, null, renderer.castShadows, renderer.receiveShadows);
                     }
-                    
-                    if (batchCount >= 2)
-                        Debug.LogWarning($"Please enable GPU instancing for better performance ({renderer.material})", renderer.material);
+
+                    //@TODO : temporarily disabled because it spams the console about Resources/unity_builtin_extra
+                    //@TODO : also, it doesn't work in the player because of AssetDatabase
+//                    if (batchCount >= 2)
+//                        Debug.LogWarning($"Please enable GPU instancing for better performance ({renderer.material})\n{AssetDatabase.GetAssetPath(renderer.material)}", renderer.material);
                 }
             }
         }
@@ -682,7 +684,7 @@ namespace Unity.Rendering
             {
                 Chunks = chunks,
                 MeshInstanceRendererType = meshInstanceRendererType,
-                ChunkRendererMap = chunkRendererMap
+                ChunkRendererMap = chunkRendererMap.ToConcurrent()
             };
             var mapChunkRenderersJobHandle = mapChunkRenderersJob.Schedule(chunks.Length, 64);
             
@@ -742,7 +744,7 @@ namespace Unity.Rendering
             {
                 Chunks = chunks,
                 MeshInstanceRendererType = meshInstanceRendererType,
-                ChunkRendererMap = chunkRendererMap
+                ChunkRendererMap = chunkRendererMap.ToConcurrent()
             };
             var mapChunkRenderersJobHandle = mapChunkRenderersJob.Schedule(chunks.Length, 64);
             

@@ -78,7 +78,7 @@ namespace Unity.Entities.Tests
                 }
             }
         }
-        
+
         [Test]
         public void ACS_WriteMixed()
         {
@@ -112,7 +112,7 @@ namespace Unity.Entities.Tests
                 var chunk = chunks[chunkIndex];
                 var chunkCount = chunk.Count;
 
-                Assert.AreEqual(4,math.ceil_pow2(chunkCount-1));
+                Assert.AreEqual(4,math.ceilpow2(chunkCount-1));
 
                 var chunkEcsTestData = chunk.GetNativeArray(ecsTestData);
                 var chunkEcsTestData2 = chunk.GetNativeArray(ecsTestData2);
@@ -134,10 +134,10 @@ namespace Unity.Entities.Tests
 
             foundValues++;
             Assert.AreEqual(0,foundValues);
-            
+
             chunks.Dispose();
         }
-        
+
         struct ChangeMixedValuesSharedFilter : IJobParallelFor
         {
             [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
@@ -156,7 +156,7 @@ namespace Unity.Entities.Tests
 
                 if (chunkEcsSharedDataIndex != sharedFilterIndex)
                     return;
-                
+
                 if (chunkEcsTestData.Length > 0)
                 {
                     for (int i = 0; i < chunkCount; i++)
@@ -173,14 +173,14 @@ namespace Unity.Entities.Tests
                 }
             }
         }
-        
+
         [Test]
         public void ACS_WriteMixedFilterShared()
         {
             CreateMixedEntities(64);
-            
+
             Assert.AreEqual(1,m_Manager.GlobalSystemVersion);
-            
+
             // Only update shared value == 1
             var unique = new List<EcsTestSharedComp>(0);
             m_Manager.GetAllUniqueSharedComponentData(unique);
@@ -226,8 +226,8 @@ namespace Unity.Entities.Tests
                 var chunk = chunks[chunkIndex];
                 var chunkCount = chunk.Count;
 
-                Assert.AreEqual(4,math.ceil_pow2(chunkCount-1));
-                
+                Assert.AreEqual(4,math.ceilpow2(chunkCount-1));
+
                 var chunkEcsSharedDataIndex = chunk.GetSharedComponentIndex(ecsTestSharedData);
 
                 var chunkEcsTestData = chunk.GetNativeArray(ecsTestData);
@@ -237,7 +237,7 @@ namespace Unity.Entities.Tests
                     var chunkEcsTestDataVersion = chunk.GetComponentVersion(ecsTestData);
 
                     Assert.AreEqual(1, chunkEcsTestDataVersion);
-                    
+
                     for (int i = 0; i < chunkCount; i++)
                     {
                         if (chunkEcsSharedDataIndex == sharedFilterIndex)
@@ -253,9 +253,9 @@ namespace Unity.Entities.Tests
                 else if (chunkEcsTestData2.Length > 0)
                 {
                     var chunkEcsTestData2Version = chunk.GetComponentVersion(ecsTestData2);
-                    
+
                     Assert.AreEqual(1, chunkEcsTestData2Version);
-                    
+
                     for (int i = 0; i < chunkCount; i++)
                     {
                         if (chunkEcsSharedDataIndex == sharedFilterIndex)
@@ -272,7 +272,7 @@ namespace Unity.Entities.Tests
 
             foundValues++;
             Assert.AreEqual(0,foundValues);
-            
+
             chunks.Dispose();
         }
 
@@ -343,16 +343,16 @@ namespace Unity.Entities.Tests
         public void ACS_ChunkArchetypeTypesMatch()
         {
             var entityTypes = new ComponentType[] {typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsIntElement)};
-            
+
             CreateEntities(128);
-            
+
             var query = new EntityArchetypeQuery
             {
                 Any = new ComponentType[0], // any
                 None = new ComponentType[0], // none
                 All = entityTypes, // all
             };
-            
+
             using (var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob))
             {
                 foreach (var chunk in chunks)

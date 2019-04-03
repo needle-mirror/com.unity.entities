@@ -53,7 +53,11 @@ namespace Unity.Entities.Editor
 
         public static void ComponentListGUILayout(ComponentType[] types, float width)
         {
-            CalculateDrawingParts(types.ToList(), false, width, out var height, out var styles, out var names, out var rects);
+            float height;
+            List<GUIStyle> styles;
+            List<GUIContent> names;
+            List<Rect> rects;
+            CalculateDrawingParts(types.ToList(), false, width, out height, out styles, out names, out rects);
 
             var wholeRect = GUILayoutUtility.GetRect(width, height);
             DrawComponentList(wholeRect, styles, names, rects);
@@ -83,6 +87,11 @@ namespace Unity.Entities.Editor
         public static string SpecifiedTypeName(Type type)
         {
             var name = type.Name;
+
+            if (type.IsNested)
+            {
+                name = $"{SpecifiedTypeName(type.DeclaringType)}.{name}";
+            }
             if (type.IsGenericType)
             {
                 name = name.Remove(name.IndexOf('`'));
