@@ -425,7 +425,7 @@ namespace Unity.Entities
             AddComponent(entity, ComponentType.Create<T>());
         }
 
-        public ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
+        internal ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
             where T : struct, IComponentData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
@@ -443,13 +443,13 @@ namespace Unity.Entities
 #endif
         }
 
-        public BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false)
+        internal BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false)
             where T : struct, IBufferElementData
         {
             return GetBufferFromEntity<T>(TypeManager.GetTypeIndex<T>(), isReadOnly);
         }
 
-        public BufferFromEntity<T> GetBufferFromEntity<T>(int typeIndex, bool isReadOnly = false)
+        internal BufferFromEntity<T> GetBufferFromEntity<T>(int typeIndex, bool isReadOnly = false)
             where T : struct, IBufferElementData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS

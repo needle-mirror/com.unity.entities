@@ -34,7 +34,7 @@ namespace Unity.Entities.Editor
                         {
                             if (!cachedControls.ContainsKey(componentGroup))
                             {
-                                cachedControls.Add(componentGroup, new ComponentGroupGUIControl(componentGroup.Types, false));
+                                cachedControls.Add(componentGroup, new ComponentGroupGUIControl(componentGroup.GetQueryTypes(), false));
                             }
                         }
                     }

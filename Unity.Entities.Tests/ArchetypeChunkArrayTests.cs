@@ -313,6 +313,132 @@ namespace Unity.Entities.Tests
             chunks.Dispose();
         }
 
+        [DisableAutoCreation]
+        class BumpChunkBufferTypeVersionSystem : ComponentSystem
+        {
+            struct UpdateChunks : IJobParallelFor
+            {
+                public NativeArray<ArchetypeChunk> Chunks;
+                public ArchetypeChunkBufferType<EcsIntElement> EcsIntElements;
+
+                public void Execute(int chunkIndex)
+                {
+                    var chunk = Chunks[chunkIndex];
+                    var ecsBufferAccessor = chunk.GetBufferAccessor(EcsIntElements);
+                    for (int i = 0; i < ecsBufferAccessor.Length; ++i)
+                    {
+                        var buffer = ecsBufferAccessor[i];
+                        if (buffer.Length > 0)
+                        {
+                            buffer[0] += 1;
+                        }
+                    }
+                }
+            }
+
+            ComponentGroup m_Group;
+
+            protected override void OnCreateManager()
+            {
+                m_Group = GetComponentGroup(typeof(EcsIntElement));
+            }
+
+            protected override void OnUpdate()
+            {
+                var chunks = m_Group.CreateArchetypeChunkArray(Allocator.TempJob);
+                var ecsIntElements = GetArchetypeChunkBufferType<EcsIntElement>();
+                var updateChunksJob = new UpdateChunks
+                {
+                    Chunks = chunks,
+                    EcsIntElements = ecsIntElements
+                };
+                var updateChunksJobHandle = updateChunksJob.Schedule(chunks.Length, 32);
+                updateChunksJobHandle.Complete();
+
+                chunks.Dispose();
+            }
+        }
+
+        [Test]
+        public void ACS_BufferHas()
+        {
+            CreateEntities(128);
+
+            var query = new EntityArchetypeQuery
+            {
+                Any = new ComponentType[] {}, // any
+                None = Array.Empty<ComponentType>(), // none
+                All = new ComponentType[] {typeof(EcsIntElement)}, // all
+            };
+            var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+
+            var intElements = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(false);
+            var missingElements = m_Manager.GetArchetypeChunkBufferType<EcsComplexEntityRefElement>(false);
+
+            for (int i = 0; i < chunks.Length; ++i)
+            {
+                var chunk = chunks[i];
+
+                // Test Has<T>()
+                bool hasIntElements = chunk.Has(intElements);
+                Assert.IsTrue(hasIntElements, "Has(EcsIntElement) should be true");
+                bool hasMissingElements = chunk.Has(missingElements);
+                Assert.IsFalse(hasMissingElements, "Has(EcsComplexEntityRefElement) should be false");
+            }
+
+            chunks.Dispose();
+        }
+
+        [Test]
+        public void ACS_BufferVersions()
+        {
+            CreateEntities(128);
+
+            var query = new EntityArchetypeQuery
+            {
+                Any = new ComponentType[] {}, // any
+                None = Array.Empty<ComponentType>(), // none
+                All = new ComponentType[] {typeof(EcsIntElement)}, // all
+            };
+            var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+
+            var intElements = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(false);
+            uint[] chunkBufferVersions = new uint[chunks.Length];
+
+            for (int i = 0; i < chunks.Length; ++i)
+            {
+                var chunk = chunks[i];
+
+                // Test DidChange() and DidAddOrChange() before modifications
+                chunkBufferVersions[i] = chunk.GetComponentVersion(intElements);
+                bool beforeDidAddOrChange = chunk.DidAddOrChange(intElements, chunkBufferVersions[i]);
+                Assert.IsFalse(beforeDidAddOrChange, "DidAddOrChange() is true before modifications");
+                bool beforeDidChange = chunk.DidChange(intElements);
+                Assert.IsFalse(beforeDidChange, "DidChange() is true before modifications");
+                uint beforeVersion = chunk.GetComponentVersion(intElements);
+                Assert.AreEqual(chunkBufferVersions[i], beforeVersion, "version mismatch before modifications");
+            }
+
+            // Run system to bump chunk versions
+            var bumpChunkBufferTypeVersionSystem = World.CreateManager<BumpChunkBufferTypeVersionSystem>();
+            bumpChunkBufferTypeVersionSystem.Update();
+
+            // Check versions after modifications
+            for (int i = 0; i < chunks.Length; ++i)
+            {
+                var chunk = chunks[i];
+
+                uint afterVersion = chunk.GetComponentVersion(intElements);
+                Assert.AreNotEqual(chunkBufferVersions[i], afterVersion, "version match after modifications");
+                bool afterDidAddChange = chunk.DidAddOrChange(intElements, chunkBufferVersions[i]);
+                Assert.IsTrue(afterDidAddChange, "DidAddOrChange() is false after modifications");
+                bool afterDidChange = chunk.DidChange(intElements);
+                Assert.IsTrue(afterDidChange, "DidChange() is false after modifications");
+            }
+
+            chunks.Dispose();
+        }
+
         [Test]
         public void ACS_BuffersRO()
         {

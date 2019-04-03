@@ -53,43 +53,49 @@ namespace Unity.Entities
             }
         }
 
-        public ComponentType[] Types
+        internal ComponentType[] GetQueryTypes()
         {
-            get
+            var types = new HashSet<ComponentType>();
+
+            for (var i = 0; i < m_GroupData->ArchetypeQueryCount; ++i)
             {
-                var types = new List<ComponentType>();
-                for (var i = 0; i < m_GroupData->RequiredComponentsCount; ++i)
+                for (var j = 0; j < m_GroupData->ArchetypeQuery[i].AnyCount; ++j)
                 {
-                    types.Add(m_GroupData->RequiredComponents[i]);
+                    types.Add(TypeManager.GetType(m_GroupData->ArchetypeQuery[i].Any[j]));
                 }
-                for (var i = 0; i < m_GroupData->ReaderTypesCount; ++i)
+                for (var j = 0; j < m_GroupData->ArchetypeQuery[i].AllCount; ++j)
                 {
-                    types.Add(ComponentType.ReadOnly(TypeManager.GetType(m_GroupData->ReaderTypes[i])));
+                    types.Add(TypeManager.GetType(m_GroupData->ArchetypeQuery[i].All[j]));
                 }
-                for (var i = 0; i < m_GroupData->WriterTypesCount; ++i)
+                for (var j = 0; j < m_GroupData->ArchetypeQuery[i].NoneCount; ++j)
                 {
-                    types.Add(TypeManager.GetType(m_GroupData->WriterTypes[i]));
+                    types.Add(ComponentType.Subtractive(TypeManager.GetType(m_GroupData->ArchetypeQuery[i].None[j])));
                 }
-
-                for (var i = 0; i < m_GroupData->ArchetypeQueryCount; ++i)
-                {
-                    for (var j = 0; j < m_GroupData->ArchetypeQuery[i].AnyCount; ++j)
-                    {
-                        types.Add(TypeManager.GetType(m_GroupData->ArchetypeQuery[i].Any[j]));
-                    }
-                    for (var j = 0; j < m_GroupData->ArchetypeQuery[i].AllCount; ++j)
-                    {
-                        types.Add(TypeManager.GetType(m_GroupData->ArchetypeQuery[i].All[j]));
-                    }
-                    for (var j = 0; j < m_GroupData->ArchetypeQuery[i].NoneCount; ++j)
-                    {
-                        types.Add(ComponentType.Subtractive(TypeManager.GetType(m_GroupData->ArchetypeQuery[i].None[j])));
-                    }
-                }
-
-                return types.ToArray();
             }
+
+            var array = new ComponentType[types.Count];
+            var t = 0;
+            foreach (var type in types)
+                array[t++] = type;
+            return array;
         }
+
+        internal ComponentType[] GetReadAndWriteTypes()
+        {
+            var types = new ComponentType[m_GroupData->ReaderTypesCount + m_GroupData->WriterTypesCount];
+            var typeArrayIndex = 0;
+            for (var i = 0; i < m_GroupData->ReaderTypesCount; ++i)
+            {
+                types[typeArrayIndex++] = ComponentType.ReadOnly(TypeManager.GetType(m_GroupData->ReaderTypes[i]));
+            }
+            for (var i = 0; i < m_GroupData->WriterTypesCount; ++i)
+            {
+                types[typeArrayIndex++] = TypeManager.GetType(m_GroupData->WriterTypes[i]);
+            }
+
+            return types;
+        }
+        
         internal ArchetypeManager ArchetypeManager { get; }
 
         public void Dispose()

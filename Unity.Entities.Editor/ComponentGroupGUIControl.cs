@@ -8,8 +8,6 @@ namespace Unity.Entities.Editor
 {
     public class ComponentGroupGUIControl
     {
-        private bool archetypeQueryMode;
-        
         private List<GUIStyle> styles;
         private List<GUIContent> names;
         private List<Rect> rects;
@@ -23,11 +21,15 @@ namespace Unity.Entities.Editor
 
         public ComponentGroupGUIControl(IEnumerable<ComponentType> types, bool archetypeQueryMode)
         {
-            this.archetypeQueryMode = archetypeQueryMode;
-            CalculateDrawingParts(types);
+            CalculateDrawingParts(types, null, archetypeQueryMode);
+        }
+
+        public ComponentGroupGUIControl(IEnumerable<ComponentType> types, IEnumerable<ComponentType> readWriteTypes, bool archetypeQueryMode)
+        {
+            CalculateDrawingParts(types, readWriteTypes, archetypeQueryMode);
         }
         
-        void CalculateDrawingParts(IEnumerable<ComponentType> types)
+        void CalculateDrawingParts(IEnumerable<ComponentType> types, IEnumerable<ComponentType> readWriteTypes, bool archetypeQueryMode)
         {
             var typeList = types.ToList();
             typeList.Sort((Comparison<ComponentType>) ComponentGroupGUI.CompareTypes);
@@ -36,7 +38,34 @@ namespace Unity.Entities.Editor
             rects = new List<Rect>(typeList.Count);
             foreach (var type in typeList)
             {
-                var style = ComponentGroupGUI.StyleForAccessMode(type.AccessModeType, archetypeQueryMode);
+                GUIStyle style = null;
+                if (readWriteTypes != null)
+                {
+                    foreach (var readWriteType in readWriteTypes)
+                    {
+                        if (readWriteType.TypeIndex == type.TypeIndex)
+                        {
+                            style = ComponentGroupGUI.StyleForAccessMode(readWriteType.AccessModeType, archetypeQueryMode);
+                            break;
+                        }
+                    }
+
+                    if (style == null)
+                    {
+                        if (type.AccessModeType == ComponentType.AccessMode.Subtractive)
+                        {
+                            style = EntityDebuggerStyles.ComponentSubtractive;
+                        }
+                        else
+                        {
+                            style = EntityDebuggerStyles.ComponentRequired;
+                        }
+                    }
+                }
+                else
+                {
+                    style = ComponentGroupGUI.StyleForAccessMode(type.AccessModeType, archetypeQueryMode);
+                }
                 var content = new GUIContent((string) ComponentGroupGUI.SpecifiedTypeName(type.GetManagedType()));
 
                 styles.Add(style);

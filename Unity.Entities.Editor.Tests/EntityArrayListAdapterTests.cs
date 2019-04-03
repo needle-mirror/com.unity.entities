@@ -6,9 +6,12 @@ namespace Unity.Entities.Editor.Tests
 {
     public class EntityArrayListAdapterTests : ECSTestsFixture
     {
-        [Test]
-        public void EntityArrayListAdapter_SequentialAccessConsistent()
+        private NativeArray<ArchetypeChunk> m_ChunkArray;
+
+        public override void Setup()
         {
+            base.Setup();
+            
             var archetype = m_Manager.CreateArchetype(new ComponentType[] {typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3),
                 typeof(EcsTestData4)});
             using (var entities = new NativeArray<Entity>(100000, Allocator.Temp))
@@ -22,23 +25,54 @@ namespace Unity.Entities.Editor.Tests
                 All = new ComponentType[0],
                 None = new ComponentType[0]
             };
-
-            using (var chunkArray = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob))
-            {
-                var adapter = new EntityArrayListAdapter();
-                adapter.SetSource(chunkArray, m_Manager, null);
-                var e1 = adapter[50001].id;
-                var e2 = adapter[50002].id;
-                var e3 = adapter[50003].id;
-                var e2Again = adapter[50002].id;
-                var e1Again = adapter[50001].id;
-                Assert.AreNotEqual(e1, e2);
-                Assert.AreNotEqual(e1, e2Again);
-                Assert.AreNotEqual(e2, e1Again);
-                Assert.AreEqual(e1, e1Again);
-                Assert.AreEqual(e2, e2Again);
-            }
             
+            m_ChunkArray = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+        }
+
+        public override void TearDown()
+        {
+            m_ChunkArray.Dispose();
+            base.TearDown();
+        }
+
+        [Test]
+        public void EntityArrayListAdapter_SequentialAccessConsistent()
+        {
+            var adapter = new EntityArrayListAdapter();
+            adapter.SetSource(m_ChunkArray, m_Manager, null);
+            var e1 = adapter[50001].id;
+            var e2 = adapter[50002].id;
+            var e3 = adapter[50003].id;
+            var e2Again = adapter[50002].id;
+            var e1Again = adapter[50001].id;
+            Assert.AreNotEqual(e1, e2);
+            Assert.AreNotEqual(e1, e2Again);
+            Assert.AreNotEqual(e2, e1Again);
+            Assert.AreEqual(e1, e1Again);
+            Assert.AreEqual(e2, e2Again);
+            
+        }
+
+        [Test]
+        public void EntityArrayListAdapter_Enumerator_Resets()
+        {
+            var adapter = new EntityArrayListAdapter();
+            adapter.SetSource(m_ChunkArray, m_Manager, null);
+            using (var iterator = adapter.GetEnumerator())
+            {
+                var ids = new int[5];
+                for (var i = 0; i < ids.Length; ++i)
+                {
+                    ids[i] = iterator.Current.id;
+                    Assert.IsTrue(iterator.MoveNext());
+                }
+                iterator.Reset();
+                for (var i = 0; i < ids.Length; ++i)
+                {
+                    Assert.AreEqual(ids[i], iterator.Current.id);
+                    Assert.IsTrue(iterator.MoveNext());
+                }
+            }
         }
     }
 }

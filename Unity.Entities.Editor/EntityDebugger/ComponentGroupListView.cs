@@ -20,9 +20,9 @@ namespace Unity.Entities.Editor
             {
                 var query = new EntityArchetypeQuery()
                 {
-                    All = group.Types.Where(x => x.AccessModeType != ComponentType.AccessMode.Subtractive).ToArray(),
+                    All = group.GetQueryTypes().Where(x => x.AccessModeType != ComponentType.AccessMode.Subtractive).ToArray(),
                     Any = new ComponentType[0],
-                    None = group.Types.Where(x => x.AccessModeType == ComponentType.AccessMode.Subtractive).ToArray()
+                    None = group.GetQueryTypes().Where(x => x.AccessModeType == ComponentType.AccessMode.Subtractive).ToArray()
                 };
                 queriesByGroup.Add(group, query);
             }
@@ -87,7 +87,7 @@ namespace Unity.Entities.Editor
             Reload();
         }
 
-        public float Height => Mathf.Max(queriesById.Count + componentGroupsById.Count, 1)*rowHeight;
+        public float Height { get; private set; }
 
         protected override float GetCustomRowHeight(int row, TreeViewItem item)
         {
@@ -163,7 +163,7 @@ namespace Unity.Entities.Editor
                     
                     foreach (var idGroupPair in componentGroupsById)
                     {
-                        var newControl = new ComponentGroupGUIControl(idGroupPair.Value.Types, true);
+                        var newControl = new ComponentGroupGUIControl(idGroupPair.Value.GetQueryTypes(), idGroupPair.Value.GetReadAndWriteTypes(), true);
                         controlsById.Add(idGroupPair.Key, newControl);
                     }
                     foreach (var idQueryPair in queriesById)
@@ -180,6 +180,23 @@ namespace Unity.Entities.Editor
         }
 
         private float width;
+        private const float kBorderWidth = 60f;
+
+        public void SetWidth(float newWidth)
+        {
+            newWidth -= kBorderWidth;
+            if (newWidth != width)
+            {
+                width = newWidth;
+                foreach (var control in controlsById.Values)
+                    control.UpdateSize(width);
+            }
+            RefreshCustomRowHeights();
+            var height = 0f;
+            foreach (var child in rootItem.children)
+                height += GetCustomRowHeight(0, child);
+            Height = height;
+        }
 
         public override void OnGUI(Rect rect)
         {
@@ -187,14 +204,7 @@ namespace Unity.Entities.Editor
             {
                 if (Event.current.type == EventType.Repaint)
                 {
-                    var newWidth = rect.width - 60f;
-                    if (newWidth != width)
-                    {
-                        width = newWidth;
-                        foreach (var control in controlsById.Values)
-                            control.UpdateSize(width);
-                    }
-                    RefreshCustomRowHeights();
+                    SetWidth(rect.width);
                 }
                 base.OnGUI(rect);
             }

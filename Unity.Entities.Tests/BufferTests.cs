@@ -513,7 +513,7 @@ namespace Unity.Entities.Tests
 	        buffer = m_Manager.GetBuffer<EcsIntElement>(original);
 	        var buffer2 = m_Manager.GetBuffer<EcsIntElement>(clone);
 
-	        Assert.AreNotEqual((UIntPtr)buffer.GetBasePointer(), (UIntPtr)buffer2.GetBasePointer());
+	        Assert.AreNotEqual((UIntPtr)buffer.GetUnsafePtr(), (UIntPtr)buffer2.GetUnsafePtr());
 	        Assert.AreEqual(buffer.Length, buffer2.Length);
 	        for (int i = 0; i < buffer.Length; ++i)
 	        {
@@ -533,7 +533,7 @@ namespace Unity.Entities.Tests
 	        buffer = m_Manager.GetBuffer<EcsIntElement>(original);
 	        var buffer2 = m_Manager.GetBuffer<EcsIntElement>(clone);
 
-	        Assert.AreNotEqual((UIntPtr)buffer.GetBasePointer(), (UIntPtr)buffer2.GetBasePointer());
+	        Assert.AreNotEqual((UIntPtr)buffer.GetUnsafePtr(), (UIntPtr)buffer2.GetUnsafePtr());
 	        Assert.AreEqual(buffer.Length, buffer2.Length);
 	        for (int i = 0; i < buffer.Length; ++i)
 	        {
@@ -571,6 +571,11 @@ namespace Unity.Entities.Tests
 #pragma warning disable 0219 // assigned but its value is never used
 	            int value = array[0].Value;
 #pragma warning restore 0219
+	        });
+	        
+	        Assert.Throws<InvalidOperationException>(() =>
+	        {
+	            array[0] = 5;
 	        });
 	    }
 
@@ -633,27 +638,6 @@ namespace Unity.Entities.Tests
 	        var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
 	        buffer.Add(1);
 	        var handle = new ArrayConsumingJob {Array = buffer.ToNativeArray()}.Schedule();
-	        Assert.Throws<InvalidOperationException>(() => buffer.Add(2));
-	        Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(original));
-	        handle.Complete();
-	    }
-
-	    struct BufferConsumingJob : IJob
-	    {
-	        public DynamicBuffer<EcsIntElement> Buffer;
-
-	        public void Execute()
-	        {
-	        }
-	    }
-
-	    [Test]
-	    public void BufferInvalidationNotPossibleWhenBuffersAreGivenToJobs()
-	    {
-	        var original = m_Manager.CreateEntity(typeof(EcsIntElement));
-	        var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
-	        buffer.Add(1);
-	        var handle = new BufferConsumingJob {Buffer = buffer}.Schedule();
 	        Assert.Throws<InvalidOperationException>(() => buffer.Add(2));
 	        Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(original));
 	        handle.Complete();
@@ -752,5 +736,162 @@ namespace Unity.Entities.Tests
 	                duplicate.Dispose();
 	        }
 	    }
+
+
+	    struct WriteJob : IJobChunk
+	    {
+	        public ArchetypeChunkBufferType<EcsIntElement> Int;
+
+	        public void Execute(ArchetypeChunk chunk, int chunkIndex)
+	        {
+	            var intValue = chunk.GetBufferAccessor(Int)[0];
+	            
+	            Assert.AreEqual(intValue.Length, 1);
+
+	            var intValueArray = intValue.ToNativeArray();
+	            
+	            Assert.AreEqual(5, intValue[0].Value);
+	            Assert.AreEqual(5, intValueArray[0].Value);
+
+	            intValueArray[0] = 6;
+
+	            Assert.AreEqual(intValueArray.Length, 1);
+	            Assert.AreEqual(6, intValue[0].Value);
+	        }
+	    }
+
+	    [Test]
+	    public void ReadWriteDynamicBuffer()
+	    {
+	        var original = m_Manager.CreateEntity(typeof(EcsIntElement));
+	        var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
+	        buffer.Add(5);
+
+	        var group = EmptySystem.GetComponentGroup(new EntityArchetypeQuery {All = new ComponentType[] {typeof(EcsIntElement)}});
+	        var job = new WriteJob
+	        {
+	            //@TODO: Throw exception when read only flag is not accurately passed to job for buffers...
+	            Int = EmptySystem.GetArchetypeChunkBufferType<EcsIntElement>()
+	        };
+        
+	        job.Schedule(group).Complete();
+	    }
+	    
+	    struct ReadOnlyJob : IJobChunk
+	    {
+	        [ReadOnly]
+	        public ArchetypeChunkBufferType<EcsIntElement> Int;
+
+	        public void Execute(ArchetypeChunk chunk, int chunkIndex)
+	        {
+	            var intValue = chunk.GetBufferAccessor(Int)[0];
+	            
+	            // Reading buffer
+	            Assert.AreEqual(intValue.Length, 1);
+	            Assert.AreEqual(5, intValue[0].Value);
+
+	            // Reading casted native array
+	            var intValueArray = intValue.ToNativeArray();
+	            Assert.AreEqual(intValueArray.Length, 1);
+	            Assert.AreEqual(5, intValueArray[0].Value);
+
+	            // Can't write to buffer...
+	            Assert.Throws<InvalidOperationException>(() => { intValue[0] = 5; });
+	            Assert.Throws<InvalidOperationException>(() => { intValueArray[0] = 5; });
+	        }
+	    }
+
+	    public void ReadOnlyDynamicBufferImpl(bool readOnlyType)
+	    {
+	        var original = m_Manager.CreateEntity(typeof(EcsIntElement));
+	        var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
+	        buffer.Add(5);
+
+	        var group = EmptySystem.GetComponentGroup(new EntityArchetypeQuery {All = new ComponentType[] {typeof(EcsIntElement)}});
+	        var job = new ReadOnlyJob
+            {
+                Int = EmptySystem.GetArchetypeChunkBufferType<EcsIntElement>(readOnlyType)
+            };
+        
+            job.Schedule(group).Complete();
+	    }
+
+	    [Test]
+	    public void ReadOnlyDynamicBufferReadOnly()
+	    {
+	        ReadOnlyDynamicBufferImpl(true);
+	    }
+
+	    [Test]
+	    [Ignore("Joe is fixing for 19.1. https://ono.unity3d.com/unity/unity/changeset/7fba7166055c164f6d10a8b7d12bd0588ee12025")]
+	    public void ReadOnlyDynamicBufferWritable()
+	    {
+	        ReadOnlyDynamicBufferImpl(false);
+	    }
+
+	    struct BufferConsumingJob : IJob
+	    {
+	        public DynamicBuffer<EcsIntElement> Buffer;
+
+	        public void Execute()
+	        {
+	        }
+	    }
+
+	    [Test]
+	    public void BufferInvalidationNotPossibleWhenBuffersAreGivenToJobs()
+	    {
+	        var original = m_Manager.CreateEntity(typeof(EcsIntElement));
+	        var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
+	        buffer.Add(1);
+	        var handle = new BufferConsumingJob {Buffer = buffer}.Schedule();
+	        Assert.Throws<InvalidOperationException>(() => buffer.Add(2));
+	        Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(original));
+	        handle.Complete();
+	    }
+	    
+	    struct ReadOnlyNativeArrayJob : IJob
+	    {
+	        [ReadOnly]
+	        public NativeArray<EcsIntElement> IntArray;
+
+	        public void Execute()
+	        {
+	            var array = IntArray;
+	            
+	            // Reading casted native array
+	            Assert.AreEqual(array.Length, 1);
+	            Assert.AreEqual(5, array[0].Value);
+
+	            // Can't write to buffer...
+	            Assert.Throws<InvalidOperationException>(() => { array[0] = 5; });
+	            Assert.Throws<InvalidOperationException>(() => { array[0] = 5; });
+	        }
+	    }
+
+	    [Test]
+	    public void NativeArrayInJobReadOnly()
+	    {
+	        var original = m_Manager.CreateEntity(typeof(EcsIntElement));
+	        var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
+	        buffer.Add(5);
+
+	        var job = new ReadOnlyNativeArrayJob
+	        {
+	            IntArray = buffer.ToNativeArray()
+	        };
+            var jobHandle = job.Schedule();
+
+	        Assert.Throws<InvalidOperationException>(() => { buffer.Add(5); });
+	        Assert.Throws<InvalidOperationException>(() => { buffer[0] = 6; });
+	        Assert.Throws<InvalidOperationException>(() => { job.IntArray[0] = 6; });
+	        Assert.Throws<InvalidOperationException>(() => { job.IntArray[0] = 6; });
+
+	        Assert.AreEqual(5, buffer[0].Value);
+	        Assert.AreEqual(5, job.IntArray[0].Value);
+ 
+            jobHandle.Complete();
+	    }
+	    
 	}
 }

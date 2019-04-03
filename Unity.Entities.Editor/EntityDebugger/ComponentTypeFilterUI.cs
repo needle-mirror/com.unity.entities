@@ -52,6 +52,8 @@ namespace Unity.Entities.Editor
 
                 filterTypes.AddRange(requiredTypes);
                 filterTypes.AddRange(subtractiveTypes);
+                
+                filterTypes.Sort(ComponentGroupGUI.CompareTypes);
             }
         }
 

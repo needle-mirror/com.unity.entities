@@ -194,7 +194,7 @@ namespace Unity.Entities.Tests
 
                 var buf1 = entityManager.GetBuffer<EcsIntElement>(new_e1);
                 Assert.AreEqual(3, buf1.Length);
-                Assert.AreNotEqual((UIntPtr)m_Manager.GetBuffer<EcsIntElement>(e1).GetBasePointer(), (UIntPtr)buf1.GetBasePointer());
+                Assert.AreNotEqual((UIntPtr)m_Manager.GetBuffer<EcsIntElement>(e1).GetUnsafePtr(), (UIntPtr)buf1.GetUnsafePtr());
 
                 for (int i = 0; i < 3; ++i)
                 {
@@ -203,7 +203,7 @@ namespace Unity.Entities.Tests
 
                 var buf3 = entityManager.GetBuffer<EcsIntElement>(new_e3);
                 Assert.AreEqual(10, buf3.Length);
-                Assert.AreNotEqual((UIntPtr)m_Manager.GetBuffer<EcsIntElement>(e3).GetBasePointer(), (UIntPtr)buf3.GetBasePointer());
+                Assert.AreNotEqual((UIntPtr)m_Manager.GetBuffer<EcsIntElement>(e3).GetUnsafePtr(), (UIntPtr)buf3.GetUnsafePtr());
 
                 for (int i = 0; i < 10; ++i)
                 {

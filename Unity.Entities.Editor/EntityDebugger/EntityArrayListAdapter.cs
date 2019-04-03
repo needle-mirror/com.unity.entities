@@ -19,9 +19,10 @@ namespace Unity.Entities.Editor
 
         public int Count { get; private set; }
 
+        private Enumerator indexIterator;
+
         public void SetSource(NativeArray<ArchetypeChunk> newChunkArray, EntityManager newEntityManager, ChunkFilter newChunkFilter)
         {
-            lastRequestedIndex = int.MaxValue;
             chunkArray = newChunkArray;
             chunkFilter = newChunkFilter;
             Count = 0;
@@ -36,46 +37,98 @@ namespace Unity.Entities.Editor
                 }
             }
             entityManager = newEntityManager;
+            indexIterator = new Enumerator(this);
         }
 
-        private int lastRequestedIndex;
-        private int currentLocalIndex;
-        private int currentChunk;
-
-        private void SkipFilteredChunks()
+        class Enumerator : IEnumerator<TreeViewItem>
         {
-            if (chunkFilter != null)
-                while (currentChunk < chunkFilter.firstIndex)
-                    ++currentChunk;
+            private int linearIndex;
+            private int indexInChunk;
+            private int currentChunk;
+
+            private readonly EntityArrayListAdapter adapter;
+
+            public Enumerator(EntityArrayListAdapter adapter)
+            {
+                this.adapter = adapter;
+                Reset();
+            }
+            
+            private void UpdateIndexInChunk()
+            {
+                while (adapter.chunkArray[currentChunk].Count <= indexInChunk)
+                    indexInChunk -= adapter.chunkArray[currentChunk++].Count;
+            }
+
+            internal void MoveToIndex(int index)
+            {
+                if (index >= linearIndex)
+                {
+                    indexInChunk += index - linearIndex;
+                    linearIndex = index;
+                    UpdateIndexInChunk();
+                }
+                else
+                {
+                    Reset(index);
+                }
+            }
+            
+            public bool MoveNext()
+            {
+                ++indexInChunk;
+                ++linearIndex;
+                
+                if (linearIndex >= adapter.Count)
+                    return false;
+
+                UpdateIndexInChunk();
+                return true;
+            }
+
+            private void SetLinearIndex(int index)
+            {
+                linearIndex = indexInChunk = index;
+                currentChunk = 0;
+                if (adapter.chunkFilter != null && currentChunk < adapter.chunkFilter.firstIndex)
+                    currentChunk = adapter.chunkFilter.firstIndex;
+            }
+
+            public void Reset()
+            {
+                SetLinearIndex(0);
+            }
+
+            private void Reset(int index)
+            {
+                SetLinearIndex(index);
+                UpdateIndexInChunk();
+            }
+
+            public TreeViewItem Current
+            {
+                get
+                {
+                    var entityArray = adapter.chunkArray[currentChunk].GetNativeArray(adapter.entityManager.GetArchetypeChunkEntityType());
+                    var entity = entityArray[indexInChunk];
+            
+                    adapter.currentItem.id = entity.Index;
+                    adapter.currentItem.displayName = $"Entity {entity.Index}";
+                    return adapter.currentItem;
+                }
+            }
+
+            object IEnumerator.Current => Current;
+
+            public void Dispose() {}
         }
 
         public TreeViewItem this[int index]
         {
             get
             {
-                if (index >= lastRequestedIndex)
-                {
-                    currentLocalIndex += index - lastRequestedIndex;
-                }
-                else
-                {
-                    currentLocalIndex = index;
-                    currentChunk = 0;
-                    SkipFilteredChunks();
-                }
-                lastRequestedIndex = index;
-                while (chunkArray[currentChunk].Count <= currentLocalIndex)
-                {
-                    currentLocalIndex -= chunkArray[currentChunk++].Count;
-                    SkipFilteredChunks();
-                }
-                
-                var entityArray = chunkArray[currentChunk].GetNativeArray(entityManager.GetArchetypeChunkEntityType());
-                var entity = entityArray[currentLocalIndex];
-            
-                currentItem.id = entity.Index;
-                currentItem.displayName = $"Entity {entity.Index}";
-                return currentItem;
+                indexIterator.MoveToIndex(index);
+                return indexIterator.Current;
             }
             set { throw new System.NotImplementedException(); }
         }
@@ -109,7 +162,7 @@ namespace Unity.Entities.Editor
         
         public IEnumerator<TreeViewItem> GetEnumerator()
         {
-            throw new NotImplementedException();
+            return new Enumerator(this);
         }
 
         IEnumerator IEnumerable.GetEnumerator()

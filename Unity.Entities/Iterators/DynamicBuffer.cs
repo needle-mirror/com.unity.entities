@@ -40,16 +40,24 @@ namespace Unity.Entities
 
         public int Length
         {
-            get { return m_Buffer->Length; }
+            get
+            {
+                CheckReadAccess();
+                return m_Buffer->Length;
+            }
         }
 
         public int Capacity
         {
-            get { return m_Buffer->Capacity; }
+            get
+            {
+                CheckReadAccess();
+                return m_Buffer->Capacity;
+            }
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        private void CheckBounds(int index)
+        void CheckBounds(int index)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if ((uint)index >= (uint)Length)
@@ -58,18 +66,29 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        private void CheckReadAccess()
+        void CheckReadAccess()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety1);
 #endif
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        private void CheckWriteAccess()
+        void CheckWriteAccess()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety0);
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety1);
+#endif
+        }
+        
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        void CheckWriteAccessAndInvalidateArrayAliases()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety0);
+            AtomicSafetyHandle.CheckWriteAndBumpSecondaryVersion(m_Safety1);
 #endif
         }
 
@@ -91,25 +110,22 @@ namespace Unity.Entities
 
         public void ResizeUninitialized(int length)
         {
-            InvalidateArrayAliases();
+            CheckWriteAccessAndInvalidateArrayAliases();
             BufferHeader.EnsureCapacity(m_Buffer, length, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData);
             m_Buffer->Length = length;
         }
 
-        private void InvalidateArrayAliases()
-        {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckWriteAndBumpSecondaryVersion(m_Safety1);
-#endif
-        }
-
         public void Clear()
         {
+            CheckWriteAccessAndInvalidateArrayAliases();
+
             m_Buffer->Length = 0;
         }
 
         public void TrimExcess()
         {
+            CheckWriteAccessAndInvalidateArrayAliases();
+
             byte* oldPtr = m_Buffer->Pointer;
             int length = m_Buffer->Length;
 
@@ -177,7 +193,7 @@ namespace Unity.Entities
             RemoveRange(index, 1);
         }
 
-        public byte* GetBasePointer()
+        public void* GetUnsafePtr()
         {
             CheckWriteAccess();
             return BufferHeader.GetElementPointer(m_Buffer);
@@ -201,11 +217,14 @@ namespace Unity.Entities
         /// </summary>
         public NativeArray<T> ToNativeArray()
         {
-            var shadow = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(GetBasePointer(), Length, Allocator.Invalid);
+            CheckReadAccess();
+            
+            var shadow = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(BufferHeader.GetElementPointer(m_Buffer), Length, Allocator.Invalid);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var handle = m_Safety1;
-            AtomicSafetyHandle.UseSecondaryVersion(ref handle);
+            AtomicSafetyHandle.UseSecondaryVersion(ref handle);          
             NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref shadow, handle);
+
 #endif
             return shadow;
         }
