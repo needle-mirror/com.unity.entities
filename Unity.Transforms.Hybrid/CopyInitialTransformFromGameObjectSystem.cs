@@ -3,12 +3,12 @@ using Unity.Entities;
 using Unity.Jobs;
 using Unity.Burst;
 using Unity.Mathematics;
+using UnityEngine;
 using UnityEngine.Jobs;
 
 namespace Unity.Transforms
 {
-    [UpdateBefore(typeof(EndFrameTransformSystem))]
-    [UpdateBefore(typeof(CopyTransformToGameObjectSystem))]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
     public class CopyInitialTransformFromGameObjectSystem : JobComponentSystem
     {
         struct TransformStash
@@ -33,31 +33,29 @@ namespace Unity.Transforms
         }
 
         [BurstCompile]
-        struct CopyTransforms : IJobParallelFor
+        struct CopyTransforms : IJobProcessComponentDataWithEntity<LocalToWorld>
         {
-            [NativeDisableParallelForRestriction] public ComponentDataFromEntity<Position> positions;
-            [NativeDisableParallelForRestriction] public ComponentDataFromEntity<Rotation> rotations;
-            [ReadOnly] public EntityArray entities;
             [DeallocateOnJobCompletion] public NativeArray<TransformStash> transformStashes;
 
-            public void Execute(int index)
+            public void Execute(Entity entity, int index, ref LocalToWorld localToWorld)
             {
                 var transformStash = transformStashes[index];
-                var entity = entities[index];
-                if (positions.Exists(entity))
+
+                var position = localToWorld.Position;
+
+                localToWorld = new LocalToWorld
                 {
-                    positions[entity] = new Position { Value = transformStash.position };
-                }
-                if (rotations.Exists(entity))
-                {
-                    rotations[entity] = new Rotation { Value = transformStash.rotation };
-                }
+                    Value = float4x4.TRS(
+                        transformStash.position,
+                        transformStash.rotation,
+                        new float3(1.0f, 1.0f, 1.0f))
+                };
             }
         }
 
         struct RemoveCopyInitialTransformFromGameObjectComponent : IJob
         {
-            [ReadOnly] public EntityArray entities;
+            [DeallocateOnJobCompletion][ReadOnly] public NativeArray<Entity> entities;
             public EntityCommandBuffer entityCommandBuffer;
 
             public void Execute()
@@ -66,24 +64,26 @@ namespace Unity.Transforms
                 {
                     entityCommandBuffer.RemoveComponent<CopyInitialTransformFromGameObject>(entities[i]);
                 }
-
             }
         }
 
-        EndFrameBarrier m_EndFrameBarrier;
+        EndInitializationEntityCommandBufferSystem m_EntityCommandBufferSystem;
 
         ComponentGroup m_InitialTransformGroup;
 
         protected override void OnCreateManager()
         {
-            m_EndFrameBarrier = World.GetOrCreateManager<EndFrameBarrier>();
-            m_InitialTransformGroup = GetComponentGroup(ComponentType.ReadOnly(typeof(CopyInitialTransformFromGameObject)),typeof(UnityEngine.Transform));
+            m_EntityCommandBufferSystem = World.GetOrCreateManager<EndInitializationEntityCommandBufferSystem>();
+            m_InitialTransformGroup = GetComponentGroup(
+                    ComponentType.ReadOnly(typeof(CopyInitialTransformFromGameObject)),
+                    typeof(UnityEngine.Transform),
+                    ComponentType.ReadWrite<LocalToWorld>());
         }
 
         protected override JobHandle OnUpdate(JobHandle inputDeps)
         {
             var transforms = m_InitialTransformGroup.GetTransformAccessArray();
-            var entities = m_InitialTransformGroup.GetEntityArray();
+            var entities = m_InitialTransformGroup.ToEntityArray(Allocator.TempJob);
 
             var transformStashes = new NativeArray<TransformStash>(transforms.length, Allocator.TempJob);
             var stashTransformsJob = new StashTransforms
@@ -95,21 +95,18 @@ namespace Unity.Transforms
 
             var copyTransformsJob = new CopyTransforms
             {
-                positions = GetComponentDataFromEntity<Position>(),
-                rotations = GetComponentDataFromEntity<Rotation>(),
                 transformStashes = transformStashes,
-                entities = entities
             };
 
-            var copyTransformsJobHandle = copyTransformsJob.Schedule(transformStashes.Length,64,stashTransformsJobHandle);
+            var copyTransformsJobHandle = copyTransformsJob.ScheduleGroup(m_InitialTransformGroup, stashTransformsJobHandle);
 
             var removeComponentsJob = new RemoveCopyInitialTransformFromGameObjectComponent
             {
                 entities = entities,
-                entityCommandBuffer = m_EndFrameBarrier.CreateCommandBuffer()
+                entityCommandBuffer = m_EntityCommandBufferSystem.CreateCommandBuffer()
             };
             var removeComponentsJobHandle = removeComponentsJob.Schedule(copyTransformsJobHandle);
-            m_EndFrameBarrier.AddJobHandleForProducer(removeComponentsJobHandle);
+            m_EntityCommandBufferSystem.AddJobHandleForProducer(removeComponentsJobHandle);
             return removeComponentsJobHandle;
         }
     }

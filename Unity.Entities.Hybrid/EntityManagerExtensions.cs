@@ -41,7 +41,7 @@ namespace Unity.Entities
 
         public static unsafe T GetComponentObject<T>(this EntityManager entityManager, Entity entity) where T : Component
         {
-            var componentType = ComponentType.Create<T>();
+            var componentType = ComponentType.ReadWrite<T>();
             entityManager.Entities->AssertEntityHasComponent(entity, componentType.TypeIndex);
 
             Chunk* chunk;

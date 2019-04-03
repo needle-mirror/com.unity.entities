@@ -3,6 +3,8 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
 
+#pragma warning disable 618
+
 namespace Unity.Entities.Tests
 {
     [TestFixture]
@@ -333,13 +335,11 @@ namespace Unity.Entities.Tests
             public ComponentGroup m_Group;
             public EcsTestSharedComp m_sharedComp;
 
-            struct DeltaJob : IJobParallelFor
+            struct DeltaJob : IJobProcessComponentData<EcsTestData>
             {
-                public ComponentDataArray<EcsTestData> data;
-
-                public void Execute(int index)
+                public void Execute(ref EcsTestData data)
                 {
-                    data[index] = new EcsTestData(100);
+                    data = new EcsTestData(100);
                 }
             }
 
@@ -352,8 +352,7 @@ namespace Unity.Entities.Tests
                 m_Group.SetFilter(m_sharedComp);
 
                 DeltaJob job = new DeltaJob();
-                job.data = m_Group.GetComponentDataArray<EcsTestData>();
-                return job.Schedule(job.data.Length, 1, deps);
+                return job.ScheduleGroup(m_Group, deps);
             }
         }
 
@@ -429,16 +428,12 @@ namespace Unity.Entities.Tests
             public ComponentGroup m_Group;
             public EcsTestSharedComp m_sharedComp;
 
-            struct DeltaJob : IJobParallelFor
+            struct DeltaJob : IJobProcessComponentData<EcsTestData, EcsTestData2>
             {
-                public ComponentDataArray<EcsTestData> data;
-                public ComponentDataArray<EcsTestData2> data2;
-
-                public void Execute(int index)
+                public void Execute(ref EcsTestData data, ref EcsTestData2 data2)
                 {
-                    data[index] = new EcsTestData(100);
-                    data2[index] = new EcsTestData2(102);
-                }
+                    data = new EcsTestData(100);
+                    data2 = new EcsTestData2(102);                }
             }
 
             protected override JobHandle OnUpdate(JobHandle deps)
@@ -451,9 +446,7 @@ namespace Unity.Entities.Tests
                 m_Group.SetFilter(m_sharedComp);
 
                 DeltaJob job = new DeltaJob();
-                job.data = m_Group.GetComponentDataArray<EcsTestData>();
-                job.data2 = m_Group.GetComponentDataArray<EcsTestData2>();
-                return job.Schedule(job.data.Length, 1, deps);
+                return job.ScheduleGroup(m_Group, deps);
             }
         }
 
@@ -561,18 +554,13 @@ namespace Unity.Entities.Tests
             public ComponentGroup m_Group;
             public EcsTestSharedComp m_sharedComp;
 
-            struct DeltaJob : IJobParallelFor
+            struct DeltaJob : IJobProcessComponentData<EcsTestData, EcsTestData2, EcsTestData3>
             {
-                public ComponentDataArray<EcsTestData> data;
-                public ComponentDataArray<EcsTestData2> data2;
-                public ComponentDataArray<EcsTestData3> data3;
-
-                public void Execute(int index)
+                public void Execute(ref EcsTestData data, ref EcsTestData2 data2, ref EcsTestData3 data3)
                 {
-                    data[index] = new EcsTestData(100);
-                    data2[index] = new EcsTestData2(102);
-                    data3[index] = new EcsTestData3(103);
-                }
+                    data = new EcsTestData(100);
+                    data2 = new EcsTestData2(102);
+                    data3 = new EcsTestData3(103);                }
             }
 
             protected override JobHandle OnUpdate(JobHandle deps)
@@ -586,10 +574,7 @@ namespace Unity.Entities.Tests
                 m_Group.SetFilter(m_sharedComp);
 
                 DeltaJob job = new DeltaJob();
-                job.data = m_Group.GetComponentDataArray<EcsTestData>();
-                job.data2 = m_Group.GetComponentDataArray<EcsTestData2>();
-                job.data3 = m_Group.GetComponentDataArray<EcsTestData3>();
-                return job.Schedule(job.data.Length, 1, deps);
+                return job.ScheduleGroup(m_Group, deps);
             }
         }
 

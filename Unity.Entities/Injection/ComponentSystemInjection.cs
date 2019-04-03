@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 
+#pragma warning disable 618
+
 namespace Unity.Entities
 {
     internal static class ComponentSystemInjection

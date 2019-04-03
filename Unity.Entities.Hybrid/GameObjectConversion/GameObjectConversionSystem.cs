@@ -2,7 +2,7 @@
 using Unity.Entities;
 using UnityEngine;
 
-[GameObjectToEntityConversion]
+[WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
 public abstract class GameObjectConversionSystem : ComponentSystem
 {
     public World DstWorld;
@@ -51,6 +51,6 @@ public abstract class GameObjectConversionSystem : ComponentSystem
     
     public void AddReferencedPrefab(GameObject gameObject)
     {
-        m_MappingSystem.AddReferencedPrefab(gameObject);
+        m_MappingSystem.AddReferencedPrefabAsGroup(gameObject);
     }
 }

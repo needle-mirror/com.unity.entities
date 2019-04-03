@@ -7,6 +7,7 @@ namespace Unity.Entities
 {
     [NativeContainer]
     [NativeContainerSupportsMinMaxWriteRestriction]
+    [Obsolete("ComponentDataArray is deprecated. Use IJobProcessComponentData or ComponentGroup ToComponentDataArray/CopyFromComponentDataArray APIs instead.")]
     public unsafe struct ComponentDataArray<T> where T : struct, IComponentData
     {
         private ComponentChunkIterator m_Iterator;

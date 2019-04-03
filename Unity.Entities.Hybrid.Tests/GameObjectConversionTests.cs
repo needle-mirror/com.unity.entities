@@ -4,6 +4,7 @@ using Unity.Entities;
 using Unity.Entities.Tests;
 using Unity.Mathematics;
 using Unity.Transforms;
+using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 
@@ -15,7 +16,7 @@ namespace UnityEngine.Entities.Tests
         {
             using (var cleanConvertedEntityWorld = new World("Clean Entity Conversion World"))
             {
-                GameObjectConversionUtility.ConvertScene(scene, cleanConvertedEntityWorld, true);
+                GameObjectConversionUtility.ConvertScene(scene, default(Unity.Entities.Hash128), cleanConvertedEntityWorld, true);
                 WorldDiffer.DiffAndApply(cleanConvertedEntityWorld, previousStateShadowWorld, dstEntityWorld);
             }
         }
@@ -39,7 +40,7 @@ namespace UnityEngine.Entities.Tests
             }
             else
             {
-                GameObjectConversionUtility.ConvertScene(scene, m_Manager.World);
+                GameObjectConversionUtility.ConvertScene(scene, default(Unity.Entities.Hash128), m_Manager.World);
             }
             
             // Check
@@ -47,27 +48,53 @@ namespace UnityEngine.Entities.Tests
             Assert.AreEqual(1, entities.Length);
             var entity = entities[0];
 
-            Assert.AreEqual(useDiffing ? 3 : 2, m_Manager.GetComponentCount(entity));
-            Assert.IsTrue(m_Manager.HasComponent<Position>(entity));
+            Assert.AreEqual(useDiffing ? 4 : 3, m_Manager.GetComponentCount(entity));
+            Assert.IsTrue(m_Manager.HasComponent<Translation>(entity));
             Assert.IsTrue(m_Manager.HasComponent<Rotation>(entity));
             if (useDiffing)
                 Assert.IsTrue(m_Manager.HasComponent<EntityGuid>(entity));
 
-            Assert.AreEqual(new float3(1, 2, 3), m_Manager.GetComponentData<Position>(entity).Value);
+            Assert.AreEqual(new float3(1, 2, 3), m_Manager.GetComponentData<Translation>(entity).Value);
             Assert.AreEqual(quaternion.identity, m_Manager.GetComponentData<Rotation>(entity).Value);
+            var localToWorld = m_Manager.GetComponentData<LocalToWorld>(entity).Value;
+            Assert.IsTrue(localToWorld.Equals(go.transform.localToWorldMatrix));
             
             // Unload
             EditorSceneManager.UnloadSceneAsync(scene);
         }
         
-        [Test]
+        [Test, Ignore("Disabled because when the package is published you get a ` Cancelling DisplayDialog: Opening scene in read-only package! It is not allowed to open a scene in a read-only package` error for this test")]
         public void ConversionIgnoresMissingMonoBehaviour()
         {
             TestTools.LogAssert.Expect(LogType.Warning, new Regex("missing"));
             var scene = EditorSceneManager.OpenScene("Packages/com.unity.entities/Unity.Entities.Hybrid.Tests/MissingMonoBehaviour.unity");
             var world = new World("Temp");
-            GameObjectConversionUtility.ConvertScene(scene, world);
+            GameObjectConversionUtility.ConvertScene(scene, default(Unity.Entities.Hash128), world);
             world.Dispose();
+        }
+        
+        [Test]
+        public void ConversionOfGameObject()
+        {
+            var gameObject = new GameObject();
+            var entity = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, World);
+
+            Assert.IsFalse(m_Manager.HasComponent<Prefab>(entity));
+            Object.DestroyImmediate(gameObject);
+        }
+
+        [Test]
+        public void ConversionOfPrefabIsEntityPrefab()
+        {
+            var path = "Assets/ConversionOfPrefabIsEntityPrefab.prefab";
+            var gameObject = new GameObject();
+            var prefab = PrefabUtility.SaveAsPrefabAsset(gameObject, path);
+            var entity = GameObjectConversionUtility.ConvertGameObjectHierarchy(prefab, World);
+
+            Assert.IsTrue(m_Manager.HasComponent<Prefab>(entity));
+
+            AssetDatabase.DeleteAsset(path);
+            Object.DestroyImmediate(gameObject);
         }
         
         //@TODO: Test Prefabs

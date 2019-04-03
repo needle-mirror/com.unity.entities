@@ -7,6 +7,9 @@ using System.Reflection;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
+// Injection marked Obsolete
+#pragma warning disable 618
+
 namespace Unity.Entities
 {
     internal struct ProxyComponentData : IComponentData
@@ -188,9 +191,9 @@ namespace Unity.Entities
                     componentRequirements.Add(injection.ComponentType);
                 }
                 else if (field.FieldType.IsGenericType &&
-                         field.FieldType.GetGenericTypeDefinition() == typeof(SubtractiveComponent<>))
+                         field.FieldType.GetGenericTypeDefinition() == typeof(ExcludeComponent<>))
                 {
-                    componentRequirements.Add(ComponentType.Subtractive(field.FieldType.GetGenericArguments()[0]));
+                    componentRequirements.Add(ComponentType.Exclude(field.FieldType.GetGenericArguments()[0]));
                 }
                 else if (field.FieldType.IsGenericType &&
                          field.FieldType.GetGenericTypeDefinition() == typeof(BufferArray<>))

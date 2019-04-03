@@ -171,6 +171,12 @@ namespace Unity.Entities
             m_Entities->AssertEntitiesExist(&entity, 1);
             m_Entities->AddComponent(entity, type, ArchetypeManager, SharedComponentDataManager, groupManager);
         }
+        
+        public DynamicBuffer<T> AddBuffer<T>(Entity entity) where T : struct, IBufferElementData
+        {
+            AddComponent(entity, ComponentType.ReadWrite<T>());
+            return GetBuffer<T>(entity);
+        }
 
         public void RemoveComponent(Entity entity, ComponentType type)
         {
@@ -178,8 +184,7 @@ namespace Unity.Entities
 
             var groupManager = (EntityGroupManager) m_EntityGroupManager.Target;
 
-            m_Entities->AssertEntityHasComponent(entity, type);
-            m_Entities->RemoveComponent(entity, type, ArchetypeManager, SharedComponentDataManager, groupManager);
+            EntityDataManager.RemoveComponent(entity, type, m_Entities, ArchetypeManager, SharedComponentDataManager, groupManager);
         }
 
         public bool Exists(Entity entity)
@@ -187,6 +192,13 @@ namespace Unity.Entities
             CheckAccess();
 
             return m_Entities->Exists(entity);
+        }
+        
+        public bool HasComponent(Entity entity, ComponentType type)
+        {
+            CheckAccess();
+
+            return m_Entities->HasComponent(entity, type);
         }
 
         public T GetComponentData<T>(Entity entity) where T : struct, IComponentData

@@ -2,10 +2,12 @@
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using Unity.Transforms;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.SceneManagement;
+using Hash128 = Unity.Entities.Hash128;
 
 [DisableAutoCreation]
 class GameObjectConversionMappingSystem : ComponentSystem
@@ -18,13 +20,16 @@ class GameObjectConversionMappingSystem : ComponentSystem
     World                                 m_DstWorld;
     EntityManager                         m_DstManager;
     bool                                  m_AddEntityGUID;
+    Hash128                m_SceneGUID;
     
     public World DstWorld { get { return m_DstWorld; } }
-    public bool AddEntityGUID { get { return m_AddEntityGUID; } set { m_AddEntityGUID = value; } }
+    public bool AddEntityGUID { get { return m_AddEntityGUID; } }
 
-    public GameObjectConversionMappingSystem(World DstWorld)
+    public GameObjectConversionMappingSystem(World DstWorld, Hash128 sceneGUID, bool addEntityGuid)
     {
         m_DstWorld = DstWorld;
+        m_SceneGUID = sceneGUID;
+        m_AddEntityGUID = addEntityGuid;
         m_DstManager = DstWorld.GetOrCreateManager<EntityManager>();
     }
 
@@ -64,7 +69,7 @@ class GameObjectConversionMappingSystem : ComponentSystem
 
         if (m_AddEntityGUID)
         {
-            entity = m_DstManager.CreateEntity(ComponentType.Create<EntityGuid>());
+            entity = m_DstManager.CreateEntity(ComponentType.ReadWrite<EntityGuid>());
             var entityGuid = GetEntityGuid(go, index);
             m_DstManager.SetComponentData(entity, entityGuid);
         }
@@ -73,9 +78,18 @@ class GameObjectConversionMappingSystem : ComponentSystem
             entity = m_DstManager.CreateEntity();
         }
 
+        var section = go.GetComponentInParent<SceneSectionComponent>();
+        if (m_SceneGUID != default(Hash128))
+            m_DstManager.AddSharedComponentData(entity, new SceneSection { SceneGUID = m_SceneGUID, Section = section != null ? section.SectionIndex : 0});
+        
+
+        if (go.GetComponentInParent<StaticOptimizeEntity>() != null)
+            m_DstManager.AddComponentData(entity, new Static());
+
 #if UNITY_EDITOR
         m_DstManager.SetName(entity, go.name);
 #endif
+
 
         return entity;
     }
@@ -121,22 +135,35 @@ class GameObjectConversionMappingSystem : ComponentSystem
         return GetList(go);
     }
 
-    public void AddReferencedPrefab(GameObject prefab)
+    public void AddGameObjectOrPrefabAsGroup(GameObject prefab)
     {
         if (prefab == null)
             return;
         if (m_ReferencedPrefabs.Contains(prefab))
             return;
-        
-#if UNITY_EDITOR
-        //@TODO: This logic needs some work.
-        //       * Make sure it runs same in editor / player
-        //       * Should the logic be about if the game object is not part of the same scene?
-        if (!UnityEditor.PrefabUtility.IsPartOfPrefabAsset(prefab))
-            return;
-#endif
-        m_LinkedEntityGroup.Add(prefab);
 
+        m_LinkedEntityGroup.Add(prefab);
+        
+        var isPrefab = !prefab.scene.IsValid();
+        if (isPrefab)
+            CreateEntitiesForGameObjectsRecurse(prefab.transform, EntityManager, m_ReferencedPrefabs);
+        else
+            CreateEntitiesForGameObjectsRecurse(prefab.transform, EntityManager, null);
+    }
+
+    public void AddReferencedPrefabAsGroup(GameObject prefab)
+    {
+        if (prefab == null)
+            return;
+        if (m_ReferencedPrefabs.Contains(prefab))
+            return;
+
+        var isPrefab = !prefab.scene.IsValid();
+
+        if (!isPrefab)
+            return;
+
+        m_LinkedEntityGroup.Add(prefab);
         CreateEntitiesForGameObjectsRecurse(prefab.transform, EntityManager, m_ReferencedPrefabs);
     }
     

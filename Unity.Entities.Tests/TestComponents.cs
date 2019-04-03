@@ -113,6 +113,10 @@ namespace Unity.Entities.Tests
         }
     }
 
+    struct EcsStateTag1 : ISystemStateComponentData
+    {
+    }
+
     [InternalBufferCapacity(8)]
     public struct EcsIntElement : IBufferElementData
     {
@@ -128,7 +132,23 @@ namespace Unity.Entities.Tests
 
         public int Value;
     }
+    
+    [InternalBufferCapacity(8)]
+    public struct EcsIntStateElement : ISystemStateBufferElementData
+    {
+        public static implicit operator int(EcsIntStateElement e)
+        {
+            return e.Value;
+        }
 
+        public static implicit operator EcsIntStateElement(int e)
+        {
+            return new EcsIntStateElement {Value = e};
+        }
+
+        public int Value;
+    }
+    
     [InternalBufferCapacity(4)]
     public struct EcsComplexEntityRefElement : IBufferElementData
     {

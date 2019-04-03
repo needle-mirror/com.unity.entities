@@ -2,32 +2,33 @@
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Burst;
+using Unity.Mathematics;
+using UnityEngine;
 using UnityEngine.Jobs;
 
 namespace Unity.Transforms
 {
     [UnityEngine.ExecuteAlways]
-    [UpdateBefore(typeof(EndFrameTransformSystem))]
+    [UpdateInGroup(typeof(TransformSystemGroup))]
+    [UpdateAfter(typeof(EndFrameLocalToParentSystem))]
     public class CopyTransformToGameObjectSystem : JobComponentSystem
     {
         [BurstCompile]
         struct CopyTransforms : IJobParallelForTransform
         {
-            [ReadOnly] public ComponentDataFromEntity<Position> positions;
-            [ReadOnly] public ComponentDataFromEntity<Rotation> rotations;
+            [ReadOnly] public ComponentDataFromEntity<LocalToWorld> LocalToWorlds;
 
             [ReadOnly]
-            public EntityArray entities;
+            [DeallocateOnJobCompletion]
+            public NativeArray<Entity> entities;
 
             public void Execute(int index, TransformAccess transform)
             {
                 var entity = entities[index];
 
-                if (positions.Exists(entity))
-                    transform.position = positions[entity].Value;
-
-                if (rotations.Exists(entity))
-                    transform.rotation = rotations[entity].Value;
+                var value = LocalToWorlds[entity];
+                transform.position = math.transform(value.Value, float3.zero);
+                transform.rotation = new quaternion(value.Value);
             }
         }
 
@@ -35,18 +36,17 @@ namespace Unity.Transforms
 
         protected override void OnCreateManager()
         {
-            m_TransformGroup = GetComponentGroup(ComponentType.ReadOnly(typeof(CopyTransformToGameObject)),typeof(UnityEngine.Transform));
+            m_TransformGroup = GetComponentGroup(ComponentType.ReadOnly(typeof(CopyTransformToGameObject)), ComponentType.ReadOnly<LocalToWorld>(), typeof(UnityEngine.Transform));
         }
 
         protected override JobHandle OnUpdate(JobHandle inputDeps)
         {
             var transforms = m_TransformGroup.GetTransformAccessArray();
-            var entities = m_TransformGroup.GetEntityArray();
+            var entities = m_TransformGroup.ToEntityArray(Allocator.TempJob);
 
             var copyTransformsJob = new CopyTransforms
             {
-                positions = GetComponentDataFromEntity<Position>(true),
-                rotations = GetComponentDataFromEntity<Rotation>(true),
+                LocalToWorlds = GetComponentDataFromEntity<LocalToWorld>(true),
                 entities = entities
             };
 

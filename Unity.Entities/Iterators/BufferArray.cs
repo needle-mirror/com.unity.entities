@@ -5,6 +5,7 @@ namespace Unity.Entities
 {
     [NativeContainer]
     [NativeContainerSupportsMinMaxWriteRestriction]
+    [Obsolete("BufferArray is deprecated. Use ComponentGroup APIs instead.")]
     public unsafe struct BufferArray<T> where T : struct, IBufferElementData
     {
         private ComponentChunkCache m_Cache;

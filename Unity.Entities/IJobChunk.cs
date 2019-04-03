@@ -6,7 +6,9 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
+#if !UNITY_ZEROPLAYER
     [JobProducerType(typeof(JobChunkExtensions.JobChunkLiveFilter_Process<>))]
+#endif
     public interface IJobChunk
     {
         void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex);
@@ -45,17 +47,17 @@ namespace Unity.Entities
             ScheduleInternal(ref jobData, group, default(JobHandle), ScheduleMode.Run);
         }
 
+#if !UNITY_ZEROPLAYER
         internal static unsafe JobHandle ScheduleInternal<T>(ref T jobData, ComponentGroup group, JobHandle dependsOn, ScheduleMode mode)
             where T : struct, IJobChunk
         {
             ComponentChunkIterator iterator = group.GetComponentChunkIterator();
-
             JobDataLiveFilter<T> fullData = new JobDataLiveFilter<T>
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                // All IJobChunk jobs have a safety handle for the Entity type to ensure that BeforeStructuralChange throws an error if
+                // All IJobChunk jobs have a EntityManager safety handle to ensure that BeforeStructuralChange throws an error if
                 // jobs without any other safety handles are still running (haven't been synced).
-                safety = new EntitySafetyHandle{m_Safety = group.SafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<Entity>(), true)},
+                safety = new EntitySafetyHandle{m_Safety = group.SafetyManager.GetEntityManagerSafetyHandle()},
 #endif
                 data = jobData,
                 iterator = iterator,
@@ -107,6 +109,24 @@ namespace Unity.Entities
                 }
             }
         }
+#else
+        internal static unsafe JobHandle ScheduleInternal<T>(ref T jobData, ComponentGroup group, JobHandle dependsOn, ScheduleMode mode)
+            where T : struct, IJobChunk
+        {
+            using (var chunks = group.CreateArchetypeChunkArray(Allocator.Temp))
+            {
+                int currentChunk = 0;
+                int currentEntity = 0;
+                foreach (var chunk in chunks)
+                {
+                    jobData.Execute(chunk, currentChunk, currentEntity);
+                    currentChunk++;
+                    currentEntity += chunk.Count;
+                }
+            }
 
+            return new JobHandle();
+        }
+#endif
     }
 }

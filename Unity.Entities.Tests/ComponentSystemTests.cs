@@ -207,7 +207,58 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(group2, EmptySystem.GetComponentGroup(query2));
             Assert.AreEqual(group3, EmptySystem.GetComponentGroup(query3));
             
-            Assert.AreEqual(3, EmptySystem.ComponentGroups.Length);
+            Assert.AreEqual(2, EmptySystem.ComponentGroups.Length);
+        }
+        
+        [Test]
+        public void GetComponentGroupComponentTypeArchetypeQueryEquality()
+        {
+            var query1 = new ComponentType[] { typeof(EcsTestData) };
+            var query2 = new EntityArchetypeQuery { All = new ComponentType[] {typeof(EcsTestData)} };
+            var query3 = new EntityArchetypeQuery { All = new [] {ComponentType.ReadWrite<EcsTestData>()} };
+            
+            var group1 = EmptySystem.GetComponentGroup(query1);
+            var group2 = EmptySystem.GetComponentGroup(query2);
+            var group3 = EmptySystem.GetComponentGroup(query3);
+
+            Assert.AreEqual(group1, group2);
+            Assert.AreEqual(group2, group3);
+            Assert.AreEqual(1, EmptySystem.ComponentGroups.Length);
+        }
+        
+        [Test]
+        public void GetComponentGroupRespectsRWAccessInequality()
+        {
+            var query1 = new EntityArchetypeQuery { All = new [] {ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>()} };
+            var query2 = new EntityArchetypeQuery { All = new [] {ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>()} };
+            
+            var group1 = EmptySystem.GetComponentGroup(query1);
+            var group2 = EmptySystem.GetComponentGroup(query2);
+
+            Assert.AreNotEqual(group1, group2);
+            Assert.AreEqual(2, EmptySystem.ComponentGroups.Length);
+        }
+        
+        [Test]
+        public void GetComponentGroupOrderIndependent()
+        {
+            var query1 = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2) };
+            var query2 = new ComponentType[] { typeof(EcsTestData2), typeof(EcsTestData) };
+
+            var group1 = EmptySystem.GetComponentGroup(query1);
+            var group2 = EmptySystem.GetComponentGroup(query2);
+            
+            Assert.AreEqual(group1, group2);
+            Assert.AreEqual(1, EmptySystem.ComponentGroups.Length);
+            
+            var query3 = new EntityArchetypeQuery { All = new ComponentType[] {typeof(EcsTestData2), typeof(EcsTestData3)} };
+            var query4 = new EntityArchetypeQuery { All = new ComponentType[] {typeof(EcsTestData3), typeof(EcsTestData2)} };
+
+            var group3 = EmptySystem.GetComponentGroup(query3);
+            var group4 = EmptySystem.GetComponentGroup(query4);
+            
+            Assert.AreEqual(group3, group4);
+            Assert.AreEqual(2, EmptySystem.ComponentGroups.Length);
         }
         
         //@TODO: Behaviour is a slightly dodgy... Should probably just ignore and return same as single typeof(EcsTestData)

@@ -9,6 +9,7 @@ namespace Unity.Entities
     /// </summary>
     [NativeContainer]
     [NativeContainerIsReadOnly]
+    [Obsolete("EntityArray is deprecated. Use IJobProcessComponentDataWithEntity or ComponentGroup.ToEntityArray(...) instead.")]
     public unsafe struct EntityArray
     {
         private ComponentChunkIterator m_Iterator;

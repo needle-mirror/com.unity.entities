@@ -41,6 +41,11 @@ namespace Unity.Entities
 
         public static World Active { get; set; }
 
+        public EntityManager EntityManager 
+        {
+            get { return GetOrCreateManager<EntityManager>(); }
+        }
+
         public static ReadOnlyCollection<World> AllWorlds => new ReadOnlyCollection<World>(allWorlds);
 
         public bool IsCreated => m_BehaviourManagers != null;
@@ -54,29 +59,41 @@ namespace Unity.Entities
             if (allWorlds.Contains(this))
                 allWorlds.Remove(this);
 
-            // Destruction should happen in reverse order to construction
-            m_BehaviourManagers.Reverse();
-
-            //@TODO: Crazy hackery to make EntityManager be destroyed last.
-            foreach (var behaviourManager in m_BehaviourManagers)
-                if (behaviourManager is EntityManager)
-                {
-                    m_BehaviourManagers.Remove(behaviourManager);
-                    m_BehaviourManagers.Add(behaviourManager);
-                    break;
-                }
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_AllowGetManager = false;
 #endif
-            foreach (var behaviourManager in m_BehaviourManagers)
+            // Destruction should happen in reverse order to construction
+            ScriptBehaviourManager em = null;
+            for (int i = m_BehaviourManagers.Count - 1; i >= 0; --i)
+            {
+                var mgr = m_BehaviourManagers[i];
+                if (mgr is EntityManager)
+                {
+                    em = mgr;
+                    continue;
+                }
                 try
                 {
-                    behaviourManager.DestroyInstance();
+                    mgr.DestroyInstance();
                 }
                 catch (Exception e)
                 {
                     Debug.LogException(e);
                 }
+            }
+
+            // Destroy EntityManager last
+            if (em != null)
+            {
+                try
+                {
+                    em.DestroyInstance();
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
+            }
 
             if (Active == this)
                 Active = null;
@@ -322,32 +339,34 @@ namespace Unity.Entities
                 allWorlds.Remove(this);
 
             // Destruction should happen in reverse order to construction
-            m_BehaviourManagers.Reverse();
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            m_AllowGetManager = false;
-#endif
-            List<ScriptBehaviourManager> destroyLast = new List<ScriptBehaviourManager>();
-            for (int i = 0; i < m_BehaviourManagers.Count; ++i) {
-                var behaviourManager = m_BehaviourManagers[i];
-                if (behaviourManager is EntityManager) {
-                    destroyLast.Add(behaviourManager);
+            ScriptBehaviourManager em = null;
+            for (int i = m_BehaviourManagers.Count - 1; i >= 0; --i)
+            {
+                var mgr = m_BehaviourManagers[i];
+                if (mgr is EntityManager)
+                {
+                    em = mgr;
                     continue;
                 }
-
-                try {
-                    behaviourManager.DestroyInstance();
+                try
+                {
+                    mgr.DestroyInstance();
                 }
-                catch (Exception e) {
+                catch (Exception e)
+                {
                     Debug.LogException(e);
                 }
             }
 
-            for (int i = 0; i < destroyLast.Count; ++i) {
-                var last = destroyLast[i];
-                try {
-                    last.DestroyInstance();
+            // Destroy EntityManager last
+            if (em != null)
+            {
+                try
+                {
+                    em.DestroyInstance();
                 }
-                catch (Exception e) {
+                catch (Exception e)
+                {
                     Debug.LogException(e);
                 }
             }

@@ -86,7 +86,7 @@ namespace Unity.Entities
 
         // After cloning two worlds have access to the same malloc'ed buffer pointer leading to double deallocate etc.
         // So after cloning, just allocate all malloc based buffers and copy the data.
-        public static void PatchAfterCloningChunkForDiff(Chunk* chunk)
+        public static void PatchAfterCloningChunk(Chunk* chunk)
         {
             for (int i = 0; i < chunk->Archetype->TypesCount; ++i)
             {

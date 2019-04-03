@@ -4,6 +4,8 @@ using Unity.Collections;
 using Unity.Jobs;
 
 #pragma warning disable 649
+// Injection is deprecated
+#pragma warning disable 618
 
 namespace Unity.Entities.Tests
 {

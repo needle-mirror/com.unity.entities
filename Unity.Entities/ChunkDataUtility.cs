@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using Unity.Assertions;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -280,7 +281,7 @@ namespace Unity.Entities
 
             var srcI = 0;
             var dstI = 0;
-            while (srcI < srcArch->TypesCount && dstI < dstArch->TypesCount)
+            while (srcI < srcArch->NonZeroSizedTypesCount && dstI < dstArch->NonZeroSizedTypesCount)
             {
                 var srcStride = srcArch->SizeOfs[srcI];
                 var dstStride = dstArch->SizeOfs[dstI];
@@ -346,7 +347,7 @@ namespace Unity.Entities
             }
 
             // Handle remaining components in the source that aren't copied
-            for (; srcI < srcArch->TypesCount; ++srcI)
+            for (; srcI < srcArch->NonZeroSizedTypesCount; ++srcI)
             {
                 var srcStride = srcArch->SizeOfs[srcI];
                 var src = srcChunk->Buffer + srcArch->Offsets[srcI] + srcIndex * srcStride;
@@ -362,7 +363,7 @@ namespace Unity.Entities
             }
 
             // Clear remaining components in the destination that aren't copied
-            for (; dstI < dstArch->TypesCount; ++dstI)
+            for (; dstI < dstArch->NonZeroSizedTypesCount; ++dstI)
             {
                 var dstStride = dstArch->SizeOfs[dstI];
                 var dst = dstChunk->Buffer + dstArch->Offsets[dstI] + dstIndex * dstStride;
@@ -462,10 +463,10 @@ namespace Unity.Entities
             }
         }
 
-        public static void PoisonUnusedChunkData(Chunk* chunk, byte value)
+        public static void MemsetUnusedChunkData(Chunk* chunk, byte value)
         {
             var arch = chunk->Archetype;
-            var bufferSize = Chunk.GetChunkBufferSize(arch->TypesCount, arch->NumSharedComponents);
+            var bufferSize = Chunk.GetChunkBufferSize();
             var buffer = chunk->Buffer;
             var count = chunk->Count;
 
@@ -524,6 +525,39 @@ namespace Unity.Entities
 
                 for (var i = 0; i < count; ++i)
                     typeMan.SetManagedObject(chunk, type, index + i, null);
+            }
+        }
+
+        public static bool AreLayoutCompatible(Archetype* a, Archetype* b)
+        {
+            var typeCount = a->NonZeroSizedTypesCount;
+            if (typeCount != b->NonZeroSizedTypesCount)
+                return false;
+
+            for (int i = 0; i < typeCount; ++i)
+            {
+                if (a->Types[i] != b->Types[i])
+                    return false;
+            }
+
+            return true;
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public static void AssertAreLayoutCompatible(Archetype* a, Archetype* b)
+        {
+            Assert.IsTrue(AreLayoutCompatible(a,b));
+            Assert.AreEqual(a->BytesPerInstance, b->BytesPerInstance);
+            Assert.AreEqual(a->ChunkCapacity, b->ChunkCapacity);
+
+            var typeCount = a->NonZeroSizedTypesCount;
+
+            //If types are identical; SizeOfs, Offsets and BufferCapacities should match
+            for (int i = 0; i < typeCount; ++i)
+            {
+                Assert.AreEqual(a->SizeOfs[i], b->SizeOfs[i]);
+                Assert.AreEqual(a->Offsets[i], b->Offsets[i]);
+                Assert.AreEqual(a->BufferCapacities[i], b->BufferCapacities[i]);
             }
         }
     }

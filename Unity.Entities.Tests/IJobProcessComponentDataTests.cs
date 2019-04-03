@@ -45,7 +45,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void JobProcessComponentGroupCorrect()
         {
-            ComponentType[] expectedTypes = { ComponentType.ReadOnly<EcsTestData>(), ComponentType.Create<EcsTestData2>() };
+            ComponentType[] expectedTypes = { ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>() };
 
             new Process2().Run(EmptySystem);
             var group = EmptySystem.GetComponentGroup(expectedTypes);
@@ -54,11 +54,36 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(EmptySystem.ComponentGroups[0].CompareComponents(expectedTypes));
             Assert.AreEqual(group, EmptySystem.ComponentGroups[0]);
         }
+        
+                        
+        [Test]
+        public void JobProcessComponentGroupCorrectNativeArrayOfComponentTypes()
+        {
+            ComponentType[] initialTypes = { typeof(EcsTestData), typeof(EcsTestData2) };
+
+            var archetype = m_Manager.CreateArchetype(initialTypes);
+            var entity = m_Manager.CreateEntity(archetype);
+            new Process2().Run(EmptySystem);
+            var componentTypes = m_Manager.GetComponentTypes(entity);
+            
+            Assert.IsTrue(componentTypes[0] == initialTypes[0]);
+            Assert.IsTrue(componentTypes[1] == initialTypes[1]);
+
+            componentTypes[0] = ComponentType.ReadOnly(componentTypes[0].TypeIndex);
+            
+            var group = EmptySystem.GetComponentGroup(componentTypes);
+                        
+            Assert.AreEqual(1, EmptySystem.ComponentGroups.Length);
+            Assert.IsTrue(EmptySystem.ComponentGroups[0].CompareComponents(componentTypes));
+            Assert.AreEqual(group, EmptySystem.ComponentGroups[0]);
+            
+            componentTypes.Dispose();
+        }
 
         [Test]
         public void JobProcessComponentWithEntityGroupCorrect()
         {
-            ComponentType[] expectedTypes = { ComponentType.ReadOnly<EcsTestData>(), ComponentType.Create<EcsTestData2>(), ComponentType.Create<EcsTestData3>() };
+            ComponentType[] expectedTypes = { ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>(), ComponentType.ReadWrite<EcsTestData3>() };
 
             new Process3Entity().Run(EmptySystem);
             var group = EmptySystem.GetComponentGroup(expectedTypes);
@@ -105,7 +130,7 @@ namespace Unity.Entities.Tests
         }
 #endif
         
-        [RequireSubtractiveComponent(typeof(EcsTestData3))]
+        [ExcludeComponent(typeof(EcsTestData3))]
         [RequireComponentTag(typeof(EcsTestData4))]
         struct ProcessTagged : IJobProcessComponentData<EcsTestData, EcsTestData2>
         {

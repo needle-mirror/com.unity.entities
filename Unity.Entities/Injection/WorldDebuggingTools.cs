@@ -43,7 +43,7 @@ namespace Unity.Entities
                     break;
                 }
 
-                if (found == (groupType.AccessModeType == ComponentType.AccessMode.Subtractive))
+                if (found == (groupType.AccessModeType == ComponentType.AccessMode.Exclude))
                     return false;
             }
 

@@ -28,8 +28,7 @@ namespace Unity.Entities.Tests
             World.Active = null;
 
             World.Active = m_PreviousWorld;
-            ScriptBehaviourUpdateOrder.UpdatePlayerLoop();
-
+            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(null);
         }
     }
 }

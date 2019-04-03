@@ -38,7 +38,7 @@ namespace Unity.Transforms.Editor
         }
     }
 
-    [CustomEditor(typeof(PositionProxy), true), CanEditMultipleObjects]
+    [CustomEditor(typeof(TranslationProxy), true), CanEditMultipleObjects]
     class PositionComponentEditor : BaseTransformComponentEditor
     {
 

@@ -2,6 +2,22 @@
 using Unity.Collections;
 using System;
 
+// ******* COPY AND PASTE WARNING *************
+// NOTE: Duplicate tests (with only type differences)
+// - SystemStateComponentTests.cs and SystemStateBufferElementTests.cs
+// - Any change to this file should be reflected in the other file.
+// Changes between two files:
+// - s/SystemStateComponentTests/SystemStateBufferElementTests/
+// - s/EcsState1/EcsIntStateElement/g
+// - Add VerifyBufferCount to SystemStateBufferElementTests
+// - SystemStateBufferElementTests calls VerifyBufferCount instead of VerifyComponentCount on EcsIntStateElement
+// - SetSharedComponent in SystemStateComponentTests:
+//               m_Manager.SetComponentData(entity, new EcsState1(2));
+//   Replaced with GetBuffer:
+//               var buffer = m_Manager.GetBuffer<EcsIntStateElement>(entity);
+//               buffer.Add(2);
+// ******* COPY AND PASTE WARNING *************
+
 namespace Unity.Entities.Tests
 {
     [TestFixture]
@@ -10,7 +26,7 @@ namespace Unity.Entities.Tests
         void VerifyComponentCount<T>(int expectedCount)
             where T : IComponentData
         {
-            var group = m_Manager.CreateComponentGroup(ComponentType.Create<T>());
+            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<T>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
             Assert.AreEqual(expectedCount, ArchetypeChunkArray.CalculateEntityCount(chunks));
@@ -25,7 +41,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void SSC_DeleteWhenEmpty()
+        public void DeleteWhenEmpty()
         {
             var entity = m_Manager.CreateEntity(
                 typeof(EcsTestData),
@@ -52,7 +68,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void SSC_DeleteWhenEmptyArray()
+        public void DeleteWhenEmptyArray()
         {
             var entities = new Entity[512];
 
@@ -81,8 +97,8 @@ namespace Unity.Entities.Tests
             VerifyComponentCount<EcsTestData>(256);
             VerifyComponentCount<EcsState1>(512);
             VerifyQueryCount(m_Manager.CreateComponentGroup(
-                ComponentType.Subtractive<EcsTestData>(),
-                ComponentType.Create<EcsState1>()), 256);
+                ComponentType.Exclude<EcsTestData>(),
+                ComponentType.ReadWrite<EcsState1>()), 256);
 
             for (var i = 0; i < 512; i += 2)
             {
@@ -106,7 +122,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void SSC_DeleteWhenEmptyArray2()
+        public void DeleteWhenEmptyArray2()
         {
             var entities = new Entity[512];
 
@@ -135,8 +151,8 @@ namespace Unity.Entities.Tests
             VerifyComponentCount<EcsTestData>(256);
             VerifyComponentCount<EcsState1>(512);
             VerifyQueryCount(m_Manager.CreateComponentGroup(
-                ComponentType.Subtractive<EcsTestData>(),
-                ComponentType.Create<EcsState1>()), 256);
+                ComponentType.Exclude<EcsTestData>(),
+                ComponentType.ReadWrite<EcsState1>()), 256);
 
             for (var i = 0; i < 256; i++)
             {
@@ -160,7 +176,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void SSC_DoNotInstantiateSystemState()
+        public void DoNotInstantiateSystemState()
         {
             var entity0 = m_Manager.CreateEntity(
                 typeof(EcsTestData),
@@ -174,7 +190,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        public void SSC_InstantiateResidueEntityThrows()
+        public void InstantiateResidueEntityThrows()
         {
             var entity0 = m_Manager.CreateEntity(
                 typeof(EcsTestData),
@@ -183,6 +199,138 @@ namespace Unity.Entities.Tests
 
             m_Manager.DestroyEntity(entity0);
             Assert.Throws<ArgumentException>(() => m_Manager.Instantiate(entity0));
+        }
+        
+        [Test]
+        public void DeleteFromEntity()
+        {
+            var entities = new Entity[512];
+
+            for (var i = 0; i < 512; i++)
+            {
+                var entity = m_Manager.CreateEntity(
+                    typeof(EcsTestData),
+                    typeof(EcsState1)
+                );
+                entities[i] = entity;
+
+                m_Manager.SetComponentData(entity, new EcsTestData(i));
+                m_Manager.SetComponentData(entity, new EcsState1(i));
+            }
+
+            VerifyComponentCount<EcsTestData>(512);
+
+            for (var i = 0; i < 512; i++)
+            {
+                var entity = entities[i];
+                m_Manager.DestroyEntity(entity);
+            }
+
+            VerifyComponentCount<EcsTestData>(0);
+            VerifyComponentCount<EcsState1>(512);
+
+            var group = m_Manager.CreateComponentGroup(
+                ComponentType.Exclude<EcsTestData>(),
+                ComponentType.ReadWrite<EcsState1>());
+            
+            for (var i = 0; i < 512; i++)
+            {
+                var entity = entities[i];
+                m_Manager.RemoveComponent(entity,typeof(EcsState1));
+            }
+            
+            VerifyComponentCount<EcsState1>(0);
+
+            for (var i = 0; i < 512; i++)
+            {
+                var entity = entities[i];
+                Assert.IsFalse(m_Manager.Exists(entity));
+            }
+        }
+        
+        [Test]
+        public void DeleteFromComponentGroup()
+        {
+            var entities = new Entity[512];
+
+            for (var i = 0; i < 512; i++)
+            {
+                var entity = m_Manager.CreateEntity(
+                    typeof(EcsTestData),
+                    typeof(EcsState1)
+                );
+                entities[i] = entity;
+
+                m_Manager.SetComponentData(entity, new EcsTestData(i));
+                m_Manager.SetComponentData(entity, new EcsState1(i));
+            }
+
+            VerifyComponentCount<EcsTestData>(512);
+
+            for (var i = 0; i < 512; i++)
+            {
+                var entity = entities[i];
+                m_Manager.DestroyEntity(entity);
+            }
+
+            VerifyComponentCount<EcsTestData>(0);
+            VerifyComponentCount<EcsState1>(512);
+
+            var group = m_Manager.CreateComponentGroup(
+                ComponentType.Exclude<EcsTestData>(),
+                ComponentType.ReadWrite<EcsState1>());
+            
+            m_Manager.RemoveComponent(group,typeof(EcsState1));
+            
+            VerifyComponentCount<EcsState1>(0);
+
+            for (var i = 0; i < 512; i++)
+            {
+                var entity = entities[i];
+                Assert.IsFalse(m_Manager.Exists(entity));
+            }
+        }
+
+        [Test]
+        public void DeleteTagFromComponentGroup()
+        {
+            var entities = new Entity[512];
+
+            for (var i = 0; i < 512; i++)
+            {
+                var entity = m_Manager.CreateEntity(
+                    typeof(EcsTestData),
+                    typeof(EcsStateTag1)
+                );
+                entities[i] = entity;
+
+                m_Manager.SetComponentData(entity, new EcsTestData(i));
+            }
+
+            VerifyComponentCount<EcsTestData>(512);
+
+            for (var i = 0; i < 512; i++)
+            {
+                var entity = entities[i];
+                m_Manager.DestroyEntity(entity);
+            }
+
+            VerifyComponentCount<EcsTestData>(0);
+            VerifyComponentCount<EcsStateTag1>(512);
+
+            var group = m_Manager.CreateComponentGroup(
+                ComponentType.Exclude<EcsTestData>(),
+                ComponentType.ReadWrite<EcsStateTag1>());
+
+            m_Manager.RemoveComponent(group,typeof(EcsStateTag1));
+
+            VerifyComponentCount<EcsStateTag1>(0);
+
+            for (var i = 0; i < 512; i++)
+            {
+                var entity = entities[i];
+                Assert.IsFalse(m_Manager.Exists(entity));
+            }
         }
     }
 }

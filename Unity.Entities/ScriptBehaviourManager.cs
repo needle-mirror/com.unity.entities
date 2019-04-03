@@ -10,10 +10,24 @@ namespace Unity.Entities
     public sealed class DisableAutoCreationAttribute : Attribute
     {
     }
-    
-    [AttributeUsage(AttributeTargets.Class)]
-    public sealed class GameObjectToEntityConversionAttribute : Attribute
+
+    [Flags]
+    public enum WorldSystemFilterFlags
     {
+        Default                  = 1 << 0,
+        GameObjectConversion     = 1 << 1,
+        EntitySceneOptimizations = 1 << 2,
+    }
+
+    [AttributeUsage(AttributeTargets.Class)]
+    public sealed class WorldSystemFilterAttribute : Attribute
+    {
+        public WorldSystemFilterFlags FilterFlags;
+
+        public WorldSystemFilterAttribute(WorldSystemFilterFlags flags)
+        {
+            FilterFlags = flags;
+        }
     }
 
 

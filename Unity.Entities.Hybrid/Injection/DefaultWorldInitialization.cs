@@ -3,9 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.Experimental.LowLevel;
+using UnityEngine.Experimental.PlayerLoop;
 
 namespace Unity.Entities
 {
+    public interface ICustomBootstrap
+    {
+        // returns the systems which should be handled by the default bootstrap process
+        // if null is returned the default world will not be created at all, empty list creates default world and entrypoints
+        List<Type> Initialize(List<Type> systems);
+    }
+
     public static class DefaultWorldInitialization
     {
         static void DomainUnloadShutdown()
@@ -14,27 +23,24 @@ namespace Unity.Entities
 
             WordStorage.Instance.Dispose();
             WordStorage.Instance = null;
-            ScriptBehaviourUpdateOrder.UpdatePlayerLoop();
+            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(null);
         }
 
-        static void GetBehaviourManagerAndLogException(World world, Type type)
+        static ScriptBehaviourManager GetOrCreateManagerAndLogException(World world, Type type)
         {
             try
             {
-                world.GetOrCreateManager(type);
+                return world.GetOrCreateManager(type);
             }
             catch (Exception e)
             {
                 Debug.LogException(e);
+                return null;
             }
         }
 
-
         public static void Initialize(string worldName, bool editorWorld)
         {
-            var world = new World(worldName);
-            World.Active = world;
-
             // Register hybrid injection hooks
             InjectionHookSupport.RegisterHook(new GameObjectArrayInjectionHook());
             InjectionHookSupport.RegisterHook(new TransformAccessArrayInjectionHook());
@@ -42,27 +48,73 @@ namespace Unity.Entities
 
             PlayerLoopManager.RegisterDomainUnload(DomainUnloadShutdown, 10000);
 
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            var world = new World(worldName);
+            World.Active = world;
+            var systems = GetAllSystems(WorldSystemFilterFlags.Default);
+            if (systems == null)
             {
-                if (!TypeManager.IsAssemblyReferencingEntities(assembly))
-                    continue;
-                
-                try
+                world.Dispose();
+                if (World.Active == world)
                 {
-                    var allTypes = assembly.GetTypes();
-
-                    // Create all ComponentSystem
-                    CreateBehaviourManagersForMatchingTypes(editorWorld, allTypes, world);
+                    World.Active = null;
                 }
-                catch
+                return;
+            }
+
+            // create presentation system and simulation system
+            InitializationSystemGroup initializationSystemGroup = world.GetOrCreateManager<InitializationSystemGroup>();
+            SimulationSystemGroup simulationSystemGroup = world.GetOrCreateManager<SimulationSystemGroup>();
+            PresentationSystemGroup presentationSystemGroup = world.GetOrCreateManager<PresentationSystemGroup>();
+            // Add systems to their groups, based on the [UpdateInGroup] attribute.
+            foreach (var type in systems)
+            {
+                // Skip the built-in root-level systems
+                if (type == typeof(InitializationSystemGroup) ||
+                    type == typeof(SimulationSystemGroup) ||
+                    type == typeof(PresentationSystemGroup))
                 {
-                    Debug.LogWarning($"DefaultWorldInitialization failed loading assembly: {(assembly.IsDynamic ? assembly.ToString() : assembly.Location)}");
+                    continue;
+                }
+                if (editorWorld)
+                {
+                    if (Attribute.IsDefined(type, typeof(ExecuteInEditMode)))
+                        Debug.LogError(
+                            $"{type} is decorated with {typeof(ExecuteInEditMode)}. Support for this attribute will be deprecated. Please use {typeof(ExecuteAlways)} instead.");
+                    if (!Attribute.IsDefined(type, typeof(ExecuteAlways)))
+                        continue;
+                }
+
+                var groups = type.GetCustomAttributes(typeof(UpdateInGroupAttribute), true);
+                if (groups.Length == 0)
+                {
+                    simulationSystemGroup.AddSystemToUpdateList(GetOrCreateManagerAndLogException(world, type) as ComponentSystemBase);
+                }
+
+                foreach (var g in groups)
+                {
+                    var group = g as UpdateInGroupAttribute;
+                    if (group == null)
+                        continue;
+                    var groupSys = GetOrCreateManagerAndLogException(world, group.GroupType) as ComponentSystemGroup;
+                    if (groupSys != null)
+                    {
+                        groupSys.AddSystemToUpdateList(GetOrCreateManagerAndLogException(world, type) as ComponentSystemBase);
+                    }
+                    else
+                    {
+                        Debug.LogWarning("Type " + type + " has an invalid system group " + group.GroupType +
+                                         ". The specified type must be derived from ComponentSystemGroup.");
+                    }
                 }
             }
-            
+
+            // Update player loop
+            initializationSystemGroup.SortSystemUpdateList();
+            simulationSystemGroup.SortSystemUpdateList();
+            presentationSystemGroup.SortSystemUpdateList();
             ScriptBehaviourUpdateOrder.UpdatePlayerLoop(world);
         }
-        
+
         public static void DefaultLazyEditModeInitialize()
         {
 #if UNITY_EDITOR
@@ -93,28 +145,70 @@ namespace Unity.Entities
 #endif
         }
 
-
-        static void CreateBehaviourManagersForMatchingTypes(bool editorWorld, IEnumerable<Type> allTypes, World world)
+        public static List<Type> GetAllSystems(WorldSystemFilterFlags filterFlags)
         {
-            var systemTypes = allTypes.Where(t =>
-                t.IsSubclassOf(typeof(ComponentSystemBase)) &&
-                !t.IsAbstract &&
-                !t.ContainsGenericParameters &&
-                t.GetCustomAttributes(typeof(DisableAutoCreationAttribute), true).Length == 0 &&
-                t.GetCustomAttributes(typeof(GameObjectToEntityConversionAttribute), true).Length == 0);
-            
-            foreach (var type in systemTypes)
+            IEnumerable<Type> allTypes;
+            var systemTypes = new List<Type>();
+            ICustomBootstrap bootstrap = null;
+
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
-                if (editorWorld)
+                if (!TypeManager.IsAssemblyReferencingEntities(assembly))
+                    continue;
+
+                try
                 {
-                    if (Attribute.IsDefined(type, typeof(ExecuteInEditMode)))
-                        Debug.LogError($"{type} is decorated with {typeof(ExecuteInEditMode)}. Support for this attribute will be deprecated. Please use {typeof(ExecuteAlways)} instead.");
-                    else if (!Attribute.IsDefined(type, typeof(ExecuteAlways)))
-                        continue;
+                    allTypes = assembly.GetTypes();
+
+                }
+                catch (ReflectionTypeLoadException e)
+                {
+                    allTypes = e.Types.Where(t => t != null);
+                    Debug.LogWarning(
+                        $"DefaultWorldInitialization failed loading assembly: {(assembly.IsDynamic ? assembly.ToString() : assembly.Location)}");
                 }
 
-                GetBehaviourManagerAndLogException(world, type);
+                var bootstrapTypes = allTypes.Where(t =>
+                    typeof(ICustomBootstrap).IsAssignableFrom(t) &&
+                    !t.IsAbstract &&
+                    !t.ContainsGenericParameters);
+                
+                // TODO: should multiple bootstrap classes be allowed?
+                foreach (var boot in bootstrapTypes)
+                {
+                    if (bootstrap == null)
+                        bootstrap = Activator.CreateInstance(boot) as ICustomBootstrap;
+                    else
+                    {
+                        Debug.LogError("Multiple custom bootstrappers specified, ignoring " + boot);
+                    }
+                }
+
+                bool FilterSystemType(Type type)
+                {
+                    if (!type.IsSubclassOf(typeof(ComponentSystemBase)) || type.IsAbstract || type.ContainsGenericParameters) 
+                        return false;
+
+                    if (type.GetCustomAttribute<DisableAutoCreationAttribute>(true) != null)
+                        return false;
+                    
+                    var systemFlags = WorldSystemFilterFlags.Default;
+                    var attrib = type.GetCustomAttribute<WorldSystemFilterAttribute>(true);
+                    if (attrib != null) 
+                        systemFlags = attrib.FilterFlags;
+
+                    return (filterFlags & systemFlags) != 0;
+                }
+
+                systemTypes.AddRange(allTypes.Where(FilterSystemType));
             }
+
+            if (bootstrap != null)
+            {
+                systemTypes = bootstrap.Initialize(systemTypes);
+            }
+
+            return systemTypes;
         }
     }
 }

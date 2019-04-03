@@ -403,12 +403,33 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        public void AssertCanAddChunkComponent(ArchetypeChunk chunk, int componentType)
+        public void AssertCanAddComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType componentType)
         {
-            if (ChunkDataUtility.GetIndexInTypeArray(chunk.Archetype.Archetype, componentType) == -1)
-                return;
+            var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
+            for (int i = 0; i < chunkArray.Length; ++i)
+            {
+                var chunk = chunks[i].m_Chunk;
+                if (ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, componentType.TypeIndex) != -1)
+                    throw new ArgumentException($"A component with type:{componentType} has already been added to the chunk.");
+                if(chunk->Locked)
+                    throw new InvalidOperationException("Cannot add components to locked Chunks. Unlock Chunk first.");
+            }
+        }
 
-            throw new ArgumentException($"A chunk component with type:{ComponentType.FromTypeIndex(componentType)} has not been added to the entity.");
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void AssertCanAddChunkComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType componentType)
+        {
+            var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
+            for (int i = 0; i < chunkArray.Length; ++i)
+            {
+                var chunk = chunks[i].m_Chunk;
+                if (ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, componentType.TypeIndex) != -1)
+                    throw new ArgumentException($"A chunk component with type:{componentType} has already been added to the chunk.");
+                if(chunk->Locked)
+                    throw new InvalidOperationException("Cannot add chunk components to locked Chunks. Unlock Chunk first.");
+                if((chunk->metaChunkEntity != Entity.Null) && GetComponentChunk(chunk->metaChunkEntity)->Locked)
+                    throw new InvalidOperationException("Cannot add chunk components if Meta Chunk is locked. Unlock Meta Chunk first.");
+            }
         }
 
         static Chunk* EntityChunkBatch(EntityDataManager* entityDataManager, Entity* entities, int count, out int indexInChunk, out int batchCount)
@@ -486,7 +507,7 @@ namespace Unity.Entities
             ChunkDataUtility.Copy(chunk, chunk->Count - patchCount, chunk, indexInChunk, patchCount);
         }
 
-        static void DeallocateBuffers(EntityDataManager* entityDataManager, Entity* entities, Chunk* chunk, int batchCount)
+        public static void DeallocateBuffers(EntityDataManager* entityDataManager, Entity* entities, Chunk* chunk, int batchCount)
         {
             var archetype = chunk->Archetype;
 
@@ -505,6 +526,28 @@ namespace Unity.Entities
                     Entity e = entities[i];
                     int indexInChunk = entityDataManager->m_Entities.ChunkData[e.Index].IndexInChunk;
                     byte* bufferPtr = basePtr + stride * indexInChunk;
+                    BufferHeader.Destroy((BufferHeader*)bufferPtr);
+                }
+            }
+        }
+
+        public static void DeallocateBuffers(EntityDataManager* entityDataManager, Chunk* chunk)
+        {
+            var archetype = chunk->Archetype;
+
+            for (var ti = 0; ti < archetype->TypesCount; ++ti)
+            {
+                var type = archetype->Types[ti];
+
+                if (!type.IsBuffer)
+                    continue;
+
+                var basePtr = chunk->Buffer + archetype->Offsets[ti];
+                var stride = archetype->SizeOfs[ti];
+
+                for (int i = 0; i < chunk->Count; ++i)
+                {
+                    byte* bufferPtr = basePtr + stride * i;
                     BufferHeader.Destroy((BufferHeader*)bufferPtr);
                 }
             }
@@ -849,7 +892,7 @@ namespace Unity.Entities
             typeMan.SetChunkCount(oldChunk, lastIndex);
         }
 
-        public void SetArchetype(ArchetypeManager typeMan, Chunk* chunk, Archetype* archetype, int* sharedComponentValues)
+        public void SetArchetype(ArchetypeManager typeMan, Chunk* chunk, Archetype* archetype, SharedComponentValues sharedComponentValues)
         {
             var srcChunk = chunk;
             var srcArchetype = srcChunk->Archetype;
@@ -979,25 +1022,278 @@ namespace Unity.Entities
             var newType = archetypeManager.GetArchetypeWithAddedComponentType(archetype, type, groupManager, &indexInTypeArray);
 
             var sharedComponentValues = GetComponentChunk(entity)->SharedComponentValues;
-            if (RequiresBuildingResidueSharedComponentIndices(archetype, newType))
+            if (type.IsSharedComponent)
             {
-                int* stackAlloced = stackalloc int[newType->NumSharedComponents];
+                int* temp = stackalloc int[newType->NumSharedComponents];
                 int indexOfNewSharedComponent = indexInTypeArray - newType->FirstSharedComponent;
-
-                sharedComponentValues.CopyTo(stackAlloced, 0,indexOfNewSharedComponent);
-                stackAlloced[indexOfNewSharedComponent] = 0;
-                sharedComponentValues.CopyTo(stackAlloced + indexOfNewSharedComponent + 1, indexOfNewSharedComponent, archetype->NumSharedComponents-indexOfNewSharedComponent);
-
-                sharedComponentValues = stackAlloced;
+                BuildSharedComponentIndicesWithAddedComponent(indexOfNewSharedComponent, 0, newType->NumSharedComponents, sharedComponentValues, temp);
+                sharedComponentValues = temp;
             }
 
             SetArchetype(archetypeManager, entity, newType, sharedComponentValues);
             IncrementComponentOrderVersion(newType, GetComponentChunk(entity), sharedComponentDataManager);
         }
 
-        public static void DeleteChunks(NativeArray<ArchetypeChunk> chunks, EntityDataManager* manager, ArchetypeManager archetypeManager, SharedComponentDataManager sharedComponentDataManager)
+        public void MoveChunkToNewArchetype(Chunk* chunk, Archetype* newArchetype, uint globalVersion, ArchetypeManager archetypeManager, SharedComponentValues sharedComponentValues)
         {
-            for (int i = 0; i != chunks.Length; i++)
+            var oldArchetype = chunk->Archetype;
+            Assert.IsTrue(oldArchetype != newArchetype);
+            ChunkDataUtility.AssertAreLayoutCompatible(oldArchetype, newArchetype);
+            var count = chunk->Count;
+            bool hasEmptySlots = count < chunk->Capacity;
+
+            if(hasEmptySlots)
+                ArchetypeManager.EmptySlotTrackingRemoveChunk(chunk);
+
+            int chunkIndexInOldArchetype = chunk->ListIndex;
+
+            var newTypes = newArchetype->Types;
+            var oldTypes = oldArchetype->Types;
+
+            chunk->Archetype = newArchetype;
+            newArchetype->AddToChunkList(chunk, sharedComponentValues);
+            int chunkIndexInNewArchetype = chunk->ListIndex;
+
+            //Copy change versions from old to new archetype
+            for (int iOldType = oldArchetype->TypesCount-1, iNewType = newArchetype->TypesCount-1; iNewType >=0; --iNewType)
+            {
+                var newType = newTypes[iNewType];
+                while (oldTypes[iOldType] > newType)
+                    --iOldType;
+                var version = oldTypes[iOldType] == newType
+                    ? oldArchetype->Chunks.GetChangeVersion(iOldType, chunkIndexInOldArchetype)
+                    : globalVersion;
+                newArchetype->Chunks.SetChangeVersion(iNewType, chunkIndexInNewArchetype, version);
+            }
+
+            chunk->ListIndex = chunkIndexInOldArchetype;
+            oldArchetype->RemoveFromChunkList(chunk);
+            chunk->ListIndex = chunkIndexInNewArchetype;
+
+            if(hasEmptySlots)
+                ArchetypeManager.EmptySlotTrackingAddChunk(chunk);
+
+            var entities = (Entity*)chunk->Buffer;
+            for (int i = 0; i < count; ++i)
+            {
+                m_Entities.Archetype[entities[i].Index] = newArchetype;
+            }
+
+            oldArchetype->EntityCount -= count;
+            newArchetype->EntityCount += count;
+
+            if (oldArchetype->MetaChunkArchetype != newArchetype->MetaChunkArchetype)
+            {
+                if (oldArchetype->MetaChunkArchetype == null)
+                {
+                    CreateMetaEntityForChunk(archetypeManager, chunk);
+                }
+                else if (newArchetype->MetaChunkArchetype == null)
+                {
+                    archetypeManager.DestroyMetaChunkEntity(chunk->metaChunkEntity);
+                    chunk->metaChunkEntity = Entity.Null;
+                }
+                else
+                {
+                    var metaChunk = GetComponentChunk(chunk->metaChunkEntity);
+                    var sharedComponentDataIndices = metaChunk->SharedComponentValues;
+                    SetArchetype(archetypeManager, chunk->metaChunkEntity, newArchetype->MetaChunkArchetype, sharedComponentDataIndices);
+                }
+            }
+        }
+
+        public void AddChunkComponent<T>(NativeArray<ArchetypeChunk> chunkArray, T componentData, ArchetypeManager archetypeManager,
+            EntityGroupManager groupManager) where T : struct, IComponentData
+        {
+            var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
+            Archetype* prevOldArchetype = null;
+            Archetype* newArchetype = null;
+            var type = ComponentType.ReadWrite<T>();
+            var chunkType = ComponentType.FromTypeIndex(TypeManager.MakeChunkComponentTypeIndex(type.TypeIndex));
+            var chunkCount = chunkArray.Length;
+            for(int i=0;i<chunkCount;++i)
+            {
+                var chunk = chunks[i].m_Chunk;
+                var oldArchetype = chunk->Archetype;
+                if (oldArchetype != prevOldArchetype)
+                {
+                    newArchetype = archetypeManager.GetArchetypeWithAddedComponentType(oldArchetype, chunkType, groupManager);
+                    prevOldArchetype = oldArchetype;
+                }
+
+                MoveChunkToNewArchetype(chunk, newArchetype, GlobalSystemVersion, archetypeManager, chunk->SharedComponentValues);
+                if (!type.IsZeroSized)
+                {
+                    var ptr = GetComponentDataWithTypeRW(chunk->metaChunkEntity, TypeManager.GetTypeIndex<T>(), GlobalSystemVersion);
+                    UnsafeUtility.CopyStructureToPtr(ref componentData, ptr);
+                }
+            }
+        }
+
+        public void AddSharedComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType type,
+            ArchetypeManager archetypeManager, EntityGroupManager groupManager, int sharedComponentIndex)
+        {
+            var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
+            Archetype* prevOldArchetype = null;
+            Archetype* newArchetype = null;
+            int indexInTypeArray=0;
+            for (int i = 0; i < chunkArray.Length; ++i)
+            {
+                var chunk = chunks[i].m_Chunk;
+                var oldArchetype = chunk->Archetype;
+                if (oldArchetype != prevOldArchetype)
+                {
+                    newArchetype = archetypeManager.GetArchetypeWithAddedComponentType(oldArchetype, type, groupManager, &indexInTypeArray);
+                    //Assert layout compatible
+                    prevOldArchetype = oldArchetype;
+                }
+
+                int* temp = stackalloc int[newArchetype->NumSharedComponents];
+                int indexOfNewSharedComponent = indexInTypeArray - newArchetype->FirstSharedComponent;
+                BuildSharedComponentIndicesWithAddedComponent(indexOfNewSharedComponent, sharedComponentIndex, newArchetype->NumSharedComponents, chunk->SharedComponentValues, temp);
+
+                MoveChunkToNewArchetype(chunk, newArchetype, GlobalSystemVersion, archetypeManager, temp);
+            }
+        }
+
+        public void AddComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType type,
+            ArchetypeManager archetypeManager, EntityGroupManager groupManager)
+        {
+            var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
+            if (type.IsZeroSized)
+            {
+                if (type.IsSharedComponent)
+                {
+                    AddSharedComponent(chunkArray, type, archetypeManager, groupManager, 0);
+                    return;
+                }
+
+                Archetype* prevOldArchetype = null;
+                Archetype* newArchetype = null;
+                int indexInTypeArray=0;
+                for (int i = 0; i < chunkArray.Length; ++i)
+                {
+                    var chunk = chunks[i].m_Chunk;
+                    var oldArchetype = chunk->Archetype;
+                    if (oldArchetype != prevOldArchetype)
+                    {
+                        newArchetype = archetypeManager.GetArchetypeWithAddedComponentType(oldArchetype, type, groupManager, &indexInTypeArray);
+                        prevOldArchetype = oldArchetype;
+                    }
+                    MoveChunkToNewArchetype(chunk, newArchetype, GlobalSystemVersion, archetypeManager, chunk->SharedComponentValues);
+                }
+            }
+            else
+            {
+                Archetype* prevOldArchetype = null;
+                Archetype* newArchetype = null;
+                for (int i = 0; i < chunkArray.Length; ++i)
+                {
+                    var chunk = chunks[i].m_Chunk;
+                    var oldArchetype = chunk->Archetype;
+                    if (oldArchetype != prevOldArchetype)
+                    {
+                        int indexInTypeArray=0;
+                        newArchetype = archetypeManager.GetArchetypeWithAddedComponentType(oldArchetype, type, groupManager, &indexInTypeArray);
+                        prevOldArchetype = oldArchetype;
+                    }
+
+                    SetArchetype(archetypeManager, chunk, newArchetype, chunk->SharedComponentValues);
+                }
+            }
+        }
+
+        public void RemoveComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType type,
+            ArchetypeManager archetypeManager, EntityGroupManager groupManager, SharedComponentDataManager sharedComponentDataManager)
+        {
+            var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
+            if (type.IsZeroSized)
+            {
+                Archetype* prevOldArchetype = null;
+                Archetype* newArchetype = null;
+                int indexInOldTypeArray=0;
+                for (int i = 0; i < chunkArray.Length; ++i)
+                {
+                    var chunk = chunks[i].m_Chunk;
+                    var oldArchetype = chunk->Archetype;
+                    if (oldArchetype != prevOldArchetype)
+                    {
+                        if (ChunkDataUtility.GetIndexInTypeArray(oldArchetype, type.TypeIndex) != -1)
+                            newArchetype = archetypeManager.GetArchetypeWithRemovedComponentType(oldArchetype, type, groupManager, &indexInOldTypeArray);
+                        else
+                            newArchetype = null;
+                        prevOldArchetype = oldArchetype;
+                    }
+
+                    if (newArchetype == null)
+                        continue;
+
+                    if (newArchetype->SystemStateCleanupComplete)
+                    {
+                        DeleteChunkAfterSystemStateCleanupIsComplete(chunk, archetypeManager, groupManager, sharedComponentDataManager);
+                        continue;
+                    }
+
+                    var sharedComponentValues = chunk->SharedComponentValues;
+                    if (type.IsSharedComponent)
+                    {
+                        int* temp = stackalloc int[newArchetype->NumSharedComponents];
+                        int indexOfRemovedSharedComponent = indexInOldTypeArray - oldArchetype->FirstSharedComponent;
+                        var sharedComponentDataIndex = chunk->GetSharedComponentValue(indexOfRemovedSharedComponent);
+                        sharedComponentDataManager.RemoveReference(sharedComponentDataIndex);
+                        BuildSharedComponentIndicesWithRemovedComponent(indexOfRemovedSharedComponent, newArchetype->NumSharedComponents, sharedComponentValues, temp);
+                        sharedComponentValues = temp;
+                    }
+
+                    MoveChunkToNewArchetype(chunk, newArchetype, GlobalSystemVersion, archetypeManager, sharedComponentValues);
+                }
+            }
+            else
+            {
+                Archetype* prevOldArchetype = null;
+                Archetype* newArchetype = null;
+                for (int i = 0; i < chunkArray.Length; ++i)
+                {
+                    var chunk = chunks[i].m_Chunk;
+                    var oldArchetype = chunk->Archetype;
+                    if (oldArchetype != prevOldArchetype)
+                    {
+                        if (ChunkDataUtility.GetIndexInTypeArray(oldArchetype, type.TypeIndex) != -1)
+                            newArchetype = archetypeManager.GetArchetypeWithRemovedComponentType(oldArchetype, type, groupManager);
+                        else
+                            newArchetype = null;
+                        prevOldArchetype = oldArchetype;
+                    }
+                    if(newArchetype != null)
+                        if (newArchetype->SystemStateCleanupComplete)
+                        {
+                            DeleteChunkAfterSystemStateCleanupIsComplete(chunk, archetypeManager, groupManager, sharedComponentDataManager);
+                        }
+                        else
+                        {
+                            SetArchetype(archetypeManager, chunk, newArchetype, chunk->SharedComponentValues);
+                        }
+                }
+            }
+        }
+
+        public void DeleteChunkAfterSystemStateCleanupIsComplete(Chunk* chunk, ArchetypeManager archetypeManager,
+            EntityGroupManager groupManager, SharedComponentDataManager sharedComponentDataManager)
+        {
+            fixed(EntityDataManager* manager  = &this)
+            {
+                var entityCount = chunk->Count;
+                DeallocateDataEntitiesInChunk(manager, (Entity*)chunk->Buffer, chunk, 0, chunk->Count);
+                manager->IncrementComponentOrderVersion(chunk->Archetype, chunk, sharedComponentDataManager);
+                chunk->Archetype->EntityCount -= entityCount;
+                archetypeManager.SetChunkCount(chunk, 0);
+            }
+        }
+
+        public static void DeleteChunks(NativeArray<ArchetypeChunk> chunkArray, EntityDataManager* manager, ArchetypeManager archetypeManager, SharedComponentDataManager sharedComponentDataManager)
+        {
+            var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
+            for (int i = 0; i != chunkArray.Length; i++)
             {
                 var chunk = chunks[i].m_Chunk;
                 DestroyBatch((Entity*)chunk->Buffer, manager, archetypeManager, sharedComponentDataManager, chunk, 0, chunk->Count);
@@ -1133,12 +1429,15 @@ namespace Unity.Entities
                 }
             }
         }
-        public void RemoveComponent(Entity entity, ComponentType type, ArchetypeManager archetypeManager,
-            SharedComponentDataManager sharedComponentDataManager,
-            EntityGroupManager groupManager)
+
+
+        public static void RemoveComponent(Entity entity, ComponentType type, EntityDataManager* entityDataManager, ArchetypeManager archetypeManager, SharedComponentDataManager sharedComponentDataManager, EntityGroupManager groupManager)
         {
-            var archetype = GetArchetype(entity);
-            var chunk = m_Entities.ChunkData[entity.Index].Chunk;
+            if (!entityDataManager->HasComponent(entity, type))
+                return;
+
+            var archetype = entityDataManager->GetArchetype(entity);
+            var chunk = entityDataManager->m_Entities.ChunkData[entity.Index].Chunk;
             if (chunk->Locked)
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -1153,23 +1452,23 @@ namespace Unity.Entities
             var newType =
                 archetypeManager.GetArchetypeWithRemovedComponentType(archetype, type, groupManager, &indexInOldTypeArray);
 
-            var sharedComponentValues = GetComponentChunk(entity)->SharedComponentValues;
+            var sharedComponentValues = entityDataManager->GetComponentChunk(entity)->SharedComponentValues;
 
-            if (RequiresBuildingResidueSharedComponentIndices(archetype, newType))
+            if (type.IsSharedComponent)
             {
-                var oldSharedComponentValues = sharedComponentValues;
-                int* tempAlloc = stackalloc int[newType->NumSharedComponents];
-                sharedComponentValues = tempAlloc;
-
-
+                int* temp = stackalloc int[newType->NumSharedComponents];
                 int indexOfRemovedSharedComponent = indexInOldTypeArray - archetype->FirstSharedComponent;
-                oldSharedComponentValues.CopyTo(tempAlloc, 0,  indexOfRemovedSharedComponent);
-                oldSharedComponentValues.CopyTo(tempAlloc + indexOfRemovedSharedComponent, indexOfRemovedSharedComponent + 1, newType->NumSharedComponents-indexOfRemovedSharedComponent);
+                BuildSharedComponentIndicesWithRemovedComponent(indexOfRemovedSharedComponent, newType->NumSharedComponents, sharedComponentValues, temp);
+                sharedComponentValues = temp;
             }
 
-            IncrementComponentOrderVersion(archetype, GetComponentChunk(entity), sharedComponentDataManager);
+            entityDataManager->IncrementComponentOrderVersion(archetype, entityDataManager->GetComponentChunk(entity), sharedComponentDataManager);
 
-            SetArchetype(archetypeManager, entity, newType, sharedComponentValues);
+            entityDataManager->SetArchetype(archetypeManager, entity, newType, sharedComponentValues);
+
+            // Cleanup residue component
+            if (newType->SystemStateCleanupComplete)
+                TryRemoveEntityId(&entity, 1, entityDataManager, archetypeManager, sharedComponentDataManager);
         }
 
         public void MoveEntityToChunk(ArchetypeManager typeMan, Entity entity, Chunk* newChunk, int newChunkIndex)
@@ -1228,6 +1527,15 @@ namespace Unity.Entities
 
             IncrementComponentTypeOrderVersion(archetype);
         }
+
+        public void CreateMetaEntityForChunk(ArchetypeManager archetypeManager, Chunk* chunk)
+        {
+            CreateEntities(archetypeManager, chunk->Archetype->MetaChunkArchetype, &chunk->metaChunkEntity, 1);
+            var typeIndex = TypeManager.GetTypeIndex<ChunkHeader>();
+            var chunkHeader = (ChunkHeader*)GetComponentDataWithTypeRW(chunk->metaChunkEntity, typeIndex, GlobalSystemVersion);
+            chunkHeader->chunk = chunk;
+        }
+
 
         public void LockChunks(ArchetypeChunk* chunks, int count)
         {
@@ -1321,6 +1629,19 @@ namespace Unity.Entities
                 else
                     dstSharedComponentValues[newIndex] = 0;
             }
+        }
+
+        static void BuildSharedComponentIndicesWithAddedComponent(int indexOfNewSharedComponent, int value, int newCount, SharedComponentValues srcSharedComponentValues, int* dstSharedComponentValues)
+        {
+            srcSharedComponentValues.CopyTo(dstSharedComponentValues, 0,indexOfNewSharedComponent);
+            dstSharedComponentValues[indexOfNewSharedComponent] = value;
+            srcSharedComponentValues.CopyTo(dstSharedComponentValues + indexOfNewSharedComponent + 1, indexOfNewSharedComponent, newCount-indexOfNewSharedComponent-1);
+        }
+
+        static void BuildSharedComponentIndicesWithRemovedComponent(int indexOfRemovedSharedComponent, int newCount, SharedComponentValues srcSharedComponentValues, int* dstSharedComponentValues)
+        {
+            srcSharedComponentValues.CopyTo(dstSharedComponentValues, 0,  indexOfRemovedSharedComponent);
+            srcSharedComponentValues.CopyTo(dstSharedComponentValues + indexOfRemovedSharedComponent, indexOfRemovedSharedComponent + 1, newCount-indexOfRemovedSharedComponent);
         }
 
         static bool RequiresBuildingResidueSharedComponentIndices(Archetype* srcArchetype, Archetype* dstArchetype)

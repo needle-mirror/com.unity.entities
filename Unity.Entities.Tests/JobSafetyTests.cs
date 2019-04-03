@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
@@ -16,19 +16,20 @@ namespace Unity.Entities.Tests
 
         struct TestIncrementJob : IJob
         {
-            public ComponentDataArray<EcsTestData> data;
+            public NativeArray<Entity> entities;
+            public ComponentDataFromEntity<EcsTestData> data;
             public void Execute()
             {
-                for (int i = 0; i != data.Length; i++)
+                for (int i = 0; i != entities.Length; i++)
                 {
-                    var d = data[i];
+                    var entity = entities[i];
+                    
+                    var d = data[entity];
                     d.value++;
-                    data[i] = d;
+                    data[entity] = d;
                 }
             }
         }
-
-
 
         [Test]
         public void ComponentAccessAfterScheduledJobThrows()
@@ -36,22 +37,26 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-
+           
             var job = new TestIncrementJob();
-            job.data = group.GetComponentDataArray<EcsTestData>();
-            Assert.AreEqual(42, job.data[0].value);
+            job.entities = group.ToEntityArray(Allocator.TempJob);
+            job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
+            
+            Assert.AreEqual(42, job.data[job.entities[0]].value);
 
             var fence = job.Schedule();
 
             Assert.Throws<System.InvalidOperationException>(() =>
             {
-                var f = job.data[0].value;
+                var f = job.data[job.entities[0]].value;
                 // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
                 f.GetHashCode();
             });
 
             fence.Complete();
-            Assert.AreEqual(43, job.data[0].value);
+            Assert.AreEqual(43, job.data[job.entities[0]].value);
+            
+            job.entities.Dispose();
         }
 
         [Test]
@@ -61,11 +66,14 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.data = group.GetComponentDataArray<EcsTestData>();
+            job.entities = group.ToEntityArray(Allocator.TempJob);
+            job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
             group.AddDependency(job.Schedule());
 
             // Implicit Wait for job, returns value after job has completed.
             Assert.AreEqual(1, m_Manager.GetComponentData<EcsTestData>(entity).value);
+            
+            job.entities.Dispose();
         }
 
         [Test]
@@ -76,15 +84,21 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.data = group.GetComponentDataArray<EcsTestData>();
+            job.entities = group.ToEntityArray(Allocator.TempJob);
+            job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
             group.AddDependency(job.Schedule());
 
             m_Manager.DestroyEntity(entity);
 
+            var componentData = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            
             // @TODO: This is maybe a little bit dodgy way of determining if the job has been completed...
             //        Probably should expose api to inspector job debugger state...
-            Assert.AreEqual(1, group.GetComponentDataArray<EcsTestData>().Length);
-            Assert.AreEqual(1, group.GetComponentDataArray<EcsTestData>()[0].value);
+            Assert.AreEqual(1, componentData.Length);
+            Assert.AreEqual(1, componentData[0].value);
+            
+            job.entities.Dispose();
+            componentData.Dispose();
         }
 
         [Test]
@@ -96,10 +110,13 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.data = group.GetComponentDataArray<EcsTestData>();
+            job.entities = group.ToEntityArray(Allocator.TempJob);
+            job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
             job.Schedule();
 
             TearDown();
+            
+            job.entities.Dispose();
         }
 
         [Test]
@@ -109,12 +126,14 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.data = group.GetComponentDataArray<EcsTestData>();
+            job.entities = group.ToEntityArray(Allocator.TempJob);
+            job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
             var fence = job.Schedule();
 
             Assert.Throws<System.InvalidOperationException>(() => { m_Manager.DestroyEntity(entity); });
 
             fence.Complete();
+            job.entities.Dispose();
         }
 
         [Test]
@@ -124,12 +143,15 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.data = group.GetComponentDataArray<EcsTestData>();
+            job.entities = group.ToEntityArray(Allocator.TempJob);
+            job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
             var jobHandle = job.Schedule();
 
             Assert.Throws<System.InvalidOperationException>(() => { m_Manager.GetComponentData<EcsTestData>(entity); });
 
             jobHandle.Complete();
+            
+            job.entities.Dispose();
         }
 
 	    [Test]
@@ -235,6 +257,43 @@ namespace Unity.Entities.Tests
             var handle = new EntityOnlyDependencyJob{entityType = m_Manager.GetArchetypeChunkEntityType()}.Schedule(group);
             Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(entity));
             handle.Complete();
+        }
+
+        [DisableAutoCreation]
+        class SharedComponentSystem : JobComponentSystem
+        {
+            ComponentGroup group;
+            protected override void OnCreateManager() {
+                group = GetComponentGroup(ComponentType.ReadOnly<EcsTestSharedComp>());
+            }
+            struct SharedComponentJobChunk : IJobChunk
+            {
+                [ReadOnly] public ArchetypeChunkSharedComponentType<EcsTestSharedComp> ecsTestSharedCompType;
+                public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+                {
+                }
+            }
+
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                return new SharedComponentJobChunk
+                {
+                    ecsTestSharedCompType = GetArchetypeChunkSharedComponentType<EcsTestSharedComp>()
+                }.Schedule(group, inputDeps);
+            }
+        }
+
+        [Test]
+        public void JobsUsingArchetypeChunkSharedComponentTypeSyncOnStructuralChange()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var entity = m_Manager.CreateEntity(archetype);
+
+            var sharedComponentSystem = World.CreateManager<SharedComponentSystem>();
+
+            sharedComponentSystem.Update();
+            // DestroyEntity should sync the job and not cause any safety error
+            m_Manager.DestroyEntity(entity);
         }
     }
 }

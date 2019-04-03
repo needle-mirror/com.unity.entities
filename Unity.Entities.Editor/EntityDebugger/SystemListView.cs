@@ -149,7 +149,7 @@ namespace Unity.Entities.Editor
             RebuildNodes();
         }
 
-        private HideNode CreateManagerItem(int id, ScriptBehaviourManager manager, World world)
+        private HideNode CreateManagerItem(int id, int depth, ScriptBehaviourManager manager, World world)
         {
             managersById.Add(id, manager);
             worldsById.Add(id, world);
@@ -157,8 +157,8 @@ namespace Unity.Entities.Editor
             recordersByManager.Add(manager, new AverageRecorder(recorder));
             recorder.enabled = true;
             var name = getWorldSelection() == null ? $"{manager.GetType().Name} ({world.Name})" : manager.GetType().Name;
-            var item = new TreeViewItem { id = id, displayName = name };
-            
+            var item = new TreeViewItem { id = id, depth = depth, displayName = name };
+
             var componentSystemBase = manager as ComponentSystemBase;
             var hideNode = new HideNode(item) { Active = componentSystemBase == null };
             hideNodesById.Add(id, hideNode);
@@ -201,7 +201,7 @@ namespace Unity.Entities.Editor
                         }
                     }
                     return Item;
-                    
+
                 }
                 else
                 {
@@ -242,9 +242,9 @@ namespace Unity.Entities.Editor
                     foreach (var child in group.subSystemList)
                     {
                         var executionDelegate = child.updateDelegate;
-                        ScriptBehaviourUpdateOrder.DummyDelagateWrapper dummy;
+                        ScriptBehaviourUpdateOrder.DummyDelegateWrapper dummy;
                         if (executionDelegate != null &&
-                            (dummy = executionDelegate.Target as ScriptBehaviourUpdateOrder.DummyDelagateWrapper) != null)
+                            (dummy = executionDelegate.Target as ScriptBehaviourUpdateOrder.DummyDelegateWrapper) != null)
                         {
                             var system = dummy.Manager;
                             if (getWorldSelection() == null)
@@ -253,18 +253,21 @@ namespace Unity.Entities.Editor
                                 {
                                     if (world.BehaviourManagers.Contains(system))
                                     {
-                                        groupItem.AddChild(CreateManagerItem(currentID++, system, world));
+                                        currentID = AddNodeForSystem(groupItem, currentID, 1, system, world, expandedIds);
                                         hasManagerChildren = true;
                                     }
                                 }
                             }
-                            else
+                            else if (getWorldSelection().BehaviourManagers.Contains(system))
                             {
-                                if (getWorldSelection().BehaviourManagers.Contains(system))
-                                {
-                                    groupItem.AddChild(CreateManagerItem(currentID++, system, getWorldSelection()));
-                                    hasManagerChildren = true;
-                                }
+                                currentID = AddNodeForSystem(groupItem, currentID, 1, system, getWorldSelection(), expandedIds);
+                                hasManagerChildren = true;
+                            }
+                            else if (system is ComponentSystemGroup)
+                            {
+                                var nextId = AddNodeForSystem(groupItem, currentID, 1, system, null, expandedIds);
+                                hasManagerChildren |= (nextId != currentID);
+                                currentID = nextId;
                             }
                         }
                         else if (getWorldSelection() == null)
@@ -272,7 +275,7 @@ namespace Unity.Entities.Editor
                             groupItem.AddChild(new HideNode(new TreeViewItem(currentID++, 1, child.type.Name)));
                         }
                     }
-    
+
                     if (groupItem.Children != null)
                     {
                         rootNode.AddChild(groupItem);
@@ -286,19 +289,69 @@ namespace Unity.Entities.Editor
                 }
             }
 
+            // The list of IDs to expand must be sorted.
+            expandedIds.Sort();
             return expandedIds;
+        }
+
+        private int AddNodeForSystem(HideNode node, int currentID, int depth, ScriptBehaviourManager system, World world,
+            List<int> expandedIds)
+        {
+            var groupSys = system as ComponentSystemGroup;
+            if (groupSys != null)
+            {
+                if (world != null)
+                {
+                    var groupNode = CreateManagerItem(currentID++, depth, groupSys, world);
+                    expandedIds.Add(groupNode.Item.id);
+                    node.AddChild(groupNode);
+                    foreach (var child in groupSys.Systems)
+                    {
+                        if (world.BehaviourManagers.Contains(child))
+                            currentID = AddNodeForSystem(groupNode, currentID, depth + 1, child, world, expandedIds);
+                        else if (getWorldSelection() == null)
+                        {
+                            foreach (var w in World.AllWorlds)
+                            {
+                                if (w.BehaviourManagers.Contains(child))
+                                    currentID = AddNodeForSystem(groupNode, currentID, depth + 1, child, w, expandedIds);
+                            }
+                        }
+                        else if (child is ComponentSystemGroup)
+                        {
+                            currentID = AddNodeForSystem(groupNode, currentID, depth + 1, child, null, expandedIds);
+                        }
+                    }
+                }
+                else
+                {
+                    foreach (var child in groupSys.Systems)
+                    {
+                        if (getWorldSelection().BehaviourManagers.Contains(child))
+                            currentID = AddNodeForSystem(node, currentID, depth, child, getWorldSelection(), expandedIds);
+                        else if (child is ComponentSystemGroup)
+                            currentID = AddNodeForSystem(node, currentID, depth, child, null, expandedIds);
+                    }
+                }
+            }
+            else if (world != null)
+            {
+                node.AddChild(CreateManagerItem(currentID++, depth, system, world));
+            }
+
+            return currentID;
         }
 
         protected override TreeViewItem BuildRoot()
         {
             if (rootNode == null)
                 state.expandedIDs = BuildNodeTree();
-            
+
             var root = rootNode.BuildList(getShowInactiveSystems());
-            
+
             if (!root.hasChildren)
                 root.children = new List<TreeViewItem>(0);
-            
+
             SetupDepthsFromParentsAndChildren(root);
             return root;
         }
@@ -312,7 +365,7 @@ namespace Unity.Entities.Editor
                 if (componentSystemBase == null)
                     continue;
                 var hideNode = hideNodesById[idManagerPair.Key];
-                if (componentSystemBase.ShouldRunSystem() && !hideNode.Active)
+                if (componentSystemBase.LastSystemVersion != 0 && !hideNode.Active)
                 {
                     hideNode.Active = true;
                     becameVisible = true;
@@ -417,7 +470,7 @@ namespace Unity.Entities.Editor
                 if (!PlayerLoopsMatch(a.subSystemList[i], b.subSystemList[i]))
                     return false;
             }
-            
+
             return true;
         }
 
@@ -446,7 +499,7 @@ namespace Unity.Entities.Editor
                 return false;
             }
         }
-        
+
         public void ReloadIfNecessary()
         {
             if (NeedsReload)

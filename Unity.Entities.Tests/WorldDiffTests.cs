@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.Tests
 {
@@ -645,6 +646,72 @@ namespace Unity.Entities.Tests
         public void EntityIDOnComponentChangedButNotReferencedEntityGUID()
         {
            // Ensure that no change is generated in this case...
+        }
+
+        [TestCase("Manny")]
+        [TestCase("Moe")]
+        [TestCase("Jack")]
+        public void DebugNamesAreTransferred(string srcWorldName)
+        {
+            var guid = GenerateEntityGuid(0);
+            var srcWorldEntity = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(srcWorldEntity, guid );
+            m_Manager.SetName(srcWorldEntity, srcWorldName);
+
+            SyncDiff();
+
+            var destWorldEntity = GetDstWorldEntity(guid);
+            var destWorldName = m_DstManager.GetName(destWorldEntity);
+
+            Assert.AreEqual(srcWorldName, destWorldName);
+        }
+
+        unsafe void Append<T>(ref NativeArray<T> array, T t) where T : struct
+        {
+            NativeArray<T> result = new NativeArray<T>(array.Length + 1, Allocator.TempJob);
+            UnsafeUtility.MemCpy(result.GetUnsafePtr(), array.GetUnsafePtr(), UnsafeUtility.SizeOf<T>() * array.Length);
+            UnsafeUtility.WriteArrayElement(result.GetUnsafePtr(), array.Length, t);
+            array.Dispose();
+            array = result;
+        }
+        
+        [Test]
+        public void EntityPatchWithMissingEntityDoesNotThrow()
+        {
+            var guid = GenerateEntityGuid(0);
+            var srcWorldEntity0 = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(srcWorldEntity0, guid );
+            var srcWorldEntity1 = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(srcWorldEntity1, guid );
+
+            var bogusGuid = GenerateEntityGuid(1);
+
+            Assert.DoesNotThrow(() =>
+            {
+                var diff = WorldDiffer.UpdateDiff(m_After, m_Shadow, Allocator.TempJob);
+                Append(ref diff.EntityPatches, new DiffEntityPatch {Guid = bogusGuid});
+                using (diff)
+                    WorldDiffer.ApplyDiff(m_DstWorld, diff);
+            });
+        }
+
+        [Test]
+        public void EntityPatchWithAmbiguousTargetDoesNotThrow()
+        {
+            var guid = GenerateEntityGuid(0);
+            var srcWorldEntity0 = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(srcWorldEntity0, guid );
+
+            var dstWorldEntity0 = m_DstManager.CreateEntity();
+            m_DstManager.AddComponentData(dstWorldEntity0, guid );
+            
+            Assert.DoesNotThrow(() =>
+            {
+                var diff = WorldDiffer.UpdateDiff(m_After, m_Shadow, Allocator.TempJob);
+                Append(ref diff.EntityPatches, new DiffEntityPatch {Guid = guid});
+                using (diff)
+                    WorldDiffer.ApplyDiff(m_DstWorld, diff);
+            });
         }
         
         [Test]

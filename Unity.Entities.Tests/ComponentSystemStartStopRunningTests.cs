@@ -10,28 +10,21 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         class TestSystem : ComponentSystem
         {
+            public ComponentGroup m_TestGroup;
+            
             public const string OnStartRunningString =
                 nameof(TestSystem) + ".OnStartRunning()";
 
             public const string OnStopRunningString =
                 nameof(TestSystem) + ".OnStopRunning()";
 
-#pragma warning disable 649
-            struct MyStruct
-            {
-
-                public readonly int Length;
-                public readonly ComponentDataArray<EcsTestData> Data;
-            }
-
-            [Inject]
-            MyStruct DataStruct;
-#pragma warning restore 649
             public NativeArray<int> StoredData;
             protected override void OnUpdate()
             {
-                var index = StoredData[0] + DataStruct.Data[0].value + 1;
+                var componentData = m_TestGroup.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+                var index = StoredData[0] + componentData[0].value + 1;
                 StoredData.Dispose();
+                componentData.Dispose();
 
                 StoredData = new NativeArray<int>(1, Allocator.Temp);
                 StoredData[0] = index;
@@ -49,6 +42,11 @@ namespace Unity.Entities.Tests
                 UnityEngine.Debug.Log(OnStopRunningString);
                 StoredData.Dispose();
                 base.OnStopRunning();
+            }
+
+            protected override void OnCreateManager()
+            {
+                m_TestGroup = GetComponentGroup(ComponentType.ReadWrite<EcsTestData>());
             }
         }
 

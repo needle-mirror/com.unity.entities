@@ -1,5 +1,8 @@
 ﻿using NUnit.Framework;
 
+// Injection is deprecated
+#pragma warning disable 618
+
 namespace Unity.Entities.Tests
 {
     class ComponentSystemInjectionTests : ECSTestsFixture

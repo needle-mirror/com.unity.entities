@@ -3,6 +3,8 @@ using NUnit.Framework;
 using System.Collections.Generic;
 using Unity.Collections;
 
+#pragma warning disable 618
+
 namespace Unity.Entities.Tests
 {
     struct SharedData1 : ISharedComponentData
@@ -299,8 +301,8 @@ namespace Unity.Entities.Tests
             var archetype0 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
             var archetype1 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData), typeof(SharedData2));
 
-            var group0 = m_Manager.CreateComponentGroup(ComponentType.Create<SharedData1>());
-            var group1 = m_Manager.CreateComponentGroup(ComponentType.Create<SharedData2>());
+            var group0 = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<SharedData1>());
+            var group1 = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<SharedData2>());
 
             m_Manager.CreateEntity(archetype0);
             var entity1 = m_Manager.CreateEntity(archetype1);

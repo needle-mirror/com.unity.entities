@@ -1,18 +1,22 @@
 ﻿using System;
+using System.ComponentModel;
 
 namespace Unity.Entities
 {
-    public struct SubtractiveComponent<T>
+    public struct ExcludeComponent<T>
     {
     }
 
-    public struct ComponentType : IEquatable<ComponentType>
+    public partial struct ComponentType : IEquatable<ComponentType>
     {
         public enum AccessMode
         {
             ReadWrite,
             ReadOnly,
-            Subtractive
+            Exclude,
+            [Obsolete("Create has been renamed. Use Exclude instead.", true)]
+            [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
+            Create
         }
 
         public int TypeIndex;
@@ -26,7 +30,14 @@ namespace Unity.Entities
         public bool IsChunkComponent => TypeManager.IsChunkComponent(TypeIndex);
         public bool HasEntityReferences => TypeManager.HasEntityReferences(TypeIndex);
 
+        [Obsolete("Create<T> has been renamed. Use ReadWrite<T> instead.", false)]
+        [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
         public static ComponentType Create<T>()
+        {
+            return ReadWrite<T>();
+        }
+        
+        public static ComponentType ReadWrite<T>()
         {
             return FromTypeIndex(TypeManager.GetTypeIndex<T>());
         }
@@ -45,7 +56,7 @@ namespace Unity.Entities
             t.AccessModeType = AccessMode.ReadOnly;
             return t;
         }
-        
+
         public static ComponentType ReadOnly(int typeIndex)
         {
             ComponentType t = FromTypeIndex(typeIndex);
@@ -55,36 +66,35 @@ namespace Unity.Entities
 
         public static ComponentType ReadOnly<T>()
         {
-            ComponentType t = Create<T>();
+            ComponentType t = ReadWrite<T>();
+//            ComponentType t = Create<T>();
             t.AccessModeType = AccessMode.ReadOnly;
             return t;
         }
 
         public static ComponentType ChunkComponent(Type type)
         {
-            ComponentType t = FromTypeIndex(TypeManager.GetTypeIndex(type));
-            t.TypeIndex |= TypeManager.ChunkComponentTypeFlag;
-            return t;
+            var typeIndex = TypeManager.MakeChunkComponentTypeIndex(TypeManager.GetTypeIndex(type));
+            return FromTypeIndex(typeIndex);
         }
 
         public static ComponentType ChunkComponent<T>()
         {
-            ComponentType t = Create<T>();
-            t.TypeIndex |= TypeManager.ChunkComponentTypeFlag;
-            return t;
+            var typeIndex = TypeManager.MakeChunkComponentTypeIndex(TypeManager.GetTypeIndex<T>());
+            return FromTypeIndex(typeIndex);
         }
 
-        public static ComponentType Subtractive(Type type)
+        public static ComponentType Exclude(Type type)
         {
             ComponentType t = FromTypeIndex(TypeManager.GetTypeIndex(type));
-            t.AccessModeType = AccessMode.Subtractive;
+            t.AccessModeType = AccessMode.Exclude;
             return t;
         }
 
-        public static ComponentType Subtractive<T>()
+        public static ComponentType Exclude<T>()
         {
-            ComponentType t = Create<T>();
-            t.AccessModeType = AccessMode.Subtractive;
+            ComponentType t = ReadWrite<T>();
+            t.AccessModeType = AccessMode.Exclude;
             return t;
         }
 
@@ -93,19 +103,6 @@ namespace Unity.Entities
             TypeIndex = TypeManager.GetTypeIndex(type);
             var ct = TypeManager.GetTypeInfo(TypeIndex);
             AccessModeType = accessModeType;
-        }
-
-        internal bool RequiresJobDependency
-        {
-            get
-            {
-                if (AccessModeType == AccessMode.Subtractive)
-                    return false;
-
-                var type = GetManagedType();
-                //@TODO: This is wrong... think about Entity array?
-                return typeof(IComponentData).IsAssignableFrom(type) || typeof(IBufferElementData).IsAssignableFrom(type);
-            }
         }
 
         public Type GetManagedType()
@@ -162,7 +159,7 @@ namespace Unity.Entities
             var name = GetManagedType().Name;
             if (IsBuffer)
                 return $"{name}[B]";
-            if (AccessModeType == AccessMode.Subtractive)
+            if (AccessModeType == AccessMode.Exclude)
                 return $"{name} [S]";
             if (AccessModeType == AccessMode.ReadOnly)
                 return $"{name} [RO]";
@@ -188,4 +185,29 @@ namespace Unity.Entities
             return (TypeIndex * 5813);
         }
     }
+    
+    
+    [Obsolete("SubtractiveComponent has been renamed. Use ExcludeComponent instead (UnityUpgradable) -> ExcludeComponent", true)]
+    [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
+    public struct SubtractiveComponent<T>
+    {
+    }
+
+    public partial struct ComponentType
+    {
+        [Obsolete("ComponentType.Subtractive has been renamed. Use Exclude instead (UnityUpgradable) -> Exclude()", true)]
+        [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
+        public static ComponentType Subtractive(Type type)
+        {
+            return Exclude(type);
+        }
+
+        [Obsolete("ComponentType.Subtractive has been renamed. Use ExcludeComponent instead (UnityUpgradable) -> Exclude()", true)]
+        [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
+        public static ComponentType Subtractive<T>()
+        {
+            return Exclude<T>();
+        }
+    }
+
 }

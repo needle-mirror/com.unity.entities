@@ -38,7 +38,7 @@ namespace Unity.Entities.Editor.Tests
         {
             var filterUI = new ComponentTypeFilterUI(SetFilterDummy, WorldSelectionGetter);
             var types = new ComponentType[]
-                {ComponentType.Create<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>()};
+                {ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>()};
             Assert.IsNull(filterUI.GetExistingGroup(types));
             var group = filterUI.GetComponentGroup(types);
             Assert.AreEqual(group, filterUI.GetExistingGroup(types));

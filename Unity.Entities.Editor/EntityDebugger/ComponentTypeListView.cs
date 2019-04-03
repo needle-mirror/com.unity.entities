@@ -36,7 +36,7 @@ namespace Unity.Entities.Editor
             {
                 for (var i = 0; i < types.Count; ++i)
                 {
-                    var displayName = (types[i].AccessModeType == ComponentType.AccessMode.Subtractive ? "" : "+") + typeNames[i].text;
+                    var displayName = (types[i].AccessModeType == ComponentType.AccessMode.Exclude ? "" : "+") + typeNames[i].text;
                     root.AddChild(new TreeViewItem {id = i, displayName = displayName});
                 }
             }
@@ -49,8 +49,8 @@ namespace Unity.Entities.Editor
         {
             EditorGUI.BeginChangeCheck();
             typeSelections[args.item.id] = EditorGUI.Toggle(args.rowRect, typeSelections[args.item.id]);
-            var style = types[args.item.id].AccessModeType == ComponentType.AccessMode.Subtractive
-                ? EntityDebuggerStyles.ComponentSubtractive
+            var style = types[args.item.id].AccessModeType == ComponentType.AccessMode.Exclude
+                ? EntityDebuggerStyles.ComponentExclude
                 : EntityDebuggerStyles.ComponentRequired;
             var indent = GetContentIndent(args.item);
             var content = typeNames[args.item.id];

@@ -20,6 +20,17 @@ namespace Unity.Entities
             data[length] = newValue;
         }
         
+        public static unsafe void InsertSorted(byte* data, int length, byte newValue)
+        {
+            while (length > 0 && newValue < data[length - 1])
+            {
+                data[length] = data[length - 1];
+                --length;
+            }
+
+            data[length] = newValue;
+        }
+        
         public static unsafe void InsertSorted(ComponentType* data, int length, ComponentType newValue)
         {
             while (length > 0 && newValue < data[length - 1])

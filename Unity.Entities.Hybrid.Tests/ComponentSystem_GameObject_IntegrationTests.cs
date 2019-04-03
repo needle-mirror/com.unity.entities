@@ -3,6 +3,7 @@ using NUnit.Framework;
 using Unity.Entities;
 using Unity.Entities.Tests;
 #pragma warning disable 649
+#pragma warning disable 618
 
 namespace UnityEngine.Entities.Tests
 {

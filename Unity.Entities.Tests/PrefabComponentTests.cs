@@ -17,8 +17,7 @@ namespace Unity.Entities.Tests
 			var entity0 = m_Manager.CreateEntity(archetype0);
 			var entity1 = m_Manager.CreateEntity(archetype1);
 
-			var arr = group.GetComponentDataArray<EcsTestData>();
-			Assert.AreEqual(1, arr.Length);
+			Assert.AreEqual(1, group.CalculateLength());
 
 			m_Manager.DestroyEntity(entity0);
 			m_Manager.DestroyEntity(entity1);
@@ -33,7 +32,7 @@ namespace Unity.Entities.Tests
 	        var entity0 = m_Manager.CreateEntity(archetype0);
 	        var entity1 = m_Manager.CreateEntity(archetype1);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsTestData>());
+            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestData>());
 	        var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 	        var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
@@ -57,8 +56,7 @@ namespace Unity.Entities.Tests
 			var entity1 = m_Manager.CreateEntity(archetype1);
 			var entity2 = m_Manager.CreateEntity(archetype1);
 
-			var arr = group.GetComponentDataArray<EcsTestData>();
-			Assert.AreEqual(2, arr.Length);
+			Assert.AreEqual(2, group.CalculateLength());
 
 			m_Manager.DestroyEntity(entity0);
 			m_Manager.DestroyEntity(entity1);
@@ -75,8 +73,8 @@ namespace Unity.Entities.Tests
 	        var entity1 = m_Manager.CreateEntity(archetype1);
 	        var entity2 = m_Manager.CreateEntity(archetype1);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsTestData>(),
-                ComponentType.Create<Prefab>());
+            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestData>(),
+                ComponentType.ReadWrite<Prefab>());
 	        var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 	        var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
@@ -119,7 +117,7 @@ namespace Unity.Entities.Tests
 	        Assert.AreEqual(true, m_Manager.HasComponent<Prefab>(entity0));
 	        Assert.AreEqual(false, m_Manager.HasComponent<Prefab>(entity1));
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsTestData>());
+            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestData>());
 	        var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 	        var count = ArchetypeChunkArray.CalculateEntityCount(chunks);

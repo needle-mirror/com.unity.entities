@@ -105,12 +105,12 @@ namespace Unity.Entities.Tests
 		{
 #pragma warning disable 649
 		    public EcsTestData* testData;
-			public SubtractiveComponent<EcsTestData2> testData2;
+			public ExcludeComponent<EcsTestData2> testData2;
 #pragma warning restore 649
 	    }
 		
 		[Test]
-		public void ComponentGroupArraySubtractive()
+		public void ComponentGroupArrayExclude()
 		{
 			m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 			m_Manager.CreateEntity(typeof(EcsTestData));

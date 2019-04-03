@@ -201,7 +201,6 @@ public class BurstTests
         Assert.AreEqual((IntPtr) dummy.a, (IntPtr) dummy.b);
 	}
 
-#if UNITY_2019_1_OR_NEWER
     [BurstCompile(CompileSynchronously = true)]
     unsafe struct TempAllocationJob : IJob
     {
@@ -227,5 +226,4 @@ public class BurstTests
         job.Schedule().Complete();
         Assert.AreEqual(100, value);
     }
-#endif
 }

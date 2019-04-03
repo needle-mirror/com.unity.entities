@@ -36,11 +36,13 @@ namespace Unity.Entities.Tests
             AssertDoesNotExist(entity1);
         }
 
-	    [Test]
-	    unsafe public void CreateZeroEntities()
+        [TestCaseGeneric(typeof(EcsTestData))]
+        [TestCaseGeneric(typeof(EcsState1))]
+	    unsafe public void CreateZeroEntities<TComponent>()
+         where TComponent : struct, IComponentData
 	    {
 	        var array = new NativeArray<Entity>(0, Allocator.Temp);
-	        m_Manager.CreateEntity(m_Manager.CreateArchetype(typeof(EcsTestData)), array);
+	        m_Manager.CreateEntity(m_Manager.CreateArchetype(typeof(TComponent)), array);
 	        array.Dispose();
 	    }
 
@@ -181,7 +183,7 @@ namespace Unity.Entities.Tests
 	        m_Manager.Debug.PoisonUnusedDataInAllChunks(archetype, 0xCD);
 
 	        var entity = m_Manager.CreateEntity();
-	        m_Manager.AddComponent(entity, ComponentType.Create<EcsTestData>());
+	        m_Manager.AddComponent(entity, ComponentType.ReadWrite<EcsTestData>());
 	        Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData>(entity).value);
 
 	        m_Manager.DestroyEntity(dummyEntity);
@@ -197,20 +199,20 @@ namespace Unity.Entities.Tests
 		}
 
 		[Test]
-		public void SubtractiveArchetypeReactToAddRemoveComponent()
+		public void ExcludeArchetypeReactToAddRemoveComponent()
 		{
-			var subtractiveArch = m_Manager.CreateComponentGroup(ComponentType.Subtractive(typeof(EcsTestData)), typeof(EcsTestData2));
+			var subtractiveArch = m_Manager.CreateComponentGroup(ComponentType.Exclude(typeof(EcsTestData)), typeof(EcsTestData2));
 
 			var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
 			var entity = m_Manager.CreateEntity(archetype);
-			Assert.AreEqual(0, subtractiveArch.GetComponentDataArray<EcsTestData2>().Length);
+			Assert.AreEqual(0, subtractiveArch.CalculateLength());
 
 			m_Manager.RemoveComponent<EcsTestData>(entity);
-			Assert.AreEqual(1, subtractiveArch.GetComponentDataArray<EcsTestData2>().Length);
+            Assert.AreEqual(1, subtractiveArch.CalculateLength());
 
 			m_Manager.AddComponentData<EcsTestData>(entity, new EcsTestData());
-			Assert.AreEqual(0, subtractiveArch.GetComponentDataArray<EcsTestData2>().Length);
+            Assert.AreEqual(0, subtractiveArch.CalculateLength());
 		}
 
 
@@ -234,7 +236,7 @@ namespace Unity.Entities.Tests
 	            Assert.AreEqual(1, archetype2->EntityCount);
 	        }
 	    }
-	    
+
 	    [Test]
 	    public void AddComponentsWorks()
 	    {
@@ -254,10 +256,10 @@ namespace Unity.Entities.Tests
 	        Assert.AreEqual(expectedTotalTypes.Length, actualTotalTypes.Length);
 	        for (var i = 0; i < expectedTotalTypes.Length; ++i)
 	            Assert.AreEqual(expectedTotalTypes.GetTypeIndex(i), actualTotalTypes[i].TypeIndex);
-	        
+
 	        actualTotalTypes.Dispose();
 	    }
-        
+
         [Test]
         public void GetAllEntitiesCorrectCount()
         {
@@ -270,17 +272,17 @@ namespace Unity.Entities.Tests
 
             var foundEntities = m_Manager.GetAllEntities();
             Assert.AreEqual(1024+1,foundEntities.Length);
-            
+
             foundEntities.Dispose();
             moreEntities.Dispose();
         }
-        
+
         [Test]
         public void GetAllEntitiesCorrectValues()
         {
             var archetype0 = m_Manager.CreateArchetype(typeof(EcsTestData));
             var entity = m_Manager.CreateEntity(archetype0);
-            m_Manager.SetComponentData(entity,new EcsTestData { value = 0});
+            m_Manager.SetComponentData(entity,new EcsTestData { value = 1000000});
 
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
             var moreEntities = new NativeArray<Entity>(1024,Allocator.Temp);
@@ -291,15 +293,18 @@ namespace Unity.Entities.Tests
             }
 
             var foundEntities = m_Manager.GetAllEntities();
+
+            Assert.AreEqual(1025, foundEntities.Length);
+
             var sum = 0;
-            var expectedSum = 524800;
-            for (int i = 0; i < 1024; i++)
+            var expectedSum = 1524800;
+            for (int i = 0; i < 1025; i++)
             {
                 sum += m_Manager.GetComponentData<EcsTestData>(foundEntities[i]).value;
             }
 
             Assert.AreEqual(expectedSum, sum);
-            
+
             foundEntities.Dispose();
             moreEntities.Dispose();
         }
@@ -321,7 +326,7 @@ namespace Unity.Entities.Tests
 	        Assert.AreEqual(expectedTotalTypes.Length, actualTotalTypes.Length);
 	        for (var i = 0; i < expectedTotalTypes.Length; ++i)
 	            Assert.AreEqual(expectedTotalTypes.GetTypeIndex(i), actualTotalTypes[i].TypeIndex);
-	        
+
 	        actualTotalTypes.Dispose();
 	    }
 
@@ -333,14 +338,14 @@ namespace Unity.Entities.Tests
 
 	        var sharedComponentValue = new EcsTestSharedComp(1337);
 	        m_Manager.SetSharedComponentData(entity, sharedComponentValue);
-	        
+
 	        var typesToAdd = new ComponentTypes(typeof(EcsTestData3), typeof(EcsTestSharedComp2), typeof(EcsTestData2));
 
 	        m_Manager.AddComponents(entity, typesToAdd);
 
 	        Assert.AreEqual(m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity), sharedComponentValue);
 
-	        var expectedTotalTypes = new ComponentTypes(typeof(EcsTestData), typeof(EcsTestData2), 
+	        var expectedTotalTypes = new ComponentTypes(typeof(EcsTestData), typeof(EcsTestData2),
 	            typeof(EcsTestData3), typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
 
 	        var actualTotalTypes = m_Manager.GetComponentTypes(entity);

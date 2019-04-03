@@ -182,7 +182,7 @@ namespace Unity.Entities
                 delegateParameters.AppendFormat(Param[category], i);
                 genericConstraints.AppendFormat(GenericConstraints[category], i);
 
-                componentGroupTypes.Append($"ComponentType.Create<T{i}>()");
+                componentGroupTypes.Append($"ComponentType.ReadWrite<T{i}>()");
                 operateParams.AppendFormat(ArrayAccess[category], i);
                 
                 if (i != categories.Length - 1)

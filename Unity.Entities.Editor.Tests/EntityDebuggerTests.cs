@@ -13,21 +13,19 @@ namespace Unity.Entities.Editor.Tests
         private ComponentSystem m_System;
         private ComponentGroup m_ComponentGroup;
         private Entity m_Entity;
-        
+
         [DisableAutoCreation]
         class SingleGroupSystem : ComponentSystem
         {
-            struct Group
-            {
-                private readonly int Length;
-                private ComponentDataArray<EcsTestData> testDatas;
-            }
 
-            [Inject] private Group entities;
-            
             protected override void OnUpdate()
             {
                 throw new NotImplementedException();
+            }
+
+            protected override void OnCreateManager()
+            {
+                GetComponentGroup(typeof(EcsTestData));
             }
         }
 
@@ -47,17 +45,19 @@ namespace Unity.Entities.Editor.Tests
             base.Setup();
 
             CloseAllDebuggers();
-            
+
             m_Window = EditorWindow.GetWindow<EntityDebugger>();
 
             m_System = World.Active.GetOrCreateManager<SingleGroupSystem>();
-            
-            World2 = new World(World2Name);
+            World.Active.GetOrCreateManager<SimulationSystemGroup>().AddSystemToUpdateList(m_System);
 
+            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(World.Active);
+
+            World2 = new World(World2Name);
             World2.GetOrCreateManager<EntityManager>();
-            World2.GetOrCreateManager<EmptySystem>();
-            
-            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(World.Active, World2);
+            var emptySys = World2.GetOrCreateManager<EmptySystem>();
+            World.Active.GetOrCreateManager<SimulationSystemGroup>().AddSystemToUpdateList(emptySys);
+            World.Active.GetOrCreateManager<SimulationSystemGroup>().SortSystemUpdateList();
 
             m_ComponentGroup = m_System.ComponentGroups[0];
 
@@ -73,9 +73,9 @@ namespace Unity.Entities.Editor.Tests
                 World2.Dispose();
                 World2 = null;
             }
-            
+
             base.TearDown();
-            
+
             ScriptBehaviourUpdateOrder.UpdatePlayerLoop(World.Active);
         }
 
@@ -94,9 +94,9 @@ namespace Unity.Entities.Editor.Tests
         public void EntityDebugger_SetSystemSelection()
         {
             m_Window.SetSystemSelection(m_Manager, World.Active, true, true);
-            
+
             Assert.AreEqual(World.Active, m_Window.SystemSelectionWorld);
-            
+
             Assert.Throws<ArgumentNullException>(() => m_Window.SetSystemSelection(m_Manager, null, true, true));
         }
 
@@ -125,7 +125,7 @@ namespace Unity.Entities.Editor.Tests
         {
             var entityListQuery = new EntityListQuery(m_ComponentGroup);
             EntityDebugger.SetAllSelections(World.Active, m_System, entityListQuery, m_Entity);
-            
+
             Assert.AreEqual(World.Active, m_Window.WorldSelection);
             Assert.AreEqual(m_System, m_Window.SystemSelection);
             Assert.AreEqual(m_ComponentGroup, m_Window.EntityListQuerySelection.Group);
@@ -137,11 +137,11 @@ namespace Unity.Entities.Editor.Tests
         {
             var entityListQuery = new EntityListQuery(m_ComponentGroup);
             EntityDebugger.SetAllSelections(World.Active, m_System, entityListQuery, m_Entity);
-            
+
             m_Window.SetWorldSelection(null, true);
-            
+
             m_Window.SetWorldSelection(World.Active, true);
-            
+
             Assert.AreEqual(World.Active, m_Window.WorldSelection);
             Assert.AreEqual(m_System, m_Window.SystemSelection);
             Assert.AreEqual(m_ComponentGroup, m_Window.EntityListQuerySelection.Group);
@@ -153,22 +153,22 @@ namespace Unity.Entities.Editor.Tests
         {
             var query = new EntityArchetypeQuery()
             {
-                All = new ComponentType[] {ComponentType.Create<EcsTestData>() },
+                All = new ComponentType[] {ComponentType.ReadWrite<EcsTestData>() },
                 Any = new ComponentType[0],
                 None = new ComponentType[0]
             };
             var listQuery = new EntityListQuery(query);
-            
+
             m_Window.SetWorldSelection(World.Active, true);
             m_Window.SetSystemSelection(null, null, true, true);
             m_Window.SetAllEntitiesFilter(listQuery);
             Assert.AreEqual(query, m_Window.EntityListQuerySelection.Query);
-            
+
             m_Window.SetEntityListSelection(null, true, true);
             m_Window.SetSystemSelection(World.Active.GetExistingManager<EntityManager>(), World.Active, true, true);
             m_Window.SetAllEntitiesFilter(listQuery);
             Assert.AreEqual(query, m_Window.EntityListQuerySelection.Query);
-            
+
             m_Window.SetSystemSelection(m_System, World.Active, true, true);
             m_Window.SetAllEntitiesFilter(listQuery);
             Assert.AreNotEqual(listQuery, m_Window.EntityListQuerySelection);
@@ -178,15 +178,15 @@ namespace Unity.Entities.Editor.Tests
         public void EntityDebugger_StylesIntact()
         {
             Assert.IsNotNull(EntityDebuggerStyles.ComponentRequired);
-            Assert.IsNotNull(EntityDebuggerStyles.ComponentSubtractive);
+            Assert.IsNotNull(EntityDebuggerStyles.ComponentExclude);
             Assert.IsNotNull(EntityDebuggerStyles.ComponentReadOnly);
             Assert.IsNotNull(EntityDebuggerStyles.ComponentReadWrite);
-            
+
             Assert.IsNotNull(EntityDebuggerStyles.ComponentRequired.normal.background);
-            Assert.IsNotNull(EntityDebuggerStyles.ComponentSubtractive.normal.background);
+            Assert.IsNotNull(EntityDebuggerStyles.ComponentExclude.normal.background);
             Assert.IsNotNull(EntityDebuggerStyles.ComponentReadOnly.normal.background);
             Assert.IsNotNull(EntityDebuggerStyles.ComponentReadWrite.normal.background);
         }
-        
+
     }
 }

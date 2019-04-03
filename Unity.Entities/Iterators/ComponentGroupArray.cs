@@ -60,9 +60,9 @@ namespace Unity.Entities
                     componentTypesBuilder.Add(fieldType);
                 }
                 else if (fieldType.IsGenericType &&
-                         fieldType.GetGenericTypeDefinition() == typeof(SubtractiveComponent<>))
+                         fieldType.GetGenericTypeDefinition() == typeof(ExcludeComponent<>))
                 {
-                    subtractiveComponentTypesBuilder.Add(ComponentType.Subtractive(fieldType.GetGenericArguments()[0]));
+                    subtractiveComponentTypesBuilder.Add(ComponentType.Exclude(fieldType.GetGenericArguments()[0]));
                 }
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 else if (typeof(IComponentData).IsAssignableFrom(fieldType))
@@ -196,7 +196,7 @@ namespace Unity.Entities
                 for (var i = 0; i != staticCache.ComponentTypes.Length; i++)
                 {
                     var type = staticCache.ComponentTypes[i];
-                    if (type.AccessModeType != ComponentType.AccessMode.ReadOnly)
+                    if (type.IsZeroSized || type.AccessModeType != ComponentType.AccessMode.ReadOnly)
                         continue;
 
                     safety[m_SafetyReadOnlyCount] = safetyManager.GetSafetyHandle(type.TypeIndex, true);
@@ -206,7 +206,7 @@ namespace Unity.Entities
                 for (var i = 0; i != staticCache.ComponentTypes.Length; i++)
                 {
                     var type = staticCache.ComponentTypes[i];
-                    if (type.AccessModeType != ComponentType.AccessMode.ReadWrite)
+                    if (type.IsZeroSized || type.AccessModeType != ComponentType.AccessMode.ReadWrite)
                         continue;
 
                     safety[m_SafetyReadOnlyCount + m_SafetyReadWriteCount] =

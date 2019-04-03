@@ -9,6 +9,7 @@ namespace Unity.Entities
     /// </summary>
     /// <typeparam name="T">Component data type stored in ComponentDataArray to be copied to NativeArray<T></typeparam>
     [BurstCompile]
+    [System.Obsolete("CopyComponentData is deprecated. Use ComponentGroup.ToComponentDataArray instead.")]
     public struct CopyComponentData<T> : IJobParallelFor
         where T : struct, IComponentData
     {
@@ -43,6 +44,7 @@ namespace Unity.Entities
     ///     Copy Entities from EntityArray to NativeArray<Entity>
     /// </summary>
     [BurstCompile]
+    [System.Obsolete("CopyEntities is deprecated. Use ComponentGroup.ToEntityArray instead.")]
     public struct CopyEntities : IJobParallelFor
     {
         [ReadOnly] public EntityArray Source;

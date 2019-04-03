@@ -284,7 +284,7 @@ namespace Unity.Entities.Tests
         {
             CreateEntities(128);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsIntElement>());
+            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsIntElement>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
@@ -361,7 +361,7 @@ namespace Unity.Entities.Tests
         {
             CreateEntities(128);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsIntElement>());
+            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsIntElement>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
@@ -387,7 +387,7 @@ namespace Unity.Entities.Tests
         {
             CreateEntities(128);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsIntElement>());
+            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsIntElement>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
@@ -429,7 +429,7 @@ namespace Unity.Entities.Tests
         {
             CreateEntities(128);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsIntElement>());
+            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsIntElement>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
             var intElements = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(true);
@@ -456,7 +456,7 @@ namespace Unity.Entities.Tests
                 foreach (var chunk in chunks)
                 {
                     var archetype = chunk.Archetype;
-                    var chunkTypes = archetype.ComponentTypes;
+                    var chunkTypes = archetype.GetComponentTypes().ToArray();
                     foreach (var type in entityTypes)
                     {
                         Assert.Contains(type, chunkTypes);
@@ -464,6 +464,29 @@ namespace Unity.Entities.Tests
 
                     Assert.Contains(new ComponentType(typeof(Entity)), chunkTypes);
                 }
+            }
+
+            group.Dispose();
+        }
+
+
+        [MaximumChunkCapacity(3)]
+        struct Max3Capacity : IComponentData { }
+
+        [Test]
+        public void MaximumChunkCapacityIsRespected()
+        {
+            for (int i = 0; i != 4; i++)
+                m_Manager.CreateEntity(typeof(Max3Capacity));
+
+            var group = m_Manager.CreateComponentGroup(typeof(Max3Capacity));
+            using (var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob))
+            {
+                Assert.AreEqual(2, chunks.Length);
+                Assert.AreEqual(3, chunks[0].Capacity);
+
+                Assert.AreEqual(3, chunks[0].Count);
+                Assert.AreEqual(1, chunks[1].Count);
             }
 
             group.Dispose();

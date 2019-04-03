@@ -2,6 +2,8 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
 
+#pragma warning disable 618
+
 namespace Unity.Entities.Tests
 {
     class ChangeVersionTests : ECSTestsFixture
@@ -191,6 +193,16 @@ namespace Unity.Entities.Tests
 
             bumpChunkTypeVersionSystem.Update();
             Assert.AreEqual(true, bumpChunkTypeVersionSystem.AllEcsTestDataChunksChanged());
+        }
+
+        [Test]
+        public void CHG_SystemVersionZeroWhenNotRun()
+        {
+            m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var system = World.CreateManager<BumpVersionSystem>();
+            Assert.AreEqual(0, system.LastSystemVersion);
+            system.Update();
+            Assert.AreNotEqual(0, system.LastSystemVersion);
         }
     }
 }

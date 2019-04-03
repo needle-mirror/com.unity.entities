@@ -16,15 +16,19 @@ namespace Unity.Entities.Tests
         public float3 boundsMin;
         public float3 boundsMax;
     }
+    
+    struct SystemStateChunkComponent : ISystemStateComponentData
+    {
+    }
+    
     public class ChunkComponentTests : ECSTestsFixture
     {
         [Test]
         public void CreateChunkComponentArchetype()
         {
-            var archetype = m_Manager.CreateArchetype(ComponentType.ChunkComponent<EcsTestData>());
-            var entity = m_Manager.CreateEntity(archetype);
+            var entity = m_Manager.CreateEntity(ComponentType.ChunkComponent<EcsTestData>());
             Assert.IsTrue(m_Manager.HasComponent(entity, ComponentType.ChunkComponent<EcsTestData>()));
-            Assert.IsFalse(m_Manager.HasComponent(entity, ComponentType.Create<EcsTestData>()));
+            Assert.IsFalse(m_Manager.HasComponent(entity, ComponentType.ReadWrite<EcsTestData>()));
         }
 
         [Test]
@@ -42,8 +46,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void AddChunkComponentMovesEntity()
         {
-            var entity0 = m_Manager.CreateEntity(ComponentType.Create<EcsTestData>());
-            var entity1 = m_Manager.CreateEntity(ComponentType.Create<EcsTestData>());
+            var entity0 = m_Manager.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
+            var entity1 = m_Manager.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
             var chunk0 = m_Manager.GetChunk(entity0);
             var chunk1 = m_Manager.GetChunk(entity1);
 
@@ -58,6 +62,8 @@ namespace Unity.Entities.Tests
 
             Assert.IsTrue(m_Manager.HasComponent(entity0, ComponentType.ChunkComponent<EcsTestData2>()));
             Assert.IsFalse(m_Manager.HasComponent(entity1, ComponentType.ChunkComponent<EcsTestData2>()));
+            Assert.IsTrue(m_Manager.Exists(m_Manager.Debug.GetMetaChunkEntity(entity0)));
+            Assert.IsTrue(m_Manager.Debug.GetMetaChunkEntity(entity1) == default(Entity));
         }
 
         [Test]
@@ -69,6 +75,7 @@ namespace Unity.Entities.Tests
             var entity0 = m_Manager.CreateEntity(arch0);
             m_Manager.SetChunkComponentData(m_Manager.GetChunk(entity0), new EcsTestData{value = 7});
             m_Manager.SetComponentData(entity0, new EcsTestData2 {value0 = 1, value1 = 2});
+            var metaEntity0 = m_Manager.Debug.GetMetaChunkEntity(entity0);
 
             var entity1 = m_Manager.CreateEntity(arch1);
             m_Manager.SetComponentData(entity1, new EcsTestData2 {value0 = 2, value1 = 3});
@@ -76,6 +83,7 @@ namespace Unity.Entities.Tests
             m_Manager.RemoveChunkComponent<EcsTestData>(entity0);
 
             Assert.IsFalse(m_Manager.HasComponent(entity0, ComponentType.ChunkComponent<EcsTestData>()));
+            Assert.IsFalse(m_Manager.Exists(metaEntity0));
         }
 
         [Test]
@@ -88,13 +96,11 @@ namespace Unity.Entities.Tests
             var chunk0 = m_Manager.GetChunk(entity0);
             EcsTestData testData = new EcsTestData{value = 7};
 
-            var headers = group0.GetComponentDataArray<ChunkHeader>();
-            Assert.AreEqual(1, headers.Length);
+            Assert.AreEqual(1, group0.CalculateLength());
 
             m_Manager.SetChunkComponentData(chunk0, testData);
 
-            headers = group0.GetComponentDataArray<ChunkHeader>();
-            Assert.AreEqual(1, headers.Length);
+            Assert.AreEqual(1, group0.CalculateLength());
 
             Assert.AreEqual(7, m_Manager.GetChunkComponentData<EcsTestData>(entity0).value);
 
@@ -105,27 +111,21 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(7, m_Manager.GetChunkComponentData<EcsTestData>(entity0).value);
             Assert.AreEqual(7, m_Manager.GetChunkComponentData<EcsTestData>(entity1).value);
 
-            headers = group0.GetComponentDataArray<ChunkHeader>();
-            Assert.AreEqual(1, headers.Length);
+            Assert.AreEqual(1, group0.CalculateLength());
 
             m_Manager.SetChunkComponentData(chunk1, testData);
 
-            headers = group0.GetComponentDataArray<ChunkHeader>();
-            Assert.AreEqual(1, headers.Length);
+            Assert.AreEqual(1, group0.CalculateLength());
 
             m_Manager.SetComponentData(entity1, new EcsTestData2 {value0 = 2, value1 = 3});
 
-            headers = group0.GetComponentDataArray<ChunkHeader>();
-
-            Assert.AreEqual(1, headers.Length);
+            Assert.AreEqual(1, group0.CalculateLength());
 
             m_Manager.SetChunkComponentData<EcsTestData>(chunk0, new EcsTestData{value = 10});
 
             Assert.AreEqual(10, m_Manager.GetChunkComponentData<EcsTestData>(entity0).value);
 
-            headers = group0.GetComponentDataArray<ChunkHeader>();
-
-            Assert.AreEqual(1, headers.Length);
+            Assert.AreEqual(1, group0.CalculateLength());
         }
 
         [Test]
@@ -136,10 +136,10 @@ namespace Unity.Entities.Tests
             var entity1 = m_Manager.CreateEntity(typeof(BoundsComponent), ComponentType.ChunkComponent<ChunkBoundsComponent>());
             m_Manager.SetComponentData(entity1, new BoundsComponent{boundsMin = new float3(0,0,0), boundsMax = new float3(10,10,10)});
             var metaGroup = m_Manager.CreateComponentGroup(typeof(ChunkBoundsComponent), typeof(ChunkHeader));
-            var metaBounds = metaGroup.GetComponentDataArray<ChunkBoundsComponent>();
-            var metaChunkHeaders = metaGroup.GetComponentDataArray<ChunkHeader>();
-            Assert.AreEqual(1, metaBounds.Length);
-            for (int i = 0; i < metaBounds.Length; ++i)
+            var metaBoundsCount = metaGroup.CalculateLength();
+            var metaChunkHeaders = metaGroup.ToComponentDataArray<ChunkHeader>(Allocator.TempJob);
+            Assert.AreEqual(1, metaBoundsCount);
+            for (int i = 0; i < metaBoundsCount; ++i)
             {
                 var curBounds = new ChunkBoundsComponent { boundsMin = new float3(1000, 1000, 1000), boundsMax = new float3(-1000, -1000, -1000)};
                 var boundsChunk = metaChunkHeaders[i].ArchetypeChunk;
@@ -158,9 +158,12 @@ namespace Unity.Entities.Tests
             var val = m_Manager.GetChunkComponentData<ChunkBoundsComponent>(entity0);
             Assert.AreEqual(new float3(-10,-10,-10), val.boundsMin);
             Assert.AreEqual(new float3(10,10,10), val.boundsMax);
+            
+            metaChunkHeaders.Dispose();
         }
 
         [DisableAutoCreation]
+        [UpdateInGroup(typeof(PresentationSystemGroup))]
         private class ChunkBoundsUpdateSystem : JobComponentSystem
         {
             struct UpdateChunkBoundsJob : IJobProcessComponentData<ChunkBoundsComponent, ChunkHeader>
@@ -216,6 +219,44 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(1, group0.CalculateLength());
             Assert.AreEqual(0, group1.CalculateLength());
+        }
+        
+        [Test]
+        public void DestroyEntityDestroysMetaChunk()
+        {
+            var entity = m_Manager.CreateEntity(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ChunkComponent<ChunkBoundsComponent>());
+            var metaEntity = m_Manager.Debug.GetMetaChunkEntity(entity);
+            m_Manager.DestroyEntity(entity);
+            Assert.IsFalse(m_Manager.Exists(metaEntity));
+        }
+        
+        [Test]
+        [Ignore("Fails on last Assert.IsFalse(m_Manager.Exists(metaEntity));")]
+        public void SystemStateChunkComponentRemainsUntilRemoved()
+        {
+            var entity = m_Manager.CreateEntity(ComponentType.ReadWrite<EcsState1>(), ComponentType.ChunkComponent<SystemStateChunkComponent>());
+            var metaEntity = m_Manager.Debug.GetMetaChunkEntity(entity);
+            
+            m_Manager.DestroyEntity(entity);
+
+            Assert.IsTrue(m_Manager.HasComponent<EcsState1>(entity));
+            Assert.IsTrue(m_Manager.HasChunkComponent<SystemStateChunkComponent>(entity));
+            Assert.IsTrue(m_Manager.Exists(metaEntity));
+            Assert.IsTrue(m_Manager.Exists(entity));
+
+            m_Manager.RemoveComponent(entity, ComponentType.ReadWrite<EcsState1>());
+
+            Assert.IsFalse(m_Manager.HasComponent<EcsState1>(entity));
+            Assert.IsTrue(m_Manager.HasChunkComponent<SystemStateChunkComponent>(entity));
+            Assert.IsTrue(m_Manager.Exists(metaEntity));
+            Assert.IsTrue(m_Manager.Exists(entity));
+
+            m_Manager.RemoveComponent(entity, ComponentType.ChunkComponent<SystemStateChunkComponent>());
+
+            Assert.IsFalse(m_Manager.HasComponent<EcsState1>(entity));
+            Assert.IsFalse(m_Manager.HasChunkComponent<SystemStateChunkComponent>(entity));
+            Assert.IsFalse(m_Manager.Exists(metaEntity));
+            Assert.IsFalse(m_Manager.Exists(entity));
         }
     }
 }

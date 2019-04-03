@@ -6,6 +6,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Mathematics;
 using Unity.Profiling;
 
 namespace Unity.Entities
@@ -67,14 +68,17 @@ namespace Unity.Entities
         // The type flags in the upper bits of the type index force the component types into the following order:
         // 1. Entity (Always has type index = 1)
         // 2. Non zero sized IComponentData
-        // 3. Dynamic buffer components (IBufferElementData)
-        // 4. Non zero sized ISystemStateComponentData
-        // 5. Zero sized IComponentData
-        // 6. Zero sized ISystemStateComponentData
-        // 7. Shared components (ISharedComponentData)
-        // 8. Shared system state components (ISystemStateSharedComponentData)
-        // 9. Chunk components
-        //10. System state chunk components
+        // 3. Non zero sized ISystemStateComponentData
+        // 4. Dynamic buffer components (IBufferElementData)
+        // 5. System state dynamic buffer components (ISystemStateBufferElementData)
+        // 6. Zero sized IComponentData
+        // 7. Zero sized ISystemStateComponentData
+        // 8. Shared components (ISharedComponentData)
+        // 9. Shared system state components (ISystemStateSharedComponentData)
+        //10. Chunk IComponentData
+        //11. Chunk ISystemStateComponentData
+        //12. Chunk Dynamic buffer components (IBufferElementData)
+        //13. Chunk System state dynamic buffer components (ISystemStateBufferElementData)
 
         public static bool operator < (ComponentTypeInArchetype lhs, ComponentTypeInArchetype rhs)
         {
@@ -206,11 +210,9 @@ namespace Unity.Entities
 
         public SharedComponentValues SharedComponentValues => Archetype->Chunks.GetSharedComponentValues(ListIndex);
 
-        public static int GetChunkBufferSize(int numComponents, int numSharedComponents)
+        public static int GetChunkBufferSize()
         {
-            var bufferSize = kChunkSize -
-                             (sizeof(Chunk) - 4 + numSharedComponents * sizeof(int) + numComponents * sizeof(uint));
-            return bufferSize;
+            return kChunkSize - (sizeof(Chunk) - 4);
         }
 
         public bool MatchesFilter(MatchingArchetype* match, ref ComponentGroupFilter filter)
@@ -281,7 +283,7 @@ namespace Unity.Entities
         public int Capacity;
     }
 
-    // Stores change version numbers and shared component indices for all chunks belonging to an archetype in SOA layout
+    // Stores change version numbers, shared component indices, and entity count for all chunks belonging to an archetype in SOA layout
     [DebuggerTypeProxy(typeof(ArchetypeChunkDataDebugView))]
     internal unsafe struct ArchetypeChunkData
     {
@@ -290,16 +292,18 @@ namespace Unity.Entities
         public int Capacity;
         public int Count;
         public readonly int SharedComponentCount;
+        public readonly int EntityCountIndex;
         public readonly int Channels;
 
-        public ArchetypeChunkData(int typeCount, int sharedComponentCount)
+        public ArchetypeChunkData(int componentTypeCount, int sharedComponentCount)
         {
             data = null;
             p = null;
             Capacity = 0;
             Count = 0;
             SharedComponentCount = sharedComponentCount;
-            Channels = typeCount + sharedComponentCount;
+            EntityCountIndex = componentTypeCount + sharedComponentCount;
+            Channels = componentTypeCount + sharedComponentCount + 1; // +1 for entity count per-chunk
         }
 
         public void Grow(int newCapacity)
@@ -356,6 +360,19 @@ namespace Unity.Entities
         {
             return (uint*)data + (typeOffset+SharedComponentCount)*Capacity;
         }
+        
+        public int GetChunkEntityCount(int chunkIndex)
+        {
+            return data[(EntityCountIndex)*Capacity+chunkIndex];
+        }
+        public void SetChunkEntityCount(int chunkIndex, int count)
+        {
+            data[(EntityCountIndex)*Capacity+chunkIndex] = (int)count;
+        }
+        public int* GetChunkEntityCountArray()
+        {
+            return data + (EntityCountIndex)*Capacity;
+        }
 
         public void Add(Chunk* chunk, SharedComponentValues sharedComponentIndices)
         {
@@ -371,11 +388,13 @@ namespace Unity.Entities
                 dst += Capacity;
             }
 
-            for (; i < Channels; ++i)
+            for (; i < EntityCountIndex; ++i)
             {
                 *dst = 0;
                 dst += Capacity;
             }
+
+            *dst = chunk->Count;
         }
 
         public void RemoveAtSwapBack(int iChunk)
@@ -407,7 +426,7 @@ namespace Unity.Entities
 
         public void SetAllChangeVersion(int chunkIndex, uint version)
         {
-            for (int i = SharedComponentCount; i < Channels; ++i)
+            for (int i = SharedComponentCount; i < EntityCountIndex; ++i)
                 data[i * Capacity + chunkIndex] = (int)version;
         }
     }
@@ -427,6 +446,7 @@ namespace Unity.Entities
 
         public ComponentTypeInArchetype* Types;
         public int TypesCount;
+        public int NonZeroSizedTypesCount;
 
         // Index matches archetype types
         public int* Offsets;
@@ -588,17 +608,18 @@ namespace Unity.Entities
         public void Dispose()
         {
             // Move all chunks to become pooled chunks
-            for (var i = m_Archetypes.Count - 1; i >= 0; --i)
+            for (var i = 0; i < m_Archetypes.Count; i++)
             {
                 var archetype = m_Archetypes.p[i];
-                while (archetype->Chunks.Count != 0)
+
+                for (int c = 0; c != archetype->Chunks.Count; c++)
                 {
-                    var chunk = archetype->Chunks.p[archetype->Chunks.Count - 1];
-                    SetChunkCount(chunk, 0);
+                    var chunk = archetype->Chunks.p[c];
+
+                    EntityDataManager.DeallocateBuffers(m_Entities, chunk);
+                    UnsafeUtility.Free(archetype->Chunks.p[c], Allocator.Persistent);
                 }
-                Assert.AreEqual(archetype->Chunks.Count, 0);
-                Assert.AreEqual(archetype->ChunksWithEmptySlots.Count, 0);
-                Assert.IsTrue(archetype->FreeChunksBySharedComponents.IsEmpty);
+                    
                 archetype->Chunks.Dispose();
                 archetype->ChunksWithEmptySlotsUnsafePtrList.Dispose();
                 archetype->FreeChunksBySharedComponents.Dispose();
@@ -618,20 +639,6 @@ namespace Unity.Entities
             m_TypeLookup.Dispose();
             m_ChunksBySequenceNumber.Dispose();
             m_ArchetypeChunkAllocator.Dispose();
-        }
-
-        internal void UnlockAllChunks(EntityDataManager* entities)
-        {
-            for (var i = m_Archetypes.Count - 1; i >= 0; --i)
-            {
-                var archetype = m_Archetypes.p[i];
-                for (int j=0;j<archetype->Chunks.Count;j++)
-                {
-                    var chunk = archetype->Chunks.p[j];
-                    if (chunk->Locked)
-                        entities->UnlockChunk(chunk);
-                }
-            }
         }
 
         private void DeallocateManagedArrayStorage(int index)
@@ -684,7 +691,7 @@ namespace Unity.Entities
         {
             if (m_entityOnlyArchetype == null)
             {
-                ComponentTypeInArchetype entityType = new ComponentTypeInArchetype(ComponentType.Create<Entity>());
+                ComponentTypeInArchetype entityType = new ComponentTypeInArchetype(ComponentType.ReadWrite<Entity>());
                 m_entityOnlyArchetype = GetOrCreateArchetype(&entityType, 1, groupManager);
             }
             return m_entityOnlyArchetype;
@@ -785,7 +792,7 @@ namespace Unity.Entities
             // Setup System state cleanup archetype
             if (srcArchetype->SystemStateCleanupNeeded)
             {
-                var cleanupEntityType = new ComponentTypeInArchetype(ComponentType.Create<CleanupEntity>());
+                var cleanupEntityType = new ComponentTypeInArchetype(ComponentType.ReadWrite<CleanupEntity>());
                 bool cleanupAdded = false;
 
                 types[0] = inTypesSorted[0];
@@ -832,7 +839,7 @@ namespace Unity.Entities
                     {
                         typeToInsert = new ComponentType
                         {
-                            TypeIndex = t.TypeIndex & ~TypeManager.ChunkComponentTypeFlag
+                            TypeIndex = TypeManager.ChunkComponentToNormalTypeIndex(t.TypeIndex)
                         };
                         SortingUtilities.InsertSorted(types, metaArchetypeTypeCount++, typeToInsert);
                     }
@@ -920,8 +927,11 @@ namespace Unity.Entities
             type->Prefab = false;
             type->HasChunkHeader = false;
             type->HasChunkComponents = false;
+            type->NonZeroSizedTypesCount = 0;
             for (var i = 0; i < count; ++i)
             {
+                if (!types[i].IsZeroSized)
+                    type->NonZeroSizedTypesCount++;
                 if (types[i].IsSharedComponent)
                     ++type->NumSharedComponents;
                 if (types[i].TypeIndex == disabledTypeIndex)
@@ -934,13 +944,14 @@ namespace Unity.Entities
                     type->HasChunkComponents = true;
             }
 
-            var chunkDataSize = Chunk.GetChunkBufferSize(type->TypesCount, type->NumSharedComponents);
+            var chunkDataSize = Chunk.GetChunkBufferSize();
 
             type->ScalarEntityPatchCount = scalarEntityPatchCount;
             type->BufferEntityPatchCount = bufferEntityPatchCount;
 
             type->BytesPerInstance = 0;
 
+            int maxCapacity = int.MaxValue;
             for (var i = 0; i < count; ++i)
             {
                 var cType = TypeManager.GetTypeInfo(types[i].TypeIndex);
@@ -953,9 +964,15 @@ namespace Unity.Entities
                 type->BufferCapacities[i] = cType.BufferCapacity;
 
                 type->BytesPerInstance += sizeOf;
+                #if !UNITY_CSHARP_TINY
+                //@TODO: not supported in tiny type manager
+                maxCapacity = math.min(cType.MaximumChunkCapacity, maxCapacity);
+                #endif
             }
 
-            type->ChunkCapacity = chunkDataSize / type->BytesPerInstance;
+            Assert.IsTrue(maxCapacity >= 1, "MaximumChunkCapacity must be larger than 1");
+
+            type->ChunkCapacity = math.min(chunkDataSize / type->BytesPerInstance, maxCapacity);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (type->BytesPerInstance > chunkDataSize)
@@ -1151,11 +1168,7 @@ namespace Unity.Entities
 
             if (archetype->MetaChunkArchetype != null)
             {
-                m_Entities->CreateEntities(this, archetype->MetaChunkArchetype, &chunk->metaChunkEntity, 1);
-                var typeIndex = TypeManager.GetTypeIndex<ChunkHeader>();
-                var systemVersion = m_Entities->GlobalSystemVersion;
-                var chunkHeader = (ChunkHeader*)m_Entities->GetComponentDataWithTypeRW(chunk->metaChunkEntity, typeIndex, systemVersion);
-                chunkHeader->chunk = chunk;
+                m_Entities->CreateMetaEntityForChunk(this, chunk);
             }
         }
 
@@ -1252,8 +1265,8 @@ namespace Unity.Entities
 
         public void DestroyMetaChunkEntity(Entity entity)
         {
-            m_Entities->RemoveComponent(entity, ComponentType.Create<ChunkHeader>(), this, m_SharedComponentManager, m_groupManager);
-            EntityDataManager.TryRemoveEntityId(&entity, 1, m_Entities, this, m_SharedComponentManager);
+            EntityDataManager.RemoveComponent(entity, ComponentType.ReadWrite<ChunkHeader>(), m_Entities, this, m_SharedComponentManager, m_groupManager);
+            EntityDataManager.TryRemoveEntityId(&entity, 1, m_Entities, this, m_SharedComponentManager);	
         }
 
         public void SetChunkCount(Chunk* chunk, int newCount)
@@ -1316,6 +1329,7 @@ namespace Unity.Entities
             }
 
             chunk->Count = newCount;
+            chunk->Archetype->Chunks.SetChunkEntityCount(chunk->ListIndex, newCount);
         }
 
         public object GetManagedObject(Chunk* chunk, ComponentType type, int index)
@@ -1577,7 +1591,7 @@ namespace Unity.Entities
             moveChunksJob.Complete();
 
             k_ProfileMoveSharedComponents.Begin();
-            var remapShared = dstSharedComponents.MoveAllSharedComponents(srcSharedComponents, entityRemapping, Allocator.TempJob);
+            var remapShared = dstSharedComponents.MoveAllSharedComponents(srcSharedComponents, Allocator.TempJob);
             k_ProfileMoveSharedComponents.End();
 
             var remapAllChunksJob = new RemapAllChunksJob
@@ -1770,13 +1784,13 @@ namespace Unity.Entities
             UnityEngine.Assertions.Assert.AreEqual(0, targetChunk->Count);
             UnityEngine.Assertions.Assert.IsTrue(targetChunk->Capacity >= chunk->Count);
 
-            int copySize = Chunk.GetChunkBufferSize(arch->TypesCount, arch->NumSharedComponents);
+            int copySize = Chunk.GetChunkBufferSize();
             UnsafeUtility.MemCpy(targetChunk->Buffer, chunk->Buffer, copySize);
 
             SetChunkCount(targetChunk, chunk->Count);
             targetChunk->Archetype->EntityCount += chunk->Count;
 
-            BufferHeader.PatchAfterCloningChunkForDiff(targetChunk);
+            BufferHeader.PatchAfterCloningChunk(targetChunk);
 
             var tempEntities = new NativeArray<Entity>(targetChunk->Count, Allocator.Temp);
             entities->AllocateEntities(targetChunk->Archetype, targetChunk, 0, targetChunk->Count, (Entity*)tempEntities.GetUnsafePtr());

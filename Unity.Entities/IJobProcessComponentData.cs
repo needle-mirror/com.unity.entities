@@ -31,13 +31,13 @@ namespace Unity.Entities
     }
 
     [AttributeUsage(AttributeTargets.Struct)]
-    public class RequireSubtractiveComponentAttribute : Attribute
+    public class ExcludeComponentAttribute : Attribute
     {
-        public Type[] SubtractiveComponents;
+        public Type[] ExcludeComponents;
 
-        public RequireSubtractiveComponentAttribute(params Type[] subtractiveComponents)
+        public ExcludeComponentAttribute(params Type[] subtractiveComponents)
         {
-            SubtractiveComponents = subtractiveComponents;
+            ExcludeComponents = subtractiveComponents;
         }
     }
 
@@ -84,10 +84,10 @@ namespace Unity.Entities
                     changedFilterTypes.Add(type);
             }
 
-            var subtractive = jobType.GetCustomAttribute<RequireSubtractiveComponentAttribute>();
+            var subtractive = jobType.GetCustomAttribute<ExcludeComponentAttribute>();
             if (subtractive != null)
-                foreach (var type in subtractive.SubtractiveComponents)
-                    componentTypes.Add(ComponentType.Subtractive(type));
+                foreach (var type in subtractive.ExcludeComponents)
+                    componentTypes.Add(ComponentType.Exclude(type));
 
             var requiredTags = jobType.GetCustomAttribute<RequireComponentTagAttribute>();
             if (requiredTags != null)

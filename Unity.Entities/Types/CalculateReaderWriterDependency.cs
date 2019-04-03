@@ -1,4 +1,5 @@
-﻿using Unity.Collections;
+﻿using Unity.Assertions;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
@@ -7,36 +8,39 @@ namespace Unity.Entities
     {
         public static bool Add(ComponentType type, ref UnsafeList reading, ref UnsafeList writing)
         {
-            if (!type.RequiresJobDependency)
+            Assert.IsFalse(type == ComponentType.ReadWrite<Entity>());
+
+            if (type.IsZeroSized)
                 return false;
 
-            // If any other dependency is added the Entity type dependency is removed to avoid the overhead of having all jobs
-            // depend on this.
-            if ((reading.m_size == 1) && reading.Contains(TypeManager.GetTypeIndex<Entity>()))
-                reading.m_size = 0;
-
             if (type.AccessModeType == ComponentType.AccessMode.ReadOnly)
-            {
-                if (reading.Contains(type.TypeIndex))
-                    return false;
-                if (writing.Contains(type.TypeIndex))
-                    return false;
-
-                reading.Add(type.TypeIndex);
-                return true;
-            }
+                return AddReaderTypeIndex(type.TypeIndex, ref reading, ref writing);
             else
-            {
-                if (writing.Contains(type.TypeIndex))
+                return AddWriterTypeIndex(type.TypeIndex, ref reading, ref writing);
+        }
+
+        public static bool AddReaderTypeIndex(int typeIndex, ref UnsafeList reading, ref UnsafeList writing)
+        {
+                if (reading.Contains(typeIndex))
+                    return false;
+                if (writing.Contains(typeIndex))
                     return false;
 
-                var readingIndex = reading.IndexOf(type.TypeIndex);
-                if (readingIndex != -1)
-                    reading.RemoveAtSwapBack<int>(readingIndex);
-
-                writing.Add(type.TypeIndex);
+                reading.Add(typeIndex);
                 return true;
-            }
+        }
+
+        public static bool AddWriterTypeIndex(int typeIndex, ref UnsafeList reading, ref UnsafeList writing)
+        {
+            if (writing.Contains(typeIndex))
+                return false;
+
+            var readingIndex = reading.IndexOf(typeIndex);
+            if (readingIndex != -1)
+                reading.RemoveAtSwapBack<int>(readingIndex);
+
+            writing.Add(typeIndex);
+            return true;
         }
     }
 }

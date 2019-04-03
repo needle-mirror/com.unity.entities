@@ -794,7 +794,7 @@ namespace Unity.Entities
 
         public void RemoveComponent<T>(Entity e)
         {
-            RemoveComponent(e, ComponentType.Create<T>());
+            RemoveComponent(e, ComponentType.ReadWrite<T>());
         }
 
         public void RemoveComponent(Entity e, ComponentType componentType)
@@ -1314,7 +1314,7 @@ namespace Unity.Entities
 
             public void RemoveComponent<T>(int jobIndex, Entity e)
             {
-                RemoveComponent(jobIndex, e, ComponentType.Create<T>());
+                RemoveComponent(jobIndex, e, ComponentType.ReadWrite<T>());
             }
 
             public void RemoveComponent(int jobIndex, Entity e, ComponentType componentType)

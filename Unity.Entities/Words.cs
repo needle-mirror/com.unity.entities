@@ -1,4 +1,3 @@
-#if !UNITY_ZEROPLAYER
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -47,6 +46,12 @@ namespace Unity.Entities
         Syntax,
         Overflow,
         Underflow,
+    }
+
+    public enum CopyError
+    {
+        None,
+        Truncation
     }
     
     internal unsafe struct NativeString
@@ -549,8 +554,22 @@ namespace Unity.Entities
             output *= sign;
             return ParseError.None;
         }
+        
+        public static CopyError Copy(char *dest, out int destLength, int destMaxLength, char *src, int srcLength)
+        {
+            CopyError error = CopyError.None;
+            destLength = srcLength;
+            if (destLength > destMaxLength)
+            {
+                destLength = destMaxLength;
+                error = CopyError.Truncation;
+            }
+            UnsafeUtility.MemCpy(dest, src, destLength * sizeof(char));
+            return error;
+        }
+        
     }
-    
+
     public struct NativeString64 : IComparable<NativeString64>, IEquatable<NativeString64>
     {
         public const int MaxLength = (64 - sizeof(int)) / sizeof(char);
@@ -597,60 +616,54 @@ namespace Unity.Entities
             }
         }
 
-        unsafe void CopyFrom(char* s, int length)
+        public unsafe CopyError CopyFrom(NativeString64 source)
         {
-            Assert.IsTrue(length <= MaxLength);
-            Length = length;
             fixed (uint* b = buffer)
-            {
-                var d = (char*) b;
-                UnsafeUtility.MemCpy(d, s, length * sizeof(char));
-            }
+                return source.CopyTo((char*) b, out Length, MaxLength);
         }
-        public unsafe void CopyTo(char* d, int maxLength)
+        public unsafe CopyError CopyFrom(NativeString512 source)
         {
-            Assert.IsTrue(Length <= maxLength);
             fixed (uint* b = buffer)
-            {
-                var s = (char*) b;
-                UnsafeUtility.MemCpy(d, s, Length * sizeof(char));
-            }
+                return source.CopyTo((char*) b, out Length, MaxLength);
+        }
+        public unsafe CopyError CopyFrom(NativeString4096 source)
+        {
+            fixed (uint* b = buffer)
+                return source.CopyTo((char*) b, out Length, MaxLength);
+        }
+        public unsafe CopyError CopyFrom(char* s, int length)
+        {
+            fixed (uint* b = buffer)
+                return NativeString.Copy((char*)b, out Length, MaxLength, s, length);
+        }
+        public unsafe CopyError CopyFrom(String source)
+        {
+            fixed(char *c = source)
+                return CopyFrom(c, source.Length);
         }        
-        
+        public unsafe CopyError CopyTo(char* d, out int length, int maxLength)
+        {
+            fixed (uint* b = buffer)
+                return NativeString.Copy(d, out length, maxLength, (char*) b, Length);
+        }
+
+
         public NativeString64(String source)
         {
             Length = 0;
-            unsafe
-            {
-                fixed(char *s = source)
-                    CopyFrom(s, source.Length);
-            }
+            CopyFrom(source);
         }
         
         public NativeString64(ref NativeString512 source)
         {
-            Length = source.Length;
-            unsafe
-            {
-                fixed (uint* b = buffer)
-                {
-                    var c = (char*) b;
-                    source.CopyTo(c, MaxLength);
-                }
-            }
+            Length = 0;
+            CopyFrom(source);
         }
 
         public NativeString64(ref NativeString4096 source)
         {
-            Length = source.Length;
-            unsafe
-            {
-                fixed (uint* b = buffer)
-                {
-                    var c = (char*) b;
-                    source.CopyTo(c, MaxLength);
-                }
-            }
+            Length = 0;
+            CopyFrom(source);
         }
         
         public char this[int index]
@@ -687,7 +700,14 @@ namespace Unity.Entities
                 fixed (uint* b = buffer)
                 {
                     var c = (char*) b;
+#if !UNITY_ZEROPLAYER
                     return new String(c, 0, Length);
+#else
+                    var s = new char[Length];
+                    for(var i = 0; i < Length; ++i)
+                        s[i] = c[i];
+                    return new String(s, 0, Length);
+#endif
                 }
             }
         }
@@ -741,60 +761,53 @@ namespace Unity.Entities
         public int Length;
         private unsafe fixed uint buffer[MaxLength/2];
         
-        unsafe void CopyFrom(char* s, int length)
+        public unsafe CopyError CopyFrom(NativeString64 source)
         {
-            Assert.IsTrue(length <= MaxLength);
-            Length = length;
-            fixed (uint *b = buffer)
-            {
-                var d = (char*) b;
-                UnsafeUtility.MemCpy(d, s, length * sizeof(char));
-            }
-        }
-        public unsafe void CopyTo(char* d, int maxLength)
-        {
-            Assert.IsTrue(Length <= maxLength);
             fixed (uint* b = buffer)
-            {
-                var s = (char*) b;
-                UnsafeUtility.MemCpy(d, s, Length * sizeof(char));
-            }
+                return source.CopyTo((char*) b, out Length, MaxLength);
+        }
+        public unsafe CopyError CopyFrom(NativeString512 source)
+        {
+            fixed (uint* b = buffer)
+                return source.CopyTo((char*) b, out Length, MaxLength);
+        }
+        public unsafe CopyError CopyFrom(NativeString4096 source)
+        {
+            fixed (uint* b = buffer)
+                return source.CopyTo((char*) b, out Length, MaxLength);
+        }
+        public unsafe CopyError CopyFrom(char* s, int length)
+        {
+            fixed (uint* b = buffer)
+                return NativeString.Copy((char*)b, out Length, MaxLength, s, length);
+        }
+        public unsafe CopyError CopyFrom(String source)
+        {
+            fixed(char *c = source)
+                return CopyFrom(c, source.Length);
+        }        
+        public unsafe CopyError CopyTo(char* d, out int length, int maxLength)
+        {
+            fixed (uint* b = buffer)
+                return NativeString.Copy(d, out length, maxLength, (char*) b, Length);
         }
         
         public NativeString512(String source)
         {
             Length = 0;
-            unsafe
-            {
-                fixed(char *s = source)
-                    CopyFrom(s, source.Length);
-            }
+            CopyFrom(source);
         }
         
         public NativeString512(ref NativeString64 source)
         {
-            Length = source.Length;
-            unsafe
-            {
-                fixed (uint* b = buffer)
-                {
-                    var d = (char*) b;
-                    source.CopyTo(d, MaxLength);
-                }
-            }
+            Length = 0;
+            CopyFrom(source);
         }
 
         public NativeString512(ref NativeString4096 source)
         {
-            Length = source.Length;
-            unsafe
-            {
-                fixed (uint* b = buffer)
-                {
-                    var d = (char*) b;
-                    source.CopyTo(d, MaxLength);
-                }
-            }
+            Length = 0;
+            CopyFrom(source);
         }
         
         public char this[int index]
@@ -831,7 +844,14 @@ namespace Unity.Entities
                 fixed (uint* b = buffer)
                 {
                     var c = (char*) b;
+#if !UNITY_ZEROPLAYER
                     return new String(c, 0, Length);
+#else
+                    var s = new char[Length];
+                    for(var i = 0; i < Length; ++i)
+                        s[i] = c[i];
+                    return new String(s, 0, Length);
+#endif
                 }
             }
         }
@@ -884,60 +904,53 @@ namespace Unity.Entities
         public int Length;
         private unsafe fixed uint buffer[MaxLength/2];
         
-        unsafe void CopyFrom(char* s, int length)
+        public unsafe CopyError CopyFrom(NativeString64 source)
         {
-            Assert.IsTrue(length <= MaxLength);
-            Length = length;
             fixed (uint* b = buffer)
-            {
-                var d = (char*) b;
-                UnsafeUtility.MemCpy(d, s, length * sizeof(char));                
-            }
+                return source.CopyTo((char*) b, out Length, MaxLength);
         }
-        public unsafe void CopyTo(char* d, int maxLength)
+        public unsafe CopyError CopyFrom(NativeString512 source)
         {
-            Assert.IsTrue(Length <= maxLength);
             fixed (uint* b = buffer)
-            {
-                var s = (char*) b;
-                UnsafeUtility.MemCpy(d, s, Length * sizeof(char));
-            }
+                return source.CopyTo((char*) b, out Length, MaxLength);
+        }
+        public unsafe CopyError CopyFrom(NativeString4096 source)
+        {
+            fixed (uint* b = buffer)
+                return source.CopyTo((char*) b, out Length, MaxLength);
+        }
+        public unsafe CopyError CopyFrom(char* s, int length)
+        {
+            fixed (uint* b = buffer)
+                return NativeString.Copy((char*)b, out Length, MaxLength, s, length);
+        }
+        public unsafe CopyError CopyFrom(String source)
+        {
+            fixed(char *c = source)
+                return CopyFrom(c, source.Length);
+        }        
+        public unsafe CopyError CopyTo(char* d, out int length, int maxLength)
+        {
+            fixed (uint* b = buffer)
+                return NativeString.Copy(d, out length, maxLength, (char*) b, Length);
         }
         
         public NativeString4096(String source)
-        {
+        {            
             Length = 0;
-            unsafe
-            {
-                fixed(char *s = source)
-                    CopyFrom(s, source.Length);
-            }
+            CopyFrom(source);
         }
         
         public NativeString4096(ref NativeString64 source)
         {
-            Length = source.Length;
-            unsafe
-            {
-                fixed (uint* b = buffer)
-                {
-                    var c = (char*) b;
-                    source.CopyTo(c, MaxLength);
-                }
-            }
+            Length = 0;
+            CopyFrom(source);
         }
 
         public NativeString4096(ref NativeString512 source)
         {
-            Length = source.Length;
-            unsafe
-            {
-                fixed (uint* b = buffer)
-                {
-                    var c = (char*) b;
-                    source.CopyTo(c, MaxLength);
-                }
-            }
+            Length = 0;
+            CopyFrom(source);
         }
         
         public char this[int index]
@@ -974,7 +987,14 @@ namespace Unity.Entities
                 fixed (uint* b = buffer)
                 {
                     var c = (char*) b;
+#if !UNITY_ZEROPLAYER
                     return new String(c, 0, Length);
+#else
+                    var s = new char[Length];
+                    for(var i = 0; i < Length; ++i)
+                        s[i] = c[i];
+                    return new String(s, 0, Length);
+#endif
                 }
             }
         }
@@ -1044,7 +1064,14 @@ namespace Unity.Entities
         {
             unsafe
             {
-                return new String(pointer, 0, length);                
+#if !UNITY_ZEROPLAYER
+                return new String(pointer, 0, length);
+#else
+                var c = new char[Length];
+                for(var i = 0; i < Length; ++i)
+                    c[i] = pointer[i];
+                return new String(c, 0, Length);
+#endif
             }
         }
 
@@ -1266,17 +1293,39 @@ namespace Unity.Entities
         }
 
         bool HasPositiveNumericSuffix => PositiveNumericSuffix != 0;
+
+        string NewString(char c, int count)
+        {
+            char[] temp = new char[count];
+            for (var i = 0; i < count; ++i)
+                temp[i] = c;
+            return new string(temp, 0, count);
+        }
         
         public override String ToString()
         {
             String temp = WordStorage.Instance.GetNativeStringView(Index).ToString();
             var leadingZeroes = LeadingZeroes;
             if (leadingZeroes > 0)
-                temp += new String('0', leadingZeroes);
+                temp += NewString('0', leadingZeroes);
             if (HasPositiveNumericSuffix)
                 temp += PositiveNumericSuffix;
             return temp;
         }
+
+        bool IsDigit(char c)
+        {
+            return c >= '0' && c <= '9';
+        }
+
+        string Substring(string s, int offset, int count)
+        {
+            char[] c = new char[count];
+            for (var i = 0; i < count; ++i)
+                c[i] = s[offset + i];
+            return new string(c, 0, count);
+        }
+        
         public unsafe void SetString(String value)
         {
             int beginningOfDigits = value.Length;
@@ -1284,7 +1333,7 @@ namespace Unity.Entities
             // as long as there are digits at the end,
             // look back for more digits.
 
-            while (beginningOfDigits > 0 && Char.IsDigit(value[beginningOfDigits - 1]))
+            while (beginningOfDigits > 0 && IsDigit(value[beginningOfDigits - 1]))
                 --beginningOfDigits;
 
             // as long as the first digit is a zero, it's not the beginning of the positive integer - it's a leading zero.
@@ -1334,7 +1383,7 @@ namespace Unity.Entities
             // truncate the string, if there were digits at the end that we encoded.
             
             if(beginningOfDigits != value.Length)
-                value = value.Substring(0, beginningOfDigits);
+                value = Substring(value, 0, beginningOfDigits);
 
             // finally, set the string to its index in the global string blob thing.
 
@@ -1343,4 +1392,3 @@ namespace Unity.Entities
         }
     }
 }
-#endif

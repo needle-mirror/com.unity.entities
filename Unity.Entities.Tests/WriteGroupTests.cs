@@ -59,7 +59,8 @@ namespace Unity.Entities.Tests
                     typeof(TestOutputA),
                     ComponentType.ReadOnly<TestInputB>(),
                     ComponentType.ReadOnly<TestInputC>(),
-                }
+                },
+                Options = EntityArchetypeQueryOptions.FilterWriteGroup
             });
 
             m_Manager.CreateEntity(archetype0);
@@ -82,7 +83,8 @@ namespace Unity.Entities.Tests
                     typeof(TestOutputA),
                     ComponentType.ReadOnly<TestInputB>(),
                     ComponentType.ReadOnly<TestInputC>(),
-                }
+                },
+                Options = EntityArchetypeQueryOptions.FilterWriteGroup
             });
 
             var archetype0 = m_Manager.CreateArchetype(typeof(TestOutputA), typeof(TestInputB), typeof(TestInputC));
@@ -113,7 +115,8 @@ namespace Unity.Entities.Tests
                     ComponentType.ReadOnly<TestInputB>(),
                     ComponentType.ReadOnly<TestInputC>(),
                     ComponentType.ReadOnly<TestInputD>(),
-                }
+                },
+                Options = EntityArchetypeQueryOptions.FilterWriteGroup
             });
 
             m_Manager.CreateEntity(archetype0);
@@ -139,7 +142,8 @@ namespace Unity.Entities.Tests
                     typeof(TestOutputA),
                     ComponentType.ReadOnly<TestInputB>(),
                     ComponentType.ReadOnly<TestInputC>(),
-                }
+                },
+                Options = EntityArchetypeQueryOptions.FilterWriteGroup
             });
 
             m_Manager.CreateEntity(archetype0);
@@ -166,7 +170,8 @@ namespace Unity.Entities.Tests
                     ComponentType.ReadOnly<TestInputB>(),
                     ComponentType.ReadOnly<TestInputC>(),
                     ComponentType.ReadOnly<TestInputD>(),
-                }
+                },
+                Options = EntityArchetypeQueryOptions.FilterWriteGroup
             });
 
             m_Manager.CreateEntity(archetype0);
@@ -196,7 +201,8 @@ namespace Unity.Entities.Tests
                 None = new ComponentType[]
                 {
                     ComponentType.ReadOnly<TestInputD>(),
-                }
+                },
+                Options = EntityArchetypeQueryOptions.FilterWriteGroup
             });
 
             m_Manager.CreateEntity(archetype0);
@@ -222,7 +228,8 @@ namespace Unity.Entities.Tests
                 {
                     typeof(TestOutputA),
                     ComponentType.ReadOnly<TestOutputB>()
-                }
+                },
+                Options = EntityArchetypeQueryOptions.FilterWriteGroup
             });
 
             m_Manager.CreateEntity(archetype0);
@@ -248,7 +255,8 @@ namespace Unity.Entities.Tests
                 {
                     typeof(TestOutputA),
                     ComponentType.ReadOnly<TestInputB>()
-                }
+                },
+                Options = EntityArchetypeQueryOptions.FilterWriteGroup
             });
 
             m_Manager.CreateEntity(archetype0);
@@ -260,114 +268,29 @@ namespace Unity.Entities.Tests
 
             group0.Dispose();
         }
-
+        
         [Test]
-        public void WG_AllOnlyMatchesExplicitNoQuery()
-        {
-            var archetype0 = m_Manager.CreateArchetype(typeof(TestOutputA), typeof(TestInputB), typeof(TestInputC));
-            var archetype1 = m_Manager.CreateArchetype(typeof(TestOutputA), typeof(TestInputB), typeof(TestInputC),
-                typeof(TestInputD));
-            var group0 = m_Manager.CreateComponentGroup(
-                typeof(TestOutputA),
-                ComponentType.ReadOnly<TestInputB>(),
-                ComponentType.ReadOnly<TestInputC>()
-            );
-
-            m_Manager.CreateEntity(archetype0);
-            m_Manager.CreateEntity(archetype1);
-
-            var results0 = group0.ToEntityArray(Allocator.TempJob);
-            Assert.AreEqual(1, results0.Length);
-            results0.Dispose();
-
-            group0.Dispose();
-        }
-
-        [Test]
-        public void WG_AllOnlyMatchesExplicitLateDefinitionNoQuery()
-        {
-            var group0 = m_Manager.CreateComponentGroup(
-                typeof(TestOutputA),
-                ComponentType.ReadOnly<TestInputB>(),
-                ComponentType.ReadOnly<TestInputC>()
-            );
-
-            var archetype0 = m_Manager.CreateArchetype(typeof(TestOutputA), typeof(TestInputB), typeof(TestInputC));
-            var archetype1 = m_Manager.CreateArchetype(typeof(TestOutputA), typeof(TestInputB), typeof(TestInputC),
-                typeof(TestInputD));
-
-            m_Manager.CreateEntity(archetype0);
-            m_Manager.CreateEntity(archetype1);
-
-            var results0 = group0.ToEntityArray(Allocator.TempJob);
-            Assert.AreEqual(1, results0.Length);
-            results0.Dispose();
-
-            group0.Dispose();
-        }
-
-        [Test]
-        public void WG_AllOnlyMatchesExtendedNoQuery()
-        {
-            var archetype0 = m_Manager.CreateArchetype(typeof(TestOutputA), typeof(TestInputB), typeof(TestInputC));
-            var archetype1 = m_Manager.CreateArchetype(typeof(TestOutputA), typeof(TestInputB), typeof(TestInputC),
-                typeof(TestInputD));
-            var group0 = m_Manager.CreateComponentGroup(
-                typeof(TestOutputA),
-                ComponentType.ReadOnly<TestInputB>(),
-                ComponentType.ReadOnly<TestInputC>(),
-                ComponentType.ReadOnly<TestInputD>()
-            );
-
-            m_Manager.CreateEntity(archetype0);
-            m_Manager.CreateEntity(archetype1);
-
-            var results0 = group0.ToEntityArray(Allocator.TempJob);
-            Assert.AreEqual(1, results0.Length);
-            results0.Dispose();
-
-            group0.Dispose();
-        }
-
-        [Test]
-        public void WG_AllAllowsDependentWriteGroupsNoQuery()
+        public void WG_NotExcludesWhenOverrideWriteGroup()
         {
             var archetype0 = m_Manager.CreateArchetype(typeof(TestOutputA), typeof(TestOutputB), typeof(TestInputB),
                 typeof(TestInputC));
             var archetype1 = m_Manager.CreateArchetype(typeof(TestOutputA), typeof(TestOutputB), typeof(TestInputB),
                 typeof(TestInputC), typeof(TestInputD));
-            var group0 = m_Manager.CreateComponentGroup(
-                typeof(TestOutputA),
-                ComponentType.ReadOnly<TestOutputB>()
-            );
+            // Not specified Options = EntityArchetypeQueryOptions.FilterWriteGroup means that WriteGroup is being overridden (ignored)
+            var group0 = m_Manager.CreateComponentGroup(new EntityArchetypeQuery()
+            {
+                All = new ComponentType[]
+                {
+                    typeof(TestOutputA),
+                    ComponentType.ReadOnly<TestInputB>()
+                }
+            });
 
             m_Manager.CreateEntity(archetype0);
             m_Manager.CreateEntity(archetype1);
 
             var results0 = group0.ToEntityArray(Allocator.TempJob);
             Assert.AreEqual(2, results0.Length);
-            results0.Dispose();
-
-            group0.Dispose();
-        }
-
-        [Test]
-        public void WG_AllExcludesFromDependentWriteGroupNoQuery()
-        {
-            var archetype0 = m_Manager.CreateArchetype(typeof(TestOutputA), typeof(TestOutputB), typeof(TestInputB),
-                typeof(TestInputC));
-            var archetype1 = m_Manager.CreateArchetype(typeof(TestOutputA), typeof(TestOutputB), typeof(TestInputB),
-                typeof(TestInputC), typeof(TestInputD));
-            var group0 = m_Manager.CreateComponentGroup(
-                typeof(TestOutputA),
-                ComponentType.ReadOnly<TestInputB>()
-            );
-
-            m_Manager.CreateEntity(archetype0);
-            m_Manager.CreateEntity(archetype1);
-
-            var results0 = group0.ToEntityArray(Allocator.TempJob);
-            Assert.AreEqual(0, results0.Length);
             results0.Dispose();
 
             group0.Dispose();

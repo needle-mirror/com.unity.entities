@@ -28,9 +28,6 @@ namespace Unity.Entities
 
         public void Dispose()
         {
-            if (!IsEmpty())
-                Debug.LogWarning("SharedComponentData manager should be empty on shutdown");
-
             m_SharedComponentType.Dispose();
             m_SharedComponentRefCount.Dispose();
             m_SharedComponentVersion.Dispose();
@@ -209,10 +206,12 @@ namespace Unity.Entities
             return m_SharedComponentData[index];
         }
 
-        public void AddReference(int index)
+        public void AddReference(int index, int numRefs = 1)
         {
-            if (index != 0)
-                ++m_SharedComponentRefCount[index];
+            if (index == 0)
+                return;
+            Assert.IsTrue(numRefs >= 0);
+            m_SharedComponentRefCount[index] += numRefs;
         }
 
         public static unsafe int GetHashCodeFast(object target, int typeIndex)
@@ -401,27 +400,7 @@ namespace Unity.Entities
             return true;
         }
 
-#if !UNITY_CSHARP_TINY
-        unsafe static object CloneAndPatch(object src, in TypeManager.TypeInfo typeInfo, ref NativeArray<EntityRemapUtility.EntityRemapInfo> remapInfos)
-        {
-            var clone = Activator.CreateInstance(typeInfo.Type);
-
-            ulong srcHandle, dstHandle;
-            void* srcData= PinGCObjectAndGetAddress(src, out srcHandle);
-            void* dstData  = PinGCObjectAndGetAddress(clone, out dstHandle);
-            int sizeOf = UnsafeUtility.SizeOf(typeInfo.Type);
-            UnsafeUtility.MemCpy(dstData, srcData, sizeOf);
-
-            EntityRemapUtility.PatchEntities(typeInfo.EntityOffsets, (byte*)dstData, ref remapInfos);
-
-            UnsafeUtility.ReleaseGCObject(dstHandle);
-            UnsafeUtility.ReleaseGCObject(srcHandle);
-
-            return clone;
-        }
-#endif
-
-        public unsafe NativeArray<int> MoveAllSharedComponents(SharedComponentDataManager srcSharedComponents, NativeArray<EntityRemapUtility.EntityRemapInfo> remapInfos, Allocator allocator)
+        public unsafe NativeArray<int> MoveAllSharedComponents(SharedComponentDataManager srcSharedComponents, Allocator allocator)
         {
             var remap = new NativeArray<int>(srcSharedComponents.GetSharedComponentCount(), allocator);
             remap[0] = 0;
@@ -432,12 +411,6 @@ namespace Unity.Entities
                 if (srcData == null) continue;
 
                 var typeIndex = srcSharedComponents.m_SharedComponentType[srcIndex];
-                var typeInfo = TypeManager.GetTypeInfo(typeIndex);
-
-                #if !UNITY_CSHARP_TINY
-                    if (typeInfo.EntityOffsets != null)
-                        srcData = CloneAndPatch(srcData, typeInfo, ref remapInfos);
-                #endif
 
                 var hashCode = GetHashCodeFast(srcData, typeIndex);
                 var dstIndex = InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, srcData);
@@ -483,12 +456,6 @@ namespace Unity.Entities
 
                 var srcData = srcSharedComponents.m_SharedComponentData[srcIndex];
                 var typeIndex = srcSharedComponents.m_SharedComponentType[srcIndex];
-                var typeInfo = TypeManager.GetTypeInfo(typeIndex);
-
-                #if !UNITY_CSHARP_TINY
-                    if (typeInfo.EntityOffsets != null)
-                        srcData = CloneAndPatch(srcData, typeInfo, ref remapInfos);
-                #endif
 
                 var hashCode = GetHashCodeFast(srcData, typeIndex);
                 var dstIndex = InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, srcData);

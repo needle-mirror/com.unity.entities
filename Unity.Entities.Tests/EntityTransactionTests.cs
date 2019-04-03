@@ -35,7 +35,7 @@ namespace Unity.Entities.Tests
 
             public void Execute()
             {
-                var entity = entities.CreateEntity(ComponentType.Create<EcsTestData>());
+                var entity = entities.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
                 entities.SetComponentData(entity, new EcsTestData(42));
                 Assert.AreEqual(42, entities.GetComponentData<EcsTestData>(entity).value);
 
@@ -49,7 +49,7 @@ namespace Unity.Entities.Tests
 
             public void Execute()
             {
-                var entity = entities.CreateEntity(ComponentType.Create<EcsTestData>());
+                var entity = entities.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
                 entities.SetComponentData(entity, new EcsTestData(42));
                 Assert.AreEqual(42, entities.GetComponentData<EcsTestData>(entity).value);
             }
@@ -67,14 +67,16 @@ namespace Unity.Entities.Tests
 
             m_Manager.EndExclusiveEntityTransaction();
 
+            var data = m_Group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             Assert.AreEqual(2, m_Group.CalculateLength());
-            Assert.AreEqual(42, m_Group.GetComponentDataArray<EcsTestData>()[0].value);
-            Assert.AreEqual(42, m_Group.GetComponentDataArray<EcsTestData>()[1].value);
+            Assert.AreEqual(42, data[0].value);
+            Assert.AreEqual(42, data[1].value);
 
             Assert.IsTrue(m_Manager.Exists(job.createdEntities[0]));
             Assert.IsTrue(m_Manager.Exists(job.createdEntities[1]));
 
             job.createdEntities.Dispose();
+            data.Dispose();
         }
 
 

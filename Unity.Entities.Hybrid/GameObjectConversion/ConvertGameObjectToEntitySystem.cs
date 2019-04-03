@@ -5,13 +5,14 @@ using UnityEngine;
 
 public interface IConvertGameObjectToEntity
 {
-    void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem converstionSystem);
+    void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem);
 }
 
 public interface IDeclareReferencedPrefabs
 {
     void DeclareReferencedPrefabs(List<GameObject> gameObjects);
 }
+
 
 class ConvertGameObjectToEntitySystem : GameObjectConversionSystem
 {
@@ -32,10 +33,11 @@ class ConvertGameObjectToEntitySystem : GameObjectConversionSystem
     }
 }
 
+[DisableAutoCreation]
 class ConvertGameObjectToEntitySystemDeclarePrefabs : GameObjectConversionSystem
 {
     protected override void OnUpdate()
-    {
+    {        
         //@TODO: Support prefab to prefab referencing recursion...
         var declares = new List<IDeclareReferencedPrefabs>();
         var prefabs = new List<GameObject>();

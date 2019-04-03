@@ -44,7 +44,7 @@ namespace Unity.Entities
             var noneList = new NativeList<ComponentType>(Allocator.Temp);
             for (int i = 0; i != count; i++)
             {
-                if (requiredTypes[i].AccessModeType == ComponentType.AccessMode.Subtractive)
+                if (requiredTypes[i].AccessModeType == ComponentType.AccessMode.Exclude)
                     noneList.Add(ComponentType.ReadOnly(requiredTypes[i].TypeIndex));
                 else
                     allList.Add(requiredTypes[i]);
@@ -72,23 +72,33 @@ namespace Unity.Entities
             return CreateQuery(ref scratchAllocator, new EntityArchetypeQuery[] { query });
         }
 
-        void ConstructTypeArray(ref ScratchAllocator scratchAllocator, ComponentType[] types, out int* outTypes, out int outLength)
+        void ConstructTypeArray(ref ScratchAllocator scratchAllocator, ComponentType[] types, out int* outTypes, out byte* outAccessModes, out int outLength)
         {
             if (types == null || types.Length == 0)
             {
                 outTypes = null;
+                outAccessModes = null;
                 outLength = 0;
             }
             else
             {
                 outLength = types.Length;
                 outTypes = (int*)scratchAllocator.Allocate<int>(types.Length);
+                outAccessModes = (byte*)scratchAllocator.Allocate<byte>(types.Length);
+                
+                var sortedTypes = stackalloc ComponentType[types.Length];
+                for (var i = 0; i < types.Length; ++i)
+                    SortingUtilities.InsertSorted(sortedTypes, i, types[i]);
+
                 for (int i = 0; i != types.Length; i++)
-                    outTypes[i] = types[i].TypeIndex;
+                {
+                    outTypes[i] = sortedTypes[i].TypeIndex;
+                    outAccessModes[i] = (byte)sortedTypes[i].AccessModeType;
+                }
             }
         }
 
-        void IncludeDependentWriteGroups(ComponentType type, NativeList<ComponentType> anyList, NativeList<ComponentType> explicitList)
+        void IncludeDependentWriteGroups(ComponentType type, NativeList<ComponentType> explicitList)
         {
             if (type.AccessModeType != ComponentType.AccessMode.ReadOnly)
                 return;
@@ -97,13 +107,11 @@ namespace Unity.Entities
             for (int i = 0; i < writeGroupTypes.Length; i++)
             {
                 var excludedComponentType = GetWriteGroupReadOnlyComponentType(writeGroupTypes, i);
-                if (anyList.Contains(excludedComponentType))
-                    continue;
                 if (explicitList.Contains(excludedComponentType))
                     continue;
                 
-                anyList.Add(excludedComponentType);
-                IncludeDependentWriteGroups(excludedComponentType, anyList, explicitList);
+                explicitList.Add(excludedComponentType);
+                IncludeDependentWriteGroups(excludedComponentType, explicitList);
             }
         }
 
@@ -156,17 +164,17 @@ namespace Unity.Entities
                 var typesAny = query[q].Any;
                 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                // Check that query doesn't contain any SubtractiveComponent...
+                // Check that query doesn't contain any ExcludeComponent...
                 {
                     for (int i=0;i<typesNone.Length;i++)
-                        if (typesNone[i].AccessModeType == ComponentType.AccessMode.Subtractive)
-                            throw new ArgumentException("EntityArchetypeQuery cannot contain Subtractive Component types");
+                        if (typesNone[i].AccessModeType == ComponentType.AccessMode.Exclude)
+                            throw new ArgumentException("EntityArchetypeQuery cannot contain Exclude Component types");
                     for (int i=0;i<typesAll.Length;i++)
-                        if (typesAll[i].AccessModeType == ComponentType.AccessMode.Subtractive)
-                            throw new ArgumentException("EntityArchetypeQuery cannot contain Subtractive Component types");
+                        if (typesAll[i].AccessModeType == ComponentType.AccessMode.Exclude)
+                            throw new ArgumentException("EntityArchetypeQuery cannot contain Exclude Component types");
                     for (int i=0;i<typesAny.Length;i++)
-                        if (typesAny[i].AccessModeType == ComponentType.AccessMode.Subtractive)
-                            throw new ArgumentException("EntityArchetypeQuery cannot contain Subtractive Component types");
+                        if (typesAny[i].AccessModeType == ComponentType.AccessMode.Exclude)
+                            throw new ArgumentException("EntityArchetypeQuery cannot contain Exclude Component types");
                 }
 #endif        
                 
@@ -176,33 +184,26 @@ namespace Unity.Entities
                         if (typesNone[i].AccessModeType != ComponentType.AccessMode.ReadOnly)
                             typesNone[i] = ComponentType.ReadOnly(typesNone[i].TypeIndex);
                 }
-                
-                // Each ReadOnly<type> in any or all
-                //   if has WriteGroup types,
-                //   - Recursively add to any (if not explictly mentioned)
-                {
-                    var explicitList = CreateExplicitTypeList(typesNone, typesAll, typesAny);
-                    var anyList = new NativeList<ComponentType>( typesAny.Length, Allocator.Temp);
-                    for (int i=0;i<typesAny.Length;i++)
-                        anyList.Add(typesAny[i]);
-                    for (int i = 0; i < typesAny.Length; i++)
-                        IncludeDependentWriteGroups(typesAny[i], anyList, explicitList);
-                    for (int i = 0; i < typesAll.Length; i++)
-                        IncludeDependentWriteGroups(typesAll[i], anyList, explicitList);
-                    typesAny = new ComponentType[anyList.Length];
-                    for (int i = 0; i < anyList.Length; i++)
-                        typesAny[i] = anyList[i];
-                    anyList.Dispose();
-                    explicitList.Dispose();
-                }
 
-                // Each ReadWrite<type> in any or all
-                //   if has WriteGroup types,
-                //     Add to none (if not exist in any or all or none) 
+                var isFilterWriteGroup = (query[q].Options & EntityArchetypeQueryOptions.FilterWriteGroup) != 0;
+                if (isFilterWriteGroup)
                 {
+                    // Each ReadOnly<type> in any or all
+                    //   if has WriteGroup types,
+                    //   - Recursively add to any (if not explictly mentioned)
+
                     var explicitList = CreateExplicitTypeList(typesNone, typesAll, typesAny);
-                    var noneList = new NativeList<ComponentType>( typesNone.Length, Allocator.Temp);
-                    for (int i=0;i<typesNone.Length;i++)
+
+                    for (int i = 0; i < typesAny.Length; i++)
+                        IncludeDependentWriteGroups(typesAny[i], explicitList);
+                    for (int i = 0; i < typesAll.Length; i++)
+                        IncludeDependentWriteGroups(typesAll[i], explicitList);
+
+                    // Each ReadWrite<type> in any or all
+                    //   if has WriteGroup types,
+                    //     Add to none (if not exist in any or all or none) 
+                    var noneList = new NativeList<ComponentType>(typesNone.Length, Allocator.Temp);
+                    for (int i = 0; i < typesNone.Length; i++)
                         noneList.Add(typesNone[i]);
                     for (int i = 0; i < typesAny.Length; i++)
                         ExcludeWriteGroups(typesAny[i], noneList, explicitList);
@@ -213,25 +214,32 @@ namespace Unity.Entities
                         typesNone[i] = noneList[i];
                     noneList.Dispose();
                     explicitList.Dispose();
-                }                
-            
-                ConstructTypeArray(ref scratchAllocator, typesNone, out outQuery[q].None, out outQuery[q].NoneCount);
-                ConstructTypeArray(ref scratchAllocator, typesAll,  out outQuery[q].All,  out outQuery[q].AllCount);
-                ConstructTypeArray(ref scratchAllocator, typesAny,  out outQuery[q].Any,  out outQuery[q].AnyCount);
+                }
+
+                ConstructTypeArray(ref scratchAllocator, typesNone, out outQuery[q].None, out outQuery[q].NoneAccessMode, out outQuery[q].NoneCount);
+                ConstructTypeArray(ref scratchAllocator, typesAll,  out outQuery[q].All,  out outQuery[q].AllAccessMode,  out outQuery[q].AllCount);
+                ConstructTypeArray(ref scratchAllocator, typesAny,  out outQuery[q].Any,  out outQuery[q].AnyAccessMode,  out outQuery[q].AnyCount);
+                outQuery[q].Options = query[q].Options;
             }
 
             return outQuery;
         }
 
-        public static bool CompareQueryArray(ComponentType[] filter, int* typeArray, int typeArrayCount)
+        public static bool CompareQueryArray(ComponentType[] filter, int* typeArray, byte* accessModeArray, int typeArrayCount)
         {
             int filterLength = filter != null ? filter.Length : 0;
             if (typeArrayCount != filterLength)
                 return false;
 
+            var sortedTypes = stackalloc ComponentType[filterLength];
             for (var i = 0; i < filterLength; ++i)
             {
-                if (typeArray[i] != filter[i].TypeIndex)
+                SortingUtilities.InsertSorted(sortedTypes, i, filter[i]);
+            }
+
+            for (var i = 0; i < filterLength; ++i)
+            {
+                if (typeArray[i] != sortedTypes[i].TypeIndex || accessModeArray[i] != (byte)sortedTypes[i].AccessModeType)
                     return false;
             }
 
@@ -240,19 +248,16 @@ namespace Unity.Entities
 
         public static bool CompareQuery(EntityArchetypeQuery[] query, EntityGroupData* groupData)
         {
-            if (groupData->RequiredComponents != null)
-                return false;
-
             if (groupData->ArchetypeQueryCount != query.Length)
                 return false;
 
             for (int i = 0; i != query.Length; i++)
             {
-                if (!CompareQueryArray(query[i].All, groupData->ArchetypeQuery[i].All, groupData->ArchetypeQuery[i].AllCount))
+                if (!CompareQueryArray(query[i].All, groupData->ArchetypeQuery[i].All, groupData->ArchetypeQuery[i].AllAccessMode, groupData->ArchetypeQuery[i].AllCount))
                     return false;
-                if (!CompareQueryArray(query[i].None, groupData->ArchetypeQuery[i].None, groupData->ArchetypeQuery[i].NoneCount))
+                if (!CompareQueryArray(query[i].None, groupData->ArchetypeQuery[i].None, groupData->ArchetypeQuery[i].NoneAccessMode, groupData->ArchetypeQuery[i].NoneCount))
                     return false;
-                if (!CompareQueryArray(query[i].Any, groupData->ArchetypeQuery[i].Any, groupData->ArchetypeQuery[i].AnyCount))
+                if (!CompareQueryArray(query[i].Any, groupData->ArchetypeQuery[i].Any, groupData->ArchetypeQuery[i].AnyAccessMode, groupData->ArchetypeQuery[i].AnyCount))
                     return false;
             }
 
@@ -261,9 +266,6 @@ namespace Unity.Entities
 
         public static bool CompareComponents(ComponentType* componentTypes, int componentTypesCount, EntityGroupData* groupData)
         {
-            if (groupData->RequiredComponents == null)
-                return false;
-
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             for (var k = 0; k < componentTypesCount; ++k)
                 if (componentTypes[k].TypeIndex == TypeManager.GetTypeIndex<Entity>())
@@ -271,13 +273,19 @@ namespace Unity.Entities
                         "ComponentGroup.CompareComponents may not include typeof(Entity), it is implicit");
 #endif
 
+            var sortedTypes = stackalloc ComponentType[componentTypesCount];
+            for (var i = 0; i < componentTypesCount; ++i)
+            {
+                SortingUtilities.InsertSorted(sortedTypes, i, componentTypes[i]);
+            }
+            
             // ComponentGroups are constructed including the Entity ID
             if (componentTypesCount + 1 != groupData->RequiredComponentsCount)
                 return false;
 
             for (var i = 0; i < componentTypesCount; ++i)
             {
-                if (groupData->RequiredComponents[i + 1] != componentTypes[i])
+                if (groupData->RequiredComponents[i + 1] != sortedTypes[i])
                     return false;
             }
 
@@ -314,13 +322,67 @@ namespace Unity.Entities
             }
         }
 
+        private int IntersectSortedComponentIndexArrays(int* arrayA, int arrayACount, int* arrayB, int arrayBCount, int* outArray)
+        {
+            var intersectionCount = 0;
+
+            var i = 0;
+            var j = 0; 
+            while (i < arrayACount && j < arrayBCount) 
+            { 
+                if (arrayA[i] < arrayB[j]) 
+                    i++; 
+                else if (arrayB[j] < arrayA[i]) 
+                    j++; 
+                else
+                {
+                    outArray[intersectionCount++] = arrayB[j];
+                    i++; 
+                    j++; 
+                } 
+            }
+
+            return intersectionCount;
+        }
+
+        // Calculates the intersection of "All" queries
+        private ComponentType* CalculateRequiredComponentsFromQuery(ref ScratchAllocator allocator, ArchetypeQuery* queries, int queryCount, out int outRequiredComponentsCount)
+        {
+            var maxIntersectionCount = 0;
+            for (int queryIndex = 0; queryIndex < queryCount; ++queryIndex)
+                maxIntersectionCount = math.max(maxIntersectionCount, queries[queryIndex].AllCount);  
+            
+            var intersection = (int*)allocator.Allocate<int>(maxIntersectionCount);
+            UnsafeUtility.MemCpy(intersection, queries[0].All, sizeof(int) * queries[0].AllCount);
+
+            var intersectionCount = maxIntersectionCount;
+            for (int i = 1; i < queryCount; ++i)
+            {
+                intersectionCount = IntersectSortedComponentIndexArrays(intersection, intersectionCount, queries[i].All,
+                    queries[i].AllCount, intersection);
+            }
+            
+            var outRequiredComponents = (ComponentType*)allocator.Allocate<ComponentType>(intersectionCount + 1);
+            outRequiredComponents[0] = ComponentType.ReadWrite<Entity>();
+            for (int i = 0; i < intersectionCount; ++i)
+            {
+                outRequiredComponents[i + 1] = ComponentType.FromTypeIndex(intersection[i]);
+            }
+            
+            outRequiredComponentsCount = intersectionCount + 1;
+            return outRequiredComponents;
+        }
+
         public ComponentGroup CreateEntityGroup(ArchetypeManager typeMan, EntityDataManager* entityDataManager, EntityArchetypeQuery[] query)
         {
             //@TODO: Support for CreateEntityGroup with query but using ComponentDataArray etc
             var buffer = stackalloc byte[1024];
             var scratchAllocator = new ScratchAllocator(buffer, 1024);
             var archetypeQuery = CreateQuery(ref scratchAllocator, query);
-            return CreateEntityGroup(typeMan, entityDataManager, archetypeQuery, query.Length, null, 0);
+
+            var outRequiredComponents = CalculateRequiredComponentsFromQuery(ref scratchAllocator, archetypeQuery, query.Length, out var outRequiredComponentsCount);
+            
+            return CreateEntityGroup(typeMan, entityDataManager, archetypeQuery, query.Length, outRequiredComponents, outRequiredComponentsCount);
         }
 
         public ComponentGroup CreateEntityGroup(ArchetypeManager typeMan, EntityDataManager* entityDataManager, ComponentType* inRequiredComponents, int inRequiredComponentsCount)
@@ -329,9 +391,9 @@ namespace Unity.Entities
             var scratchAllocator = new ScratchAllocator(buffer, 1024);
             var archetypeQuery = CreateQuery(ref scratchAllocator, inRequiredComponents, inRequiredComponentsCount);
             var outRequiredComponents = (ComponentType*)scratchAllocator.Allocate<ComponentType>(inRequiredComponentsCount + 1);
-            outRequiredComponents[0] = ComponentType.Create<Entity>();
+            outRequiredComponents[0] = ComponentType.ReadWrite<Entity>();
             for (int i = 0; i != inRequiredComponentsCount; i++)
-                outRequiredComponents[i + 1] = inRequiredComponents[i];
+                SortingUtilities.InsertSorted(outRequiredComponents + 1, i, inRequiredComponents[i]);
             var outRequiredComponentsCount = inRequiredComponentsCount + 1;
             return CreateEntityGroup(typeMan, entityDataManager, archetypeQuery, 1, outRequiredComponents, outRequiredComponentsCount);
         }
@@ -397,6 +459,9 @@ namespace Unity.Entities
                     cachedGroup->ArchetypeQuery[i].All = (int*)ChunkAllocate<int>(cachedGroup->ArchetypeQuery[i].AllCount,query[i].All);
                     cachedGroup->ArchetypeQuery[i].Any = (int*)ChunkAllocate<int>(cachedGroup->ArchetypeQuery[i].AnyCount,query[i].Any);
                     cachedGroup->ArchetypeQuery[i].None = (int*)ChunkAllocate<int>(cachedGroup->ArchetypeQuery[i].NoneCount,query[i].None);
+                    cachedGroup->ArchetypeQuery[i].AllAccessMode = (byte*)ChunkAllocate<byte>(cachedGroup->ArchetypeQuery[i].AllCount,query[i].AllAccessMode);
+                    cachedGroup->ArchetypeQuery[i].AnyAccessMode = (byte*)ChunkAllocate<byte>(cachedGroup->ArchetypeQuery[i].AnyCount,query[i].AnyAccessMode);
+                    cachedGroup->ArchetypeQuery[i].NoneAccessMode = (byte*)ChunkAllocate<byte>(cachedGroup->ArchetypeQuery[i].NoneCount,query[i].NoneAccessMode);
                 }
                 cachedGroup->MatchingArchetypes = new MatchingArchetypeList();
                 for (var i = typeMan.m_Archetypes.Count - 1; i >= 0; --i)
@@ -414,14 +479,17 @@ namespace Unity.Entities
 
         void InitializeReaderWriter(EntityGroupData* grp, ComponentType* requiredTypes, int requiredCount)
         {
+            Assert.IsTrue(requiredCount > 0);
+            Assert.IsTrue(requiredTypes[0] == ComponentType.ReadWrite<Entity>());
+
             grp->ReaderTypesCount = 0;
             grp->WriterTypesCount = 0;
 
-            for (var i = 0; i != requiredCount; i++)
+            for (var i = 1; i != requiredCount; i++)
             {
-                //@TODO: Investigate why Entity is not early out on this one...
-                if (!requiredTypes[i].RequiresJobDependency)
-                    continue;
+                // After the first zero sized component the rest are zero sized
+                if (requiredTypes[i].IsZeroSized)
+                    break;
 
                 switch (requiredTypes[i].AccessModeType)
                 {
@@ -439,10 +507,11 @@ namespace Unity.Entities
 
             var curReader = 0;
             var curWriter = 0;
-            for (var i = 0; i != requiredCount; i++)
+            for (var i = 1; i != requiredCount; i++)
             {
-                if (!requiredTypes[i].RequiresJobDependency)
-                    continue;
+                if (requiredTypes[i].IsZeroSized)
+                    break;
+
                 switch (requiredTypes[i].AccessModeType)
                 {
                     case ComponentType.AccessMode.ReadOnly:
@@ -479,7 +548,7 @@ namespace Unity.Entities
             for (var component = 0; component < group->RequiredComponentsCount; ++component)
             {
                 var typeComponentIndex = -1;
-                if (group->RequiredComponents[component].AccessModeType != ComponentType.AccessMode.Subtractive)
+                if (group->RequiredComponents[component].AccessModeType != ComponentType.AccessMode.Exclude)
                 {
                     typeComponentIndex = ChunkDataUtility.GetIndexInTypeArray(archetype, group->RequiredComponents[component].TypeIndex);
                     Assert.AreNotEqual(-1, typeComponentIndex);
@@ -504,7 +573,7 @@ namespace Unity.Entities
 
         static bool IsMatchingArchetype(Archetype* archetype, ArchetypeQuery* query)
         {
-            if (!TestMatchingArchetypeAll(archetype, query->All, query->AllCount))
+            if (!TestMatchingArchetypeAll(archetype, query->All, query->AllCount, query->Options))
                 return false;
             if (!TestMatchingArchetypeNone(archetype, query->None, query->NoneCount))
                 return false;
@@ -551,7 +620,7 @@ namespace Unity.Entities
             return true;
         }
 
-        static bool TestMatchingArchetypeAll(Archetype* archetype, int* allTypes, int allCount)
+        static bool TestMatchingArchetypeAll(Archetype* archetype, int* allTypes, int allCount, EntityArchetypeQueryOptions options)
         {
             var componentTypes = archetype->Types;
             var componentTypesCount = archetype->TypesCount;
@@ -559,9 +628,9 @@ namespace Unity.Entities
             var disabledTypeIndex = TypeManager.GetTypeIndex<Disabled>();
             var prefabTypeIndex = TypeManager.GetTypeIndex<Prefab>();
             var chunkHeaderTypeIndex = TypeManager.GetTypeIndex<ChunkHeader>();
-            var requestedDisabled = false;
-            var requestedPrefab = false;
-            var requestedChunkHeader = false;
+            var includeInactive = (options & EntityArchetypeQueryOptions.IncludeDisabled) != 0;
+            var includePrefab = (options & EntityArchetypeQueryOptions.IncludePrefab) != 0;
+            var includeChunkHeader = false;
 
             for (var i = 0; i < componentTypesCount; i++)
             {
@@ -570,21 +639,22 @@ namespace Unity.Entities
                 {
                     var allTypeIndex = allTypes[j];
                     if (allTypeIndex == disabledTypeIndex)
-                        requestedDisabled = true;
+                        includeInactive = true;
                     if (allTypeIndex == prefabTypeIndex)
-                        requestedPrefab = true;
+                        includePrefab = true;
                     if (allTypeIndex == chunkHeaderTypeIndex)
-                        requestedChunkHeader = true;
+                        includeChunkHeader = true;
+                    
                     if (componentTypeIndex == allTypeIndex) foundCount++;
                 }
             }
 
-            if (archetype->Disabled && (!requestedDisabled))
+            if (archetype->Disabled && (!includeInactive))
                 return false;
-            if (archetype->Prefab && (!requestedPrefab))
+            if (archetype->Prefab && (!includePrefab))
                 return false;
-            if (archetype->HasChunkHeader && (!requestedChunkHeader))
-                return false;
+            if (archetype->HasChunkHeader && (!includeChunkHeader))
+                            return false;
 
             return foundCount == allCount;
         }
@@ -615,14 +685,19 @@ namespace Unity.Entities
     unsafe struct ArchetypeQuery : IEquatable<ArchetypeQuery>
     {
         public int*     Any;
+        public byte*    AnyAccessMode;
         public int      AnyCount;
 
         public int*     All;
+        public byte*    AllAccessMode;
         public int      AllCount;
 
         public int*     None;
+        public byte*    NoneAccessMode;
         public int      NoneCount;
-
+        
+        public EntityArchetypeQueryOptions  Options;
+        
         public bool Equals(ArchetypeQuery other)
         {
             if (AnyCount != other.AnyCount)
@@ -631,12 +706,18 @@ namespace Unity.Entities
                 return false;
             if (NoneCount != other.NoneCount)
                 return false;
-            if (AnyCount > 0 && UnsafeUtility.MemCmp(Any, other.Any, sizeof(int) * AnyCount) != 0)
+            if (AnyCount > 0 && UnsafeUtility.MemCmp(Any, other.Any, sizeof(int) * AnyCount) != 0 && 
+                UnsafeUtility.MemCmp(AnyAccessMode, other.AnyAccessMode, sizeof(byte) * AnyCount) != 0)
                 return false;
-            if (AllCount > 0 && UnsafeUtility.MemCmp(All, other.All, sizeof(int) * AllCount) != 0)
+            if (AllCount > 0 && UnsafeUtility.MemCmp(All, other.All, sizeof(int) * AllCount) != 0 &&
+                UnsafeUtility.MemCmp(AllAccessMode, other.AllAccessMode, sizeof(byte) * AllCount) != 0)
                 return false;
-            if (NoneCount > 0 && UnsafeUtility.MemCmp(None, other.None, sizeof(int) * NoneCount) != 0)
+            if (NoneCount > 0 && UnsafeUtility.MemCmp(None, other.None, sizeof(int) * NoneCount) != 0 &&
+                UnsafeUtility.MemCmp(NoneAccessMode, other.NoneAccessMode, sizeof(byte) * NoneCount) != 0)
                 return false;
+            if (Options != other.Options)
+                return false;
+            
             return true;
         }        
         public override int GetHashCode()
@@ -649,6 +730,9 @@ namespace Unity.Entities
                     hashCode = (int)math.hash(Any, sizeof(int) * AnyCount, (uint)hashCode);
                     hashCode = (int)math.hash(All, sizeof(int) * AllCount, (uint)hashCode);
                     hashCode = (int)math.hash(None, sizeof(int) * NoneCount, (uint)hashCode);
+                    hashCode = (int)math.hash(AnyAccessMode, sizeof(byte) * AnyCount, (uint)hashCode);
+                    hashCode = (int)math.hash(AllAccessMode, sizeof(byte) * AllCount, (uint)hashCode);
+                    hashCode = (int)math.hash(NoneAccessMode, sizeof(byte) * NoneCount, (uint)hashCode);
                 return hashCode;
             }
         }

@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
-    
+
     internal delegate void SetChunkFilter(ChunkFilter filter);
 
     internal class ChunkFilter
@@ -15,12 +15,12 @@ namespace Unity.Entities.Editor
         public int firstIndex;
         public int lastIndex;
     }
-    
+
     internal class ChunkInfoListView : TreeView, IDisposable
     {
 
         private static readonly float kHistogramHeight = 60f;
-        
+
         [System.Serializable]
         public class State
         {
@@ -44,7 +44,7 @@ namespace Unity.Entities.Editor
         }
 
         private static Material histogramMaterial;
-        
+
         public enum ViewMode
         {
             Chunks,
@@ -75,7 +75,7 @@ namespace Unity.Entities.Editor
                     xAxisLabel = new GUIContent(L10n.Tr("Chunk Utilization"));
                 }
             }
-            
+
             public EntityArchetype archetype;
             public ComponentGroupGUIControl control;
             public int[] counts;
@@ -110,7 +110,7 @@ namespace Unity.Entities.Editor
                     vertices[firstVertexIndex + 1] = new Vector3(i*xIncrement, 1f, 0f);
                     vertices[firstVertexIndex + 2] = new Vector3(i*xIncrement + barWidth, 1f, 0f);
                     vertices[firstVertexIndex + 3] = new Vector3(i*xIncrement + barWidth, 1f - barHeight, 0f);
-                    
+
                     var firstTriangleIndex = i * 6;
                     triangles[firstTriangleIndex + 0] = firstVertexIndex + 0;
                     triangles[firstTriangleIndex + 1] = firstVertexIndex + 2;
@@ -136,14 +136,14 @@ namespace Unity.Entities.Editor
             {
                 Styles.reusableLabel.text = maxCountString;
                 var xMargin = Mathf.Max(Styles.labelStyleUpperRight.CalcSize(Styles.reusableLabel).x, kMinMargin);
-                
+
                 GUI.Label(new Rect(rect.x, rect.y, xMargin, kMinMargin), Styles.reusableLabel, Styles.labelStyleUpperRight);
                 GUI.Label(new Rect(rect.x, rect.yMax - 2*kMinMargin, xMargin, kMinMargin), Styles.zeroLabel, Styles.labelStyleLowerRight);
-                
+
                 Styles.reusableLabel.text = maxCountString;
                 GUI.Label(new Rect(rect.xMax - xMargin, rect.yMin, xMargin, kMinMargin), Styles.reusableLabel, Styles.labelStyleUpperLeft);
                 GUI.Label(new Rect(rect.xMax - xMargin, rect.yMax - 2*kMinMargin, xMargin, kMinMargin), Styles.zeroLabel, Styles.labelStyleLowerLeft);
-                
+
                 GUI.Label(new Rect(rect.x + xMargin, rect.yMax - kMinMargin, kMinMargin, kMinMargin), Styles.oneLabel, Styles.labelStyleUpperLeft);
                 Styles.reusableLabel.text = countsLengthString;
                 GUI.Label(new Rect(rect.xMax - xMargin - 3*kMinMargin, rect.yMax - kMinMargin, 3*kMinMargin, kMinMargin), Styles.reusableLabel, Styles.labelStyleUpperRight);
@@ -184,9 +184,9 @@ namespace Unity.Entities.Editor
         private Dictionary<int, ArchetypeInfo> archetypeInfoById = new Dictionary<int, ArchetypeInfo>();
 
         private SetChunkFilter setChunkFilter;
-        
+
         private NativeArray<ArchetypeChunk> chunkArray;
-        
+
         public ChunkInfoListView(State listState, SetChunkFilter setChunkFilter) : base(listState.state)
         {
             this.listState = listState;
@@ -225,7 +225,7 @@ namespace Unity.Entities.Editor
                         var stats = new ArchetypeInfo()
                         {
                             archetype = currentArchetype,
-                            control = new ComponentGroupGUIControl(currentArchetype.ComponentTypes, true),
+                            control = new ComponentGroupGUIControl(currentArchetype.GetComponentTypes(), true),
                             counts = new int[currentArchetype.ChunkCapacity],
                             firstChunkIndex = currentChunkIndex
                         };
@@ -236,7 +236,7 @@ namespace Unity.Entities.Editor
 
                     archetypeInfoById[currentArchetypeItem.id].IncrementCount(chunk.Count);
                     archetypeInfoById[currentArchetypeItem.id].lastChunkIndex = currentChunkIndex;
-                    
+
                     if (Mode == ViewMode.Chunks)
                     {
                         var chunkItem = new TreeViewItem() { id = currentChunkIndex, depth = 1, displayName = chunk.Count.ToString() };
@@ -279,7 +279,7 @@ namespace Unity.Entities.Editor
         }
 
         private float width;
-        
+
         public override void OnGUI(Rect rect)
         {
             var newWidth = rect.width - 40f;
@@ -290,7 +290,7 @@ namespace Unity.Entities.Editor
                     info.control.UpdateSize(width);
             }
             RefreshCustomRowHeights();
-            
+
             base.OnGUI(rect);
         }
 
@@ -317,10 +317,10 @@ namespace Unity.Entities.Editor
             {
                 setChunkFilter(null);
             }
-            
+
             base.SelectionChanged(selectedIds);
         }
-        
+
         protected override void AfterRowsGUI()
         {
             base.AfterRowsGUI();

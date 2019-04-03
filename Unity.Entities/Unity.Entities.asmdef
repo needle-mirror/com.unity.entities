@@ -4,6 +4,7 @@
         "Unity.Collections",
         "Unity.Burst",
         "Unity.Mathematics",
+        "Unity.Mathematics.Extensions",
         "Unity.Entities.StaticTypeRegistry"
     ],
     "optionalUnityReferences": [],

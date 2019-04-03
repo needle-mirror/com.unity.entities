@@ -23,7 +23,7 @@ namespace Unity.Entities.Editor
                     return 0;
                 case ComponentType.AccessMode.ReadWrite:
                     return 1;
-                case ComponentType.AccessMode.Subtractive:
+                case ComponentType.AccessMode.Exclude:
                     return 2;
                 default:
                     throw new ArgumentException("Unrecognized AccessMode");
@@ -79,8 +79,8 @@ namespace Unity.Entities.Editor
                     return EntityDebuggerStyles.ComponentReadOnly;
                 case ComponentType.AccessMode.ReadWrite:
                     return EntityDebuggerStyles.ComponentReadWrite;
-                case ComponentType.AccessMode.Subtractive:
-                    return EntityDebuggerStyles.ComponentSubtractive;
+                case ComponentType.AccessMode.Exclude:
+                    return EntityDebuggerStyles.ComponentExclude;
                 default:
                     throw new ArgumentException("Unrecognized access mode");
             }

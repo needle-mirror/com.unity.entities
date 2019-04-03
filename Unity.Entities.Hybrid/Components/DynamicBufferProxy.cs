@@ -38,7 +38,7 @@ namespace Unity.Entities
 
         internal override ComponentType GetComponentType()
         {
-            return ComponentType.Create<T>();
+            return ComponentType.ReadWrite<T>();
         }
 
         internal override void UpdateComponentData(EntityManager manager, Entity entity)

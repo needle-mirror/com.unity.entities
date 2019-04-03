@@ -10,6 +10,7 @@ namespace Unity.Entities
     {
     }
 
+    [AttributeUsage(AttributeTargets.Struct)]
     public class InternalBufferCapacityAttribute : Attribute
     {
         public readonly int Capacity;
@@ -19,12 +20,28 @@ namespace Unity.Entities
             Capacity = capacity;
         }
     }
+    
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
+    public class MaximumChunkCapacityAttribute : Attribute
+    {
+        public readonly int Capacity;
+
+        public MaximumChunkCapacityAttribute(int capacity)
+        {
+            Capacity = capacity;
+        }
+        
+    }
 
     public interface ISharedComponentData
     {
     }
 
     public interface ISystemStateComponentData : IComponentData
+    {
+    }
+
+    public interface ISystemStateBufferElementData : IBufferElementData
     {
     }
 
@@ -48,6 +65,27 @@ namespace Unity.Entities
         {
             return new LinkedEntityGroup {Value = e};
         }
+    }
+    
+    [Serializable]
+    public struct SceneTag : ISharedComponentData, IEquatable<SceneTag>
+    {
+        public Entity  SceneEntity;
 
+        public override int GetHashCode()
+        {
+            return SceneEntity.GetHashCode();
+        }
+
+        public bool Equals(SceneTag other)
+        {
+            return SceneEntity == other.SceneEntity;
+        }
+
+        public override string ToString()
+        {
+            return $"SubSceneTag: {SceneEntity}";
+        }
     }
 }
+

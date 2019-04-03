@@ -5,6 +5,7 @@ using Unity.Jobs;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs.LowLevel.Unsafe;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 
@@ -134,11 +135,6 @@ namespace Unity.Entities
 #else
             m_AlwaysUpdateSystem = true;
 #endif
-            // All systems default to having a read dependency on the Entity type. This is to ensure that systems without
-            // any other dependencies will still get a valid input job handle.
-            // If any other dependency is added the Entity type dependency is removed to avoid the overhead of having all jobs
-            // depend on this.
-            JobDependencyForReadingManagersUnsafeList.Add(TypeManager.GetTypeIndex<Entity>());
 
 #if !UNITY_ZEROPLAYER
             ComponentSystemInjection.Inject(this, world, m_EntityManager, out m_InjectedComponentGroups, out m_InjectFromEntityData);
@@ -232,34 +228,32 @@ namespace Unity.Entities
 
         public ArchetypeChunkComponentType<T> GetArchetypeChunkComponentType<T>(bool isReadOnly = false)
         {
-            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.Create<T>());
+            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
             return EntityManager.GetArchetypeChunkComponentType<T>(isReadOnly);
         }
 
         public ArchetypeChunkBufferType<T> GetArchetypeChunkBufferType<T>(bool isReadOnly = false)
             where T : struct, IBufferElementData
         {
-            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.Create<T>());
+            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
             return EntityManager.GetArchetypeChunkBufferType<T>(isReadOnly);
         }
 
         public ArchetypeChunkSharedComponentType<T> GetArchetypeChunkSharedComponentType<T>()
             where T : struct, ISharedComponentData
         {
-            AddReaderWriter(ComponentType.ReadOnly<T>());
             return EntityManager.GetArchetypeChunkSharedComponentType<T>();
         }
 
         public ArchetypeChunkEntityType GetArchetypeChunkEntityType()
         {
-            AddReaderWriter(ComponentType.ReadOnly<Entity>());
             return EntityManager.GetArchetypeChunkEntityType();
         }
 
         public ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
             where T : struct, IComponentData
         {
-            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.Create<T>());
+            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
             return EntityManager.GetComponentDataFromEntity<T>(isReadOnly);
         }
 
@@ -273,7 +267,7 @@ namespace Unity.Entities
 
         public void RequireSingletonForUpdate<T>()
         {
-            var type = ComponentType.Create<T>();
+            var type = ComponentType.ReadWrite<T>();
             var group = GetComponentGroupInternal(&type, 1);
             RequireForUpdate(group);
         }
@@ -281,7 +275,7 @@ namespace Unity.Entities
         public bool HasSingleton<T>()
             where T : struct, IComponentData
         {
-            var type = ComponentType.Create<T>();
+            var type = ComponentType.ReadWrite<T>();
             var group = GetComponentGroupInternal(&type, 1);
             return !group.IsEmptyIgnoreFilter;
         }
@@ -289,7 +283,7 @@ namespace Unity.Entities
         public T GetSingleton<T>()
             where T : struct, IComponentData
         {
-            var type = ComponentType.Create<T>();
+            var type = ComponentType.ReadWrite<T>();
             var group = GetComponentGroupInternal(&type, 1);
 
             return group.GetSingleton<T>();
@@ -298,7 +292,7 @@ namespace Unity.Entities
         public void SetSingleton<T>(T value)
             where T : struct, IComponentData
         {
-            var type = ComponentType.Create<T>();
+            var type = ComponentType.ReadWrite<T>();
             var group = GetComponentGroupInternal(&type, 1);
             group.SetSingleton(value);
         }
@@ -311,6 +305,11 @@ namespace Unity.Entities
             }
         }
 
+        internal void AddReaderWriters(ComponentGroup group)
+        {
+            group.AddReaderWritersToLists(ref JobDependencyForReadingManagersUnsafeList, ref JobDependencyForWritingManagersUnsafeList);
+        }
+
         internal ComponentGroup GetComponentGroupInternal(ComponentType* componentTypes, int count)
         {
             for (var i = 0; i != m_ComponentGroups.Length; i++)
@@ -320,9 +319,8 @@ namespace Unity.Entities
             }
 
             var group = EntityManager.CreateComponentGroup(componentTypes, count);
-            for (int i = 0;i != count;i++)
-                AddReaderWriter(componentTypes[i]);
 
+            AddReaderWriters(group);
             AfterGroupCreated(group);
 
             return group;
@@ -344,6 +342,8 @@ namespace Unity.Entities
             }
 
             var group = EntityManager.CreateComponentGroup(query);
+
+            AddReaderWriters(group);
             AfterGroupCreated(group);
 
             return group;
@@ -362,6 +362,10 @@ namespace Unity.Entities
         protected ComponentGroup GetComponentGroup(params ComponentType[] componentTypes)
         {
             return GetComponentGroupInternal(componentTypes);
+        }
+        protected ComponentGroup GetComponentGroup(NativeArray<ComponentType> componentTypes)
+        {
+            return GetComponentGroupInternal((ComponentType*)componentTypes.GetUnsafeReadOnlyPtr(), componentTypes.Length);
         }
 
         protected ComponentGroup GetComponentGroup(params EntityArchetypeQuery[] query)
@@ -508,7 +512,7 @@ namespace Unity.Entities
     public abstract class JobComponentSystem : ComponentSystemBase
     {
         JobHandle m_PreviousFrameDependency;
-        BarrierSystem[] m_BarrierList;
+        EntityCommandBufferSystem[] m_EntityCommandBufferSystemList;
 
         unsafe JobHandle BeforeOnUpdate()
         {
@@ -533,9 +537,9 @@ namespace Unity.Entities
 
             // Notify all injected barrier systems that they will need to sync on any jobs we spawned.
             // This is conservative currently - the barriers will sync on too much if we use more than one.
-            for (int i = 0; i < m_BarrierList.Length; ++i)
+            for (int i = 0; i < m_EntityCommandBufferSystemList.Length; ++i)
             {
-                m_BarrierList[i].AddJobHandleForProducer(outputJob);
+                m_EntityCommandBufferSystemList[i].AddJobHandleForProducer(outputJob);
             }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -622,7 +626,7 @@ namespace Unity.Entities
         {
             base.OnBeforeCreateManagerInternal(world);
 
-            m_BarrierList = ComponentSystemInjection.GetAllInjectedManagers<BarrierSystem>(this, world);
+            m_EntityCommandBufferSystemList = ComponentSystemInjection.GetAllInjectedManagers<EntityCommandBufferSystem>(this, world);
         }
 #endif
         protected sealed override void OnBeforeDestroyManagerInternal()
@@ -633,7 +637,7 @@ namespace Unity.Entities
 
         public BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : struct, IBufferElementData
         {
-            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.Create<T>());
+            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
             return EntityManager.GetBufferFromEntity<T>(isReadOnly);
         }
 
@@ -686,8 +690,12 @@ namespace Unity.Entities
             m_PreviousFrameDependency = m_SafetyManager.AddDependency(m_JobDependencyForReadingManagers.p, m_JobDependencyForReadingManagers.Count, m_JobDependencyForWritingManagers.p, m_JobDependencyForWritingManagers.Count, dependency);
         }
     }
+    
+    [Obsolete("BarrierSystem has been renamed. Use EntityCommandBufferSystem instead (UnityUpgradable) -> EntityCommandBufferSystem", true)]
+    [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
+    public struct BarrierSystem { }
 
-    public unsafe abstract class BarrierSystem : ComponentSystem
+    public unsafe abstract class EntityCommandBufferSystem : ComponentSystem
     {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         private List<EntityCommandBuffer> m_PendingBuffers;
@@ -697,9 +705,9 @@ namespace Unity.Entities
         private JobHandle m_ProducerHandle;
 
         /// <summary>
-        /// Create an EntityCommandBuffer which will be played back during this BarrierSystem's OnUpdate().
+        /// Create an EntityCommandBuffer which will be played back during this EntityCommandBufferSystem's OnUpdate().
         /// If this command buffer is written to by job code using its Concurrent interface, the caller
-        /// must call BarrierSystem.AddJobHandleForProducer() to ensure that the BarrierSystem waits
+        /// must call EntityCommandBufferSystem.AddJobHandleForProducer() to ensure that the EntityCommandBufferSystem waits
         /// for the job to complete before playing back the command buffer. See AddJobHandleForProducer()
         /// for a complete example.
         /// </summary>
@@ -719,11 +727,11 @@ namespace Unity.Entities
         /// Adds the specified JobHandle to this system's list of dependencies.
         ///
         /// This is usually called by a system that's building an EntityCommandBuffer created
-        /// by this BarrierSystem, to prevent the command buffer from being played back before
+        /// by this EntityCommandBufferSystem, to prevent the command buffer from being played back before
         /// it's complete. The general usage looks like:
-        ///    MyBarrierSystem _barrier;
+        ///    MyEntityCommandBufferSystem _barrier;
         ///    // in OnCreateManager():
-        ///    _barrier = World.GetOrCreateManager<MyBarrierSystem>();
+        ///    _barrier = World.GetOrCreateManager<MyEntityCommandBufferSystem>();
         ///    // in OnUpdate():
         ///    EntityCommandBuffer cmd = _barrier.CreateCommandBuffer();
         ///    var job = new MyProducerJob {

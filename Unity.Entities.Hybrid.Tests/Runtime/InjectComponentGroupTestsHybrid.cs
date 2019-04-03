@@ -1,6 +1,7 @@
 ﻿using NUnit.Framework;
 using UnityEngine;
 #pragma warning disable 649
+#pragma warning disable 618
 
 namespace Unity.Entities.Tests
 {
@@ -8,13 +9,13 @@ namespace Unity.Entities.Tests
     {
         [DisableAutoCreation]
         [AlwaysUpdateSystem]
-        public class SubtractiveSystem : ComponentSystem
+        public class ExcludeSystem : ComponentSystem
         {
             public struct Datas
             {
                 public ComponentDataArray<EcsTestData> Data;
-                public SubtractiveComponent<EcsTestData2> Data2;
-                public SubtractiveComponent<Rigidbody> Rigidbody;
+                public ExcludeComponent<EcsTestData2> Data2;
+                public ExcludeComponent<Rigidbody> Rigidbody;
             }
 
             [Inject]
@@ -26,9 +27,9 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void SubtractiveComponent()
+        public void ExcludeComponent()
         {
-            var subtractiveSystem = World.GetOrCreateManager<SubtractiveSystem> ();
+            var subtractiveSystem = World.GetOrCreateManager<ExcludeSystem> ();
 
             var entity = m_Manager.CreateEntity (typeof(EcsTestData));
 

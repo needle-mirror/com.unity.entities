@@ -8,7 +8,8 @@ using UnityEngine.Jobs;
 namespace Unity.Transforms
 {
     [UnityEngine.ExecuteAlways]
-    [UpdateBefore(typeof(EndFrameTransformSystem))]
+    [UpdateInGroup(typeof(TransformSystemGroup))]
+    [UpdateBefore(typeof(EndFrameTRSToLocalToWorldSystem))]
     public class CopyTransformFromGameObjectSystem : JobComponentSystem
     {
         struct TransformStash
@@ -33,25 +34,21 @@ namespace Unity.Transforms
         }
 
         [BurstCompile]
-        struct CopyTransforms : IJobParallelFor
+        struct CopyTransforms : IJobProcessComponentDataWithEntity<LocalToWorld>
         {
-            [NativeDisableParallelForRestriction] public ComponentDataFromEntity<Position> positions;
-            [NativeDisableParallelForRestriction] public ComponentDataFromEntity<Rotation> rotations;
-            [ReadOnly] public EntityArray entities;
             [DeallocateOnJobCompletion] public NativeArray<TransformStash> transformStashes;
 
-            public void Execute(int index)
+            public void Execute(Entity entity, int index, ref LocalToWorld localToWorld)
             {
                 var transformStash = transformStashes[index];
-                var entity = entities[index];
-                if (positions.Exists(entity))
+
+                localToWorld = new LocalToWorld
                 {
-                    positions[entity] = new Position { Value = transformStash.position };
-                }
-                if (rotations.Exists(entity))
-                {
-                    rotations[entity] = new Rotation { Value = transformStash.rotation };
-                }
+                    Value = float4x4.TRS(
+                        transformStash.position,
+                        transformStash.rotation,
+                        new float3(1.0f, 1.0f, 1.0f))
+                };
             }
         }
 
@@ -59,14 +56,15 @@ namespace Unity.Transforms
 
         protected override void OnCreateManager()
         {
-            m_TransformGroup = GetComponentGroup(ComponentType.ReadOnly(typeof(CopyTransformFromGameObject)),typeof(UnityEngine.Transform));
+            m_TransformGroup = GetComponentGroup(
+                ComponentType.ReadOnly(typeof(CopyTransformFromGameObject)),
+                typeof(UnityEngine.Transform),
+                ComponentType.ReadWrite<LocalToWorld>());
         }
 
         protected override JobHandle OnUpdate(JobHandle inputDeps)
         {
             var transforms = m_TransformGroup.GetTransformAccessArray();
-            var entities = m_TransformGroup.GetEntityArray();
-
             var transformStashes = new NativeArray<TransformStash>(transforms.length, Allocator.TempJob);
             var stashTransformsJob = new StashTransforms
             {
@@ -77,13 +75,10 @@ namespace Unity.Transforms
 
             var copyTransformsJob = new CopyTransforms
             {
-                positions = GetComponentDataFromEntity<Position>(),
-                rotations = GetComponentDataFromEntity<Rotation>(),
                 transformStashes = transformStashes,
-                entities = entities
             };
 
-            return copyTransformsJob.Schedule(transformStashes.Length,64,stashTransformsJobHandle);
+            return copyTransformsJob.ScheduleGroup(m_TransformGroup, stashTransformsJobHandle);
         }
     }
 }

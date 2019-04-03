@@ -3,6 +3,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
+    [Obsolete("SharedComponentDataArray is deprecated. Use chunk API instead.")]
     public struct SharedComponentDataArray<T> where T : struct, ISharedComponentData
     {
         private ComponentChunkIterator m_Iterator;

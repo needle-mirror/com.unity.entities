@@ -129,18 +129,8 @@ namespace Unity.Entities.Tests
 
 	    [DisableAutoCreation]
 	    public class GameObjectArrayWithTransformAccessSystem : ComponentSystem
-	    {
-	        public struct Group
-	        {
-	            public readonly int Length;
-	            public GameObjectArray gameObjects;
-
-	            public TransformAccessArray transforms;
-	        }
-
-	        [Inject]
-	        public Group group;
-
+        {
+            public ComponentGroup group;
 	        protected override void OnUpdate()
 	        {
 	        }
@@ -149,7 +139,12 @@ namespace Unity.Entities.Tests
 	        {
 	            base.UpdateInjectedComponentGroups();
 	        }
-	    }
+
+            protected override void OnCreateManager()
+            {
+                group = GetComponentGroup(typeof(Transform));
+            }
+        }
 
 	    [Test]
 	    public void GameObjectArrayWorksWithTransformAccessArray()
@@ -164,9 +159,9 @@ namespace Unity.Entities.Tests
 
 	        manager.UpdateInjectedComponentGroups();
 
-	        Assert.AreEqual(1, manager.group.Length);
-	        Assert.AreEqual(go, manager.group.gameObjects[0]);
-	        Assert.AreEqual(go, manager.group.transforms[0].gameObject);
+	        Assert.AreEqual(1, manager.group.CalculateLength());
+	        Assert.AreEqual(go, manager.group.GetGameObjectArray()[0]);
+	        Assert.AreEqual(go, manager.group.GetTransformAccessArray()[0].gameObject);
 
 	        Object.DestroyImmediate (go);
 
@@ -178,18 +173,9 @@ namespace Unity.Entities.Tests
 	    [DisableAutoCreation]
 	    public class TransformWithTransformAccessSystem : ComponentSystem
 	    {
-	        public struct Group
-	        {
-	            public readonly int Length;
-	            public ComponentArray<Transform> transforms;
+            public ComponentGroup group;
 
-	            public TransformAccessArray transformAccesses;
-	        }
-
-	        [Inject]
-	        public Group group;
-
-	        protected override void OnUpdate()
+            protected override void OnUpdate()
 	        {
 	        }
 
@@ -197,7 +183,12 @@ namespace Unity.Entities.Tests
 	        {
 	            base.UpdateInjectedComponentGroups();
 	        }
-	    }
+
+            protected override void OnCreateManager()
+            {
+                group = GetComponentGroup(typeof(Transform));
+            }
+        }
 
 	    [Test]
 	    public void TransformArrayWorksWithTransformAccessArray()
@@ -209,8 +200,8 @@ namespace Unity.Entities.Tests
 
 	        manager.UpdateInjectedComponentGroups();
 
-	        Assert.AreEqual(1, manager.group.Length);
-	        Assert.AreEqual(manager.group.transforms[0].gameObject, manager.group.transformAccesses[0].gameObject);
+	        Assert.AreEqual(1, manager.group.CalculateLength());
+	        Assert.AreEqual(manager.group.GetComponentArray<Transform>()[0].gameObject, manager.group.GetTransformAccessArray()[0].gameObject);
 
 	        Object.DestroyImmediate (go);
 	        TearDown();

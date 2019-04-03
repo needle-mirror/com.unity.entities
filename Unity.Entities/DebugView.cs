@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace Unity.Entities
@@ -139,15 +140,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_CSHARP_TINY
-    sealed class ArchetypeChunkDebugView
+    sealed unsafe class DebugViewUtility
     {
-        private ArchetypeChunk m_ArchetypeChunk;
-        public ArchetypeChunkDebugView(ArchetypeChunk ArchetypeChunk)
-        {
-            m_ArchetypeChunk = ArchetypeChunk;
-        }
-
-        unsafe object GetObject(void* pointer, Type type)
+        public static object GetObject(void* pointer, Type type)
         {
             if (typeof(IBufferElementData).IsAssignableFrom(type))
             {
@@ -164,11 +159,22 @@ namespace Unity.Entities
                 }
                 return instance;
             }
-            if(typeof(IComponentData).IsAssignableFrom(type))
+            if(typeof(IComponentData).IsAssignableFrom(type) || typeof(Entity).IsAssignableFrom(type))
             {
                 return Marshal.PtrToStructure((IntPtr) pointer, type);
             }
             return null;
+        }        
+    }
+#endif
+    
+#if !UNITY_CSHARP_TINY
+    sealed class ArchetypeChunkDebugView
+    {
+        private ArchetypeChunk m_ArchetypeChunk;
+        public ArchetypeChunkDebugView(ArchetypeChunk ArchetypeChunk)
+        {
+            m_ArchetypeChunk = ArchetypeChunk;
         }
 
         public unsafe IList[] Components
@@ -199,7 +205,7 @@ namespace Unity.Entities
                     for (var j = 0; j < entities; ++j)
                     {
                        var pointer = chunk->Buffer + (offset + size * j);
-                       instance.Add(GetObject(pointer, type));
+                       instance.Add(DebugViewUtility.GetObject(pointer, type));
                     }
                     result[i] = instance;
                 }
@@ -232,7 +238,7 @@ namespace Unity.Entities
                         var offset = archetype->Offsets[i];
                         var size = archetype->SizeOfs[i];
                         var pointer = chunk->Buffer + (offset + size * j);
-                        instance.Add(GetObject(pointer,type));
+                        instance.Add(DebugViewUtility.GetObject(pointer,type));
                     }
                     result[j] = instance;
                 }
@@ -362,4 +368,130 @@ namespace Unity.Entities
     {
     }
 #endif
+    
+#if !UNITY_ZEROPLAYER
+    sealed class DiffApplierDebugView
+    {
+        private WorldDiffer.DiffApplier target;
+
+        public DiffApplierDebugView(WorldDiffer.DiffApplier diffApplier)
+        {
+            target = diffApplier;
+        }
+                
+        unsafe List<object> DebugDestEntity(Entity e)
+        {
+            var instance = new List<object>();
+            if (!target.DestWorldManager.Exists(e))
+                return instance;
+#if UNITY_EDITOR                
+            instance.Add(target.DestWorldManager.Entities->GetName(e));  
+#endif
+            target.DestWorldManager.Entities->GetComponentChunk(e, out var chunk, out var chunkIndex);
+            if (chunk == null)
+                return instance;
+            var archetype = chunk->Archetype;
+            var types = chunk->Archetype->TypesCount;
+            for (var i = 0; i < types; ++i)
+            {
+                var componentType = chunk->Archetype->Types[i];
+                if (componentType.IsSharedComponent)
+                    continue;
+                var typeInfo = TypeManager.GetTypeInfo(componentType.TypeIndex);
+                var type = typeInfo.Type;
+                var offset = archetype->Offsets[i];
+                var size = archetype->SizeOfs[i];
+                var pointer = chunk->Buffer + (offset + size * chunkIndex);
+                instance.Add(DebugViewUtility.GetObject(pointer, type));
+            }
+            return instance;
+        }
+
+        bool Ready()
+        {
+            if (!target.DiffIndexToDestWorldEntities.IsCreated)
+                return false;
+            if (target.DestWorldManager == null)
+                return false;
+            if (target.diff.Entities.Length == 0)
+                return false;
+            return true;
+        }
+
+        [DebuggerDisplay("{name} {entity} Components: {components.Count}")]
+        public struct Components
+        {
+            [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+            public string name;
+            [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+            public Entity entity;
+            [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+            public List<object> components;
+        }
+
+        [DebuggerDisplay("Entities = {entities.Count} GUID = {guid}")]
+        public struct Entities
+        {
+            [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+            public EntityGuid guid;
+            [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+            public List<Components> entities;
+        }
+        
+        unsafe object DebugDestEntities(int begin, int end)
+        {
+            var entitiesForAllGuids = new List<Entities>();
+            for (var i = begin; i < end; ++i)
+            {
+                var entitiesForOneGuid = new List<Components>();
+                if (target.DiffIndexToDestWorldEntities.TryGetFirstValue(i, out var entity, out var it))
+                {
+                    do
+                    {
+#if UNITY_EDITOR                        
+                        var name = target.DestWorldManager.Entities->GetName(entity);
+                        entitiesForOneGuid.Add(new Components{name = name, entity = entity, components = DebugDestEntity(entity)});
+#endif                        
+                    } while (target.DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref it));
+                }
+                entitiesForAllGuids.Add(new Entities{guid=target.diff.Entities[i], entities=entitiesForOneGuid});
+            }
+            return entitiesForAllGuids;                
+        }
+
+        public struct DebugViewStruct
+        {
+            public struct DestEntities
+            {
+                public object New;
+                public object Deleted;
+                public object Changed;
+                public object All;
+            }
+
+            public DestEntities m_DestEntities;
+        }
+
+        public DebugViewStruct DebugView
+        {
+            get
+            {
+                if (!Ready())
+                    return new DebugViewStruct();
+                return new DebugViewStruct
+                {
+                    m_DestEntities =
+                    {
+                        New = DebugDestEntities(0, target.diff.NewEntityCount),
+                        Deleted = DebugDestEntities(target.diff.NewEntityCount, target.diff.NewEntityCount + target.diff.DeletedEntityCount),
+                        Changed =
+                            DebugDestEntities(target.diff.NewEntityCount + target.diff.DeletedEntityCount, target.diff.Entities.Length),
+                        All = DebugDestEntities(0, target.diff.Entities.Length)
+                    }
+                };
+            }
+        }
+    }
+#endif
+    
 }

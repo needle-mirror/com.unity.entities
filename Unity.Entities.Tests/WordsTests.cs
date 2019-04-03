@@ -44,6 +44,15 @@ namespace Unity.Entities.Tests
 	    public virtual void TearDown()
 	    {
 	    }
+
+        [TestCase("This is supposed to be too long to fit into a fixed-length string.", CopyError.Truncation)]
+        [TestCase("This should fit.", CopyError.None)]
+        public void NativeStringCopyFrom(String s, CopyError expectedError)
+        {
+            NativeString64 ns = new NativeString64();
+            var error = ns.CopyFrom(s);
+            Assert.AreEqual(expectedError, error);
+        }
         
         [TestCase("red", 0, 0, ParseError.Syntax)]
         [TestCase("0", 1, 0, ParseError.None)]

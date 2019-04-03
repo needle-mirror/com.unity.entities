@@ -10,40 +10,34 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         class RegularSystem : ComponentSystem
         {
-#pragma warning disable 649
-            struct Entities
-            {
-
-                public readonly int Length;
-                public ComponentDataArray<EcsTestData> tests;
-            }
-
-            [Inject] private Entities entities;
-#pragma warning restore 649
+            public ComponentGroup entities;
             
             protected override void OnUpdate()
             {
                 throw new NotImplementedException();
+            }
+
+            protected override void OnCreateManager()
+            {
+                entities = GetComponentGroup(ComponentType.ReadWrite<EcsTestData>());
             }
         }
 
         [DisableAutoCreation]
-        class SubtractiveSystem : ComponentSystem
+        class ExcludeSystem : ComponentSystem
         {
-#pragma warning disable 649            
-            struct Entities
-            {
-                public readonly int Length;
-                public ComponentDataArray<EcsTestData> tests;
-                public SubtractiveComponent<EcsTestData2> noTest2;
-            }
-
-            [Inject] private Entities entities;
- #pragma warning restore 649
+            public ComponentGroup entities;
             
             protected override void OnUpdate()
             {
                 throw new NotImplementedException();
+            }
+            
+            protected override void OnCreateManager()
+            {
+                entities = GetComponentGroup(
+                    ComponentType.ReadWrite<EcsTestData>(), 
+                    ComponentType.Exclude<EcsTestData2>());
             }
         }
 
@@ -66,7 +60,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void SystemInclusionList_IgnoresSubtractedComponents()
         {
-            World.Active.GetOrCreateManager<SubtractiveSystem>();
+            World.Active.GetOrCreateManager<ExcludeSystem>();
             
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 

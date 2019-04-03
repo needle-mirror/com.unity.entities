@@ -1,11 +1,16 @@
 using System;
+using System.Runtime.CompilerServices;
 using UnityEngine;
+
+// Temporarily needed to upgrade RenderMesh so it adds local to world
+[assembly:InternalsVisibleTo("Unity.Rendering.Hybrid")]
 
 namespace Unity.Entities
 {
     sealed class WrappedComponentDataAttribute : PropertyAttribute
     {
     }
+    
 
     // TODO: This should be fully implemented in C++ for efficiency
     [ExecuteAlways]

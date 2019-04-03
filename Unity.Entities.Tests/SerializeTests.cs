@@ -158,11 +158,21 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(1, chunks[3].GetNativeArray(entityType).Length);
                 chunks.Dispose();
 
-                var new_e1 = group1.GetEntityArray()[0];
-                var new_e2 = group2.GetEntityArray()[0];
-                var new_e3 = group3.GetEntityArray()[0];
-                var new_e4 = group4.GetEntityArray()[0];
+                var entities1 = group1.ToEntityArray(Allocator.TempJob);
+                var entities2 = group2.ToEntityArray(Allocator.TempJob);
+                var entities3 = group3.ToEntityArray(Allocator.TempJob);
+                var entities4 = group4.ToEntityArray(Allocator.TempJob);
 
+                var new_e1 = entities1[0];
+                var new_e2 = entities2[0];
+                var new_e3 = entities3[0];
+                var new_e4 = entities4[0];
+                
+                entities1.Dispose();
+                entities2.Dispose();
+                entities3.Dispose();
+                entities4.Dispose();
+                
                 Assert.AreEqual(1, entityManager.GetComponentData<EcsTestData>(new_e1).value);
                 Assert.AreEqual(-1, entityManager.GetComponentData<EcsTestData2>(new_e1).value0);
                 Assert.AreEqual(-1, entityManager.GetComponentData<EcsTestData2>(new_e1).value1);
@@ -255,7 +265,9 @@ namespace Unity.Entities.Tests
 
                 Assert.AreEqual(1, group1.CalculateLength());
 
-                var new_e1 = group1.GetEntityArray()[0];
+                var entities = group1.ToEntityArray(Allocator.TempJob);
+                var new_e1 = entities[0];
+                entities.Dispose();
 
                 Assert.AreEqual(7, entityManager.GetComponentData<测试>(new_e1).value);
             }
@@ -309,8 +321,14 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(1, group1.CalculateLength());
                 Assert.AreEqual(1, group2.CalculateLength());
 
-                var new_e1 = group1.GetEntityArray()[0];
-                var new_e2 = group2.GetEntityArray()[0];
+                var entities1 = group1.ToEntityArray(Allocator.TempJob);
+                var entities2 = group2.ToEntityArray(Allocator.TempJob);
+
+                var new_e1 = entities1[0];
+                var new_e2 = entities2[0];
+                
+                entities1.Dispose();
+                entities2.Dispose();
 
                 var newBuffer1 = entityManager.GetBuffer<TestBufferElement>(new_e1);
                 Assert.AreEqual(1024, newBuffer1.Length);
@@ -370,8 +388,14 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(1, group1.CalculateLength());
                 Assert.AreEqual(1, group2.CalculateLength());
 
-                var new_e1 = group1.GetEntityArray()[0];
-                var new_e2 = group2.GetEntityArray()[0];
+                var entities1 = group1.ToEntityArray(Allocator.TempJob);
+                var entities2 = group2.ToEntityArray(Allocator.TempJob);
+                
+                var new_e1 = entities1[0];
+                var new_e2 = entities2[0];
+                
+                entities1.Dispose();
+                entities2.Dispose();
 
                 Assert.AreEqual(1, entityManager.GetComponentData<EcsTestData>(new_e1).value);
                 Assert.AreEqual(42, entityManager.GetChunkComponentData<EcsTestData3>(new_e1).value0);
@@ -384,6 +408,49 @@ namespace Unity.Entities.Tests
                 deserializedWorld.Dispose();
                 reader.Dispose();
             }
+        }
+
+        [Test]
+        public void SerializeDoesntRemapOriginalHeapBuffers()
+        {
+            var dummyEntity = CreateEntityWithDefaultData(0); //To ensure entity indices are offset
+
+            var e1 = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(e1, new EcsTestData(1));
+            var e2 = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(e2, new EcsTestData2(2));
+
+            m_Manager.AddBuffer<TestBufferElement>(e1);
+            var buffer1 = m_Manager.GetBuffer<TestBufferElement>(e1);
+            for(int i=0;i<1024;++i)
+                buffer1.Add(new TestBufferElement {entity = e2, value = 2});
+
+            m_Manager.AddBuffer<TestBufferElement>(e2);
+            var buffer2 = m_Manager.GetBuffer<TestBufferElement>(e2);
+            for(int i=0;i<8;++i)
+                buffer2.Add(new TestBufferElement {entity = e1, value = 1});
+
+            m_Manager.DestroyEntity(dummyEntity);
+            var writer = new TestBinaryWriter();
+
+            int[] sharedData;
+            SerializeUtility.SerializeWorld(m_Manager, writer, out sharedData);
+
+            buffer1 = m_Manager.GetBuffer<TestBufferElement>(e1);
+            for (int i = 0; i < buffer1.Length; ++i)
+            {
+                Assert.AreEqual(e2, buffer1[i].entity);
+                Assert.AreEqual(2, buffer1[i].value);
+            }
+            
+            buffer2 = m_Manager.GetBuffer<TestBufferElement>(e2);
+            for (int i = 0; i < buffer2.Length; ++i)
+            {
+                Assert.AreEqual(e1, buffer2[i].entity);
+                Assert.AreEqual(1, buffer2[i].value);
+            }
+            
+            writer.Dispose();
         }
     }
 }

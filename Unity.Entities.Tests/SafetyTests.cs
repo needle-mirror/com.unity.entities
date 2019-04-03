@@ -20,6 +20,7 @@ namespace Unity.Entities.Tests
 			Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
 		}
 
+#pragma warning disable 618
 		[Test]
 	    public void ComponentArrayChunkSliceOutOfBoundsThrowsException()
 	    {
@@ -84,6 +85,8 @@ namespace Unity.Entities.Tests
 
             Assert.Throws<InvalidOperationException>(() => { var value = arr[0]; });
         }
+        
+        #pragma warning restore 618
 
         [Test]
         public void GetSetComponentThrowsIfNotExist()
@@ -134,27 +137,33 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddRemoveComponentOnDestroyedEntityThrows()
+        public void AddComponentOnDestroyedEntityThrows()
         {
             var destroyedEntity = m_Manager.CreateEntity();
             m_Manager.DestroyEntity(destroyedEntity);
-
             Assert.Throws<System.ArgumentException>(() => { m_Manager.AddComponentData(destroyedEntity, new EcsTestData(1)); });
-            Assert.Throws<System.ArgumentException>(() => { m_Manager.RemoveComponent<EcsTestData>(destroyedEntity); });
+        }
+
+	    [Test]
+	    public void RemoveComponentOnDestroyedEntityIsIgnored()
+	    {
+	        var destroyedEntity = m_Manager.CreateEntity(typeof(EcsTestData));
+	        m_Manager.DestroyEntity(destroyedEntity);
+	        m_Manager.RemoveComponent<EcsTestData>(destroyedEntity);
+	    }
+	    
+        [Test]
+        public void RemoveComponentOnEntityIsIgnored()
+        {
+            var entity = m_Manager.CreateEntity();
+            m_Manager.RemoveComponent<EcsTestData>(entity);
         }
 
         [Test]
-        public void RemoveComponentOnEntityWithoutComponentThrows()
+        public void RemoveChunkComponentOnEntityWithoutChunkComponentIsIgnored()
         {
             var entity = m_Manager.CreateEntity();
-            Assert.Throws<System.ArgumentException>(() => { m_Manager.RemoveComponent<EcsTestData>(entity); });
-        }
-
-        [Test]
-        public void RemoveChunkComponentOnEntityWithoutChunkComponentTrows()
-        {
-            var entity = m_Manager.CreateEntity();
-            Assert.Throws<System.ArgumentException>(() => { m_Manager.RemoveChunkComponent<EcsTestData>(entity); });
+            m_Manager.RemoveChunkComponent<EcsTestData>(entity);
         }
 
         [Test]

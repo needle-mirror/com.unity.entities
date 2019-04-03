@@ -19,9 +19,9 @@ namespace Unity.Entities.Editor
             {
                 var query = new EntityArchetypeQuery()
                 {
-                    All = group.GetQueryTypes().Where(x => x.AccessModeType != ComponentType.AccessMode.Subtractive).ToArray(),
+                    All = group.GetQueryTypes().Where(x => x.AccessModeType != ComponentType.AccessMode.Exclude).ToArray(),
                     Any = new ComponentType[0],
-                    None = group.GetQueryTypes().Where(x => x.AccessModeType == ComponentType.AccessMode.Subtractive).ToArray()
+                    None = group.GetQueryTypes().Where(x => x.AccessModeType == ComponentType.AccessMode.Exclude).ToArray()
                 };
                 queriesByGroup.Add(group, query);
             }

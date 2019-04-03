@@ -1,15 +1,17 @@
 //#define LOG_DIFF_ALL
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Unity.Assertions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
 using Unity.Profiling;
 
 namespace Unity.Entities
-{
+{    
     public static class HashMapUtility
     {
         public static bool TryRemove<K, V>(this NativeMultiHashMap<K, V> h, K k, V v) where K : struct, IEquatable<K> where V : struct, IEquatable<V>
@@ -113,37 +115,7 @@ namespace Unity.Entities
     }
 
     public static class DiffUtil
-    {
-        static unsafe void CreateEntityToGuidLookup(Chunk* c, NativeHashMap<EntityGuid, Entity> lookup)
-        {
-            var arch = c->Archetype;
-            Entity* entities = (Entity*) (c->Buffer + arch->Offsets[0]);
-
-            // Find EntityGuid type index
-            int guidIndex = ChunkDataUtility.GetIndexInTypeArray(arch, TypeManager.GetTypeIndex<EntityGuid>());
-            Assert.IsTrue(guidIndex > 0);
-            EntityGuid* guids = (EntityGuid*) (c->Buffer + arch->Offsets[guidIndex]);
-
-            for (int i = 0; i < c->Count; ++i)
-            {
-                lookup.TryAdd(guids[i], entities[i]);
-            }
-        }
-        public unsafe static NativeHashMap<EntityGuid, Entity> GenerateEntityGuidToEntityHashMap(World source)
-        {
-            var allEntities = new NativeHashMap<EntityGuid, Entity>(4096, Allocator.TempJob);
-            var smgr = source.GetOrCreateManager<EntityManager>();
-            var schunks = GetAllChunks(smgr);
-
-            for (int i = 0; i < schunks.Length; ++i)
-            {
-                Chunk* sourceChunk = schunks[i].m_Chunk;
-                CreateEntityToGuidLookup(sourceChunk, allEntities);
-            }
-            schunks.Dispose();
-            return allEntities;
-        }
-
+    {        
         public static ComponentGroup CreateAllChunksGroup(EntityManager manager)
         {
             var guidQuery = new[]
@@ -184,6 +156,7 @@ namespace Unity.Entities
     {
         public NativeArray<ulong> TypeHashes;
         public NativeArray<EntityGuid> Entities;
+        public NativeArray<NativeString64> EntityNames;
         public NativeArray<byte> ComponentPayload;
 
         // As consecutive counts in Entities
@@ -203,6 +176,7 @@ namespace Unity.Entities
         {
             TypeHashes.Dispose();
             Entities.Dispose();
+            EntityNames.Dispose();
             ComponentPayload.Dispose();
             AddComponents.Dispose();
             RemoveComponents.Dispose();
@@ -292,6 +266,7 @@ namespace Unity.Entities
             var afterState = new NativeHashMap<EntityGuid, DiffEntityData>(4096, Allocator.TempJob);
 
             var SrcWorldEntityToGuid = new NativeHashMap<Entity, EntityGuid>(4096, Allocator.TempJob);
+            var SrcWorldGuidToEntity = new NativeHashMap<EntityGuid, Entity>(4096, Allocator.TempJob);
 
             for (int i = 0; i < schunks.Length; ++i)
             {
@@ -302,6 +277,7 @@ namespace Unity.Entities
                 UnityEngine.Assertions.Assert.IsTrue(b);
 
                 CreateEntityToGuidLookup(sourceChunk, SrcWorldEntityToGuid);
+                CreateGuidToEntityLookup(sourceChunk, SrcWorldGuidToEntity);
 
                 if (destChunk == null)
                 {
@@ -339,6 +315,7 @@ namespace Unity.Entities
             var typeHashLookup = new NativeHashMap<int, int>(1, Allocator.TempJob);
 
             var entityList = new NativeList<EntityGuid>(1, Allocator.TempJob);
+            var entityNameList = new NativeList<NativeString64>(1, Allocator.TempJob);
             var entityLookup = new NativeHashMap<EntityGuid, int>(1, Allocator.TempJob);
 
             var removeComponents = new NativeList<ComponentDiff>(1, Allocator.TempJob);
@@ -363,10 +340,22 @@ namespace Unity.Entities
                 // Add removed entities to back of entity list
                 entityList.AddRange(removedEntities);
 
+                for (var i = 0; i < entityList.Length; ++i)
+                {
+                    SrcWorldGuidToEntity.TryGetValue(entityList[i], out var entity);
+                    var truncatedName = new NativeString64();
+#if UNITY_EDITOR
+                    var untruncatedName = smgr.GetName(entity);
+                    truncatedName.CopyFrom(untruncatedName);
+#endif
+                    entityNameList.Add(truncatedName);
+                }
+
                 // Build output data
                 WorldDiff result;
                 result.TypeHashes = typeHashes.ToArray(resultAllocator);
                 result.Entities = entityList.ToArray(resultAllocator);
+                result.EntityNames = entityNameList.ToArray(resultAllocator);
                 result.NewEntityCount = createdEntities.Length;
                 result.DeletedEntityCount = removedEntities.Length;
                 result.AddComponents = addComponents.ToArray(resultAllocator);
@@ -392,8 +381,10 @@ namespace Unity.Entities
                 }
 
                 entityPatches.Dispose();
+                SrcWorldGuidToEntity.Dispose();
                 SrcWorldEntityToGuid.Dispose();
                 entityLookup.Dispose();
+                entityNameList.Dispose();
                 entityList.Dispose();
                 byteDiffs.Dispose();
                 dataDiffs.Dispose();
@@ -960,6 +951,33 @@ namespace Unity.Entities
             }
         }
 
+        static void CreateGuidToEntityLookup(Chunk* c, NativeHashMap<EntityGuid, Entity> lookup)
+        {
+            var arch = c->Archetype;
+            Entity* entities = (Entity*) (c->Buffer + arch->Offsets[0]);
+
+            // Find EntityGuid type index
+            int guidTypeIndex = TypeManager.GetTypeIndex<EntityGuid>();
+            int guidIndex = 0;
+
+            for (int i = 1; i < arch->TypesCount; ++i)
+            {
+                if (arch->Types[i].TypeIndex == guidTypeIndex)
+                {
+                    guidIndex = i;
+                    break;
+                }
+            }
+
+            Assert.IsTrue(guidIndex > 0);
+            EntityGuid* guids = (EntityGuid*) (c->Buffer + arch->Offsets[guidIndex]);
+
+            for (int i = 0; i < c->Count; ++i)
+            {
+                lookup.TryAdd(guids[i], entities[i]);
+            }
+        }
+
         static void AddChunkEntitiesToState(Chunk* c, NativeHashMap<EntityGuid, DiffEntityData> state)
         {
             var arch = c->Archetype;
@@ -1024,6 +1042,23 @@ namespace Unity.Entities
             }
         }
 
+        [BurstCompile]
+        struct BuildDestWorldPrefabLookups : IJobChunk
+        {
+            public NativeHashMap<EntityGuid, Entity>.Concurrent GuidToDestWorldPrefabEntity;
+
+            [ReadOnly] public ArchetypeChunkComponentType<EntityGuid> EntityGUID;
+            [ReadOnly] public ArchetypeChunkEntityType                Entity;
+
+            public void Execute(ArchetypeChunk chunk, int entityIndex, int chunkIndex)
+            {
+                var guids = chunk.GetNativeArray(EntityGUID);
+                var entities = chunk.GetNativeArray(Entity);
+                for (int i = 0; i != entities.Length; i++)
+                    GuidToDestWorldPrefabEntity.TryAdd(guids[i], entities[i]);
+            }            
+        }
+
         struct BuildEntityToRootEntityLookup : IJobChunk
         {
             public NativeHashMap<Entity,Entity>.Concurrent EntityToRootEntity;
@@ -1041,34 +1076,53 @@ namespace Unity.Entities
             }
         }
 
-        struct DiffApplier : IDisposable
+#if !UNITY_ZEROPLAYER
+        [DebuggerTypeProxy(typeof(DiffApplierDebugView))]
+#endif
+        internal struct DiffApplier : IDisposable
         {
+            static ProfilerMarker s_AllocateLookups = new ProfilerMarker("DiffApplier.AllocateLookups");
+            static ProfilerMarker s_BuildDestWorldLookups = new ProfilerMarker("DiffApplier.BuildDestWorldLookups");                
+            static ProfilerMarker s_BuildDiffToDestWorldLookups = new ProfilerMarker("DiffApplier.BuildDiffToDestWorldLookups");               
+            static ProfilerMarker s_CreateEntities = new ProfilerMarker("DiffApplier.CreateEntities");
+            static ProfilerMarker s_DestroyEntities = new ProfilerMarker("DiffApplier.DestroyEntities");
+            static ProfilerMarker s_AddComponents = new ProfilerMarker("DiffApplier.AddComponents");
+            static ProfilerMarker s_RemoveComponents = new ProfilerMarker("DiffApplier.RemoveComponents");
+            static ProfilerMarker s_SetSharedComponents = new ProfilerMarker("DiffApplier.SetSharedComponents");
+            static ProfilerMarker s_SetComponents = new ProfilerMarker("DiffApplier.SetComponents");
+            static ProfilerMarker s_ApplyLinkedEntityGroupAdds = new ProfilerMarker("DiffApplier.ApplyLinkedEntityGroupAdds");
+            static ProfilerMarker s_ApplyLinkedEntityGroupRemoves = new ProfilerMarker("DiffApplier.ApplyLinkedEntityGroupRemoves");
+            static ProfilerMarker s_PatchEntities = new ProfilerMarker("DiffApplier.PatchEntities");
+                        
             // World to which we apply the diff
-            World destWorld;
+            internal World destWorld;
 
             // Diff which we apply to World dest
-            WorldDiff diff;
+            internal WorldDiff diff;
 
             // EntityManager for the dest World
-            EntityManager DestWorldManager;
+            internal EntityManager DestWorldManager;
 
             // For each diff entity index, which entities in the dest world have the same guid?
-            NativeMultiHashMap<int, Entity> DiffIndexToDestWorldEntities;
+            internal NativeMultiHashMap<int, Entity> DiffIndexToDestWorldEntities;
 
             // For each diff type index, which dest world component type corresponds to it?
-            NativeArray<ComponentType> DiffIndexToDestWorldTypes;
+            internal NativeArray<ComponentType> DiffIndexToDestWorldTypes;
 
             // For each dest world entity that has a guid, which guid does it have?
-            NativeHashMap<Entity, EntityGuid> DestWorldEntityToGuid;
+            internal NativeHashMap<Entity, EntityGuid> DestWorldEntityToGuid;
 
             // For each guid in the dest world, which entities have that guid (there may be many!)?
-            NativeMultiHashMap<EntityGuid, Entity> GuidToDestWorldEntity;
+            internal NativeMultiHashMap<EntityGuid, Entity> GuidToDestWorldEntity;
 
             // For each dest world entity, what is its root entity?
-            NativeHashMap<Entity, Entity> DestWorldEntityToRootEntity;
+            internal NativeHashMap<Entity, Entity> DestWorldEntityToRootEntity;
 
-            int DestWorldEntitiesWithGuids;
-            int DestWorldEntitiesWithLinkedEntityGroups;
+            // For a given GUID, what is the Prefab in the dest world, if any, that corresponds to it?
+            internal NativeHashMap<EntityGuid, Entity> GuidToDestWorldPrefabEntity;
+
+            internal int DestWorldEntitiesWithGuids;
+            internal int DestWorldEntitiesWithLinkedEntityGroups;
 
             public void Dispose()
             {
@@ -1077,6 +1131,7 @@ namespace Unity.Entities
                 GuidToDestWorldEntity.Dispose();
                 DestWorldEntityToGuid.Dispose();
                 DestWorldEntityToRootEntity.Dispose();
+                GuidToDestWorldPrefabEntity.Dispose();
             }
 
             public DiffApplier(World dest_, WorldDiff diff_)
@@ -1089,6 +1144,7 @@ namespace Unity.Entities
                 DiffIndexToDestWorldTypes = default;
                 DestWorldEntityToGuid = default;
                 GuidToDestWorldEntity = default;
+                GuidToDestWorldPrefabEntity = default;
                 DestWorldEntityToRootEntity = default;
                 DestWorldEntitiesWithGuids = 0;
                 DestWorldEntitiesWithLinkedEntityGroups = 0;
@@ -1100,6 +1156,7 @@ namespace Unity.Entities
                 BuildDestWorldLookups();
                 BuildDiffToDestWorldLookups();
                 CreateEntities();
+                SetDebugNames();
                 DestroyEntities();
                 AddComponents();
                 RemoveComponents();
@@ -1113,13 +1170,17 @@ namespace Unity.Entities
 
             void AllocateLookups()
             {
+                s_AllocateLookups.Begin();
                 var factor = 4;
                 DiffIndexToDestWorldEntities = new NativeMultiHashMap<int, Entity>(DestWorldEntitiesWithGuids * factor, Allocator.TempJob);
                 DiffIndexToDestWorldTypes = new NativeArray<ComponentType>(diff.TypeHashes.Length, Allocator.TempJob);
 
                 DestWorldEntityToGuid = new NativeHashMap<Entity, EntityGuid>(DestWorldEntitiesWithGuids * factor, Allocator.TempJob);
                 GuidToDestWorldEntity = new NativeMultiHashMap<EntityGuid, Entity>(DestWorldEntitiesWithGuids * factor, Allocator.TempJob);
+
+                GuidToDestWorldPrefabEntity = new NativeHashMap<EntityGuid, Entity>(DestWorldEntitiesWithGuids * factor, Allocator.TempJob);
                 DestWorldEntityToRootEntity = new NativeHashMap<Entity, Entity>(DestWorldEntitiesWithLinkedEntityGroups * factor, Allocator.TempJob);
+                s_AllocateLookups.End();
             }
 
             // we need O(1) lookup for entity->guid and guid->entity in the dest world,
@@ -1128,6 +1189,7 @@ namespace Unity.Entities
             // number of entities in the dest world that have guids.
             void BuildDestWorldLookups()
             {
+                s_BuildDestWorldLookups.Begin();
                 // wow, this is confusing. to get all chunks with guids, we can't just ask for guids.
                 // we need to ask for guids, guids and disabled, guids and prefab, and guids/prefab/disabled.
                 var guidQuery = new[]
@@ -1170,14 +1232,28 @@ namespace Unity.Entities
                         All = new ComponentType[] {typeof(LinkedEntityGroup), typeof(Prefab), typeof(Disabled)}
                     }
                 };
+                // this is for finding entities that have GUIDs, and which are Prefabs.
+                var guidPrefabQuery = new[]
+                {
+                    new EntityArchetypeQuery
+                    {
+                        All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab)}
+                    },
+                    new EntityArchetypeQuery
+                    {
+                        All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab), typeof(Disabled)}
+                    }
+                };
                 using(ComponentGroup DestChunksWithGuids = DestWorldManager.CreateComponentGroup(guidQuery))
                 using (ComponentGroup DestChunksWithLinkedEntityGroups = DestWorldManager.CreateComponentGroup(linkedEntityGroupQuery))
+                using(ComponentGroup DestchunksWithGuidAndPrefab = DestWorldManager.CreateComponentGroup(guidPrefabQuery))
                 {
                     DestWorldEntitiesWithGuids = DestChunksWithGuids.CalculateLength();
                     DestWorldEntitiesWithLinkedEntityGroups = DestChunksWithLinkedEntityGroups.CalculateLength();
 
                     DestWorldEntityToGuid.Dispose();
                     GuidToDestWorldEntity.Dispose();
+                    GuidToDestWorldPrefabEntity.Dispose();
                     DestWorldEntityToRootEntity.Dispose();
                     var factor = 4;
                     DestWorldEntityToGuid =
@@ -1185,6 +1261,7 @@ namespace Unity.Entities
                     GuidToDestWorldEntity =
                         new NativeMultiHashMap<EntityGuid, Entity>(DestWorldEntitiesWithGuids * factor,
                             Allocator.TempJob);
+                    GuidToDestWorldPrefabEntity = new NativeHashMap<EntityGuid, Entity>(DestWorldEntitiesWithGuids * factor, Allocator.TempJob);
                     DestWorldEntityToRootEntity =
                         new NativeHashMap<Entity, Entity>(DestWorldEntitiesWithLinkedEntityGroups * factor,
                             Allocator.TempJob);
@@ -1196,6 +1273,14 @@ namespace Unity.Entities
                         EntityGUID = DestWorldManager.GetArchetypeChunkComponentType<EntityGuid>(true)
                     };
                     var handle = buildDestWorldGuidLookups.Schedule(DestChunksWithGuids);
+                    handle.Complete();
+                    var buildDestWorldGuidPrefabLookups = new BuildDestWorldPrefabLookups
+                    {
+                        GuidToDestWorldPrefabEntity = GuidToDestWorldPrefabEntity.ToConcurrent(),
+                        Entity = DestWorldManager.GetArchetypeChunkEntityType(),
+                        EntityGUID = DestWorldManager.GetArchetypeChunkComponentType<EntityGuid>(true)                        
+                    };
+                    handle = buildDestWorldGuidPrefabLookups.Schedule(DestchunksWithGuidAndPrefab);
                     handle.Complete();
                     var buildEntityToRootEntityLookup = new BuildEntityToRootEntityLookup
                     {
@@ -1217,6 +1302,7 @@ namespace Unity.Entities
                         } while (GuidToDestWorldEntity.TryGetNextValue(out destWorldEntity, ref iterator));
                     }
                 }
+                s_BuildDestWorldLookups.End();
             }
 
             // here we build lookups to go from diff index, to dest world thing.
@@ -1224,6 +1310,7 @@ namespace Unity.Entities
             // and then a lookup to go from diff type index to dest world componenttype.
             void BuildDiffToDestWorldLookups()
             {
+                s_BuildDiffToDestWorldLookups.Begin();
                 for (var i = 0; i < diff.TypeHashes.Length; ++i)
                 {
                     var memoryOrdering = diff.TypeHashes[i];
@@ -1231,10 +1318,12 @@ namespace Unity.Entities
                     var type = TypeManager.GetType(typeIndex);
                     DiffIndexToDestWorldTypes[i] = new ComponentType(type);
                 }
+                s_BuildDiffToDestWorldLookups.End();
             }
 
             void CreateEntities()
             {
+                s_CreateEntities.Begin();
                 var EntityGuidArchetype = DestWorldManager.CreateArchetype();
                 using (var NewEntities = new NativeArray<Entity>(diff.NewEntityCount, Allocator.Temp))
                 {
@@ -1247,10 +1336,28 @@ namespace Unity.Entities
 #endif
                     }
                 }
+                s_CreateEntities.End();
             }
 
+            void SetDebugNames()
+            {
+                for (var i = 0; i < diff.Entities.Length; ++i)
+                {
+                    if (DiffIndexToDestWorldEntities.TryGetFirstValue(i, out var entity, out var it))
+                    {
+                        do
+                        {
+#if UNITY_EDITOR                
+                            DestWorldManager.SetName(entity, diff.EntityNames[i].ToString());
+#endif
+                        } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref it));
+                    }
+                }
+            }
+            
             void DestroyEntities()
             {
+                s_DestroyEntities.Begin();
                 for (var i = 0; i < diff.DeletedEntityCount; ++i)
                 {
                     if (DiffIndexToDestWorldEntities.TryGetFirstValue(diff.NewEntityCount + i, out var entity, out var iterator))
@@ -1271,11 +1378,14 @@ namespace Unity.Entities
                         } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref iterator));
                     }
                 }
+                s_DestroyEntities.End();
             }
 
             void AddComponents()
             {
-                var linkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
+                s_AddComponents.Begin();
+                var linkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>(); 
+
                 foreach (var addition in diff.AddComponents)
                 {
                     var componentType = DiffIndexToDestWorldTypes[addition.TypeHashIndex];
@@ -1303,10 +1413,12 @@ namespace Unity.Entities
                         } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref iterator));
                     }
                 }
+                s_AddComponents.End();
             }
 
             void RemoveComponents()
             {
+                s_RemoveComponents.Begin();
                 foreach (var removal in diff.RemoveComponents)
                 {
                     var componentType = DiffIndexToDestWorldTypes[removal.TypeHashIndex];
@@ -1321,10 +1433,12 @@ namespace Unity.Entities
                         } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref iterator));
                     }
                 }
+                s_RemoveComponents.End();
             }
 
             void SetSharedComponents()
             {
+                s_SetSharedComponents.Begin();
                 foreach (var shared in diff.SharedSetCommands)
                 {
                     var componentType = DiffIndexToDestWorldTypes[shared.TypeHashIndex];
@@ -1347,10 +1461,12 @@ namespace Unity.Entities
                         } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref iterator));
                     }
                 }
+                s_SetSharedComponents.End();
             }
 
             void SetComponents()
             {
+                s_SetComponents.Begin();
                 long readOffset = 0;
                 foreach (var setting in diff.SetCommands)
                 {
@@ -1389,10 +1505,12 @@ namespace Unity.Entities
                     }
                     readOffset += size;
                 }
+                s_SetComponents.End();
             }
 
             void PatchEntities()
             {
+                s_PatchEntities.Begin();
                 foreach (var patch in diff.EntityPatches)
                 {
                     var typeOfComponentToPatch = DiffIndexToDestWorldTypes[patch.TypeHashIndex];
@@ -1405,8 +1523,12 @@ namespace Unity.Entities
                     else
                     {
                         var guidToPatchToExistsInDestWorld = GuidToDestWorldEntity.TryGetFirstValue(guidToPatchTo, out entityToPatchTo, out var patchSourceIterator);
-                        if(!guidToPatchToExistsInDestWorld)
-                            Debug.LogWarning($"PatchEntities<{typeOfComponentToPatch}>({diff.Entities[patch.EntityIndex]}) but entity with guid-to-patch-to does not exist.");
+                        if (!guidToPatchToExistsInDestWorld)
+                        {
+                            Debug.LogWarning(
+                                $"PatchEntities<{typeOfComponentToPatch}>({diff.Entities[patch.EntityIndex]}) but entity with guid-to-patch-to does not exist.");
+                            continue;
+                        }
                         multipleEntitiesWithGuidToPatchToExistInDest = GuidToDestWorldEntity.TryGetNextValue(out _, ref patchSourceIterator);
                     }
                     if (DiffIndexToDestWorldEntities.TryGetFirstValue(patch.EntityIndex, out var entityWhereComponentToPatchIs, out var patchDestinationIterator))
@@ -1428,8 +1550,12 @@ namespace Unity.Entities
                                 if (multipleEntitiesWithGuidToPatchToExistInDest)
                                 {
                                     var entityWhereComponentToPatchIsHasARoot = DestWorldEntityToRootEntity.TryGetValue(entityWhereComponentToPatchIs, out var rootOfEntityWhereComponentToPatchIs);
-                                    if(!entityWhereComponentToPatchIsHasARoot)
-                                        Debug.LogWarning($"PatchEntities<{typeOfComponentToPatch}>({diff.Entities[patch.EntityIndex]}) but 2+ entities for GUID of entity-to-patch-to, and no root for entity-to-patch is, so we can't disambiguate.");
+                                    if (!entityWhereComponentToPatchIsHasARoot)
+                                    {
+                                        Debug.LogWarning(
+                                            $"PatchEntities<{typeOfComponentToPatch}>({diff.Entities[patch.EntityIndex]}) but 2+ entities for GUID of entity-to-patch-to, and no root for entity-to-patch is, so we can't disambiguate.");
+                                        continue;
+                                    }
                                     var groupOfRootOfEntityWhereComponentToPatchIs = DestWorldManager.GetBuffer<LinkedEntityGroup>(rootOfEntityWhereComponentToPatchIs);
                                     for (var g = 0; g < groupOfRootOfEntityWhereComponentToPatchIs.Length; ++g)
                                         if(DestWorldEntityToGuid.TryGetValue(groupOfRootOfEntityWhereComponentToPatchIs[g].Value, out var guidOfEntityInRootGroup))
@@ -1456,6 +1582,7 @@ namespace Unity.Entities
                         } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entityWhereComponentToPatchIs, ref patchDestinationIterator));
                     }
                 }
+                s_PatchEntities.End();
             }
 
             struct Child
@@ -1499,43 +1626,51 @@ namespace Unity.Entities
 
             void ApplyLinkedEntityGroupAdds()
             {
+                s_ApplyLinkedEntityGroupAdds.Begin();
                 using (var prefabChildren = new NativeList<Child>(Allocator.TempJob))
                 using (var instanceChildren = new NativeList<Child>(Allocator.TempJob))
                 {
                     for (var a = 0; a < diff.LinkedEntityGroupAdditions.Length; ++a)
                     {
                         var add = diff.LinkedEntityGroupAdditions[a];
-                        if (GuidToDestWorldEntity.TryGetFirstValue(add.ChildGuid, out var entityToInstantiate,
-                            out var childIterator))
+                        // If we are asked to add a child to a linked entity group, then that child's guid must correspond to
+                        // exactly one entity in the destination world that also has a Prefab component. Since we made a lookup
+                        // from GUID to Prefab entity before, we can use it to find the specific entity we want.
+                        if (GuidToDestWorldPrefabEntity.TryGetValue(add.ChildGuid, out var prefabEntityToInstantiate))
                         {
-                            var multipleInstancesOfGuidAlreadyExistInDest =
-                                GuidToDestWorldEntity.TryGetNextValue(out _, ref childIterator);
-                            // if we're going to instantiate an entity, we need to instantiate a specific entity, and the only information we have
-                            // is the GUID of the entity to instantiate. if multiple entities already exist with this GUID, we have no way to know
-                            // which one to instantiate, and this is a fatal error condition.
-                            Assert.IsFalse(multipleInstancesOfGuidAlreadyExistInDest);
                             if (GuidToDestWorldEntity.TryGetFirstValue(add.RootGuid, out var rootEntity,
                                 out var iterator))
                             {
                                 do
                                 {
-                                    if (rootEntity == entityToInstantiate)
+                                    if (rootEntity == prefabEntityToInstantiate)
+                                    {
                                         Debug.LogWarning($"Trying to instantiate self as child???");
+                                        continue;
+                                    }
                                     if (DestWorldManager.HasComponent<Prefab>(rootEntity))
                                     {
-                                        prefabChildren.Add(new Child{childEntity = entityToInstantiate, rootEntity = rootEntity, childGuid = add.ChildGuid, rootGuid = add.RootGuid});
+                                        prefabChildren.Add(new Child{childEntity = prefabEntityToInstantiate, rootEntity = rootEntity, childGuid = add.ChildGuid, rootGuid = add.RootGuid});
                                         var group = DestWorldManager.GetBuffer<LinkedEntityGroup>(rootEntity);
-                                        group.Add(entityToInstantiate);
+                                        group.Add(prefabEntityToInstantiate);
                                     }
                                     else
                                     {
-                                        var instantiatedEntity = DestWorldManager.Instantiate(entityToInstantiate);
+                                        var instantiatedEntity = DestWorldManager.Instantiate(prefabEntityToInstantiate);
                                         instanceChildren.Add(new Child{childEntity = instantiatedEntity, rootEntity = rootEntity, childGuid = add.ChildGuid, rootGuid = add.RootGuid});
                                         var group = DestWorldManager.GetBuffer<LinkedEntityGroup>(rootEntity);
                                         group.Add(instantiatedEntity);
                                     }
                                 } while (GuidToDestWorldEntity.TryGetNextValue(out rootEntity, ref iterator));
                             }
+                            else
+                            {
+                                Debug.LogWarning($"Tried to add a child to a linked entity group, but root entity didn't exist in destination world.");                                                           
+                            }
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"Tried to add a child to a linked entity group, but no such prefab exists in destination world.");                           
                         }
                     }
                     for (var a = 0; a < instanceChildren.Length; ++a)
@@ -1543,10 +1678,12 @@ namespace Unity.Entities
                     for (var a = 0; a < prefabChildren.Length; ++a)
                         AddPrefabChildToTables(prefabChildren[a]);
                 }
+                s_ApplyLinkedEntityGroupAdds.End();
             }
 
             void ApplyLinkedEntityGroupRemoves()
             {
+                s_ApplyLinkedEntityGroupRemoves.Begin();
                 using (var pending = new NativeList<Child>(Allocator.TempJob))
                 {
                     for (var r = 0; r < diff.LinkedEntityGroupRemovals.Length; ++r)
@@ -1579,6 +1716,7 @@ namespace Unity.Entities
                     for (var a = 0; a < pending.Length; ++a)
                         RemoveChildFromTables(pending[a]);
                 }
+                s_ApplyLinkedEntityGroupRemoves.End();                
             }
         }
 

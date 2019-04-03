@@ -1,4 +1,5 @@
 ﻿using System;
+using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
@@ -7,6 +8,20 @@ using UnityEngine.Profiling;
 
 namespace Unity.Entities
 {
+
+    /// <summary>
+    /// The ComponentJobSafetyManager maintains a safety handle for each component type registered in the TypeManager.
+    /// It also maintains JobHandles for each type with any jobs that read or write those component types.
+    /// Safety and job handles are only maintained for components that can be modified by jobs:
+    /// That means only dynamic buffer components and component data that are not tag components will have valid
+    /// safety and job handles. For those components the safety handle represents ReadOnly or ReadWrite access to those
+    /// components as well as their change versions.
+    /// The Entity type is a special case: It can not be modified by jobs and its safety handle is used to represent the
+    /// entire EntityManager state. Any job reading from any part of the EntityManager must contain either a safety handle
+    /// for the Entity type OR a safety handle for any other component type.
+    /// Job component systems that have no other type dependencies have their JobHandles registered on the Entity type
+    /// to ensure that they are completed by CompleteAllJobsAndInvalidateArrays
+    /// </summary>
     internal unsafe class ComponentJobSafetyManager
     {
         private const int kMaxReadJobHandles = 17;
@@ -22,13 +37,14 @@ namespace Unity.Entities
 
         private JobHandle* m_ReadJobFences;
 
+        private const int EntityTypeIndex = 1;
+
+
         public ComponentJobSafetyManager()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_TempSafety = AtomicSafetyHandle.Create();
 #endif
-
-
             m_ReadJobFences = (JobHandle*) UnsafeUtility.Malloc(sizeof(JobHandle) * kMaxReadJobHandles * kMaxTypes, 16,
                 Allocator.Persistent);
             UnsafeUtility.MemClear(m_ReadJobFences, sizeof(JobHandle) * kMaxReadJobHandles * kMaxTypes);
@@ -188,7 +204,7 @@ namespace Unity.Entities
 #endif
         }
 
-            public bool HasReaderOrWriterDependency(int type, JobHandle dependency)
+        public bool HasReaderOrWriterDependency(int type, JobHandle dependency)
         {
             var typeWithoutFlags = type & TypeManager.ClearFlagsMask;
             var writer = m_ComponentSafetyHandles[typeWithoutFlags].WriteFence;
@@ -239,6 +255,26 @@ namespace Unity.Entities
             JobHandle* combinedDependencies = null;
             var combinedDependenciesCount = 0;
 #endif
+            m_HasCleanHandles = false;
+
+            if (readerTypesCount == 0 && writerTypesCount == 0)
+            {
+                // if no dependency types are provided add read dependency to the Entity type
+                // to ensure these jobs are still synced by CompleteAllJobsAndInvalidateArrays
+                m_ReadJobFences[EntityTypeIndex * kMaxReadJobHandles +
+                    m_ComponentSafetyHandles[EntityTypeIndex].NumReadFences] = dependency;
+                m_ComponentSafetyHandles[EntityTypeIndex].NumReadFences++;
+
+                if (m_ComponentSafetyHandles[EntityTypeIndex].NumReadFences == kMaxReadJobHandles)
+                {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    return CombineReadDependencies(EntityTypeIndex);
+#else
+                    CombineReadDependencies(EntityTypeIndex);
+#endif
+                }
+                return dependency;
+            }
 
             for (var i = 0; i != writerTypesCount; i++)
             {
@@ -267,12 +303,9 @@ namespace Unity.Entities
                     combinedDependencies[combinedDependenciesCount++] = combined;
 #else
                     CombineReadDependencies(reader);
-                    #endif
+#endif
                 }
             }
-
-            if (readerTypesCount != 0 || writerTypesCount != 0)
-                m_HasCleanHandles = false;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (combinedDependencies != null)
@@ -301,6 +334,10 @@ namespace Unity.Entities
 
         public void CompleteWriteDependency(int type)
         {
+            //TODO: avoid call and turn into assert
+            if (TypeManager.IsZeroSized(type))
+                return;
+
             CompleteWriteDependencyNoChecks(type);
             
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -313,6 +350,10 @@ namespace Unity.Entities
 
         public void CompleteReadAndWriteDependency(int type)
         {
+            //TODO: avoid call and turn into assert
+            if (TypeManager.IsZeroSized(type))
+                return;
+
             CompleteReadAndWriteDependencyNoChecks(type);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -324,10 +365,24 @@ namespace Unity.Entities
         
         
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        
+
+        public AtomicSafetyHandle GetEntityManagerSafetyHandle()
+        {
+            m_HasCleanHandles = false;
+            var handle = m_ComponentSafetyHandles[EntityTypeIndex].SafetyHandle;
+            AtomicSafetyHandle.UseSecondaryVersion(ref handle);
+            return handle;
+        }
         
         public AtomicSafetyHandle GetSafetyHandle(int type, bool isReadOnly)
         {
+            if (TypeManager.IsZeroSized(type))
+            {
+                var entityTypeHandle = m_ComponentSafetyHandles[EntityTypeIndex].SafetyHandle;
+                AtomicSafetyHandle.UseSecondaryVersion(ref entityTypeHandle);
+                return entityTypeHandle;
+            }
+
             m_HasCleanHandles = false;
             var handle = m_ComponentSafetyHandles[type & TypeManager.ClearFlagsMask].SafetyHandle;
             if (isReadOnly)
@@ -338,6 +393,7 @@ namespace Unity.Entities
 
         public AtomicSafetyHandle GetBufferSafetyHandle(int type)
         {
+            Assert.IsTrue(TypeManager.IsBuffer(type));
             m_HasCleanHandles = false;
 
             return m_ComponentSafetyHandles[type & TypeManager.ClearFlagsMask].BufferHandle;

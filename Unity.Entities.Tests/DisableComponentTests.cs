@@ -17,8 +17,7 @@ namespace Unity.Entities.Tests
 			var entity0 = m_Manager.CreateEntity(archetype0);
 			var entity1 = m_Manager.CreateEntity(archetype1);
 
-			var arr = group.GetComponentDataArray<EcsTestData>();
-			Assert.AreEqual(1, arr.Length);
+			Assert.AreEqual(1, group.CalculateLength());
             group.Dispose();
 
 			m_Manager.DestroyEntity(entity0);
@@ -34,7 +33,7 @@ namespace Unity.Entities.Tests
 	        var entity0 = m_Manager.CreateEntity(archetype0);
 	        var entity1 = m_Manager.CreateEntity(archetype1);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsTestData>());
+            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestData>());
 	        var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 	        var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
@@ -52,16 +51,15 @@ namespace Unity.Entities.Tests
 		    var archetype0 = m_Manager.CreateArchetype(typeof(EcsTestData));
 			var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(Disabled));
 
-		    var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsTestData>(), ComponentType.Create<Disabled>());
+            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<Disabled>());
 
 			var entity0 = m_Manager.CreateEntity(archetype0);
 			var entity1 = m_Manager.CreateEntity(archetype1);
 			var entity2 = m_Manager.CreateEntity(archetype1);
 
-			var arr = group.GetComponentDataArray<EcsTestData>();
-            group.Dispose();
-			Assert.AreEqual(2, arr.Length);
+			Assert.AreEqual(2, group.CalculateLength());
 
+            group.Dispose();
 			m_Manager.DestroyEntity(entity0);
 			m_Manager.DestroyEntity(entity1);
 			m_Manager.DestroyEntity(entity2);
@@ -77,7 +75,7 @@ namespace Unity.Entities.Tests
 	        var entity1 = m_Manager.CreateEntity(archetype1);
 	        var entity2 = m_Manager.CreateEntity(archetype1);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsTestData>(), ComponentType.Create<Disabled>());
+            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<Disabled>());
 	        var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 	        var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
@@ -108,5 +106,26 @@ namespace Unity.Entities.Tests
 	        m_Manager.DestroyEntity(entity1);
 	        m_Manager.DestroyEntity(entity2);
 	    }
-	}
+        
+        [Test]
+        public void PrefabAndDisabledQueryOptions()
+        {
+            m_Manager.CreateEntity();
+            m_Manager.CreateEntity(typeof(EcsTestData), typeof(Prefab));
+            m_Manager.CreateEntity(typeof(EcsTestData), typeof(Disabled));
+            m_Manager.CreateEntity(typeof(EcsTestData), typeof(Disabled), typeof(Prefab));
+
+            CheckPrefabAndDisabledQueryOptions(EntityArchetypeQueryOptions.Default, 0);
+            CheckPrefabAndDisabledQueryOptions(EntityArchetypeQueryOptions.IncludePrefab, 1);
+            CheckPrefabAndDisabledQueryOptions(EntityArchetypeQueryOptions.IncludeDisabled, 1);
+            CheckPrefabAndDisabledQueryOptions(EntityArchetypeQueryOptions.IncludeDisabled | EntityArchetypeQueryOptions.IncludePrefab, 3);
+        }
+
+        void CheckPrefabAndDisabledQueryOptions(EntityArchetypeQueryOptions options, int expected)
+        {
+            var group = m_Manager.CreateComponentGroup(new EntityArchetypeQuery { All = new[] {ComponentType.ReadWrite<EcsTestData>()}, Options = options });
+            Assert.AreEqual(expected, group.CalculateLength());
+            group.Dispose();
+        }
+    }
 }

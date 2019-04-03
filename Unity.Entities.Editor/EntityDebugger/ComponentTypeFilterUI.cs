@@ -45,7 +45,7 @@ namespace Unity.Entities.Editor
                     var componentType = ComponentType.FromTypeIndex(typeIndex);
                     if (componentType.GetManagedType() == null) continue;
                     requiredTypes.Add(componentType);
-                    componentType.AccessModeType = ComponentType.AccessMode.Subtractive;
+                    componentType.AccessModeType = ComponentType.AccessMode.Exclude;
                     subtractiveTypes.Add(componentType);
                     selectedFilterTypes.Add(false);
                     selectedFilterTypes.Add(false);
@@ -67,7 +67,7 @@ namespace Unity.Entities.Editor
                 if (selectedFilterTypes[i])
                 {
                     ++filterCount;
-                    var style = filterTypes[i].AccessModeType == ComponentType.AccessMode.Subtractive ? EntityDebuggerStyles.ComponentSubtractive : EntityDebuggerStyles.ComponentRequired;
+                    var style = filterTypes[i].AccessModeType == ComponentType.AccessMode.Exclude ? EntityDebuggerStyles.ComponentExclude : EntityDebuggerStyles.ComponentRequired;
                     GUILayout.Label(ComponentGroupGUI.SpecifiedTypeName(filterTypes[i].GetManagedType()), style);
                 }
             }

@@ -21,7 +21,7 @@ namespace Unity.Entities.Serialization
             public int AllocSizeBytes;
         }
 
-        public static int CurrentFileFormatVersion = 13;
+        public static int CurrentFileFormatVersion = 15;
 
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, int numSharedComponents)
         {
@@ -135,11 +135,12 @@ namespace Unity.Entities.Serialization
                 for (int iType = 0; iType < archetypeComponentTypeCount; ++iType)
                 {
                     int typeIndexInFile = reader.ReadInt();
-                    int typeIndexInFileWithoutFlags = typeIndexInFile & ~TypeManager.ChunkComponentTypeFlag;
-                    int flag = typeIndexInFile & TypeManager.ChunkComponentTypeFlag;
-                    int typeIndex = types[typeIndexInFileWithoutFlags] | flag;
-                    typeCount[typeIndexInFileWithoutFlags] += archetypeEntityCount;
+                    int typeIndexInFileWithoutFlags = typeIndexInFile & TypeManager.ClearFlagsMask;
+                    int typeIndex = types[typeIndexInFileWithoutFlags];
+                    if (TypeManager.IsChunkComponent(typeIndexInFile))
+                        typeIndex = TypeManager.MakeChunkComponentTypeIndex(typeIndex);
 
+                    typeCount[typeIndexInFileWithoutFlags] += archetypeEntityCount;
                     tempComponentTypes.Add(ComponentType.FromTypeIndex(typeIndex));
                 }
 
@@ -205,26 +206,6 @@ namespace Unity.Entities.Serialization
             archetypeArray = archetypeList.ToArray();
         }
 
-        static unsafe void ClearUnusedChunkData(Chunk* chunk)
-        {
-            var arch = chunk->Archetype;
-            int bufferSize = Chunk.GetChunkBufferSize(arch->TypesCount, arch->NumSharedComponents);
-            byte* buffer = chunk->Buffer;
-            int count = chunk->Count;
-
-            for (int i = 0; i<arch->TypesCount-1; ++i)
-            {
-                int index = arch->TypeMemoryOrder[i];
-                int nextIndex = arch->TypeMemoryOrder[i + 1];
-                int startOffset = arch->Offsets[index] + count * arch->SizeOfs[index];
-                int endOffset = arch->Offsets[nextIndex];
-                UnsafeUtility.MemClear(buffer + startOffset, endOffset - startOffset);
-            }
-            int lastIndex = arch->TypeMemoryOrder[arch->TypesCount - 1];
-            int lastStartOffset = arch->Offsets[lastIndex] + count * arch->SizeOfs[lastIndex];
-            UnsafeUtility.MemClear(buffer + lastStartOffset, bufferSize - lastStartOffset);
-        }
-
         public static unsafe void SerializeWorld(EntityManager entityManager, BinaryWriter writer, out int[] sharedComponentsToSerialize)
         {
             var entityRemapInfos = new NativeArray<EntityRemapUtility.EntityRemapInfo>(entityManager.EntityCapacity, Allocator.Temp);
@@ -246,7 +227,7 @@ namespace Unity.Entities.Serialization
             {
                 for (int iType = 0; iType < archetype.Archetype->TypesCount; ++iType)
                 {
-                    typeindices.Add(archetype.Archetype->Types[iType].TypeIndex & ~TypeManager.ChunkComponentTypeFlag);
+                    typeindices.Add(archetype.Archetype->Types[iType].TypeIndex & TypeManager.ClearFlagsMask);
                 }
             }
 
@@ -313,6 +294,9 @@ namespace Unity.Entities.Serialization
                     UnsafeUtility.MemCpy(tempChunk, chunk, Chunk.kChunkSize);
                     tempChunk->metaChunkEntity = EntityRemapUtility.RemapEntity(ref entityRemapInfos, tempChunk->metaChunkEntity);
 
+                    // Prevent patching from touching buffers allocated memory
+                    BufferHeader.PatchAfterCloningChunk(tempChunk);
+
                     byte* tempChunkBuffer = tempChunk->Buffer;
                     EntityRemapUtility.PatchEntities(archetype->ScalarEntityPatches, archetype->ScalarEntityPatchCount, archetype->BufferEntityPatches, archetype->BufferEntityPatchCount, tempChunkBuffer, tempChunk->Count, ref entityRemapInfos);
 
@@ -334,7 +318,7 @@ namespace Unity.Entities.Serialization
                         {
                             if (header->Pointer != null)
                             {
-                                header->Pointer = null;
+                                // TODO: Find a way to null header->Pointer so it doesn't get written
                                 bufferPatches.Add(new BufferPatchRecord
                                 {
                                     ChunkOffset = (int)(((byte*)header) - (byte*)tempChunkBuffer),
@@ -346,7 +330,7 @@ namespace Unity.Entities.Serialization
                     }
 
                     ClearChunkHeaderComponents(tempChunk);
-                    ClearUnusedChunkData(tempChunk);
+                    ChunkDataUtility.MemsetUnusedChunkData(tempChunk, 0);
                     tempChunk->Archetype = (Archetype*) archetypeIndex;
 
                     if (archetype->NumManagedArrays != 0)
@@ -367,10 +351,9 @@ namespace Unity.Entities.Serialization
                         for (int i = 0; i < bufferPatches.Length; ++i)
                         {
                             var patch = bufferPatches[i];
-                            // NOTE that this reads the pointer from the original, unpatched chunk.
-                            // We have nulled out the pointer in the serialized data above.
-                            var header = (BufferHeader*)OffsetFromPointer(chunk->Buffer, patch.ChunkOffset);
+                            var header = (BufferHeader*)OffsetFromPointer(tempChunk->Buffer, patch.ChunkOffset);
                             writer.WriteBytes(header->Pointer, patch.AllocSizeBytes);
+                            BufferHeader.Destroy(header);
                         }
                     }
                 }
@@ -496,30 +479,10 @@ namespace Unity.Entities.Serialization
                 {
                     var componentType = archetype.Archetype->Types[i];
                     int flag = componentType.IsChunkComponent ? TypeManager.ChunkComponentTypeFlag : 0;
-                    writer.Write(typeIndexMap[componentType.TypeIndex & ~TypeManager.ChunkComponentTypeFlag] | flag);
+                    writer.Write(typeIndexMap[componentType.TypeIndex & TypeManager.ClearFlagsMask] | flag);
                 }
             }
         }
-
-        static unsafe void WriteSharedComponentArrays(BinaryWriter writer, EntityArchetype[] archetypeArray, Dictionary<int, int> typeIndexMap, out int sharedComponentArrayCount)
-        {
-            sharedComponentArrayCount = 0;
-            writer.Write(archetypeArray.Length);
-
-            foreach (var archetype in archetypeArray)
-            {
-                sharedComponentArrayCount += archetype.ChunkCount * archetype.Archetype->NumSharedComponents;
-                writer.Write(archetype.Archetype->EntityCount);
-                writer.Write(archetype.Archetype->TypesCount - 1);
-                for (int i = 1; i < archetype.Archetype->TypesCount; ++i)
-                {
-                    var componentType = archetype.Archetype->Types[i];
-                    int flag = componentType.IsChunkComponent ? TypeManager.ChunkComponentTypeFlag : 0;
-                    writer.Write(typeIndexMap[componentType.TypeIndex & ~TypeManager.ChunkComponentTypeFlag] | flag);
-                }
-            }
-        }
-
 
         static unsafe int GenerateRemapInfo(EntityManager entityManager, EntityArchetype[] archetypeArray, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos)
         {

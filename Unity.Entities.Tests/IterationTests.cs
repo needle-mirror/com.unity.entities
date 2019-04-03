@@ -13,15 +13,15 @@ namespace Unity.Entities.Tests
 			var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
 			var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestData2));
-			var arr = group.GetComponentDataArray<EcsTestData>();
-			Assert.AreEqual(0, arr.Length);
+			Assert.AreEqual(0, group.CalculateLength());
 
 			var entity = m_Manager.CreateEntity(archetype);
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-			arr = group.GetComponentDataArray<EcsTestData>();
+			var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 			Assert.AreEqual(1, arr.Length);
 			Assert.AreEqual(42, arr[0].value);
 
+			arr.Dispose();
 			m_Manager.DestroyEntity(entity);
 		}
 
@@ -34,19 +34,15 @@ namespace Unity.Entities.Tests
 		public void IterateEmptyArchetype()
 		{
 			var group = m_Manager.CreateComponentGroup(typeof(TempComponentNeverInstantiated));
-			var arr = group.GetComponentDataArray<TempComponentNeverInstantiated>();
-			Assert.AreEqual(0, arr.Length);
+			Assert.AreEqual(0, group.CalculateLength());
 
 			var archetype = m_Manager.CreateArchetype(typeof(TempComponentNeverInstantiated));
-			arr = group.GetComponentDataArray<TempComponentNeverInstantiated>();
-			Assert.AreEqual(0, arr.Length);
+			Assert.AreEqual(0, group.CalculateLength());
 
 			Entity ent = m_Manager.CreateEntity(archetype);
-			arr = group.GetComponentDataArray<TempComponentNeverInstantiated>();
-			Assert.AreEqual(1, arr.Length);
+			Assert.AreEqual(1, group.CalculateLength());
 			m_Manager.DestroyEntity(ent);
-			arr = group.GetComponentDataArray<TempComponentNeverInstantiated>();
-			Assert.AreEqual(0, arr.Length);
+			Assert.AreEqual(0, group.CalculateLength());
 		}
 		[Test]
 		public void IterateChunkedComponentGroup()
@@ -55,8 +51,7 @@ namespace Unity.Entities.Tests
 			var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
 			var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
-			var arr = group.GetComponentDataArray<EcsTestData>();
-			Assert.AreEqual(0, arr.Length);
+			Assert.AreEqual(0, group.CalculateLength());
 
             Entity[] entities = new Entity[10000];
             for (int i = 0; i < entities.Length/2;i++)
@@ -70,7 +65,7 @@ namespace Unity.Entities.Tests
 				m_Manager.SetComponentData(entities[i], new EcsTestData(i));
             }
 
-			arr = group.GetComponentDataArray<EcsTestData>();
+			var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 			Assert.AreEqual(entities.Length, arr.Length);
 			HashSet<int> values = new HashSet<int>();
             for (int i = 0; i < arr.Length;i++)
@@ -82,6 +77,7 @@ namespace Unity.Entities.Tests
 				values.Add(i);
 			}
 
+            arr.Dispose();
             for (int i = 0; i < entities.Length;i++)
 				m_Manager.DestroyEntity(entities[i]);
 		}
@@ -92,8 +88,7 @@ namespace Unity.Entities.Tests
 			var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
 			var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
-			var arr = group.GetComponentDataArray<EcsTestData>();
-			Assert.AreEqual(0, arr.Length);
+			Assert.AreEqual(0, group.CalculateLength());
 
             Entity[] entities = new Entity[10000];
             for (int i = 0; i < entities.Length/2;i++)
@@ -107,7 +102,7 @@ namespace Unity.Entities.Tests
 				m_Manager.SetComponentData(entities[i], new EcsTestData(i));
             }
 
-			arr = group.GetComponentDataArray<EcsTestData>();
+			var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 			Assert.AreEqual(entities.Length, arr.Length);
 			HashSet<int> values = new HashSet<int>();
             for (int i = arr.Length-1; i >= 0;i--)
@@ -119,6 +114,7 @@ namespace Unity.Entities.Tests
 				values.Add(i);
 			}
 
+            arr.Dispose();
             for (int i = 0; i < entities.Length;i++)
 				m_Manager.DestroyEntity(entities[i]);
 		}
@@ -132,8 +128,7 @@ namespace Unity.Entities.Tests
 			var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
 			var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
-			var arr = group.GetComponentDataArray<EcsTestData>();
-			Assert.AreEqual(0, arr.Length);
+			Assert.AreEqual(0, group.CalculateLength());
 
             Entity[] entities = new Entity[10000];
             for (int i = 0; i < entities.Length/2;i++)
@@ -154,7 +149,7 @@ namespace Unity.Entities.Tests
 				}
 			}
 
-			arr = group.GetComponentDataArray<EcsTestData>();
+			var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 			Assert.AreEqual(entities.Length/2, arr.Length);
 			HashSet<int> values = new HashSet<int>();
             for (int i = 0; i < arr.Length;i++)
@@ -172,7 +167,8 @@ namespace Unity.Entities.Tests
 				if (i%2 == 0)
 					m_Manager.RemoveComponent<EcsTestData>(entities[i]);
             }
-			arr = group.GetComponentDataArray<EcsTestData>();
+            arr.Dispose();
+			arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 			Assert.AreEqual(entities.Length/4, arr.Length);
 			values = new HashSet<int>();
             for (int i = 0; i < arr.Length;i++)
@@ -190,9 +186,10 @@ namespace Unity.Entities.Tests
 				if (i%2 == 0)
 					m_Manager.DestroyEntity(entities[i]);
 			}
+            arr.Dispose();
 		}
 
-
+#pragma warning disable 618
 		[Test]
 		public void IterateEntityArray()
 		{
@@ -254,7 +251,8 @@ namespace Unity.Entities.Tests
             copied.Dispose();
             entities.Dispose();
         }
-
+#pragma warning restore 618
+        
         [Test]
         public void GroupCopyFromNativeArray()
         {

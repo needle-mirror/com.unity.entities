@@ -23,11 +23,22 @@ namespace Unity.Entities
     ///     None = new ComponentType[] {typeof(Player)},
     ///     All = new ComponentType[] {typeof(Position), typeof(Rotation)} }
     /// </summary>
+
     public class EntityArchetypeQuery
     {
         public ComponentType[] Any = Array.Empty<ComponentType>();
         public ComponentType[] None = Array.Empty<ComponentType>();
         public ComponentType[] All = Array.Empty<ComponentType>();
+        public EntityArchetypeQueryOptions Options = EntityArchetypeQueryOptions.Default;
+    }
+
+    [Flags]
+    public enum EntityArchetypeQueryOptions
+    {
+        Default = 0,
+        IncludePrefab = 1,
+        IncludeDisabled = 2,
+        FilterWriteGroup = 4,
     }
 
     //@TODO: Rename to ComponentQuery
@@ -124,7 +135,7 @@ namespace Unity.Entities
                 }
                 for (var j = 0; j < m_GroupData->ArchetypeQuery[i].NoneCount; ++j)
                 {
-                    types.Add(ComponentType.Subtractive(TypeManager.GetType(m_GroupData->ArchetypeQuery[i].None[j])));
+                    types.Add(ComponentType.Exclude(TypeManager.GetType(m_GroupData->ArchetypeQuery[i].None[j])));
                 }
             }
 
@@ -253,6 +264,7 @@ namespace Unity.Entities
             return componentIndex;
         }
 
+        [Obsolete("GetComponentDataArray is deprecated. Use IJobProcessComponentData or ToComponentDataArray/CopyFromComponentDataArray instead.")]
         internal void GetComponentDataArray<T>(ref ComponentChunkIterator iterator, int indexInComponentGroup,
             int length, out ComponentDataArray<T> output) where T : struct, IComponentData
         {
@@ -271,6 +283,7 @@ namespace Unity.Entities
 #endif
         }
 
+        [Obsolete("GetComponentDataArray is deprecated. Use IJobProcessComponentData or ToComponentDataArray/CopyFromComponentDataArray instead.")]
         public ComponentDataArray<T> GetComponentDataArray<T>() where T : struct, IComponentData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
@@ -290,6 +303,7 @@ namespace Unity.Entities
             return res;
         }
 
+        [Obsolete("GetSharedComponentDataArray is deprecated.")]
         internal void GetSharedComponentDataArray<T>(ref ComponentChunkIterator iterator, int indexInComponentGroup,
             int length, out SharedComponentDataArray<T> output) where T : struct, ISharedComponentData
         {
@@ -308,6 +322,7 @@ namespace Unity.Entities
         ///     Creates an array containing ISharedComponentData of a given type T.
         /// </summary>
         /// <returns>NativeArray of ISharedComponentData in this ComponentGroup.</returns>
+        [Obsolete("GetSharedComponentDataArray is deprecated.")]
         public SharedComponentDataArray<T> GetSharedComponentDataArray<T>() where T : struct, ISharedComponentData
         {
             int length = CalculateLength();
@@ -319,6 +334,7 @@ namespace Unity.Entities
             return res;
         }
 
+        [Obsolete("GetBufferArray is deprecated.")]
         internal void GetBufferArray<T>(ref ComponentChunkIterator iterator, int indexInComponentGroup, int length,
             out BufferArray<T> output) where T : struct, IBufferElementData
         {
@@ -333,6 +349,7 @@ namespace Unity.Entities
 #endif
         }
 
+        [Obsolete("GetBufferArray is deprecated.")]
         public BufferArray<T> GetBufferArray<T>() where T : struct, IBufferElementData
         {
             int length = CalculateLength();
@@ -353,7 +370,20 @@ namespace Unity.Entities
         /// <returns>NativeArray of all the chunks in this ComponentChunkIterator.</returns>
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator, out JobHandle jobhandle)
         {
-            return ComponentChunkIterator.CreateArchetypeChunkArray(m_GroupData->MatchingArchetypes, allocator, out jobhandle);
+            JobHandle dependency = default(JobHandle);
+
+            if (m_Filter.Type == FilterType.Changed)
+            {
+                var filterCount = m_Filter.Changed.Count;
+                var readerTypes = stackalloc int[filterCount];
+                fixed (int* indexInComponentGroupPtr = m_Filter.Changed.IndexInComponentGroup)
+                    for (int i = 0; i < filterCount; ++i)
+                        readerTypes[i] = m_GroupData->RequiredComponents[indexInComponentGroupPtr[i]].TypeIndex;
+
+                dependency = m_SafetyManager.GetDependency(readerTypes, filterCount,null, 0);
+            }
+
+            return ComponentChunkIterator.CreateArchetypeChunkArray(m_GroupData->MatchingArchetypes, allocator, out jobhandle, ref m_Filter, dependency);
         }
 
         /// <summary>
@@ -364,8 +394,17 @@ namespace Unity.Entities
         /// <returns>NativeArray of all the chunks in this ComponentChunkIterator.</returns>
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator)
         {
+            if (m_Filter.Type == FilterType.Changed)
+            {
+                fixed (int* indexInComponentGroupPtr = m_Filter.Changed.IndexInComponentGroup)
+                    for (int i = 0; i < m_Filter.Changed.Count; ++i)
+                    {
+                        var type = m_GroupData->RequiredComponents[indexInComponentGroupPtr[i]];
+                        SafetyManager.CompleteWriteDependency(type.TypeIndex);
+                    }
+            }
             JobHandle job;
-            var res = ComponentChunkIterator.CreateArchetypeChunkArray(m_GroupData->MatchingArchetypes, allocator, out job);
+            var res = ComponentChunkIterator.CreateArchetypeChunkArray(m_GroupData->MatchingArchetypes, allocator, out job, ref m_Filter);
             job.Complete();
             return res;
         }
@@ -374,7 +413,7 @@ namespace Unity.Entities
         public NativeArray<Entity> ToEntityArray(Allocator allocator, out JobHandle jobhandle)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var entityType = new ArchetypeChunkEntityType(m_SafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<Entity>(), true));
+            var entityType = new ArchetypeChunkEntityType(m_SafetyManager.GetEntityManagerSafetyHandle());
 #else
             var entityType = new ArchetypeChunkEntityType();
 #endif
@@ -385,7 +424,7 @@ namespace Unity.Entities
         public NativeArray<Entity> ToEntityArray(Allocator allocator)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var entityType = new ArchetypeChunkEntityType(m_SafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<Entity>(), true));
+            var entityType = new ArchetypeChunkEntityType(m_SafetyManager.GetEntityManagerSafetyHandle());
 #else
             var entityType = new ArchetypeChunkEntityType();
 #endif
@@ -414,6 +453,14 @@ namespace Unity.Entities
 #else
             var componentType = new ArchetypeChunkComponentType<T>(true, EntityDataManager->GlobalSystemVersion);
 #endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            int typeIndex = TypeManager.GetTypeIndex<T>();
+            int indexInComponentGroup = GetIndexInComponentGroup(typeIndex);
+            if (indexInComponentGroup == -1)
+                throw new InvalidOperationException( $"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityGroup.");
+#endif
+            
             JobHandle job;
             var res = ComponentChunkIterator.CreateComponentDataArray(m_GroupData->MatchingArchetypes, allocator, componentType, this, ref m_Filter, out job, GetDependency());
             job.Complete();
@@ -428,9 +475,6 @@ namespace Unity.Entities
             var groupLength = CalculateLength();
             if(groupLength != componentDataArray.Length)
                 throw new ArgumentException($"Length of input array ({componentDataArray.Length}) does not match length of ComponentGroup ({groupLength})");
-#endif
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
             var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, EntityDataManager->GlobalSystemVersion);
 #else
             var componentType = new ArchetypeChunkComponentType<T>(false, EntityDataManager->GlobalSystemVersion);
@@ -463,6 +507,7 @@ namespace Unity.Entities
         ///     Creates an EntityArray that gives you access to the entities in this ComponentGroup.
         /// </summary>
         /// <returns>EntityArray of all the entities in this ComponentGroup.</returns>
+        [Obsolete("GetEntityArray is deprecated. Use IJobProcessComponentDataWithEntity or ToEntityArray instead.")]
         public EntityArray GetEntityArray()
         {
             int length = CalculateLength();
@@ -475,7 +520,7 @@ namespace Unity.Entities
             if (m_GroupData->RequiredComponentsCount == 0)
                 throw new InvalidOperationException( $"GetEntityArray() is currently not supported from a ComponentGroup created with EntityArchetypeQuery.");
 
-            output = new EntityArray(iterator, length, m_SafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<Entity>(), true));
+            output = new EntityArray(iterator, length, m_SafetyManager.GetEntityManagerSafetyHandle());
 #else
 			output = new EntityArray(iterator, length);
 #endif
@@ -536,6 +581,11 @@ namespace Unity.Entities
             {
                 return EntityGroupManager.CompareComponents(componentTypesPtr, componentTypes.Length, m_GroupData);
             }
+        }
+
+        public bool CompareComponents(NativeArray<ComponentType> componentTypes)
+        {
+            return EntityGroupManager.CompareComponents((ComponentType*)componentTypes.GetUnsafeReadOnlyPtr(), componentTypes.Length, m_GroupData);
         }
 
         public bool CompareQuery(EntityArchetypeQuery[] query)
@@ -705,149 +755,13 @@ namespace Unity.Entities
             return ComponentChunkIterator.CalculateNumberOfChunksWithoutFiltering(m_GroupData->MatchingArchetypes);
         }
 
-
-		//TODO: Remove this once CreateArchetypeChunkArray supports filtering shared components
-        public NativeArray<ArchetypeChunk> GetAllMatchingChunks(Allocator allocator)
+        internal void AddReaderWritersToLists(ref UnsafeList reading, ref UnsafeList writing)
         {
-            if (((m_Filter.Type & FilterType.SharedComponent) != 0) && (m_Filter.Shared.Count == 1))
-            {
-                int indexInComponentGroup;
-                int sharedComponentIndex;
+            for (int i = 0; i < m_GroupData->ReaderTypesCount; ++i)
+                CalculateReaderWriterDependency.AddReaderTypeIndex(m_GroupData->ReaderTypes[i], ref reading, ref writing);
 
-                fixed (int* indexInComponentGroupPtr = m_Filter.Shared.IndexInComponentGroup,
-                    sharedComponentIndexPtr = m_Filter.Shared.SharedComponentIndex)
-                {
-                    indexInComponentGroup = indexInComponentGroupPtr[0];
-                    sharedComponentIndex = sharedComponentIndexPtr[0];
-                }
-
-                {
-                    int totalChunkCount = 0;
-                    var searchElements = CreateArchetypeChunkSearchElements(out totalChunkCount);
-                    var foundChunks = new NativeArray<ArchetypeChunk>(totalChunkCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-
-                    new AllChunksMatchingSingleSharedComponentJob
-                    {
-                        chunks = foundChunks,
-                        indexInComponentGroup = indexInComponentGroup,
-                        searchElements = searchElements,
-                        sharedComponentIndex = sharedComponentIndex
-                    }.Schedule(searchElements.Length, 1).Complete();
-
-                    var joinedChunks = JoinChunks(searchElements, foundChunks);
-
-                    foundChunks.Dispose();
-                    searchElements.Dispose();
-
-                    return joinedChunks;
-                }
-            }
-            else
-            {
-                var chunks = new NativeList<ArchetypeChunk>(allocator);
-                for(var m = m_GroupData->MatchingArchetypes.Count - 1; m >= 0; --m)
-                {
-                    var match = m_GroupData->MatchingArchetypes.p[m];
-                    var archeType = match->Archetype;
-                    for (var i = 0; i < archeType->Chunks.Count; ++i)
-                    {
-                        var chunk = archeType->Chunks.p[i];
-                        if (chunk->MatchesFilter(match, ref m_Filter))
-                        {
-                            chunks.Add(new ArchetypeChunk { m_Chunk = chunk });
-                        }
-                    }
-                }
-
-                var chunkArray = new NativeArray<ArchetypeChunk>(chunks, Allocator.TempJob);
-                chunks.Dispose();
-                return chunkArray;
-            }
-        }
-
-        NativeArray<ArchetypeChunk> JoinChunks(NativeList<ArchetypeChunkSearchElement> searchElements, NativeArray<ArchetypeChunk> foundChunks)
-        {
-            int totalChunks = 0;
-            for (int i = 0; i < searchElements.Length; ++i)
-            {
-                totalChunks += searchElements[i].filteredCount;
-            }
-
-            var joinedChunks = new NativeArray<ArchetypeChunk>(totalChunks, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-
-            ArchetypeChunk* dst = (ArchetypeChunk*)joinedChunks.GetUnsafePtr();
-
-            //TODO: for each job
-            for (int i = 0; i < searchElements.Length; ++i)
-            {
-                UnsafeUtility.MemCpy(dst, (ArchetypeChunk*)foundChunks.GetUnsafePtr() + searchElements[i].indexStart, searchElements[i].filteredCount*sizeof(ArchetypeChunk));
-                dst += searchElements[i].filteredCount;
-            }
-
-            return joinedChunks;
-        }
-
-        NativeList<ArchetypeChunkSearchElement> CreateArchetypeChunkSearchElements(out int totalChunkCount)
-        {
-            var searchElements = new NativeList<ArchetypeChunkSearchElement>(100, Allocator.TempJob);
-            totalChunkCount = 0;
-            for(var m = m_GroupData->MatchingArchetypes.Count - 1; m >= 0; --m)
-            {
-                var match = m_GroupData->MatchingArchetypes.p[m];
-                var chunkCount = match->Archetype->Chunks.Count;
-                searchElements.Add(new ArchetypeChunkSearchElement
-                {
-                    matchingArchetype = match,
-                    filteredCount = 0,
-                    indexStart = totalChunkCount
-                });
-                totalChunkCount += chunkCount;
-            }
-
-            return searchElements;
-        }
-
-        struct ArchetypeChunkSearchElement
-        {
-            public MatchingArchetype* matchingArchetype;
-            public int filteredCount;
-            public int indexStart;
-        }
-
-        [BurstCompile]
-        unsafe struct AllChunksMatchingSingleSharedComponentJob : IJobParallelFor
-        {
-            public NativeArray<ArchetypeChunkSearchElement> searchElements;
-
-            [NativeDisableParallelForRestriction]
-            public NativeArray<ArchetypeChunk> chunks;
-            [NativeDisableUnsafePtrRestriction]
-            public int indexInComponentGroup;
-            public int sharedComponentIndex;
-
-            public void Execute(int index)
-            {
-                var element = searchElements[index];
-                var match = element.matchingArchetype;
-                var archetype = match->Archetype;
-                var componentIndexInArchetype = match->IndexInArchetype[indexInComponentGroup];
-                var componentIndexInChunk = componentIndexInArchetype - archetype->FirstSharedComponent;
-                var writeIndex = element.indexStart;
-                int filteredCount = 0;
-                int chunkCount = archetype->Chunks.Count;
-
-                var sharedComponents = archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk);
-                var archetypeChunks = archetype->Chunks.p;
-
-                for (var i = 0; i < chunkCount; ++i)
-                {
-                    if(sharedComponents[i] == sharedComponentIndex)
-                        chunks[writeIndex + filteredCount++] = new ArchetypeChunk { m_Chunk = archetypeChunks[i] };
-                }
-
-                element.filteredCount = filteredCount;
-                searchElements[index] = element;
-            }
+            for (int i = 0; i < m_GroupData->WriterTypesCount; ++i)
+                CalculateReaderWriterDependency.AddWriterTypeIndex(m_GroupData->WriterTypes[i], ref reading, ref writing);
         }
     }
 }

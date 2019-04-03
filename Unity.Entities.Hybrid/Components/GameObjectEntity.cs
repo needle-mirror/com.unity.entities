@@ -54,6 +54,26 @@ namespace Unity.Entities
 
             return entity;
         }
+        
+        public static void AddToEntity(EntityManager entityManager, GameObject gameObject, Entity entity)
+        {
+            var components = gameObject.GetComponents<Component>();
+
+            for (var i = 0; i != components.Length; i++)
+            {
+                var com = components[i];
+                var proxy = com as ComponentDataProxyBase;
+                var behaviour = com as Behaviour;
+                if (behaviour != null && !behaviour.enabled)
+                    continue;
+                                        
+                if (!(com is GameObjectEntity) && com != null && proxy == null)
+                {
+                    
+                    entityManager.AddComponentObject(entity, com);
+                }
+            }
+        }
 
         static void GetComponents(GameObject gameObject, bool includeGameObjectComponents, out ComponentType[] types, out Component[] components)
         {

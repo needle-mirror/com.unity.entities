@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿using System;
+using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -10,313 +11,498 @@ namespace Unity.Entities.Tests
     class TransformTests : ECSTestsFixture
     {
         const float k_Tolerance = 0.01f;
-        
-        unsafe bool AssertCloseEnough(float4x4 a, float4x4 b)
-        {
-            float* ap = (float*) &a.c0.x;
-            float* bp = (float*) &b.c0.x;
-            for (int i = 0; i < 16; i++)
-            {
-                Assert.That(bp[i], Is.EqualTo(ap[i]).Within(k_Tolerance));
-            }
-            return true;
-        }
-
-        void Log(float4x4 a)
-        {
-            Debug.Log($"{a.c0.x:0.000} {a.c0.y:0.000} {a.c0.z:0.000} {a.c0.w:0.000}");
-            Debug.Log($"{a.c1.x:0.000} {a.c1.y:0.000} {a.c1.z:0.000} {a.c1.w:0.000}");
-            Debug.Log($"{a.c2.x:0.000} {a.c2.y:0.000} {a.c2.z:0.000} {a.c2.w:0.000}");
-            Debug.Log($"{a.c3.x:0.000} {a.c3.y:0.000} {a.c3.z:0.000} {a.c3.w:0.000}");
-        }
 
         [Test]
         public void TRS_ChildPosition()
         {
-            var parent = m_Manager.CreateEntity(typeof(Position), typeof(Rotation));
-            var child = m_Manager.CreateEntity(typeof(Position));
-            var attach = m_Manager.CreateEntity(typeof(Attach));
+            var parent = m_Manager.CreateEntity(typeof(LocalToWorld));
+            var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
 
-            m_Manager.SetComponentData(parent, new Position {Value = new float3(0, 2, 0)});
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
-            m_Manager.SetComponentData(child, new Position {Value = new float3(0, 0, 1)});
-            m_Manager.SetComponentData(attach, new Attach {Parent = parent, Child = child});
-
-            World.GetOrCreateManager<EndFrameTransformSystem>().Update();
-
-            var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Value.c3;
-            Assert.That(childWorldPosition.x, Is.EqualTo(1f).Within(k_Tolerance));
-            Assert.That(childWorldPosition.y, Is.EqualTo(2f).Within(k_Tolerance));
-            Assert.That(childWorldPosition.z, Is.EqualTo(0f).Within(k_Tolerance));
-        }
-
-        [Test]
-        public void TRS_ParentAddedRemoved()
-        {
-            var parent = m_Manager.CreateEntity(typeof(Position), typeof(Rotation));
-            var child = m_Manager.CreateEntity(typeof(Position));
-            var attach = m_Manager.CreateEntity(typeof(Attach));
-
-            m_Manager.SetComponentData(parent, new Position {Value = new float3(0, 2, 0)});
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
-            m_Manager.SetComponentData(child, new Position {Value = new float3(0, 0, 1)});
-            m_Manager.SetComponentData(attach, new Attach {Parent = parent, Child = child});
-
-            World.GetOrCreateManager<EndFrameTransformSystem>().Update();
-
-            Assert.IsTrue(m_Manager.HasComponent<Attached>(child));
-            Assert.IsTrue(m_Manager.HasComponent<Parent>(child));
-            Assert.IsFalse(m_Manager.Exists(attach));
-
-            m_Manager.DestroyEntity(parent);
-            m_Manager.DestroyEntity(child);
-
-            World.GetOrCreateManager<EndFrameTransformSystem>().Update();
-
-            Assert.IsFalse(m_Manager.Exists(parent));
-            Assert.IsFalse(m_Manager.Exists(child));
-        }
-
-        [Test]
-        public void TRS_FreezeChild()
-        {
-            var parent = m_Manager.CreateEntity(typeof(Position), typeof(Rotation));
-            var child = m_Manager.CreateEntity(typeof(Position),typeof(Static));
-            var attach = m_Manager.CreateEntity(typeof(Attach));
-
-            m_Manager.SetComponentData(parent, new Position {Value = new float3(0, 2, 0)});
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
-            m_Manager.SetComponentData(child, new Position {Value = new float3(0, 0, 1)});
-            m_Manager.SetComponentData(attach, new Attach {Parent = parent, Child = child});
-
-            World.GetOrCreateManager<EndFrameTransformSystem>().Update();
-
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(0.0f, 1.0f, 0.0f), math.up())});
-
-            World.GetOrCreateManager<EndFrameTransformSystem>().Update();
-
-            Assert.IsFalse(m_Manager.Exists(attach));
-            Assert.IsTrue(m_Manager.HasComponent<Frozen>(child));
-
-            var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Value.c3;
-            Assert.That(childWorldPosition.x, Is.EqualTo(1f).Within(k_Tolerance));
-            Assert.That(childWorldPosition.y, Is.EqualTo(2f).Within(k_Tolerance));
-            Assert.That(childWorldPosition.z, Is.EqualTo(0f).Within(k_Tolerance));
-
-            m_Manager.DestroyEntity(parent);
-            m_Manager.DestroyEntity(child);
-
-            World.GetOrCreateManager<EndFrameTransformSystem>().Update();
-
-            Assert.That(m_ManagerDebug.EntityCount, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void TRS_ParentChangesChild()
-        {
-            var parent = m_Manager.CreateEntity(typeof(Position), typeof(Rotation));
-            var child = m_Manager.CreateEntity(typeof(Position));
-            var attach = m_Manager.CreateEntity(typeof(Attach));
-
-            m_Manager.SetComponentData(parent, new Position {Value = new float3(0, 2, 0)});
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
-            m_Manager.SetComponentData(child, new Position {Value = new float3(0, 0, 1)});
-            m_Manager.SetComponentData(attach, new Attach {Parent = parent, Child = child});
-
-            World.GetOrCreateManager<EndFrameTransformSystem>().Update();
-
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(0.0f, 1.0f, 0.0f), new float3(0.0f, 0.0f, 1.0f)) });
-
-            World.GetOrCreateManager<EndFrameTransformSystem>().Update();
-
-            var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Value.c3;
+            m_Manager.SetComponentData(parent, new LocalToWorld {Value = float4x4.identity});
+            m_Manager.SetComponentData(child, new Parent { Value = parent });
+            m_Manager.SetComponentData(child, new LocalToParent
+            {
+                Value = math.mul( float4x4.RotateY((float)math.PI), float4x4.Translate( new float3(0.0f, 0.0f, 1.0f)))
+            });
+            
+            World.GetOrCreateManager<EndFrameParentSystem>().Update();
+            World.GetOrCreateManager<EndFrameLocalToParentSystem>().Update();
+            m_Manager.CompleteAllJobs();   
+           
+            var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
+            
             Assert.That(childWorldPosition.x, Is.EqualTo(0f).Within(k_Tolerance));
-            Assert.That(childWorldPosition.y, Is.EqualTo(3f).Within(k_Tolerance));
-            Assert.That(childWorldPosition.z, Is.EqualTo(0f).Within(k_Tolerance));
+            Assert.That(childWorldPosition.y, Is.EqualTo(0f).Within(k_Tolerance));
+            Assert.That(childWorldPosition.z, Is.EqualTo(-1f).Within(k_Tolerance));
+        }
+        
+        [Test]
+        public void TRS_RemovedParentDoesNotAffectChildPosition()
+        {
+            var parent = m_Manager.CreateEntity(typeof(LocalToWorld));
+            var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
+
+            m_Manager.SetComponentData(parent, new LocalToWorld {Value = float4x4.identity});
+            m_Manager.SetComponentData(child, new Parent { Value = parent });
+            m_Manager.SetComponentData(child, new LocalToParent
+            {
+                Value = math.mul( float4x4.RotateY((float)math.PI), float4x4.Translate( new float3(0.0f, 0.0f, 1.0f)))
+            });
+            
+            World.GetOrCreateManager<EndFrameParentSystem>().Update();
+            World.GetOrCreateManager<EndFrameLocalToParentSystem>().Update();
+            m_Manager.CompleteAllJobs();   
+
+            var expectedChildWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
+                       
+            m_Manager.RemoveComponent<Parent>(child);
+            
+            m_Manager.SetComponentData(parent, new LocalToWorld
+            {
+                Value = math.mul( float4x4.RotateY((float)math.PI), float4x4.Translate( new float3(0.0f, 0.0f, 1.0f)))
+            });
+            
+            World.GetOrCreateManager<EndFrameParentSystem>().Update();
+            World.GetOrCreateManager<EndFrameLocalToParentSystem>().Update();
+
+            var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
+
+            Assert.That(childWorldPosition.x, Is.EqualTo(expectedChildWorldPosition.x).Within(k_Tolerance));
+            Assert.That(childWorldPosition.y, Is.EqualTo(expectedChildWorldPosition.y).Within(k_Tolerance));
+            Assert.That(childWorldPosition.z, Is.EqualTo(expectedChildWorldPosition.z).Within(k_Tolerance));
+        }
+
+        class TestHierarchy : IDisposable
+        {
+            private World World;
+            private EntityManager m_Manager;
+            
+            private quaternion[] rotations;
+            private float3[] translations;
+            
+            int[] rotationIndices;
+            int[] translationIndices;
+            int[] parentIndices;
+
+            private NativeArray<Entity> bodyEntities;
+
+            public void Dispose()
+            {
+                bodyEntities.Dispose();
+            }
+            
+            public TestHierarchy(World world, EntityManager manager)
+            {
+                World = world;
+                m_Manager = manager;
+                
+                rotations = new quaternion[]
+                {
+                    quaternion.EulerYZX(new float3(0.125f * (float)math.PI, 0.0f, 0.0f)),
+                    quaternion.EulerYZX(new float3(0.5f * (float)math.PI, 0.0f, 0.0f)),
+                    quaternion.EulerYZX(new float3((float)math.PI, 0.0f, 0.0f)),
+                };
+                translations = new float3[]
+                {
+                    new float3(0.0f, 0.0f, 1.0f),
+                    new float3(0.0f, 1.0f, 0.0f),
+                    new float3(1.0f, 0.0f, 0.0f),
+                    new float3(0.5f, 0.5f, 0.5f),
+                };
+                
+                //  0: R:[0] T:[0]
+                //  1:  - R:[1] T:[1]
+                //  2:    - R:[2] T:[0]
+                //  3:    - R:[2] T:[1]
+                //  4:    - R:[2] T:[2]
+                //  5:      - R:[1] T:[0]
+                //  6:      - R:[1] T:[1]
+                //  7:      - R:[1] T:[2]
+                //  8:  - R:[2] T:[2]
+                //  9:    - R:[1] T:[0]
+                // 10:    - R:[1] T:[1]
+                // 11:    - R:[1] T:[2]
+                // 12:      - R:[0] T:[0]
+                // 13:        - R:[0] T:[1]
+                // 14:          - R:[0] T:[2]
+                // 15:            - R:[0] T:[2]
+
+                rotationIndices = new int[] {0, 1, 2, 2, 2, 1, 1, 1, 2, 1, 1, 1, 0, 0, 0, 0};
+                translationIndices = new int[] {0, 1, 0, 1, 2, 0, 1, 2, 2, 0, 1, 2, 0, 1, 2, 2};
+                parentIndices = new int[] {-1, 0, 1, 1, 1, 4, 4, 4, 0, 8, 8, 8, 11, 12, 13, 14};
+            }
+
+            public int Count => rotationIndices.Length;
+            public NativeArray<Entity> Entities => bodyEntities;
+
+            public float4x4[] ExpectedLocalToParent()
+            {
+                var expectedLocalToParent = new float4x4[16];
+                for (int i = 0; i < 16; i++)
+                {
+                    var rotationIndex = rotationIndices[i];
+                    var translationIndex = translationIndices[i];
+                    var localToParent = new float4x4(rotations[rotationIndex], translations[translationIndex]);
+                    expectedLocalToParent[i] = localToParent;
+                }
+
+                return expectedLocalToParent;
+            }
+
+            public float4x4[] ExpectedLocalToWorld(float4x4[] expectedLocalToParent)
+            {
+                var expectedLocalToWorld = new float4x4[16];
+                for (int i = 0; i < 16; i++)
+                {
+                    var parentIndex = parentIndices[i];
+                    if (parentIndex == -1)
+                    {
+                        expectedLocalToWorld[i] = expectedLocalToParent[i];                        
+                    }
+                    else
+                    {
+                        expectedLocalToWorld[i] = math.mul(expectedLocalToWorld[parentIndex], expectedLocalToParent[i]);                        
+                    }
+                }
+
+                return expectedLocalToWorld;
+            }
+            
+            public void Create()
+            {
+                var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(Rotation),
+                    typeof(NonUniformScale), typeof(Translation));
+                var bodyArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(Rotation),
+                    typeof(NonUniformScale), typeof(Translation), typeof(Parent), typeof(LocalToParent));
+              
+                CreateInternal(bodyArchetype, rootArchetype, 1.0f);
+            }
+
+            private void CreateInternal(EntityArchetype bodyArchetype, EntityArchetype rootArchetype, float scaleValue)
+            {
+                bodyEntities = new NativeArray<Entity>(16, Allocator.TempJob);
+
+                m_Manager.CreateEntity(bodyArchetype, bodyEntities);
+
+                // replace the first one for loop convenience below
+                m_Manager.DestroyEntity(bodyEntities[0]);
+                bodyEntities[0] = m_Manager.CreateEntity(rootArchetype);
+
+                for (int i = 0; i < 16; i++)
+                {
+                    var rotationIndex = rotationIndices[i];
+                    var translationIndex = translationIndices[i];
+
+                    var rotation = new Rotation() {Value = rotations[rotationIndex]};
+                    var translation = new Translation() {Value = translations[translationIndex]};
+                    var scale = new NonUniformScale() {Value = new float3(scaleValue)};
+
+                    m_Manager.SetComponentData(bodyEntities[i], rotation);
+                    m_Manager.SetComponentData(bodyEntities[i], translation);
+                    m_Manager.SetComponentData(bodyEntities[i], scale);
+                }
+
+                for (int i = 1; i < 16; i++)
+                {
+                    var parentIndex = parentIndices[i];
+                    m_Manager.SetComponentData(bodyEntities[i], new Parent() {Value = bodyEntities[parentIndex]});
+                }
+            }
+
+            public void CreateWithWorldToLocal()
+            {
+                var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(Rotation),
+                    typeof(NonUniformScale), typeof(Translation), typeof(WorldToLocal));
+                var bodyArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(Rotation),
+                    typeof(NonUniformScale), typeof(Translation), typeof(Parent), typeof(LocalToParent), typeof(WorldToLocal));
+              
+                CreateInternal(bodyArchetype, rootArchetype, 1.0f);
+            }
+            
+            public void CreateWithCompositeRotation()
+            {
+                var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(CompositeRotation), typeof(Rotation),
+                    typeof(NonUniformScale), typeof(Translation));
+                var bodyArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(CompositeRotation), typeof(Rotation),
+                    typeof(NonUniformScale), typeof(Translation), typeof(Parent), typeof(LocalToParent));
+                          
+                CreateInternal(bodyArchetype, rootArchetype, 1.0f);
+            }
+           
+            public void CreateWithParentScaleInverse()
+            {
+                var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(CompositeRotation), typeof(Rotation),
+                    typeof(NonUniformScale), typeof(Translation));
+                var bodyArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(CompositeRotation), typeof(Rotation),
+                    typeof(NonUniformScale), typeof(Translation), typeof(Parent), typeof(LocalToParent), typeof(ParentScaleInverse));
+                          
+                CreateInternal(bodyArchetype, rootArchetype, 2.0f);
+            }
+            
+            public void CreateWithCompositeScaleParentScaleInverse()
+            {
+                var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(CompositeRotation), typeof(Rotation),
+                    typeof(NonUniformScale), typeof(Translation), typeof(CompositeScale));
+                var bodyArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(CompositeRotation), typeof(Rotation),
+                    typeof(NonUniformScale), typeof(Translation), typeof(CompositeScale), typeof(Parent), typeof(LocalToParent), typeof(ParentScaleInverse));
+                          
+                CreateInternal(bodyArchetype, rootArchetype, 2.0f);
+            }
+            
+            public void Update()
+            {
+                World.GetOrCreateManager<EndFrameParentSystem>().Update();
+                World.GetOrCreateManager<EndFrameCompositeRotationSystem>().Update();
+                World.GetOrCreateManager<EndFrameCompositeScaleSystem>().Update();
+                World.GetOrCreateManager<EndFrameParentScaleInverseSystem>().Update();
+                World.GetOrCreateManager<EndFrameTRSToLocalToWorldSystem>().Update();
+                World.GetOrCreateManager<EndFrameTRSToLocalToParentSystem>().Update();
+                World.GetOrCreateManager<EndFrameLocalToParentSystem>().Update();
+                World.GetOrCreateManager<EndFrameWorldToLocalSystem>().Update();
+                
+                // Force complete so that main thread (tests) can have access to direct editing.
+                m_Manager.CompleteAllJobs();                
+            }
+            
+            unsafe bool AssertCloseEnough(float4x4 a, float4x4 b)
+            {
+                float* ap = (float*) &a.c0.x;
+                float* bp = (float*) &b.c0.x;
+                for (int i = 0; i < 16; i++)
+                {
+                    Assert.That(bp[i], Is.EqualTo(ap[i]).Within(k_Tolerance));
+                }
+                return true;
+            }
+
+            public void TestExpectedLocalToParent()
+            {
+                var expectedLocalToParent = ExpectedLocalToParent();
+   
+                // Check all non-root LocalToParent
+                for (int i = 0; i < 16; i++)
+                {
+                    var entity = Entities[i];
+                    var parentIndex = parentIndices[i];
+                    if (parentIndex == -1)
+                    {
+                        Assert.IsFalse(m_Manager.HasComponent<Parent>(entity));
+                        Assert.IsFalse(m_Manager.HasComponent<LocalToParent>(entity));
+                        continue;
+                    }
+                    var localToParent = m_Manager.GetComponentData<LocalToParent>(entity).Value;
+                
+                    AssertCloseEnough(expectedLocalToParent[i], localToParent);
+                }
+            }
+            
+            public void TestExpectedLocalToWorld()
+            {
+                var expectedLocalToParent = ExpectedLocalToParent();
+                var expectedLocalToWorld = ExpectedLocalToWorld(expectedLocalToParent);
+
+                for (int i = 0; i < 16; i++)
+                {
+                    var entity = Entities[i];
+                    if (m_Manager.Exists(entity))
+                    {
+                        var localToWorld = m_Manager.GetComponentData<LocalToWorld>(entity).Value;
+                        AssertCloseEnough(expectedLocalToWorld[i], localToWorld);
+                    }
+                }
+            }
+
+            public void TestExpectedWorldToLocal()
+            {
+                var expectedLocalToParent = ExpectedLocalToParent();
+                var expectedLocalToWorld = ExpectedLocalToWorld(expectedLocalToParent);
+
+                for (int i = 0; i < 16; i++)
+                {
+                    var entity = Entities[i];
+                    if (m_Manager.Exists(entity))
+                    {
+                        var worldToLocal = m_Manager.GetComponentData<WorldToLocal>(entity).Value;
+                        AssertCloseEnough(math.inverse(expectedLocalToWorld[i]), worldToLocal);
+                    }
+                }
+            }
+            
+            public void RemoveSomeParents()
+            {
+                parentIndices[1] = -1;
+                parentIndices[8] = -1;
+                
+                m_Manager.RemoveComponent<Parent>(Entities[1]);
+                m_Manager.RemoveComponent<Parent>(Entities[8]);
+                m_Manager.RemoveComponent<LocalToParent>(Entities[1]);
+                m_Manager.RemoveComponent<LocalToParent>(Entities[8]);
+            }
+            
+            public void ChangeSomeParents()
+            {
+                parentIndices[4] = 3;
+                parentIndices[8] = 7;
+                
+                m_Manager.SetComponentData<Parent>(Entities[4], new Parent{ Value = Entities[3]});
+                m_Manager.SetComponentData<Parent>(Entities[8], new Parent{ Value = Entities[7]});
+            }
+            
+            public void DeleteSomeParents()
+            {
+                // Effectively puts children of 0 at the root 
+                parentIndices[1] = -1;
+                parentIndices[8] = -1;
+
+                m_Manager.DestroyEntity(Entities[0]);
+            }
+            
+            public void DestroyAll()
+            {
+                m_Manager.DestroyEntity(Entities);
+            }
+        }
+        
+        [Test]
+        public void TRS_TestHierarchyFirstUpdate()
+        {
+            var testHierarchy = new TestHierarchy(World, m_Manager);
+
+            testHierarchy.Create();
+            testHierarchy.Update();
+
+            testHierarchy.TestExpectedLocalToParent();
+            testHierarchy.TestExpectedLocalToWorld();
+
+            testHierarchy.Dispose();
+        }
+        
+        [Test]
+        public void TRS_TestHierarchyFirstUpdateWithWorldtoLocal()
+        {
+            var testHierarchy = new TestHierarchy(World, m_Manager);
+
+            testHierarchy.CreateWithWorldToLocal();
+            testHierarchy.Update();
+
+            testHierarchy.TestExpectedLocalToParent();
+            testHierarchy.TestExpectedLocalToWorld();
+            testHierarchy.TestExpectedWorldToLocal();
+
+            testHierarchy.Dispose();
+        }
+                       
+        [Test]
+        public void TRS_TestHierarchyFirstUpdateWithCompositeRotation()
+        {
+            var testHierarchy = new TestHierarchy(World, m_Manager);
+
+            testHierarchy.CreateWithCompositeRotation();
+            testHierarchy.Update();
+
+            testHierarchy.TestExpectedLocalToParent();
+            testHierarchy.TestExpectedLocalToWorld();
+
+            testHierarchy.Dispose();
+        }
+        
+        [Test]
+        public void TRS_TestHierarchyFirstUpdateWitParentScaleInverse()
+        {
+            var testHierarchy = new TestHierarchy(World, m_Manager);
+
+            testHierarchy.CreateWithParentScaleInverse();
+            testHierarchy.Update();
+
+            testHierarchy.TestExpectedLocalToParent();
+
+            testHierarchy.Dispose();
         }
 
         [Test]
-        public void TRS_InnerDepth()
+        public void TRS_TestHierarchyFirstUpdateWitCompositeScaleParentScaleInverse()
         {
-            var parent = m_Manager.CreateEntity(typeof(Position), typeof(Rotation));
-            var parent2 = m_Manager.CreateEntity(typeof(Position));
-            var child = m_Manager.CreateEntity(typeof(Position));
-            var attach = m_Manager.CreateEntity(typeof(Attach));
-            var attach2 = m_Manager.CreateEntity(typeof(Attach));
+            var testHierarchy = new TestHierarchy(World, m_Manager);
 
-            m_Manager.SetComponentData(parent, new Position {Value = new float3(0, 2, 0)});
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
-            m_Manager.SetComponentData(parent2, new Position {Value = new float3(0, 0, 1)});
-            m_Manager.SetComponentData(child, new Position {Value = new float3(0, 0, 1)});
+            testHierarchy.CreateWithCompositeScaleParentScaleInverse();
+            testHierarchy.Update();
 
-            m_Manager.SetComponentData(attach, new Attach {Parent = parent, Child = parent2});
-            m_Manager.SetComponentData(attach2, new Attach {Parent = parent2, Child = child});
+            testHierarchy.TestExpectedLocalToParent();
 
-            World.GetOrCreateManager<EndFrameTransformSystem>().Update();
-
-            var parentDepth = m_Manager.GetSharedComponentData<Depth>(parent);
-            var parent2Depth = m_Manager.GetSharedComponentData<Depth>(parent2);
-
-            Assert.That(parentDepth.Value, Is.EqualTo(0));
-            Assert.That(parent2Depth.Value, Is.EqualTo(1));
-
-            var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Value.c3;
-            Assert.That(childWorldPosition.x, Is.EqualTo(2f).Within(k_Tolerance));
-            Assert.That(childWorldPosition.y, Is.EqualTo(2f).Within(k_Tolerance));
-            Assert.That(childWorldPosition.z, Is.EqualTo(0f).Within(k_Tolerance));
+            testHierarchy.Dispose();
         }
-
+          
         [Test]
-        public void TRS_LocalPositions()
+        public void TRS_TestHierarchyAfterParentRemoval()
         {
-            var parent = m_Manager.CreateEntity(typeof(Position), typeof(Rotation));
-            var parent2 = m_Manager.CreateEntity(typeof(Position));
-            var child = m_Manager.CreateEntity(typeof(Position));
-            var attach = m_Manager.CreateEntity(typeof(Attach));
-            var attach2 = m_Manager.CreateEntity(typeof(Attach));
+            var testHierarchy = new TestHierarchy(World, m_Manager);
 
-            m_Manager.SetComponentData(parent, new Position {Value = new float3(0, 2, 0)});
-            m_Manager.SetComponentData(parent, new Rotation {Value = quaternion.LookRotation(new float3(1.0f, 0.0f, 0.0f), math.up())});
-            m_Manager.SetComponentData(parent2, new Position {Value = new float3(0, 0, 1)});
-            m_Manager.SetComponentData(child, new Position {Value = new float3(0, 0, 1)});
+            testHierarchy.Create();
+            testHierarchy.Update();
+            
+            testHierarchy.RemoveSomeParents();
+            testHierarchy.Update();
 
-            m_Manager.SetComponentData(attach, new Attach {Parent = parent, Child = parent2});
-            m_Manager.SetComponentData(attach2, new Attach {Parent = parent2, Child = child});
+            testHierarchy.TestExpectedLocalToParent();
+            testHierarchy.TestExpectedLocalToWorld();
 
-            World.GetOrCreateManager<EndFrameTransformSystem>().Update();
-
-            var parent2LocalPosition = m_Manager.GetComponentData<LocalToParent>(parent2).Value.c3;
-            Assert.That(parent2LocalPosition.x, Is.EqualTo(0f).Within(k_Tolerance));
-            Assert.That(parent2LocalPosition.y, Is.EqualTo(0f).Within(k_Tolerance));
-            Assert.That(parent2LocalPosition.z, Is.EqualTo(1f).Within(k_Tolerance));
-
-            var childLocalPosition = m_Manager.GetComponentData<LocalToParent>(child).Value.c3;
-            Assert.That(childLocalPosition.x, Is.EqualTo(0f).Within(k_Tolerance));
-            Assert.That(childLocalPosition.y, Is.EqualTo(0f).Within(k_Tolerance));
-            Assert.That(childLocalPosition.z, Is.EqualTo(1f).Within(k_Tolerance));
+            testHierarchy.Dispose();
         }
-
+        
+                
         [Test]
-        public void TRS_LocalPositionsHierarchy()
+        public void TRS_TestHierarchyAfterParentChange()
         {
-            var pi = 3.14159265359f;
-            var rotations = new quaternion[]
-            {
-                quaternion.EulerYZX(new float3(0.125f * pi, 0.0f, 0.0f)),
-                quaternion.EulerYZX(new float3(0.5f * pi, 0.0f, 0.0f)),
-                quaternion.EulerYZX(new float3(pi, 0.0f, 0.0f)),
-            };
-            var translations = new float3[]
-            {
-                new float3(0.0f, 0.0f, 1.0f),
-                new float3(0.0f, 1.0f, 0.0f),
-                new float3(1.0f, 0.0f, 0.0f),
-                new float3(0.5f, 0.5f, 0.5f),
-            };
+            var testHierarchy = new TestHierarchy(World, m_Manager);
 
-            //  0: R:[0] T:[0]
-            //  1:  - R:[1] T:[1]
-            //  2:    - R:[2] T:[0]
-            //  3:    - R:[2] T:[1]
-            //  4:    - R:[2] T:[2]
-            //  5:      - R:[1] T:[0]
-            //  6:      - R:[1] T:[1]
-            //  7:      - R:[1] T:[2]
-            //  8:  - R:[2] T:[2]
-            //  9:    - R:[1] T:[0]
-            // 10:    - R:[1] T:[1]
-            // 11:    - R:[1] T:[2]
-            // 12:      - R:[0] T:[0]
-            // 13:        - R:[0] T:[1]
-            // 14:          - R:[0] T:[2]
-            // 15:            - R:[0] T:[2]
+            testHierarchy.Create();
+            testHierarchy.Update();
+            
+            testHierarchy.ChangeSomeParents();
+            testHierarchy.Update();
 
-            var rotationIndices = new int[] {0, 1, 2, 2, 2, 1, 1, 1, 2, 1, 1, 1, 0, 0, 0, 0};
-            var translationIndices = new int[] {0, 1, 0, 1, 2, 0, 1, 2, 2, 0, 1, 2, 0, 1, 2, 2};
-            var parentIndices = new int[] {-1, 0, 1, 1, 1, 4, 4, 4, 0, 8, 8, 8, 11, 12, 13, 14};
+            testHierarchy.TestExpectedLocalToParent();
+            testHierarchy.TestExpectedLocalToWorld();
 
-            var expectedLocalToParent = new float4x4[16];
-            for (int i = 0; i < 16; i++)
-            {
-                var rotationIndex = rotationIndices[i];
-                var translationIndex = translationIndices[i];
-                var localToParent = new float4x4(rotations[rotationIndex], translations[translationIndex]);
-                expectedLocalToParent[i] = localToParent;
-            }
-
-            var expectedLocalToWorld = new float4x4[16];
-
-            expectedLocalToWorld[0] = expectedLocalToParent[0];
-            for (int i = 1; i < 16; i++)
-            {
-                var parentIndex = parentIndices[i];
-                expectedLocalToWorld[i] = math.mul(expectedLocalToWorld[parentIndex], expectedLocalToParent[i]);
-            }
-
-            var bodyArchetype = m_Manager.CreateArchetype(typeof(Position), typeof(Rotation));
-            var attachArchetype = m_Manager.CreateArchetype(typeof(Attach));
-            var bodyEntities = new NativeArray<Entity>(16, Allocator.TempJob);
-            var attachEntities = new NativeArray<Entity>(15, Allocator.TempJob);
-
-            m_Manager.CreateEntity(bodyArchetype, bodyEntities);
-            m_Manager.CreateEntity(attachArchetype, attachEntities);
-
-            for (int i = 0; i < 16; i++)
-            {
-                var rotationIndex = rotationIndices[i];
-                var translationIndex = translationIndices[i];
-                var rotation = new Rotation {Value = rotations[rotationIndex]};
-                var position = new Position {Value = translations[translationIndex]};
-
-                m_Manager.SetComponentData(bodyEntities[i], rotation);
-                m_Manager.SetComponentData(bodyEntities[i], position);
-            }
-
-            for (int i = 1; i < 16; i++)
-            {
-                var parentIndex = parentIndices[i];
-                m_Manager.SetComponentData(attachEntities[i - 1],
-                    new Attach {Parent = bodyEntities[parentIndex], Child = bodyEntities[i]});
-            }
-
-            World.GetOrCreateManager<EndFrameTransformSystem>().Update();
-
-            // Check all non-root LocalToParent
-            for (int i = 1; i < 16; i++)
-            {
-                var entity = bodyEntities[i];
-                var localToParent = m_Manager.GetComponentData<LocalToParent>(entity).Value;
-
-                AssertCloseEnough(expectedLocalToParent[i], localToParent);
-            }
-
-            // Check all LocalToWorld
-            for (int i = 0; i < 16; i++)
-            {
-                var entity = bodyEntities[i];
-                var localToWorld = m_Manager.GetComponentData<LocalToWorld>(entity).Value;
-
-                AssertCloseEnough(expectedLocalToWorld[i], localToWorld);
-            }
-
-            bodyEntities.Dispose();
-            attachEntities.Dispose();
+            testHierarchy.Dispose();
         }
-
+        
         [Test]
-        public void AddRotationComponent_DefaultValueIsNormalized()
+        public void TRS_TestHierarchyAfterParentDeleted()
         {
-            var rotationComponent =
-                new GameObject(TestContext.CurrentContext.Test.Name, typeof(RotationProxy)).GetComponent<RotationProxy>();
-            try
-            {
-                Assert.That(math.length(rotationComponent.Value.Value), Is.EqualTo(1f).Within(k_Tolerance));
-            }
-            finally
-            {
-                if (rotationComponent.gameObject != null)
-                    GameObject.DestroyImmediate(rotationComponent.gameObject);
-            }
+            var testHierarchy = new TestHierarchy(World, m_Manager);
+
+            testHierarchy.Create();
+            testHierarchy.Update();
+            
+            testHierarchy.DeleteSomeParents();
+            testHierarchy.Update();
+
+            testHierarchy.TestExpectedLocalToParent();
+            testHierarchy.TestExpectedLocalToWorld();
+
+            testHierarchy.Dispose();
+        }
+        
+        [Test]
+        public void TRS_TestHierarchyDestroyAll()
+        {
+            var testHierarchy = new TestHierarchy(World, m_Manager);
+
+            testHierarchy.Create();
+            testHierarchy.Update();
+            
+            // Make sure can handle destroying all parents and children on same frame
+            testHierarchy.DestroyAll();
+            testHierarchy.Update();
+            
+            // Make sure remaining cleanup handled cleanly.
+            testHierarchy.Update();
+            
+            var entities = m_Manager.GetAllEntities();
+            Assert.IsTrue(entities.Length == 0);
+
+            testHierarchy.Dispose();
         }
     }
 }

@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Unity.Collections;
 using Unity.Jobs;
 
 namespace Unity.Entities.Tests
@@ -15,6 +16,10 @@ namespace Unity.Entities.Tests
         }
 
         new public ComponentGroup GetComponentGroup(params ComponentType[] componentTypes)
+        {
+            return base.GetComponentGroup(componentTypes);
+        }
+        new public ComponentGroup GetComponentGroup(NativeArray<ComponentType> componentTypes)
         {
             return base.GetComponentGroup(componentTypes);
         }

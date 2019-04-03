@@ -52,7 +52,7 @@ namespace Unity.Entities.Tests
             });
             Assert.Throws<ArgumentException>(() =>
             {
-                m_Manager.GetComponentDataRawRW(entity0, ComponentType.Create<EcsTestTag>().TypeIndex);
+                m_Manager.GetComponentDataRawRW(entity0, ComponentType.ReadWrite<EcsTestTag>().TypeIndex);
             });
         }
 
@@ -68,7 +68,7 @@ namespace Unity.Entities.Tests
             Assert.Throws<ArgumentException>(() =>
             {
                 var value = new EcsTestTag();
-                m_Manager.SetComponentDataRaw(entity0, ComponentType.Create<EcsTestTag>().TypeIndex, &value, sizeof(EcsTestTag));
+                m_Manager.SetComponentDataRaw(entity0, ComponentType.ReadWrite<EcsTestTag>().TypeIndex, &value, sizeof(EcsTestTag));
             });
         }
 
@@ -80,6 +80,7 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(entity));
         }
 
+        #pragma warning disable 618
         [Test]
         public void SIZ_TagCannotGetComponentDataArray()
         {
@@ -88,6 +89,7 @@ namespace Unity.Entities.Tests
 
             Assert.Throws<ArgumentException>(() => { group.GetComponentDataArray<EcsTestTag>(); });
         }
+        #pragma warning restore 618
 
         [Test]
         public void SIZ_TagThrowsOnComponentDataFromEntity()
@@ -102,7 +104,7 @@ namespace Unity.Entities.Tests
         public void SIZ_TagCannotGetNativeArrayFromArchetypeChunk()
         {
             m_Manager.CreateEntity(typeof(EcsTestTag));
-            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsTestTag>());
+            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestTag>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 

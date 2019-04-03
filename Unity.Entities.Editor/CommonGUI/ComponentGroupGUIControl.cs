@@ -52,9 +52,9 @@ namespace Unity.Entities.Editor
 
                     if (style == null)
                     {
-                        if (type.AccessModeType == ComponentType.AccessMode.Subtractive)
+                        if (type.AccessModeType == ComponentType.AccessMode.Exclude)
                         {
-                            style = EntityDebuggerStyles.ComponentSubtractive;
+                            style = EntityDebuggerStyles.ComponentExclude;
                         }
                         else
                         {

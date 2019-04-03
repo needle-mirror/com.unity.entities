@@ -53,6 +53,8 @@ namespace Unity.Entities.Serialization
                 var sharedData = manager.m_SharedComponentManager.GetSharedComponentDataNonDefaultBoxed(sharedComponentIndices[i]);
 
                 var proxyType = TypeUtility.GetProxyForDataType(sharedData.GetType());
+                if (proxyType == null)
+                    throw new ArgumentException($"{sharedData.GetType()} has no valid proxy shared component data. Please create one..");
                 if (Attribute.IsDefined(proxyType, typeof(DisallowMultipleComponent), true))
                     throw new ArgumentException($"{proxyType} is marked with {typeof(DisallowMultipleComponent)}, but current implementation of {nameof(SerializeSharedComponents)} serializes all shared components on a single GameObject.");
 
@@ -64,6 +66,7 @@ namespace Unity.Entities.Serialization
                 com.UpdateSerializedData(manager, sharedComponentIndices[i]);
             }
 
+            
             return go;
         }
 

@@ -47,10 +47,11 @@ namespace Unity.Entities.Tests
             cmds.Dispose();
 
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
-            var arr = group.GetComponentDataArray<EcsTestData>();
+            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             Assert.AreEqual(2, arr.Length);
             Assert.AreEqual(42, arr[0].value);
             Assert.AreEqual(1, arr[1].value);
+            arr.Dispose();
             group.Dispose();
         }
 
@@ -147,9 +148,10 @@ namespace Unity.Entities.Tests
             cmds.Dispose();
 
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
-            var arr = group.GetComponentDataArray<EcsTestData>();
+            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             Assert.AreEqual(1, arr.Length);
             Assert.AreEqual(12, arr[0].value);
+            arr.Dispose();
             group.Dispose();
         }
 
@@ -165,9 +167,10 @@ namespace Unity.Entities.Tests
             cmds.Dispose();
 
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
-            var arr = group.GetComponentDataArray<EcsTestData>();
+            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             Assert.AreEqual(1, arr.Length);
             Assert.AreEqual(12, arr[0].value);
+            arr.Dispose();
             group.Dispose();
         }
 
@@ -183,18 +186,20 @@ namespace Unity.Entities.Tests
 
             {
                 var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
-                var arr = group.GetComponentDataArray<EcsTestData>();
+                var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
                 Assert.AreEqual(1, arr.Length);
                 Assert.AreEqual(12, arr[0].value);
+                arr.Dispose();
                 group.Dispose();
             }
 
             {
                 var group = m_Manager.CreateComponentGroup(typeof(EcsTestData2));
-                var arr = group.GetComponentDataArray<EcsTestData2>();
+                var arr = group.ToComponentDataArray<EcsTestData2>(Allocator.TempJob);
                 Assert.AreEqual(1, arr.Length);
                 Assert.AreEqual(1, arr[0].value0);
                 Assert.AreEqual(2, arr[0].value1);
+                arr.Dispose();
                 group.Dispose();
             }
         }
@@ -219,8 +224,8 @@ namespace Unity.Entities.Tests
 
             {
                 var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestData2));
-                var arr = group.GetComponentDataArray<EcsTestData>();
-                var arr2 = group.GetComponentDataArray<EcsTestData2>();
+                var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+                var arr2 = group.ToComponentDataArray<EcsTestData2>(Allocator.TempJob);
                 Assert.AreEqual(count, arr.Length);
                 for (int i = 0; i < count; ++i)
                 {
@@ -228,6 +233,8 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(i, arr2[i].value0);
                     Assert.AreEqual(i, arr2[i].value1);
                 }
+                arr.Dispose();
+                arr2.Dispose();
                 group.Dispose();
             }
         }
@@ -872,7 +879,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void BufferCopyFromDoesNotThrowInJob()
         {
-            var archetype = m_Manager.CreateArchetype(ComponentType.Create<EcsTestData>());
+            var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>());
             var entities = new NativeArray<Entity>(100, Allocator.Persistent);
             m_Manager.CreateEntity(archetype, entities);
 
@@ -897,12 +904,12 @@ namespace Unity.Entities.Tests
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
-        public void BarrierPlaybackExceptionIsolation()
+        public void EntityCommandBufferSystemPlaybackExceptionIsolation()
         {
-            var barrier = World.GetOrCreateManager<EndFrameBarrier>();
+            var entityCommandBufferSystem = World.GetOrCreateManager<EndSimulationEntityCommandBufferSystem>();
 
-            var buf1 = barrier.CreateCommandBuffer();
-            var buf2 = barrier.CreateCommandBuffer();
+            var buf1 = entityCommandBufferSystem.CreateCommandBuffer();
+            var buf2 = entityCommandBufferSystem.CreateCommandBuffer();
 
             var e1 = buf1.CreateEntity();
             buf1.AddComponent(e1, new EcsTestData());
@@ -914,12 +921,12 @@ namespace Unity.Entities.Tests
 
             // We exp both command buffers to execute, and an exception thrown afterwards
             // Essentially we want isolation of two systems that might fail independently.
-            Assert.Throws<ArgumentException>(() => { barrier.Update(); });
+            Assert.Throws<ArgumentException>(() => { entityCommandBufferSystem.Update(); });
             Assert.AreEqual(2, EmptySystem.GetComponentGroup(typeof(EcsTestData)).CalculateLength());
 
             // On second run, we expect all buffers to be removed...
             // So no more exceptions thrown.
-            barrier.Update();
+            entityCommandBufferSystem.Update();
 
             Assert.AreEqual(2, EmptySystem.GetComponentGroup(typeof(EcsTestData)).CalculateLength());
         }
@@ -927,9 +934,9 @@ namespace Unity.Entities.Tests
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
-        public void BarrierSystem_OmitAddJobHandleForProducer_ThrowArgumentException()
+        public void EntityCommandBufferSystem_OmitAddJobHandleForProducer_ThrowArgumentException()
         {
-            var barrier = World.GetOrCreateManager<EndFrameBarrier>();
+            var barrier = World.GetOrCreateManager<EndSimulationEntityCommandBufferSystem>();
             var cmds = barrier.CreateCommandBuffer();
             const int kCreateCount = 10000;
             var job = new TestParallelJob
@@ -970,13 +977,14 @@ namespace Unity.Entities.Tests
             cmds.Dispose();
 
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestDataEntity));
-            var arr = group.GetComponentDataArray<EcsTestDataEntity>();
+            var arr = group.ToComponentDataArray<EcsTestDataEntity>(Allocator.TempJob);
 
             Assert.AreEqual(1, arr.Length);
             var e0real = arr[0].value1;
             EcsTestDataEntity v0 = m_Manager.GetComponentData<EcsTestDataEntity>(e0real);
             Assert.AreEqual(v0.value1, e0real);
 
+            arr.Dispose();
             group.Dispose();
         }
 
@@ -1019,6 +1027,6 @@ namespace Unity.Entities.Tests
             var realDst1 = m_Manager.GetComponentData<EcsTestDataEntity>(esrc).value1;
             Assert.AreEqual(12, m_Manager.GetComponentData<EcsTestData2>(realDst1).value1);
         }
-        
+
     }
 }

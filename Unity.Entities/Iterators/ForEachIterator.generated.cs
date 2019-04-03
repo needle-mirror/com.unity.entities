@@ -29,7 +29,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -68,7 +68,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>(false);
 
@@ -104,7 +104,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -143,7 +143,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>();
 
@@ -179,7 +179,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -218,7 +218,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkBufferType<T0>(false);
 
@@ -254,7 +254,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -293,7 +293,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkSharedComponentType<T0>();
 
@@ -329,7 +329,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -370,7 +370,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -408,7 +408,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -451,7 +451,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -491,7 +491,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -536,7 +536,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -578,7 +578,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -625,7 +625,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -669,7 +669,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -718,7 +718,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -764,7 +764,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -805,7 +805,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -843,7 +843,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -886,7 +886,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -926,7 +926,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -971,7 +971,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -1013,7 +1013,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -1060,7 +1060,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -1104,7 +1104,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -1153,7 +1153,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -1199,7 +1199,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -1240,7 +1240,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkBufferType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -1278,7 +1278,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -1321,7 +1321,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkBufferType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -1361,7 +1361,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -1406,7 +1406,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkBufferType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -1448,7 +1448,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -1495,7 +1495,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkBufferType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -1539,7 +1539,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -1588,7 +1588,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkBufferType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -1634,7 +1634,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -1675,7 +1675,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkSharedComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -1713,7 +1713,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -1756,7 +1756,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkSharedComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -1796,7 +1796,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -1841,7 +1841,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkSharedComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -1883,7 +1883,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -1930,7 +1930,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkSharedComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -1974,7 +1974,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -2023,7 +2023,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkSharedComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>(false);
@@ -2069,7 +2069,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -2110,7 +2110,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -2148,7 +2148,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -2191,7 +2191,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -2231,7 +2231,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -2276,7 +2276,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -2318,7 +2318,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -2365,7 +2365,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -2409,7 +2409,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -2458,7 +2458,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -2504,7 +2504,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -2545,7 +2545,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -2583,7 +2583,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -2626,7 +2626,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -2666,7 +2666,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -2711,7 +2711,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -2753,7 +2753,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -2800,7 +2800,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -2844,7 +2844,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -2893,7 +2893,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -2939,7 +2939,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -2980,7 +2980,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkBufferType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -3018,7 +3018,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -3061,7 +3061,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkBufferType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -3101,7 +3101,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -3146,7 +3146,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkBufferType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -3188,7 +3188,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -3235,7 +3235,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkBufferType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -3279,7 +3279,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -3328,7 +3328,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkBufferType<T0>(false);
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -3374,7 +3374,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -3415,7 +3415,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkSharedComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -3453,7 +3453,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -3496,7 +3496,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkSharedComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -3536,7 +3536,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -3581,7 +3581,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkSharedComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -3623,7 +3623,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -3670,7 +3670,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkSharedComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();
@@ -3714,7 +3714,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
             
                 var entityType = GetArchetypeChunkEntityType();
@@ -3763,7 +3763,7 @@ namespace Unity.Entities
                 {
                     group = GetCachedComponentGroup_Delegate(operate);
                     if (group == null)
-                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.Create<T0>(), ComponentType.Create<T1>(), ComponentType.Create<T2>(), ComponentType.Create<T3>(), ComponentType.Create<T4>(), ComponentType.Create<T5>());
+                        group = CreateCachedComponentGroup_Delegate(operate, ComponentType.ReadWrite<T0>(), ComponentType.ReadWrite<T1>(), ComponentType.ReadWrite<T2>(), ComponentType.ReadWrite<T3>(), ComponentType.ReadWrite<T4>(), ComponentType.ReadWrite<T5>());
                 }
                 var chunkComponentType0 = GetArchetypeChunkSharedComponentType<T0>();
                 var chunkComponentType1 = GetArchetypeChunkComponentType<T1>();

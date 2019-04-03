@@ -6,14 +6,23 @@ namespace Unity.Entities.StaticTypeRegistry
     {
 #pragma warning disable 0649
         static public readonly Type[] Types;
+        static public readonly Type[] Systems;
         static public readonly int[] EntityOffsets;
         // This field will be generated in the replacement assembly
         //static public readonly TypeManager.TypeInfo[] TypeInfos;
 #pragma warning restore 0649
 
         public static void RegisterStaticTypes() {
-            // empty -- dynamic reg is used.  TypeRegGen will generate
-            // a replacement assembly
+            throw new NotImplementedException("This function should have been replaced by the TypeRegGen build step. Ensure TypeRegGen.exe is generating a new Unity.Entities.StaticTypeRegistry assembly.");
+        }
+
+        public static object CreateSystem(Type systemType)
+        {
+            throw new NotImplementedException("This function should have been replaced by the TypeRegGen build step. Ensure TypeRegGen.exe is generating a new Unity.Entities.StaticTypeRegistry assembly.");
+        }
+
+        public static Attribute[] GetSystemAttributes(Type systemType)
+        {
             throw new NotImplementedException("This function should have been replaced by the TypeRegGen build step. Ensure TypeRegGen.exe is generating a new Unity.Entities.StaticTypeRegistry assembly.");
         }
 
@@ -30,5 +39,6 @@ namespace Unity.Entities.StaticTypeRegistry
             // a replacement assembly
             throw new NotImplementedException("This function should have been replaced by the TypeRegGen build step. Ensure TypeRegGen.exe is generating a new Unity.Entities.StaticTypeRegistry assembly.");
         }
+
     }
 }

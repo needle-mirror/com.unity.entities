@@ -70,7 +70,7 @@ namespace Unity.Entities.Tests
 
         void TestSourceEvenValues(int version, ComponentGroup group)
         {
-            var testData = group.GetComponentDataArray<EcsTestData>();
+            var testData = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 
             Assert.AreEqual(50, testData.Length);
 
@@ -78,11 +78,13 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(i * 2, testData[i].value);
             }
+            
+            testData.Dispose();
         }
 
         void TestSourceOddValues(int version, ComponentGroup group)
         {
-            var testData = group.GetComponentDataArray<EcsTestData>();
+            var testData = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 
             Assert.AreEqual(50, testData.Length);
 
@@ -90,6 +92,8 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(1 + (i * 2), testData[i].value);
             }
+            
+            testData.Dispose();
         }
 
         [Test]
@@ -101,9 +105,7 @@ namespace Unity.Entities.Tests
 
         void ChangeGroupOrder(int version, ComponentGroup group)
         {
-            var entityData = group.GetEntityArray();
-            var entities = new NativeArray<Entity>(50, Allocator.Temp);
-            entityData.CopyTo(new NativeSlice<Entity>(entities));
+            var entities = group.ToEntityArray(Allocator.TempJob);
 
             for (int i = 0; i < 50; i++)
             {
@@ -139,9 +141,7 @@ namespace Unity.Entities.Tests
 
         void DestroyAllButOneEntityInGroup(int version, ComponentGroup group)
         {
-            var entityData = group.GetEntityArray();
-            var entities = new NativeArray<Entity>(50, Allocator.Temp);
-            entityData.CopyTo(new NativeSlice<Entity>(entities));
+            var entities = group.ToEntityArray(Allocator.TempJob);
 
             for (int i = 0; i < 49; i++)
             {

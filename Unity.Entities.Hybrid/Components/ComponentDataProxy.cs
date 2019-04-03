@@ -3,6 +3,13 @@ using UnityEngine;
 
 namespace Unity.Entities
 {
+    [Obsolete("ComponentDataWrapper has been renamed to ComponentDataProxy", true)]
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    public abstract class ComponentDataWrapper<T> : ComponentDataProxyBase where T : struct, IComponentData
+    {
+    }
+
+
     public abstract class ComponentDataProxy<T> : ComponentDataProxyBase where T : struct, IComponentData
     {
         internal override void ValidateSerializedData()
@@ -36,18 +43,18 @@ namespace Unity.Entities
 
         internal override ComponentType GetComponentType()
         {
-            return ComponentType.Create<T>();
+            return ComponentType.ReadWrite<T>();
         }
 
         internal override void UpdateComponentData(EntityManager manager, Entity entity)
         {
-            if (!ComponentType.Create<T>().IsZeroSized)
+            if (!ComponentType.ReadWrite<T>().IsZeroSized)
                 manager.SetComponentData(entity, m_SerializedData);
         }
 
         internal override void UpdateSerializedData(EntityManager manager, Entity entity)
         {
-            if (!ComponentType.Create<T>().IsZeroSized)
+            if (!ComponentType.ReadWrite<T>().IsZeroSized)
                 m_SerializedData = manager.GetComponentData<T>(entity);
         }
 

@@ -111,9 +111,11 @@ namespace Unity.Entities.Editor
         {
             if (updateList)
                 entityListView.SetEntitySelection(newSelection);
-            if (WorldSelection != null && newSelection != Entity.Null)
+
+            var world = WorldSelection ?? (SystemSelection as ComponentSystemBase)?.World ?? (SystemSelection as EntityManager)?.World;
+            if (world != null && newSelection != Entity.Null)
             {
-                selectionProxy.SetEntity(WorldSelection, newSelection);
+                selectionProxy.SetEntity(world, newSelection);
                 Selection.activeObject = selectionProxy;
             }
             else if (Selection.activeObject == selectionProxy)

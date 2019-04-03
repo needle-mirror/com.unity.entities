@@ -43,10 +43,11 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, creationManager.CreateComponentGroup(typeof(EcsTestData)).CalculateLength());
 
             // We expect that the order of the crated entities is the same as in the creation scene
-            var testDataArray = group.GetComponentDataArray<EcsTestData>();
+            var testDataArray = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             for (int i = 0; i != testDataArray.Length; i++)
                 Assert.AreEqual(i, testDataArray[i].value);
 
+            testDataArray.Dispose();
             entities.Dispose();
             creationWorld.Dispose();
         }
@@ -80,11 +81,19 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, creationManager.CreateComponentGroup(typeof(EcsTestData)).CalculateLength());
 
             // We expect that the shared component data matches the correct entities
-            var testDataArray = group.GetComponentDataArray<EcsTestData>();
-            var testSharedDataArray = group.GetSharedComponentDataArray<SharedData1>();
-            for (int i = 0;i != testDataArray.Length;i++)
-                Assert.AreEqual(testSharedDataArray[i].value, testDataArray[i].value % 5);
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            for (int i = 0; i < chunks.Length; ++i)
+            {
+                var chunk = chunks[i];
+                var shared = chunk.GetSharedComponentData(m_Manager.GetArchetypeChunkSharedComponentType<SharedData1>(), m_Manager);
+                var testDataArray = chunk.GetNativeArray(m_Manager.GetArchetypeChunkComponentType<EcsTestData>(true));
+                for (int j = 0; j < testDataArray.Length; ++j)
+                {
+                    Assert.AreEqual(shared.value, testDataArray[i].value % 5);
+                }
+            }
 
+            chunks.Dispose();
             entities.Dispose();
             creationWorld.Dispose();
         }
@@ -123,7 +132,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(entities.Length, group.CalculateLength());
             Assert.AreEqual(0, creationManager.CreateComponentGroup(typeof(EcsTestData)).CalculateLength());
 
-            var movedEntities = group.GetEntityArray();
+            var movedEntities = group.ToEntityArray(Allocator.TempJob);
             for (int i = 0; i < movedEntities.Length; ++i)
             {
                 var entity = movedEntities[i];
@@ -132,6 +141,7 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(valueFromComponent, valueFromChunkComponent);
             }
 
+            movedEntities.Dispose();
             entities.Dispose();
             creationWorld.Dispose();
         }
@@ -172,14 +182,22 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(8000, creationManager.CreateComponentGroup(typeof(EcsTestData)).CalculateLength());
 
             // We expect that the shared component data matches the correct entities
-            var testDataArray = group.GetComponentDataArray<EcsTestData>();
-            var testSharedDataArray = group.GetSharedComponentDataArray<SharedData1>();
-            for (int i = 0;i != testDataArray.Length;i++)
-                Assert.AreEqual(testSharedDataArray[i].value, testDataArray[i].value % 5);
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            for (int i = 0; i < chunks.Length; ++i)
+            {
+                var chunk = chunks[i];
+                var shared = chunk.GetSharedComponentData(m_Manager.GetArchetypeChunkSharedComponentType<SharedData1>(), m_Manager);
+                var testDataArray = chunk.GetNativeArray(m_Manager.GetArchetypeChunkComponentType<EcsTestData>(true));
+                for (int j = 0; j < testDataArray.Length; ++j)
+                {
+                    Assert.AreEqual(shared.value, testDataArray[i].value % 5);
+                }
+                
+                for (int j = 0;j != testDataArray.Length; ++j)
+                    Assert.AreEqual(shared.value, 2);
+            }
 
-            for (int i = 0;i != testDataArray.Length;i++)
-                Assert.AreEqual(testSharedDataArray[i].value, 2);
-
+            chunks.Dispose();
             entityRemapping.Dispose();
             entities.Dispose();
             creationWorld.Dispose();
@@ -336,10 +354,11 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, sourceManager.CreateComponentGroup(typeof(EcsTestData)).CalculateLength());
 
             // We expect that the order of the crated entities is the same as in the creation scene
-            var testDataArray = group.GetComponentDataArray<EcsTestData>();
+            var testDataArray = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             for (int i = 0; i != testDataArray.Length; i++)
                 Assert.AreEqual(i, testDataArray[i].value);
 
+            testDataArray.Dispose();
             targetEntities.Dispose();
             sourceEntities.Dispose();
             sourceWorld.Dispose();
@@ -376,16 +395,18 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(numberOfEntitiesPerManager * 2, group.CalculateLength());
             Assert.AreEqual(0, sourceManager.CreateComponentGroup(typeof(EcsTestDataEntity)).CalculateLength());
 
-            var testDataArray = group.GetComponentDataArray<EcsTestDataEntity>();
+            var testDataArray = group.ToComponentDataArray<EcsTestDataEntity>(Allocator.TempJob);
             for (int i = 0; i != testDataArray.Length; i++)
                 Assert.AreEqual(testDataArray[i].value0, m_Manager.GetComponentData<EcsTestDataEntity>(testDataArray[i].value1).value0);
 
+            testDataArray.Dispose();
             targetEntities.Dispose();
             sourceEntities.Dispose();
             sourceWorld.Dispose();
         }
 
         [Test]
+        [Ignore("This behaviour is currently not intended. It prevents streaming efficiently.")]
         public void MoveEntitiesPatchesEntityReferencesInSharedComponentData()
         {
             int numberOfEntitiesPerManager = 10000;
@@ -422,14 +443,19 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestSharedCompEntity));
             Assert.AreEqual(numberOfEntitiesPerManager * 2, group.CalculateLength());
             Assert.AreEqual(0, sourceManager.CreateComponentGroup(typeof(EcsTestData)).CalculateLength());
+            
+            var testDataArray = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var entities = group.ToEntityArray(Allocator.TempJob);
 
-            var testDataArray = group.GetComponentDataArray<EcsTestData>();
-            var testSharedCompArray = group.GetSharedComponentDataArray<EcsTestSharedCompEntity>();
             for (int i = 0; i != numberOfEntitiesPerManager; i++)
-                Assert.AreEqual(testDataArray[i].value % frequency, m_Manager.GetComponentData<EcsTestData>(testSharedCompArray[i].value).value);
+                Assert.AreEqual(testDataArray[i].value % frequency, 
+                    m_Manager.GetComponentData<EcsTestData>(m_Manager.GetSharedComponentData<EcsTestSharedCompEntity>(entities[i]).value).value);
             for (int i = numberOfEntitiesPerManager; i != numberOfEntitiesPerManager * 2; i++)
-                Assert.AreEqual(numberOfEntitiesPerManager + testDataArray[i].value % frequency, m_Manager.GetComponentData<EcsTestData>(testSharedCompArray[i].value).value);
-
+                Assert.AreEqual(numberOfEntitiesPerManager + testDataArray[i].value % frequency, 
+                    m_Manager.GetComponentData<EcsTestData>(m_Manager.GetSharedComponentData<EcsTestSharedCompEntity>(entities[i]).value).value);
+            
+            testDataArray.Dispose();
+            entities.Dispose();
             targetEntities.Dispose();
             sourceEntities.Dispose();
             sourceWorld.Dispose();

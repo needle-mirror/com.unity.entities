@@ -1,0 +1,20 @@
+{
+    "name": "Unity.Scenes.Editor",
+    "references": [
+        "Unity.Entities",
+        "Unity.Mathematics",
+        "Unity.Entities.Hybrid",
+        "Unity.Scenes.Hybrid"
+    ],
+    "optionalUnityReferences": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": []
+}
