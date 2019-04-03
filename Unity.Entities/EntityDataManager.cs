@@ -157,15 +157,20 @@ namespace Unity.Entities
         static DeallocateDataEntitiesInChunkDelegate ms_DeallocateDataEntitiesInChunkDelegate;
 #endif
 
-        private struct EntityData
+        private struct EntityChunkData
         {
-            public int Version;
-            public Archetype* Archetype;
             public Chunk* Chunk;
             public int IndexInChunk;
         }
+        
+        private struct EntityData
+        {
+            public int* Version;
+            public Archetype** Archetype;
+            public EntityChunkData* ChunkData;
+        }
 
-        private EntityData* m_Entities;
+        private EntityData m_Entities;
         private int m_EntitiesCapacity;
         private int m_EntitiesFreeIndex;
 
@@ -179,10 +184,45 @@ namespace Unity.Entities
             ChangeVersionUtility.IncrementGlobalSystemVersion(ref GlobalSystemVersion);
         }
 
+        private EntityData CreateEntityData(int newCapacity)
+        {
+            EntityData entities = new EntityData();
+
+            var versionBytes   = (newCapacity * sizeof(int)             + 63) & ~63;
+            var archetypeBytes = (newCapacity * sizeof(Archetype*)      + 63) & ~63;
+            var chunkDataBytes = (newCapacity * sizeof(EntityChunkData) + 63) & ~63;
+
+            var bytesToAllocate = versionBytes + archetypeBytes + chunkDataBytes;
+
+            var bytes = (byte*)UnsafeUtility.Malloc(bytesToAllocate, 64, Allocator.Persistent);
+
+            entities.Version   = (int*            )(bytes                                );
+            entities.Archetype = (Archetype**     )(bytes + versionBytes                 );
+            entities.ChunkData = (EntityChunkData*)(bytes + versionBytes + archetypeBytes);
+
+            return entities;
+        }
+
+        private void FreeEntityData(ref EntityData entities)
+        {
+            UnsafeUtility.Free(entities.Version, Allocator.Persistent);
+ 
+            entities.Version = null;
+            entities.Archetype = null;
+            entities.ChunkData = null;
+        }
+
+        private void CopyEntityData(ref EntityData dstEntityData, EntityData srcEntityData, long copySize)
+        {
+            UnsafeUtility.MemCpy(dstEntityData.Version,      srcEntityData.Version,      copySize * sizeof(int));
+            UnsafeUtility.MemCpy(dstEntityData.Archetype,    srcEntityData.Archetype,    copySize * sizeof(Archetype*));
+            UnsafeUtility.MemCpy(dstEntityData.ChunkData,    srcEntityData.ChunkData,    copySize * sizeof(EntityChunkData));
+        }
+
         public void OnCreate()
         {
             m_EntitiesCapacity = 10;
-            m_Entities = (EntityData*) UnsafeUtility.Malloc(m_EntitiesCapacity * sizeof(EntityData), 64, Allocator.Persistent);
+            m_Entities = CreateEntityData(m_EntitiesCapacity);
             m_EntitiesFreeIndex = 0;
             GlobalSystemVersion = ChangeVersionUtility.InitialGlobalSystemVersion;
             InitializeAdditionalCapacity(0);
@@ -204,8 +244,7 @@ namespace Unity.Entities
 
         public void OnDestroy()
         {
-            UnsafeUtility.Free(m_Entities, Allocator.Persistent);
-            m_Entities = null;
+            FreeEntityData(ref m_Entities);
             m_EntitiesCapacity = 0;
 
             UnsafeUtility.Free(m_ComponentTypeOrderVersion, Allocator.Persistent);
@@ -216,13 +255,13 @@ namespace Unity.Entities
         {
             for (var i = start; i != m_EntitiesCapacity; i++)
             {
-                m_Entities[i].IndexInChunk = i + 1;
-                m_Entities[i].Version = 1;
-                m_Entities[i].Chunk = null;
+                m_Entities.ChunkData[i].IndexInChunk = i + 1;
+                m_Entities.Version[i] = 1;
+                m_Entities.ChunkData[i].Chunk = null;
             }
 
             // Last entity indexInChunk identifies that we ran out of space...
-            m_Entities[m_EntitiesCapacity - 1].IndexInChunk = -1;
+            m_Entities.ChunkData[m_EntitiesCapacity - 1].IndexInChunk = -1;
         }
 
         private void IncreaseCapacity()
@@ -238,11 +277,10 @@ namespace Unity.Entities
                 if (value <= m_EntitiesCapacity)
                     return;
 
-                var newEntities = (EntityData*) UnsafeUtility.Malloc(value * sizeof(EntityData),
-                    64, Allocator.Persistent);
-                UnsafeUtility.MemCpy(newEntities, m_Entities, m_EntitiesCapacity * sizeof(EntityData));
-                UnsafeUtility.Free(m_Entities, Allocator.Persistent);
-
+                var newEntities = CreateEntityData(value);
+                CopyEntityData(ref newEntities, m_Entities, m_EntitiesCapacity);
+                FreeEntityData(ref m_Entities);
+                
                 var startNdx = m_EntitiesCapacity - 1;
                 m_Entities = newEntities;
                 m_EntitiesCapacity = value;
@@ -265,8 +303,8 @@ namespace Unity.Entities
 
             ValidateEntity(entity);
 
-            var versionMatches = m_Entities[index].Version == entity.Version;
-            var hasChunk = m_Entities[index].Chunk != null;
+            var versionMatches = m_Entities.Version[index] == entity.Version;
+            var hasChunk = m_Entities.ChunkData[index].Chunk != null;
 
             return versionMatches && hasChunk;
         }
@@ -283,7 +321,7 @@ namespace Unity.Entities
                     throw new ArgumentException(
                         "All entities passed to EntityManager must exist. One of the entities has already been destroyed or was never created.");
 
-                var exists = m_Entities[index].Version == entity->Version;
+                var exists = m_Entities.Version[index] == entity->Version;
                 if (!exists)
                     throw new ArgumentException(
                         "All entities passed to EntityManager must exist. One of the entities has already been destroyed or was never created.");
@@ -327,18 +365,18 @@ namespace Unity.Entities
             // Calculate baseEntityIndex & chunk
             var baseEntityIndex = entities[0].Index;
 
-            var chunk = entityDataManager->m_Entities[baseEntityIndex].Chunk;
-            indexInChunk = entityDataManager->m_Entities[baseEntityIndex].IndexInChunk;
+            var chunk = entityDataManager->m_Entities.ChunkData[baseEntityIndex].Chunk;
+            indexInChunk = entityDataManager->m_Entities.ChunkData[baseEntityIndex].IndexInChunk;
             batchCount = 0;
-
-            var entityDatas = entityDataManager->m_Entities;
 
             while (batchCount < count)
             {
                 var entityIndex = entities[batchCount].Index;
-                var data = entityDatas + entityIndex;
+                var batchChunk = entityDataManager->m_Entities.ChunkData[entityIndex].Chunk;
+                var batchIndexInChunk = entityDataManager->m_Entities.ChunkData[entityIndex].IndexInChunk;
+                
 
-                if (data->Chunk != chunk || data->IndexInChunk != indexInChunk + batchCount)
+                if (batchChunk != chunk || batchIndexInChunk != indexInChunk + batchCount)
                     break;
 
                 batchCount++;
@@ -353,16 +391,14 @@ namespace Unity.Entities
             DeallocateBuffers(entityDataManager, entities, chunk, batchCount);
 
             var freeIndex = entityDataManager->m_EntitiesFreeIndex;
-            var entityDatas = entityDataManager->m_Entities;
 
             for (var i = batchCount - 1; i >= 0; --i)
             {
                 var entityIndex = entities[i].Index;
-                var data = entityDatas + entityIndex;
 
-                data->Chunk = null;
-                data->Version++;
-                data->IndexInChunk = freeIndex;
+                entityDataManager->m_Entities.ChunkData[entityIndex].Chunk = null;
+                entityDataManager->m_Entities.Version[entityIndex]++;
+                entityDataManager->m_Entities.ChunkData[entityIndex].IndexInChunk = freeIndex;
                 freeIndex = entityIndex;
             }
 
@@ -378,7 +414,7 @@ namespace Unity.Entities
             //Assert.IsTrue(chunk->archetype->sizeOfs[0] == sizeof(Entity) && chunk->archetype->offsets[0] == 0);
             var movedEntities = (Entity*) chunk->Buffer + (chunk->Count - patchCount);
             for (var i = 0; i != patchCount; i++)
-                entityDataManager->m_Entities[movedEntities[i].Index].IndexInChunk = indexInChunk + i;
+                entityDataManager->m_Entities.ChunkData[movedEntities[i].Index].IndexInChunk = indexInChunk + i;
 
             // Move component data from the end to where we deleted components
             ChunkDataUtility.Copy(chunk, chunk->Count - patchCount, chunk, indexInChunk, patchCount);
@@ -401,8 +437,7 @@ namespace Unity.Entities
                 for (int i = 0; i < batchCount; ++i)
                 {
                     Entity e = entities[i];
-                    EntityData ed = entityDataManager->m_Entities[e.Index];
-                    int indexInChunk = ed.IndexInChunk;
+                    int indexInChunk = entityDataManager->m_Entities.ChunkData[e.Index].IndexInChunk;
                     byte* bufferPtr = basePtr + stride * indexInChunk;
                     BufferHeader.Destroy((BufferHeader*)bufferPtr);
                 }
@@ -417,16 +452,16 @@ namespace Unity.Entities
 
             for (var i = 0; i != m_EntitiesCapacity; i++)
             {
-                if (m_Entities[i].Chunk == null)
+                if (m_Entities.ChunkData[i].Chunk == null)
                     continue;
 
                 aliveEntities++;
-                var archetype = m_Entities[i].Archetype;
+                var archetype = m_Entities.Archetype[i];
                 Assert.AreEqual(entityType, archetype->Types[0].TypeIndex);
                 var entity =
-                    *(Entity*) ChunkDataUtility.GetComponentDataRO(m_Entities[i].Chunk, m_Entities[i].IndexInChunk, 0);
+                    *(Entity*) ChunkDataUtility.GetComponentDataRO(m_Entities.ChunkData[i].Chunk, m_Entities.ChunkData[i].IndexInChunk, 0);
                 Assert.AreEqual(i, entity.Index);
-                Assert.AreEqual(m_Entities[i].Version, entity.Version);
+                Assert.AreEqual(m_Entities.Version[i], entity.Version);
 
                 Assert.IsTrue(Exists(entity));
             }
@@ -442,13 +477,13 @@ namespace Unity.Entities
             m_EntitiesFreeIndex = Capacity == newCapacity ? -1 : newCapacity;
             for (int i = 1; i < newCapacity; ++i)
             {
-                if (m_Entities[i].Chunk != null)
+                if (m_Entities.ChunkData[i].Chunk != null)
                 {
                     throw new ArgumentException("loading into non-empty entity manager is not supported");
                 }
 
-                m_Entities[i].IndexInChunk = 0;
-                m_Entities[i].Version = 0;
+                m_Entities.ChunkData[i].IndexInChunk = 0;
+                m_Entities.Version[i] = 0;
             }
         }
 
@@ -457,9 +492,9 @@ namespace Unity.Entities
             for (int iEntity = 0; iEntity < chunk->Count; ++iEntity)
             {
                 var entity = (Entity*)ChunkDataUtility.GetComponentDataRO(chunk, iEntity, 0);
-                m_Entities[entity->Index].Chunk = chunk;
-                m_Entities[entity->Index].IndexInChunk = iEntity;
-                m_Entities[entity->Index].Archetype = chunk->Archetype;
+                m_Entities.ChunkData[entity->Index].Chunk = chunk;
+                m_Entities.ChunkData[entity->Index].IndexInChunk = iEntity;
+                m_Entities.Archetype[entity->Index] = chunk->Archetype;
             }
         }
 
@@ -472,26 +507,28 @@ namespace Unity.Entities
 
             for (var i = 0; i != count; i++)
             {
-                var entity = m_Entities + m_EntitiesFreeIndex;
-                if (entity->IndexInChunk == -1)
+                var entityIndexInChunk = m_Entities.ChunkData[m_EntitiesFreeIndex].IndexInChunk;
+                if (entityIndexInChunk == -1)
                 {
                     IncreaseCapacity();
-                    entity = m_Entities + m_EntitiesFreeIndex;
+                    entityIndexInChunk = m_Entities.ChunkData[m_EntitiesFreeIndex].IndexInChunk;
                 }
+                
+                var entityVersion = m_Entities.Version[m_EntitiesFreeIndex];
 
                 outputEntities[i].Index = m_EntitiesFreeIndex;
-                outputEntities[i].Version = entity->Version;
+                outputEntities[i].Version = entityVersion;
 
                 var entityInChunk = entityInChunkStart + i;
 
                 entityInChunk->Index = m_EntitiesFreeIndex;
-                entityInChunk->Version = entity->Version;
+                entityInChunk->Version = entityVersion;
 
-                m_EntitiesFreeIndex = entity->IndexInChunk;
-
-                entity->IndexInChunk = baseIndex + i;
-                entity->Archetype = arch;
-                entity->Chunk = chunk;
+                m_Entities.ChunkData[m_EntitiesFreeIndex].IndexInChunk = baseIndex + i;
+                m_Entities.Archetype[m_EntitiesFreeIndex] = arch;
+                m_Entities.ChunkData[m_EntitiesFreeIndex].Chunk = chunk;
+                
+                m_EntitiesFreeIndex = entityIndexInChunk;
             }
         }
 
@@ -501,16 +538,19 @@ namespace Unity.Entities
             var count = srcEntityDataManager->m_EntitiesCapacity;
             for (var i = 0; i != count; i++)
             {
-                if (srcEntityData[i].Chunk != null)
+                if (srcEntityData.ChunkData[i].Chunk != null)
                 {
-                    var entity = m_Entities + m_EntitiesFreeIndex;
-                    if (entity->IndexInChunk == -1)
+                    var entityIndexInChunk = m_Entities.ChunkData[m_EntitiesFreeIndex].IndexInChunk;
+                    if (entityIndexInChunk == -1)
                     {
                         IncreaseCapacity();
-                        entity = m_Entities + m_EntitiesFreeIndex;
+                        entityIndexInChunk = m_Entities.ChunkData[m_EntitiesFreeIndex].IndexInChunk;
                     }
-                    EntityRemapUtility.AddEntityRemapping(ref entityRemapping, new Entity { Version = srcEntityData[i].Version, Index = i }, new Entity { Version = entity->Version, Index = m_EntitiesFreeIndex });
-                    m_EntitiesFreeIndex = entity->IndexInChunk;
+                    
+                    var entityVersion = m_Entities.Version[m_EntitiesFreeIndex];
+                    
+                    EntityRemapUtility.AddEntityRemapping(ref entityRemapping, new Entity { Version = srcEntityData.Version[i], Index = i }, new Entity { Version = entityVersion, Index = m_EntitiesFreeIndex });
+                    m_EntitiesFreeIndex = entityIndexInChunk;
                 }
             }
         }
@@ -521,14 +561,17 @@ namespace Unity.Entities
             var entities = (Entity*)chunk->Buffer;
             for (var i = 0; i != count; i++)
             {
-                var entity = m_Entities + m_EntitiesFreeIndex;
-                if (entity->IndexInChunk == -1)
+                var entityIndexInChunk = m_Entities.ChunkData[m_EntitiesFreeIndex].IndexInChunk;
+                if (entityIndexInChunk == -1)
                 {
                     IncreaseCapacity();
-                    entity = m_Entities + m_EntitiesFreeIndex;
+                    entityIndexInChunk = m_Entities.ChunkData[m_EntitiesFreeIndex].IndexInChunk;
                 }
-                EntityRemapUtility.AddEntityRemapping(ref entityRemapping, new Entity { Version = entities[i].Version, Index = entities[i].Index }, new Entity { Version = entity->Version, Index = m_EntitiesFreeIndex });
-                m_EntitiesFreeIndex = entity->IndexInChunk;
+
+                var entityVersion = m_Entities.Version[m_EntitiesFreeIndex];
+
+                EntityRemapUtility.AddEntityRemapping(ref entityRemapping, new Entity { Version = entities[i].Version, Index = entities[i].Index }, new Entity { Version = entityVersion, Index = m_EntitiesFreeIndex });
+                m_EntitiesFreeIndex = entityIndexInChunk;
             }
         }
 
@@ -543,14 +586,15 @@ namespace Unity.Entities
             {
                 var entityInChunk = entityInChunkStart + i;
                 var target = EntityRemapUtility.RemapEntity(ref entityRemapping, *entityInChunk);
-                var entity = m_Entities + target.Index;
-                Assert.AreEqual(entity->Version, target.Version);
+                var entityVersion = m_Entities.Version[target.Index];
+
+                Assert.AreEqual(entityVersion, target.Version);
 
                 entityInChunk->Index = target.Index;
-                entityInChunk->Version = entity->Version;
-                entity->IndexInChunk = baseIndex + i;
-                entity->Archetype = arch;
-                entity->Chunk = chunk;
+                entityInChunk->Version = entityVersion;
+                m_Entities.ChunkData[target.Index].IndexInChunk = baseIndex + i;
+                m_Entities.Archetype[target.Index] = arch;
+                m_Entities.ChunkData[target.Index].Chunk = chunk;
             }
         }
 
@@ -558,13 +602,13 @@ namespace Unity.Entities
         {
             for (var i = 0; i != m_EntitiesCapacity; i++)
             {
-                m_Entities[i].IndexInChunk = i + 1;
-                m_Entities[i].Version += 1;
-                m_Entities[i].Chunk = null;
+                m_Entities.ChunkData[i].IndexInChunk = i + 1;
+                m_Entities.Version[i] += 1;
+                m_Entities.ChunkData[i].Chunk = null;
             }
 
             // Last entity indexInChunk identifies that we ran out of space...
-            m_Entities[m_EntitiesCapacity - 1].IndexInChunk = -1;
+            m_Entities.ChunkData[m_EntitiesCapacity - 1].IndexInChunk = -1;
 
             m_EntitiesFreeIndex = 0;
         }
@@ -577,9 +621,9 @@ namespace Unity.Entities
             for (var i = 0; i != count; i++)
             {
                 int index = entities[i].Index;
-                m_Entities[index].Version += 1;
-                m_Entities[index].Chunk = null;
-                m_Entities[index].IndexInChunk = freeIndex;
+                m_Entities.Version[index] += 1;
+                m_Entities.ChunkData[index].Chunk = null;
+                m_Entities.ChunkData[index].IndexInChunk = freeIndex;
                 freeIndex = index;
             }
 
@@ -591,7 +635,7 @@ namespace Unity.Entities
             if (!Exists(entity))
                 return false;
 
-            var archetype = m_Entities[entity.Index].Archetype;
+            var archetype = m_Entities.Archetype[entity.Index];
             return ChunkDataUtility.GetIndexInTypeArray(archetype, type) != -1;
         }
 
@@ -600,61 +644,72 @@ namespace Unity.Entities
             if (!Exists(entity))
                 return false;
 
-            var archetype = m_Entities[entity.Index].Archetype;
+            var archetype = m_Entities.Archetype[entity.Index];
 
             return ChunkDataUtility.GetIndexInTypeArray(archetype, type.TypeIndex) != -1;
         }
 
         public int GetSizeInChunk(Entity entity, int typeIndex, ref int typeLookupCache)
         {
-            var entityData = m_Entities + entity.Index;
-            return ChunkDataUtility.GetSizeInChunk(entityData->Chunk, typeIndex, ref typeLookupCache);
+            var entityChunk = m_Entities.ChunkData[entity.Index].Chunk;
+            return ChunkDataUtility.GetSizeInChunk(entityChunk, typeIndex, ref typeLookupCache);
         }
 
         public byte* GetComponentDataWithTypeRO(Entity entity, int typeIndex)
         {
-            var entityData = m_Entities + entity.Index;
-            return ChunkDataUtility.GetComponentDataWithTypeRO(entityData->Chunk, entityData->IndexInChunk, typeIndex);
+            var entityChunk = m_Entities.ChunkData[entity.Index].Chunk;
+            var entityIndexInChunk = m_Entities.ChunkData[entity.Index].IndexInChunk;
+
+            return ChunkDataUtility.GetComponentDataWithTypeRO(entityChunk, entityIndexInChunk, typeIndex);
         }
 
         public byte* GetComponentDataWithTypeRW(Entity entity, int typeIndex, uint globalVersion)
         {
-            var entityData = m_Entities + entity.Index;
-            return ChunkDataUtility.GetComponentDataWithTypeRW(entityData->Chunk, entityData->IndexInChunk, typeIndex,
+            var entityChunk = m_Entities.ChunkData[entity.Index].Chunk;
+            var entityIndexInChunk = m_Entities.ChunkData[entity.Index].IndexInChunk;
+            
+            return ChunkDataUtility.GetComponentDataWithTypeRW(entityChunk, entityIndexInChunk, typeIndex,
                 globalVersion);
         }
 
         public byte* GetComponentDataWithTypeRO(Entity entity, int typeIndex, ref int typeLookupCache)
         {
-            var entityData = m_Entities + entity.Index;
-            return ChunkDataUtility.GetComponentDataWithTypeRO(entityData->Chunk, entityData->IndexInChunk, typeIndex,
+            var entityChunk = m_Entities.ChunkData[entity.Index].Chunk;
+            var entityIndexInChunk = m_Entities.ChunkData[entity.Index].IndexInChunk;
+            
+            return ChunkDataUtility.GetComponentDataWithTypeRO(entityChunk, entityIndexInChunk, typeIndex,
                 ref typeLookupCache);
         }
 
         public byte* GetComponentDataWithTypeRW(Entity entity, int typeIndex, uint globalVersion,
             ref int typeLookupCache)
         {
-            var entityData = m_Entities + entity.Index;
-            return ChunkDataUtility.GetComponentDataWithTypeRW(entityData->Chunk, entityData->IndexInChunk, typeIndex,
+            var entityChunk = m_Entities.ChunkData[entity.Index].Chunk;
+            var entityIndexInChunk = m_Entities.ChunkData[entity.Index].IndexInChunk;
+            
+            return ChunkDataUtility.GetComponentDataWithTypeRW(entityChunk, entityIndexInChunk, typeIndex,
                 globalVersion, ref typeLookupCache);
         }
 
         public Chunk* GetComponentChunk(Entity entity)
         {
-            var entityData = m_Entities + entity.Index;
-            return entityData->Chunk;
+            var entityChunk = m_Entities.ChunkData[entity.Index].Chunk;
+
+            return entityChunk;
         }
 
         public void GetComponentChunk(Entity entity, out Chunk* chunk, out int chunkIndex)
         {
-            var entityData = m_Entities + entity.Index;
-            chunk = entityData->Chunk;
-            chunkIndex = entityData->IndexInChunk;
+            var entityChunk = m_Entities.ChunkData[entity.Index].Chunk;
+            var entityIndexInChunk = m_Entities.ChunkData[entity.Index].IndexInChunk;
+            
+            chunk = entityChunk;
+            chunkIndex = entityIndexInChunk;
         }
 
         public Archetype* GetArchetype(Entity entity)
         {
-            return m_Entities[entity.Index].Archetype;
+            return m_Entities.Archetype[entity.Index];
         }
 
         public Archetype* GetInstantiableArchetype(Entity entity, ArchetypeManager archetypeManager, EntityGroupManager groupManager, ComponentTypeInArchetype* componentTypeInArchetypeArray)
@@ -669,23 +724,23 @@ namespace Unity.Entities
             var chunk = typeMan.GetChunkWithEmptySlots(archetype, sharedComponentDataIndices);
             var chunkIndex = typeMan.AllocateIntoChunk(chunk);
 
-            var oldArchetype = m_Entities[entity.Index].Archetype;
-            var oldChunk = m_Entities[entity.Index].Chunk;
-            var oldChunkIndex = m_Entities[entity.Index].IndexInChunk;
+            var oldArchetype = m_Entities.Archetype[entity.Index];
+            var oldChunk = m_Entities.ChunkData[entity.Index].Chunk;
+            var oldChunkIndex = m_Entities.ChunkData[entity.Index].IndexInChunk;
             ChunkDataUtility.Convert(oldChunk, oldChunkIndex, chunk, chunkIndex);
             if (chunk->ManagedArrayIndex >= 0 && oldChunk->ManagedArrayIndex >= 0)
                 ChunkDataUtility.CopyManagedObjects(typeMan, oldChunk, oldChunkIndex, chunk, chunkIndex, 1);
 
-            m_Entities[entity.Index].Archetype = archetype;
-            m_Entities[entity.Index].Chunk = chunk;
-            m_Entities[entity.Index].IndexInChunk = chunkIndex;
+            m_Entities.Archetype[entity.Index] = archetype;
+            m_Entities.ChunkData[entity.Index].Chunk = chunk;
+            m_Entities.ChunkData[entity.Index].IndexInChunk = chunkIndex;
 
             var lastIndex = oldChunk->Count - 1;
             // No need to replace with ourselves
             if (lastIndex != oldChunkIndex)
             {
                 var lastEntity = (Entity*) ChunkDataUtility.GetComponentDataRO(oldChunk, lastIndex, 0);
-                m_Entities[lastEntity->Index].IndexInChunk = oldChunkIndex;
+                m_Entities.ChunkData[lastEntity->Index].IndexInChunk = oldChunkIndex;
 
                 ChunkDataUtility.Copy(oldChunk, lastIndex, oldChunk, oldChunkIndex, 1);
                 if (oldChunk->ManagedArrayIndex >= 0)
@@ -939,25 +994,25 @@ namespace Unity.Entities
 
         public void MoveEntityToChunk(ArchetypeManager typeMan, Entity entity, Chunk* newChunk, int newChunkIndex)
         {
-            var oldChunk = m_Entities[entity.Index].Chunk;
+            var oldChunk = m_Entities.ChunkData[entity.Index].Chunk;
             Assert.IsTrue(oldChunk->Archetype == newChunk->Archetype);
 
-            var oldChunkIndex = m_Entities[entity.Index].IndexInChunk;
+            var oldChunkIndex = m_Entities.ChunkData[entity.Index].IndexInChunk;
 
             ChunkDataUtility.Copy(oldChunk, oldChunkIndex, newChunk, newChunkIndex, 1);
 
             if (oldChunk->ManagedArrayIndex >= 0)
                 ChunkDataUtility.CopyManagedObjects(typeMan, oldChunk, oldChunkIndex, newChunk, newChunkIndex, 1);
 
-            m_Entities[entity.Index].Chunk = newChunk;
-            m_Entities[entity.Index].IndexInChunk = newChunkIndex;
+            m_Entities.ChunkData[entity.Index].Chunk = newChunk;
+            m_Entities.ChunkData[entity.Index].IndexInChunk = newChunkIndex;
 
             var lastIndex = oldChunk->Count - 1;
             // No need to replace with ourselves
             if (lastIndex != oldChunkIndex)
             {
                 var lastEntity = (Entity*) ChunkDataUtility.GetComponentDataRO(oldChunk, lastIndex, 0);
-                m_Entities[lastEntity->Index].IndexInChunk = oldChunkIndex;
+                m_Entities.ChunkData[lastEntity->Index].IndexInChunk = oldChunkIndex;
 
                 ChunkDataUtility.Copy(oldChunk, lastIndex, oldChunk, oldChunkIndex, 1);
                 if (oldChunk->ManagedArrayIndex >= 0)
@@ -994,8 +1049,8 @@ namespace Unity.Entities
         public void InstantiateEntities(ArchetypeManager archetypeManager,
             SharedComponentDataManager sharedComponentDataManager, EntityGroupManager groupManager, Entity srcEntity, Entity* outputEntities, int count, ComponentTypeInArchetype* componentTypeInArchetypeArray)
         {
-            var srcIndex = m_Entities[srcEntity.Index].IndexInChunk;
-            var srcChunk = m_Entities[srcEntity.Index].Chunk;
+            var srcIndex = m_Entities.ChunkData[srcEntity.Index].IndexInChunk;
+            var srcChunk = m_Entities.ChunkData[srcEntity.Index].Chunk;
             var dstArchetype = GetInstantiableArchetype(srcEntity,archetypeManager, groupManager, componentTypeInArchetypeArray);
             var srcSharedComponentDataIndices = GetComponentChunk(srcEntity)->SharedComponentValueArray;
 
@@ -1021,9 +1076,9 @@ namespace Unity.Entities
             var archetype = GetArchetype(entity);
             var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex);
 
-            var chunk = m_Entities[entity.Index].Chunk;
+            var chunk = m_Entities.ChunkData[entity.Index].Chunk;
             var sharedComponentValueArray = chunk->SharedComponentValueArray;
-            var sharedComponentOffset = m_Entities[entity.Index].Archetype->SharedComponentOffset[indexInTypeArray];
+            var sharedComponentOffset = m_Entities.Archetype[entity.Index]->SharedComponentOffset[indexInTypeArray];
             return sharedComponentValueArray[sharedComponentOffset];
         }
 

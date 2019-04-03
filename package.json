@@ -1,11 +1,11 @@
 {
     "name": "com.unity.entities", 
     "unity": "2018.2", 
-    "version": "0.0.12-preview.18", 
+    "version": "0.0.12-preview.19", 
     "dependencies": {
-        "com.unity.collections": "0.0.9-preview.8", 
+        "com.unity.collections": "0.0.9-preview.9", 
         "com.unity.properties": "0.2.11-preview", 
-        "com.unity.burst": "0.2.4-preview.33", 
+        "com.unity.burst": "0.2.4-preview.34", 
         "com.unity.jobs": "0.0.7-preview.5", 
         "com.unity.mathematics": "0.0.12-preview.19"
     }, 
