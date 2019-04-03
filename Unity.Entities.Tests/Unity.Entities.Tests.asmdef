@@ -5,7 +5,8 @@
         "Unity.Collections",
         "Unity.Jobs",
         "Unity.Burst",
-        "Unity.Mathematics"
+        "Unity.Mathematics",
+        "Unity.Transforms"
     ],
     "optionalUnityReferences": [
         "TestAssemblies"

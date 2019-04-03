@@ -1,9 +1,10 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
-    public delegate void SetFilterAction(ComponentGroup componentGroup);
+    public delegate void SetFilterAction(EntityListQuery entityQuery);
 
     public class ComponentTypeFilterUI
     {
@@ -13,7 +14,7 @@ namespace Unity.Entities.Editor
         private readonly List<bool> selectedFilterTypes = new List<bool>();
         private readonly List<ComponentType> filterTypes = new List<ComponentType>();
 
-        private readonly List<ComponentGroup> componentGroups = new List<ComponentGroup>();
+        private readonly List<ComponentGroup> entityQueries = new List<ComponentGroup>();
 
         public ComponentTypeFilterUI(SetFilterAction setFilter, WorldSelectionGetter worldSelectionGetter)
         {
@@ -57,7 +58,6 @@ namespace Unity.Entities.Editor
 
         public void OnGUI()
         {
-            GUILayout.BeginHorizontal();
             GUILayout.Label("Filter: ");
             var filterCount = 0;
             for (var i = 0; i < selectedFilterTypes.Count; ++i)
@@ -86,13 +86,11 @@ namespace Unity.Entities.Editor
                     ComponentFilterChanged();
                 }
             }
-            GUILayout.FlexibleSpace();
-            GUILayout.EndHorizontal();
         }
 
         internal ComponentGroup GetExistingGroup(ComponentType[] components)
         {
-            foreach (var existingGroup in componentGroups)
+            foreach (var existingGroup in entityQueries)
             {
                 if (existingGroup.CompareComponents(components))
                     return existingGroup;
@@ -107,7 +105,7 @@ namespace Unity.Entities.Editor
             if (group != null)
                 return group;
             group = getWorldSelection().GetExistingManager<EntityManager>().CreateComponentGroup(components);
-            componentGroups.Add(group);
+            entityQueries.Add(group);
 
             return group;
         }
@@ -121,7 +119,7 @@ namespace Unity.Entities.Editor
                     selectedTypes.Add(filterTypes[i]);
             }
             var group = GetComponentGroup(selectedTypes.ToArray());
-            setFilter(group);
+            setFilter(new EntityListQuery(group));
         }
     }
 }

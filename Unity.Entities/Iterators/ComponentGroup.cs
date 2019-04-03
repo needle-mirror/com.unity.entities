@@ -358,29 +358,29 @@ namespace Unity.Entities
             return res;
         }
 
-        internal void GetFixedArrayArray<T>(ref ComponentChunkIterator iterator, int indexInComponentGroup, int length,
-            out FixedArrayArray<T> output) where T : struct
+        internal void GetBufferArray<T>(ref ComponentChunkIterator iterator, int indexInComponentGroup, int length,
+            out BufferArray<T> output) where T : struct, IBufferElementData
         {
             iterator.IndexInComponentGroup = indexInComponentGroup;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            output = new FixedArrayArray<T>(iterator, length, m_ComponentGroupData.GetIsReadOnly(indexInComponentGroup),
+            output = new BufferArray<T>(iterator, length, m_ComponentGroupData.GetIsReadOnly(indexInComponentGroup),
                 GetSafetyHandle(indexInComponentGroup));
 #else
 			output =
- new FixedArrayArray<T>(iterator, length, m_ComponentGroupData.GetIsReadOnly(indexInComponentGroup));
+ new BufferArray<T>(iterator, length, m_ComponentGroupData.GetIsReadOnly(indexInComponentGroup));
 #endif
         }
 
-        public FixedArrayArray<T> GetFixedArrayArray<T>() where T : struct
+        public BufferArray<T> GetBufferArray<T>() where T : struct, IBufferElementData
         {
             int length;
             ComponentChunkIterator iterator;
             GetComponentChunkIterator(out length, out iterator);
             var indexInComponentGroup = GetIndexInComponentGroup(TypeManager.GetTypeIndex<T>());
 
-            FixedArrayArray<T> res;
-            GetFixedArrayArray(ref iterator, indexInComponentGroup, length, out res);
+            BufferArray<T> res;
+            GetBufferArray(ref iterator, indexInComponentGroup, length, out res);
             return res;
         }
 

@@ -36,6 +36,16 @@ namespace Unity.Entities.Serialization
                 writer.WriteBytes(p, bytes.Length);
             }
         }
+
+        public static void WriteArray<T>(this BinaryWriter writer, NativeArray<T> data) where T: struct
+        {
+            writer.WriteBytes(data.GetUnsafeReadOnlyPtr(), data.Length * UnsafeUtility.SizeOf<T>());
+        }
+
+        public static void WriteList<T>(this BinaryWriter writer, NativeList<T> data) where T: struct
+        {
+            writer.WriteBytes(data.GetUnsafePtr(), data.Length * UnsafeUtility.SizeOf<T>());
+        }
     }
 
     public interface BinaryReader : IDisposable
@@ -59,10 +69,15 @@ namespace Unity.Entities.Serialization
             return value;
         }
 
-        public static void ReadBytes(this BinaryReader writer, NativeArray<byte> bytes, int count, int offset = 0)
+        public static void ReadBytes(this BinaryReader writer, NativeArray<byte> elements, int count, int offset = 0)
         {
-            byte* destination = (byte*)bytes.GetUnsafePtr() + offset;
+            byte* destination = (byte*)elements.GetUnsafePtr() + offset;
             writer.ReadBytes(destination, count);
+        }
+
+        public static void ReadArray<T>(this BinaryReader reader, NativeArray<T> elements, int count) where T: struct
+        {
+            reader.ReadBytes((byte*)elements.GetUnsafePtr(), count * UnsafeUtility.SizeOf<T>());
         }
     }
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using NUnit.Framework;
+
 using Unity.Mathematics;
 using Unity.Properties.Serialization;
 

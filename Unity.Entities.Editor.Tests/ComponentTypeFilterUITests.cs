@@ -9,7 +9,7 @@ namespace Unity.Entities.Editor.Tests
     public class ComponentTypeFilterUITests : ECSTestsFixture
     {
 
-        public void SetFilterDummy(ComponentGroup group)
+        public void SetFilterDummy(EntityListQuery query)
         {
             
         }

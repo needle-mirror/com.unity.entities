@@ -17,7 +17,7 @@ namespace Unity.Entities
 
         public int TypeIndex;
         public AccessMode AccessModeType;
-        public int FixedArrayLength;
+        public int BufferCapacity;
 
         public static ComponentType Create<T>()
         {
@@ -26,68 +26,49 @@ namespace Unity.Entities
 
         public static ComponentType FromTypeIndex(int typeIndex)
         {
+            TypeManager.ComponentType ct = TypeManager.GetComponentType(typeIndex);
+
             ComponentType type;
             type.TypeIndex = typeIndex;
             type.AccessModeType = AccessMode.ReadWrite;
-            type.FixedArrayLength = -1;
+            type.BufferCapacity = ct.BufferCapacity;
             return type;
         }
 
         public static ComponentType ReadOnly(Type type)
         {
-            ComponentType t;
-            t.TypeIndex = TypeManager.GetTypeIndex(type);
+            ComponentType t = FromTypeIndex(TypeManager.GetTypeIndex(type));
             t.AccessModeType = AccessMode.ReadOnly;
-            t.FixedArrayLength = -1;
             return t;
         }
 
         public static ComponentType ReadOnly<T>()
         {
-            ComponentType t;
-            t.TypeIndex = TypeManager.GetTypeIndex<T>();
+            ComponentType t = Create<T>();
             t.AccessModeType = AccessMode.ReadOnly;
-            t.FixedArrayLength = -1;
             return t;
         }
 
         public static ComponentType Subtractive(Type type)
         {
-            ComponentType t;
-            t.TypeIndex = TypeManager.GetTypeIndex(type);
+            ComponentType t = FromTypeIndex(TypeManager.GetTypeIndex(type));
             t.AccessModeType = AccessMode.Subtractive;
-            t.FixedArrayLength = -1;
             return t;
         }
 
         public static ComponentType Subtractive<T>()
         {
-            ComponentType t;
-            t.TypeIndex = TypeManager.GetTypeIndex<T>();
+            ComponentType t = Create<T>();
             t.AccessModeType = AccessMode.Subtractive;
-            t.FixedArrayLength = -1;
             return t;
         }
 
         public ComponentType(Type type, AccessMode accessModeType = AccessMode.ReadWrite)
         {
             TypeIndex = TypeManager.GetTypeIndex(type);
+            var ct = TypeManager.GetComponentType(TypeIndex);
+            BufferCapacity = ct.BufferCapacity;
             AccessModeType = accessModeType;
-            FixedArrayLength = -1;
-        }
-
-        public static ComponentType FixedArray(Type type, int numElements)
-        {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (numElements < 0)
-                throw new ArgumentException("FixedArray length must be 0 or larger");
-#endif
-
-            ComponentType t;
-            t.TypeIndex = TypeManager.GetTypeIndex(type);
-            t.AccessModeType = AccessMode.ReadWrite;
-            t.FixedArrayLength = numElements;
-            return t;
         }
 
         internal bool RequiresJobDependency
@@ -96,9 +77,10 @@ namespace Unity.Entities
             {
                 if (AccessModeType == AccessMode.Subtractive)
                     return false;
+
                 var type = GetManagedType();
-                //@TODO: This is wrong... Not right for fixed array, think about Entity array?
-                return typeof(IComponentData).IsAssignableFrom(type);
+                //@TODO: This is wrong... think about Entity array?
+                return typeof(IComponentData).IsAssignableFrom(type) || typeof(IBufferElementData).IsAssignableFrom(type);
             }
         }
 
@@ -115,8 +97,8 @@ namespace Unity.Entities
         public static bool operator <(ComponentType lhs, ComponentType rhs)
         {
             if (lhs.TypeIndex == rhs.TypeIndex)
-                return lhs.FixedArrayLength != rhs.FixedArrayLength
-                    ? lhs.FixedArrayLength < rhs.FixedArrayLength
+                return lhs.BufferCapacity != rhs.BufferCapacity
+                    ? lhs.BufferCapacity < rhs.BufferCapacity
                     : lhs.AccessModeType < rhs.AccessModeType;
 
             return lhs.TypeIndex < rhs.TypeIndex;
@@ -129,13 +111,13 @@ namespace Unity.Entities
 
         public static bool operator ==(ComponentType lhs, ComponentType rhs)
         {
-            return lhs.TypeIndex == rhs.TypeIndex && lhs.FixedArrayLength == rhs.FixedArrayLength &&
+            return lhs.TypeIndex == rhs.TypeIndex && lhs.BufferCapacity == rhs.BufferCapacity &&
                    lhs.AccessModeType == rhs.AccessModeType;
         }
 
         public static bool operator !=(ComponentType lhs, ComponentType rhs)
         {
-            return lhs.TypeIndex != rhs.TypeIndex || lhs.FixedArrayLength != rhs.FixedArrayLength ||
+            return lhs.TypeIndex != rhs.TypeIndex || lhs.BufferCapacity != rhs.BufferCapacity ||
                    lhs.AccessModeType != rhs.AccessModeType;
         }
 
@@ -150,19 +132,19 @@ namespace Unity.Entities
             return true;
         }
 
-        public bool IsFixedArray => FixedArrayLength != -1;
+        public bool IsFixedArray => BufferCapacity != -1;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         public override string ToString()
         {
             var name = GetManagedType().Name;
             if (IsFixedArray)
-                return $"{name}[{FixedArrayLength}]";
+                return $"{name}[B {BufferCapacity}]";
             if (AccessModeType == AccessMode.Subtractive)
                 return $"{name} [S]";
             if (AccessModeType == AccessMode.ReadOnly)
                 return $"{name} [RO]";
-            if (TypeIndex == 0 && FixedArrayLength == 0)
+            if (TypeIndex == 0 && BufferCapacity == 0)
                 return "None";
             return name;
         }
@@ -175,7 +157,7 @@ namespace Unity.Entities
 
         public override int GetHashCode()
         {
-            return (TypeIndex * 5813) ^ FixedArrayLength;
+            return (TypeIndex * 5813) ^ BufferCapacity;
         }
     }
 }

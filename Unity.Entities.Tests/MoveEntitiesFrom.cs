@@ -20,12 +20,12 @@ namespace Unity.Entities.Tests
             var creationManager = creationWorld.GetOrCreateManager<EntityManager>();
 
             var archetype = creationManager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
-            
+
             var entities = new NativeArray<Entity>(10000, Allocator.Temp);
             creationManager.CreateEntity(archetype, entities);
             for (int i = 0; i != entities.Length; i++)
                 creationManager.SetComponentData(entities[i], new EcsTestData(i));
-                
+
 
             m_Manager.CheckInternalConsistency();
             creationManager.CheckInternalConsistency();
@@ -219,6 +219,29 @@ namespace Unity.Entities.Tests
             targetEntities.Dispose();
             sourceEntities.Dispose();
             sourceWorld.Dispose();
+        }
+
+        [Test]
+        public void ExternalSharedComponentReferencePreventsMoveEntities()
+        {
+            var anotherWorld = new World("AnotherWorld");
+            var anotherManager = anotherWorld.GetOrCreateManager<EntityManager>();
+
+            var a = anotherManager.CreateEntity(typeof(EcsTestSharedComp));
+            var b = anotherManager.CreateEntity(typeof(EcsTestSharedComp));
+            var c = anotherManager.CreateEntity(typeof(EcsTestSharedComp));
+
+            anotherManager.SetSharedComponentData(a, new EcsTestSharedComp(123));
+            anotherManager.SetSharedComponentData(b, new EcsTestSharedComp(456));
+            anotherManager.SetSharedComponentData(c, new EcsTestSharedComp(789));
+
+            var group = anotherManager.CreateComponentGroup(typeof(EcsTestSharedComp));
+            group.SetFilter(new EcsTestSharedComp(456));
+
+            Assert.Throws<ArgumentException>(() => { m_Manager.MoveEntitiesFrom(anotherManager); });
+
+            group.Dispose();
+            anotherWorld.Dispose();
         }
     }
 }

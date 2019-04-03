@@ -1,7 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
+
+using Unity.Entities.Properties;
+using Unity.Properties;
 
 namespace Unity.Entities.Editor
 {
@@ -24,7 +25,7 @@ namespace Unity.Entities.Editor
             if (!targetProxy.Exists)
                 return;
             var container = targetProxy.Container;
-            targetProxy.Container.PropertyBag.Visit(ref container, visitor);
+            (targetProxy.Container.PropertyBag as StructPropertyBag<EntityContainer>)?.Visit(ref container, visitor);
 
             GUI.enabled = true;
             

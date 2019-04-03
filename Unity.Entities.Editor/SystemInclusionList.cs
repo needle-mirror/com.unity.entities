@@ -40,7 +40,7 @@ namespace Unity.Entities.Editor
                         ComponentGroupGUI.ComponentListGUILayout(componentGroup.Types, EditorGUIUtility.currentViewWidth - 30f);
                         if (GUILayout.Button("Show", GUILayout.ExpandWidth(false)))
                         {
-                            EntityDebugger.SetAllSelections(world, pair.Item1 as ComponentSystemBase, componentGroup, entity);
+                            EntityDebugger.SetAllSelections(world, pair.Item1 as ComponentSystemBase, new EntityListQuery(componentGroup), entity);
                         }
                     }
 

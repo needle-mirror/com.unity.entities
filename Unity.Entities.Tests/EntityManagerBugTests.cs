@@ -98,13 +98,15 @@ namespace Unity.Entities.Tests
         // believe the generation numbers should be.
         private void SanityCheckVersions()
         {
-            var chunks = m_Manager.CreateArchetypeChunkArray(
-                Array.Empty<ComponentType>(), // none
-                Array.Empty<ComponentType>(), // none
-                s_OurTypes, // all
-                Allocator.Temp);
+            var query = new EntityArchetypeQuery
+            {
+                Any = Array.Empty<ComponentType>(), 
+                None = Array.Empty<ComponentType>(),
+                All = s_OurTypes,
+            };
+            var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
 
-            ArchetypeChunkEntityType entityType = m_Manager.GetArchetypeChunkEntityType(false);
+            ArchetypeChunkEntityType entityType = m_Manager.GetArchetypeChunkEntityType();
 
             for (int i = 0; i < chunks.Length; ++i)
             {

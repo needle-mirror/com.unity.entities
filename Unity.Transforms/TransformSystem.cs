@@ -1,911 +1,1349 @@
-﻿using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
+﻿using System;
+using System.Collections.Generic;
+using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
-using Unity.Burst;
 using Unity.Mathematics;
+using Unity.Profiling;
 
 namespace Unity.Transforms
 {
-    [UnityEngine.ExecuteInEditMode]
-    public class TransformSystem : JobComponentSystem
+    /// <summary>
+    /// Parent is added to child by system when Attached is resolved.
+    /// Read-only from other systems.
+    /// </summary>
+    public struct Parent : ISystemStateComponentData
     {
-        [Inject] [ReadOnly] ComponentDataFromEntity<LocalPosition> m_LocalPositions;
-        [Inject] [ReadOnly] ComponentDataFromEntity<LocalRotation> m_LocalRotations;
-        [Inject] ComponentDataFromEntity<Position>                 m_Positions;
-        [Inject] ComponentDataFromEntity<Rotation>                 m_Rotations;
-        [Inject] ComponentDataFromEntity<TransformMatrix>          m_TransformMatrices;
+        public Entity Value;
+    }
 
-        // +Rotation +Position -Heading -TransformMatrix
-        struct RootRotTransNoTransformGroup
-        {
-            [ReadOnly] public SubtractiveComponent<VoidSystem<TransformSystem>> transfromExternal;
-            [ReadOnly] public ComponentDataArray<Rotation> rotations;
-            [ReadOnly] public SubtractiveComponent<TransformParent> parents;
-            [ReadOnly] public SubtractiveComponent<Heading> headings;
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            [ReadOnly] public EntityArray entities;
-            [ReadOnly] public SubtractiveComponent<TransformMatrix> transforms;
-            public readonly int Length;
-        }
-        [Inject] RootRotTransNoTransformGroup m_RootRotTransNoTransformGroup;
+    /// <summary>
+    /// Frozen is added by system when Static is resolved.
+    /// Signals that LocalToWorld will no longer be updated.
+    /// Read-only from other systems.
+    /// </summary>
+    public struct Frozen : ISystemStateComponentData
+    {
+    }
+    
+    /// <summary>
+    /// PendingFrozen is internal to the system and defines the pipeline stage
+    /// between Static and Frozen. It allows for LocalToWorld to be updated once
+    /// before it is Frozen.
+    /// Not intended for use in other systems.
+    /// </summary>
+    struct PendingFrozen : ISystemStateComponentData
+    {
+    }
+
+    /// <summary>
+    /// Internal grouping of by graph depth for parent components. Transform hierarchy
+    /// is processed bredth-first.
+    /// Read-only from external systems.
+    /// </summary>
+    public struct Depth : ISystemStateSharedComponentData
+    {
+        public int Value;
+    }
+
+    /// <summary>
+    /// LocalToWorld is added by system if Rotation +/- Position +/- Scale exist.
+    /// Updated by system.
+    /// Read-only from external systems.
+    /// </summary>
+    public struct LocalToWorld : ISystemStateComponentData
+    {
+        public float4x4 Value;
+    }
+
+    /// <summary>
+    /// LocalToParent is added by system when Attached is resolved for all children.
+    /// Updated by system from Rotation +/- Position +/- Scale.
+    /// Read-only from external systems.
+    /// </summary>
+    public struct LocalToParent : ISystemStateComponentData
+    {
+        public float4x4 Value;
+    }
+
+    /// <summary>
+    /// Default TransformSystem pass. Transform components updated before EndFrameBarrier.
+    /// </summary>
+    [UnityEngine.ExecuteInEditMode]
+    [UpdateBefore(typeof(EndFrameBarrier))]
+    public class EndFrameTransformSystem : TransformSystem<EndFrameBarrier>
+    {
+    }
         
-        // +Rotation +Position -Heading +TransformMatrix
-        struct RootRotTransTransformGroup
-        {
-            [ReadOnly] public SubtractiveComponent<VoidSystem<TransformSystem>> transfromExternal;
-            [ReadOnly] public ComponentDataArray<Rotation> rotations;
-            [ReadOnly] public SubtractiveComponent<TransformParent> parents;
-            [ReadOnly] public SubtractiveComponent<Heading> headings;
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            [ReadOnly] public EntityArray entities;
-            [NativeDisableContainerSafetyRestriction]
-            public ComponentDataArray<TransformMatrix> transforms;
-            public readonly int Length;
-        }
-        [Inject] RootRotTransTransformGroup m_RootRotTransTransformGroup;
-
-        // +Rotation -Position -Heading -TransformMatrix
-        struct RootRotNoTransformGroup
-        {
-            [ReadOnly] public SubtractiveComponent<VoidSystem<TransformSystem>> transfromExternal;
-            [ReadOnly] public ComponentDataArray<Rotation> rotations;
-            [ReadOnly] public SubtractiveComponent<TransformParent> parents;
-            [ReadOnly] public SubtractiveComponent<Heading> headings;
-            [ReadOnly] public SubtractiveComponent<Position> positions;
-            [ReadOnly] public EntityArray entities;
-            [ReadOnly] public SubtractiveComponent<TransformMatrix> transforms;
-            public readonly int Length;
-        }
-        [Inject] RootRotNoTransformGroup m_RootRotNoTransformGroup;
+    public class TransformSystem<T> : JobComponentSystem
+    where T: ComponentSystemBase
+    {
+        uint LastSystemVersion = 0;
         
-        // +Rotation -Position -Heading +TransformMatrix
-        struct RootRotTransformGroup
-        {
-            [ReadOnly] public SubtractiveComponent<VoidSystem<TransformSystem>> transfromExternal;
-            [ReadOnly] public ComponentDataArray<Rotation> rotations;
-            [ReadOnly] public SubtractiveComponent<TransformParent> parents;
-            [ReadOnly] public SubtractiveComponent<Heading> headings;
-            [ReadOnly] public SubtractiveComponent<Position> positions;
-            [ReadOnly] public EntityArray entities;
-            [NativeDisableContainerSafetyRestriction]
-            public ComponentDataArray<TransformMatrix> transforms;
-            public readonly int Length;
-        }
-        [Inject] RootRotTransformGroup m_RootRotTransformGroup;
+        // Internally tracked state of Parent->Child relationships.
+        // Child->Parent relationship stored in Parent component.
+        NativeMultiHashMap<Entity, Entity> ParentToChildTree;
         
-        // -Rotation +Position -Heading -TransformMatrix
-        struct RootTransNoTransformGroup
-        {
-            [ReadOnly] public SubtractiveComponent<VoidSystem<TransformSystem>> transfromExternal;
-            [ReadOnly] public SubtractiveComponent<Rotation> rotations;
-            [ReadOnly] public SubtractiveComponent<TransformParent> parents;
-            [ReadOnly] public SubtractiveComponent<Heading> headings;
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            [ReadOnly] public EntityArray entities;
-            [ReadOnly] public SubtractiveComponent<TransformMatrix> transforms;
-            public readonly int Length;
-        }
-        [Inject] RootTransNoTransformGroup m_RootTransNoTransformGroup;
+        EntityArchetypeQuery NewRootQuery;
+        EntityArchetypeQuery AttachQuery;
+        EntityArchetypeQuery DetachQuery;
+        EntityArchetypeQuery RemovedQuery;
+        EntityArchetypeQuery PendingFrozenQuery;
+        EntityArchetypeQuery FrozenQuery;
+        EntityArchetypeQuery ThawQuery;
+        EntityArchetypeQuery RootLocalToWorldQuery;
+        EntityArchetypeQuery InnerTreeLocalToParentQuery;
+        EntityArchetypeQuery LeafLocalToParentQuery;
+        EntityArchetypeQuery InnerTreeLocalToWorldQuery;
+        EntityArchetypeQuery LeafLocalToWorldQuery;
+        EntityArchetypeQuery DepthQuery;
         
-        // -Rotation +Position -Heading +TransformMatrix
-        struct RootTransTransformGroup
-        {
-            [ReadOnly] public SubtractiveComponent<VoidSystem<TransformSystem>> transfromExternal;
-            [ReadOnly] public SubtractiveComponent<Rotation> rotations;
-            [ReadOnly] public SubtractiveComponent<TransformParent> parents;
-            [ReadOnly] public SubtractiveComponent<Heading> headings;
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            [ReadOnly] public EntityArray entities;
-            [NativeDisableContainerSafetyRestriction]
-            public ComponentDataArray<TransformMatrix> transforms;
-            public readonly int Length;
-        }
-        [Inject] RootTransTransformGroup m_RootTransTransformGroup;
-        
-        // -Rotation +Position +Heading +TransformMatrix
-        struct RootHeadingTransTransformGroup
-        {
-            [ReadOnly] public SubtractiveComponent<VoidSystem<TransformSystem>> transfromExternal;
-            [ReadOnly] public SubtractiveComponent<Rotation> rotations;
-            [ReadOnly] public SubtractiveComponent<TransformParent> parents;
-            [ReadOnly] public ComponentDataArray<Heading> headings;
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            [ReadOnly] public EntityArray entities;
-            // @todo Why doesn't this throw exception?
-            // [ReadOnly] public ComponentDataArray<TransformMatrix> transforms;
-            [NativeDisableContainerSafetyRestriction]
-            public ComponentDataArray<TransformMatrix> transforms;
-            public readonly int Length;
-        }
-        [Inject] RootHeadingTransTransformGroup m_RootHeadingTransTransformGroup;
-        
-        // -Rotation +Position +Heading -TransformMatrix
-        struct RootHeadingTransNoTransformGroup
-        {
-            [ReadOnly] public SubtractiveComponent<VoidSystem<TransformSystem>> transfromExternal;
-            [ReadOnly] public SubtractiveComponent<Rotation> rotations;
-            [ReadOnly] public SubtractiveComponent<TransformParent> parents;
-            [ReadOnly] public ComponentDataArray<Heading> headings;
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            [ReadOnly] public EntityArray entities;
-            [ReadOnly] public SubtractiveComponent<TransformMatrix> transforms;
-            public readonly int Length;
-        }
-        [Inject] RootHeadingTransNoTransformGroup m_RootHeadingTransNoTransformGroup;
+        NativeArray<ArchetypeChunk> NewRootChunks;
+        NativeArray<ArchetypeChunk> AttachChunks;
+        NativeArray<ArchetypeChunk> DetachChunks;
+        NativeArray<ArchetypeChunk> RemovedChunks;
+        NativeArray<ArchetypeChunk> PendingFrozenChunks;
+        NativeArray<ArchetypeChunk> FrozenChunks;
+        NativeArray<ArchetypeChunk> ThawChunks;
+        NativeArray<ArchetypeChunk> RootLocalToWorldChunks;
+        NativeArray<ArchetypeChunk> InnerTreeLocalToParentChunks;
+        NativeArray<ArchetypeChunk> LeafLocalToParentChunks;
+        NativeArray<ArchetypeChunk> InnerTreeLocalToWorldChunks;
+        NativeArray<ArchetypeChunk> LeafLocalToWorldChunks;
+        NativeArray<ArchetypeChunk> DepthChunks;
 
-        struct ParentGroup
+        ComponentDataFromEntity<LocalToWorld> LocalToWorldFromEntityRW;
+        ComponentDataFromEntity<Parent> ParentFromEntityRO;
+        ComponentDataFromEntity<Parent> ParentFromEntityRW;
+        ArchetypeChunkEntityType EntityTypeRO;
+        ArchetypeChunkComponentType<LocalToWorld> LocalToWorldTypeRW;
+        ArchetypeChunkComponentType<Parent> ParentTypeRO;
+        ArchetypeChunkComponentType<LocalToParent> LocalToParentTypeRO;
+        ArchetypeChunkComponentType<LocalToParent> LocalToParentTypeRW;
+        ArchetypeChunkComponentType<Scale> ScaleTypeRO;
+        ArchetypeChunkComponentType<Rotation> RotationTypeRO;
+        ArchetypeChunkComponentType<Position> PositionTypeRO;
+        ArchetypeChunkComponentType<Attach> AttachTypeRO;
+        ArchetypeChunkComponentType<Frozen> FrozenTypeRO;
+        ArchetypeChunkComponentType<PendingFrozen> PendingFrozenTypeRO;
+        ArchetypeChunkSharedComponentType<Depth> DepthTypeRO;
+
+        protected override void OnCreateManager(int capacity)
         {
-            [ReadOnly] public SubtractiveComponent<VoidSystem<TransformSystem>> transfromExternal;
-            [ReadOnly] public ComponentDataArray<TransformParent> transformParents;
-            [ReadOnly] public EntityArray entities;
-            public readonly int Length;
-        }
-        [Inject] ParentGroup m_ParentGroup;
-        
-        [BurstCompile]
-        struct UpdateRotTransTransformRoots : IJobParallelFor
-        {
-            [ReadOnly] public ComponentDataArray<Rotation> rotations;
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            public NativeArray<float4x4> matrices;
-            [NativeDisableContainerSafetyRestriction]
-            public ComponentDataArray<TransformMatrix> transforms;
-
-            public void Execute(int index)
-            {
-                float4x4 matrix = math.float4x4(rotations[index].Value, positions[index].Value);
-                matrices[index] = matrix;
-                transforms[index] = new TransformMatrix {Value = matrix};
-            }
-        }
-
-        [BurstCompile]
-        struct UpdateRotTransTransformNoHierarchyRoots : IJobParallelFor
-        {
-            [ReadOnly] public ComponentDataArray<Rotation> rotations;
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            [NativeDisableContainerSafetyRestriction]
-            public ComponentDataArray<TransformMatrix> transforms;
-
-            public void Execute(int index)
-            {
-                float4x4 matrix = math.float4x4(rotations[index].Value, positions[index].Value);
-                transforms[index] = new TransformMatrix {Value = matrix};
-            }
-        }
-
-        [BurstCompile]
-        struct UpdateRotTransNoTransformRoots : IJobParallelFor
-        {
-            [ReadOnly] public ComponentDataArray<Rotation> rotations;
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            public NativeArray<float4x4> matrices;
-
-            public void Execute(int index)
-            {
-                float4x4 matrix = math.float4x4(rotations[index].Value, positions[index].Value);
-                matrices[index] = matrix;
-            }
+            ParentToChildTree = new NativeMultiHashMap<Entity, Entity>(1024, Allocator.Persistent);
+            GatherQueries();
         }
         
-        [BurstCompile]
-        struct UpdateRotTransformRoots : IJobParallelFor
+        protected override void OnDestroyManager()
         {
-            [ReadOnly] public ComponentDataArray<Rotation> rotations;
-            public NativeArray<float4x4> matrices;
-            [NativeDisableContainerSafetyRestriction]
-            public ComponentDataArray<TransformMatrix> transforms;
-
-            public void Execute(int index)
-            {
-                float4x4 matrix = math.float4x4(rotations[index].Value, new float3());
-                matrices[index] = matrix;
-                transforms[index] = new TransformMatrix {Value = matrix};
-            }
-        }
-        
-        [BurstCompile]
-        struct UpdateRotTransformNoHierarchyRoots : IJobParallelFor
-        {
-            [ReadOnly] public ComponentDataArray<Rotation> rotations;
-            [NativeDisableContainerSafetyRestriction]
-            public ComponentDataArray<TransformMatrix> transforms;
-
-            public void Execute(int index)
-            {
-                float4x4 matrix = math.float4x4(rotations[index].Value, new float3());
-                transforms[index] = new TransformMatrix {Value = matrix};
-            }
+            ParentToChildTree.Dispose();
         }
 
-        [BurstCompile]
-        struct UpdateRotNoTransformRoots : IJobParallelFor
+        bool IsChildTree(Entity entity)
         {
-            [ReadOnly] public ComponentDataArray<Rotation> rotations;
-            public NativeArray<float4x4> matrices;
-
-            public void Execute(int index)
-            {
-                float4x4 matrix = math.float4x4(rotations[index].Value, new float3());
-                matrices[index] = matrix;
-            }
+            NativeMultiHashMapIterator<Entity> it;
+            Entity foundChild;
+            return ParentToChildTree.TryGetFirstValue(entity, out foundChild, out it);
         }
 
-        [BurstCompile]
-        struct UpdateTransTransformRoots : IJobParallelFor
+        void AddChildTree(Entity parentEntity, Entity childEntity)
         {
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            public NativeArray<float4x4> matrices;
-            [NativeDisableContainerSafetyRestriction]
-            public ComponentDataArray<TransformMatrix> transforms;
-
-            public void Execute(int index)
-            {
-                float4x4 matrix = float4x4.translate(positions[index].Value);
-                matrices[index] = matrix;
-                transforms[index] = new TransformMatrix {Value = matrix};
-            }
-        }
-        
-        [BurstCompile]
-        struct UpdateTransTransformNoHierarchyRoots : IJobParallelFor
-        {
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            [NativeDisableContainerSafetyRestriction]
-            public ComponentDataArray<TransformMatrix> transforms;
-
-            public void Execute(int index)
-            {
-                float4x4 matrix = float4x4.translate(positions[index].Value);
-                transforms[index] = new TransformMatrix {Value = matrix};
-            }
+            ParentToChildTree.Add(parentEntity, childEntity);
         }
 
-        [BurstCompile]
-        struct UpdateTransNoTransformRoots : IJobParallelFor
+        void RemoveChildTree(Entity parentEntity, Entity childEntity)
         {
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            public NativeArray<float4x4> matrices;
-
-            public void Execute(int index)
+            NativeMultiHashMapIterator<Entity> it;
+            Entity foundChild;
+            if (!ParentToChildTree.TryGetFirstValue(parentEntity, out foundChild, out it))
             {
-                float4x4 matrix = float4x4.translate(positions[index].Value);
-                matrices[index] = matrix;
+                return;
             }
-        }
-        
-        [BurstCompile]
-        struct UpdateHeadingTransTransformRoots : IJobParallelFor
-        {
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            [ReadOnly] public ComponentDataArray<Heading> headings;
-            public NativeArray<float4x4> matrices;
-            [NativeDisableContainerSafetyRestriction]
-            public ComponentDataArray<TransformMatrix> transforms;
 
-            public void Execute(int index)
+            do
             {
-                var matrix = float4x4.lookAt(positions[index].Value, headings[index].Value, math.up());
-                matrices[index] = matrix;
-                transforms[index] = new TransformMatrix {Value = matrix};
-            }
-        }
-        
-        [BurstCompile]
-        struct UpdateHeadingTransTransformNoHierarchyRoots : IJobParallelFor
-        {
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            [ReadOnly] public ComponentDataArray<Heading> headings;
-            [NativeDisableContainerSafetyRestriction]
-            public ComponentDataArray<TransformMatrix> transforms;
+                if (foundChild == childEntity)
+                {
+                    ParentToChildTree.Remove(it);
+                    return;
+                }
+            } while (ParentToChildTree.TryGetNextValue(out foundChild, ref it));
 
-            public void Execute(int index)
-            {
-                var matrix = float4x4.lookAt(positions[index].Value, headings[index].Value, math.up());
-                transforms[index] = new TransformMatrix {Value = matrix};
-            }
+            throw new System.InvalidOperationException(string.Format("Parent not found in Hierarchy hashmap"));
         }
 
-        [BurstCompile]
-        struct UpdateHeadingTransNoTransformRoots : IJobParallelFor
+        void UpdateNewRootTransforms(EntityCommandBuffer entityCommandBuffer)
         {
-            [ReadOnly] public ComponentDataArray<Position> positions;
-            [ReadOnly] public ComponentDataArray<Heading> headings;
-            public NativeArray<float4x4> matrices;
-
-            public void Execute(int index)
+            if (NewRootChunks.Length == 0)
             {
-                var matrix = float4x4.lookAt(positions[index].Value, headings[index].Value, math.up());
-                matrices[index] = matrix;
+                NewRootChunks.Dispose();
+                return;
             }
-        }
-        
-        [BurstCompile]
-        struct BuildHierarchy : IJobParallelFor
-        {
-            public NativeMultiHashMap<Entity, Entity>.Concurrent hierarchy;
-            [ReadOnly] public ComponentDataArray<TransformParent> transformParents;
-            [ReadOnly] public EntityArray entities;
 
-            public void Execute(int index)
+            for (int chunkIndex = 0; chunkIndex < NewRootChunks.Length; chunkIndex++)
             {
-                hierarchy.Add(transformParents[index].Value,entities[index]);
-            }
-        }
+                var chunk = NewRootChunks[chunkIndex];
+                var parentCount = chunk.Count;
 
-        [BurstCompile]
-        struct UpdateSubHierarchy : IJobParallelFor
-        {
-            [ReadOnly] public NativeMultiHashMap<Entity, Entity>                                  hierarchy;
-            [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<Entity>                     roots;
-            [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<float4x4>                   rootMatrices;
+                var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+
+                for (int i = 0; i < parentCount; i++)
+                {
+                    var entity = chunkEntities[i];
+
+                    entityCommandBuffer.AddComponent(entity, new LocalToWorld {Value = float4x4.identity});
+                }
+            }
             
-            [ReadOnly] public ComponentDataFromEntity<LocalPosition>                              localPositions;
-            [ReadOnly] public ComponentDataFromEntity<LocalRotation>                              localRotations;
-            [NativeDisableParallelForRestriction] public ComponentDataFromEntity<Position>        positions;
-            [NativeDisableParallelForRestriction] public ComponentDataFromEntity<Rotation>        rotations;
-            [NativeDisableParallelForRestriction] public ComponentDataFromEntity<TransformMatrix> transformMatrices;
+            NewRootChunks.Dispose();
+        }
 
-            void TransformTree(Entity entity,float4x4 parentMatrix)
+        bool UpdateAttach(EntityCommandBuffer entityCommandBuffer)
+        {
+            if (AttachChunks.Length == 0)
             {
-                var position = new float3();
-                var rotation = quaternion.identity;
-                
-                if (positions.Exists(entity))
-                {
-                    position = positions[entity].Value;
-                }
-                
-                if (rotations.Exists(entity))
-                {
-                    rotation = rotations[entity].Value;
-                }
-                
-                if (localPositions.Exists(entity))
-                {
-                    var worldPosition = math.mul(parentMatrix,new float4(localPositions[entity].Value,1.0f));
-                    position = new float3(worldPosition.x,worldPosition.y,worldPosition.z);
-                    if (positions.Exists(entity))
-                    {
-                        positions[entity] = new Position {Value = position};
-                    }
-                }
-                
-                if (localRotations.Exists(entity))
-                {
-                    var parentRotation = math.quaternion(math.float3x3(parentMatrix.c0.xyz, parentMatrix.c1.xyz, parentMatrix.c2.xyz));
-                    var localRotation = localRotations[entity].Value;
-                    rotation = math.mul(parentRotation, localRotation);
-                    if (rotations.Exists(entity))
-                    {
-                        rotations[entity] = new Rotation { Value = rotation };
-                    }
-                }
+                AttachChunks.Dispose();
+                return false;
+            }
 
-                float4x4 matrix = math.float4x4(rotation, position);
-                if (transformMatrices.Exists(entity))
-                {
-                    transformMatrices[entity] = new TransformMatrix {Value = matrix};
-                }
+            for (int chunkIndex = 0; chunkIndex < AttachChunks.Length; chunkIndex++)
+            {
+                var chunk = AttachChunks[chunkIndex];
+                var parentCount = chunk.Count;
+                var entities = chunk.GetNativeArray(EntityTypeRO);
+                var attaches = chunk.GetNativeArray(AttachTypeRO);
 
-                Entity child;
-                NativeMultiHashMapIterator<Entity> iterator;
-                bool found = hierarchy.TryGetFirstValue(entity, out child, out iterator);
-                while (found)
+                for (int i = 0; i < parentCount; i++)
                 {
-                    TransformTree(child,matrix);
-                    found = hierarchy.TryGetNextValue(out child, ref iterator);
+                    var parentEntity = attaches[i].Parent;
+                    var childEntity = attaches[i].Child;
+
+                    // Does the child have a previous parent?
+                    if (EntityManager.HasComponent<Parent>(childEntity))
+                    {
+                        var previousParent = ParentFromEntityRW[childEntity];
+                        var previousParentEntity = previousParent.Value;
+
+                        if (IsChildTree(previousParentEntity))
+                        {
+                            RemoveChildTree(previousParentEntity, childEntity);
+                            if (!IsChildTree(previousParentEntity))
+                            {
+                                entityCommandBuffer.RemoveComponent<Depth>(previousParentEntity);
+                            }
+                        }
+
+                        ParentFromEntityRW[childEntity] = new Parent {Value = parentEntity};
+                    }
+                    else
+                    {
+                        entityCommandBuffer.AddComponent(childEntity, new Parent {Value = parentEntity});
+                        entityCommandBuffer.AddComponent(childEntity, new Attached());
+                        entityCommandBuffer.AddComponent(childEntity, new LocalToParent {Value = float4x4.identity});
+                    }
+
+                    // parent wasn't previously a tree, so doesn't have depth
+                    if (!IsChildTree(parentEntity))
+                    {
+                        entityCommandBuffer.AddSharedComponent(parentEntity, new Depth {Value = 0});
+                    }
+
+                    AddChildTree(parentEntity, childEntity);
+                    
+                    entityCommandBuffer.DestroyEntity(entities[i]);
                 }
             }
+
+            AttachChunks.Dispose();
+            return true;
+        }
+
+        bool UpdateDetach(EntityCommandBuffer entityCommandBuffer)
+        {
+            if (DetachChunks.Length == 0)
+            {
+                DetachChunks.Dispose();
+                return false;
+            }
+
+            for (int chunkIndex = 0; chunkIndex < DetachChunks.Length; chunkIndex++)
+            {
+                var chunk = DetachChunks[chunkIndex];
+
+                var parentCount = chunk.Count;
+                var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+                var parents = chunk.GetNativeArray(ParentTypeRO);
+
+                for (int i = 0; i < parentCount; i++)
+                {
+                    var entity = chunkEntities[i];
+                    var parentEntity = parents[i].Value;
+
+                    if (IsChildTree(parentEntity))
+                    {
+                        RemoveChildTree(parentEntity, entity);
+
+                        if (!IsChildTree(parentEntity))
+                        {
+                            entityCommandBuffer.RemoveComponent<Depth>(parentEntity);
+                        }
+                    }
+
+                    entityCommandBuffer.RemoveComponent<LocalToParent>(entity);
+                    entityCommandBuffer.RemoveComponent<Parent>(entity);
+                }
+            }
+
+            DetachChunks.Dispose();
+            return true;
+        }
+
+        void UpdateRemoved(EntityCommandBuffer entityCommandBuffer)
+        {
+            if (RemovedChunks.Length == 0)
+            {
+                RemovedChunks.Dispose();
+                return;
+            }
+
+            for (int chunkIndex = 0; chunkIndex < RemovedChunks.Length; chunkIndex++)
+            {
+                var chunk = RemovedChunks[chunkIndex];
+                var parentCount = chunk.Count;
+
+                var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+
+                for (int i = 0; i < parentCount; i++)
+                {
+                    var entity = chunkEntities[i];
+
+                    entityCommandBuffer.RemoveComponent<LocalToWorld>(entity);
+                }
+            }
+
+            RemovedChunks.Dispose();
+        }
+
+        void UpdatePendingFrozen()
+        {
+            if (PendingFrozenChunks.Length == 0)
+            {
+                PendingFrozenChunks.Dispose();
+                return;
+            }
+            
+            EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
+
+            for (int chunkIndex = 0; chunkIndex < PendingFrozenChunks.Length; chunkIndex++)
+            {
+                var chunk = PendingFrozenChunks[chunkIndex];
+                var parentCount = chunk.Count;
+
+                var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+
+                for (int i = 0; i < parentCount; i++)
+                {
+                    var entity = chunkEntities[i];
+
+                    entityCommandBuffer.RemoveComponent<PendingFrozen>(entity);
+                    entityCommandBuffer.AddComponent(entity, default(Frozen));
+                }
+            }
+
+            PendingFrozenChunks.Dispose();
+
+            entityCommandBuffer.Playback(EntityManager);
+            entityCommandBuffer.Dispose();
+            
+        }
+
+        void UpdateFrozen()
+        {
+            if (FrozenChunks.Length == 0)
+            {
+                FrozenChunks.Dispose();
+                return;
+            }
+            
+            EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
+
+            for (int chunkIndex = 0; chunkIndex < FrozenChunks.Length; chunkIndex++)
+            {
+                var chunk = FrozenChunks[chunkIndex];
+                var parentCount = chunk.Count;
+
+                var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+
+                for (int i = 0; i < parentCount; i++)
+                {
+                    var entity = chunkEntities[i];
+
+                    entityCommandBuffer.AddComponent(entity, default(PendingFrozen));
+                }
+            }
+
+            FrozenChunks.Dispose();
+
+            entityCommandBuffer.Playback(EntityManager);
+            entityCommandBuffer.Dispose();
+        }
+        
+        void UpdateThaw()
+        {
+            if (ThawChunks.Length == 0)
+            {
+                ThawChunks.Dispose();
+                return;
+            }
+            
+            EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
+
+            for (int chunkIndex = 0; chunkIndex < ThawChunks.Length; chunkIndex++)
+            {
+                var chunk = ThawChunks[chunkIndex];
+                var parentCount = chunk.Count;
+
+                var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
+                var chunkFrozens = chunk.GetNativeArray(FrozenTypeRO);
+                var chunkPendingFrozens = chunk.GetNativeArray(PendingFrozenTypeRO);
+                var hasFrozen = chunkFrozens.Length > 0;
+                var hasPendingFrozen = chunkPendingFrozens.Length > 0;
+
+                if (hasFrozen && (!hasPendingFrozen))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        var entity = chunkEntities[i];
+                        entityCommandBuffer.RemoveComponent<Frozen>(entity);
+                    }
+                }
+                else if (hasFrozen && hasPendingFrozen)
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        var entity = chunkEntities[i];
+                        entityCommandBuffer.RemoveComponent<Frozen>(entity);
+                        entityCommandBuffer.RemoveComponent<PendingFrozen>(entity);
+                    }
+                }
+                else if ((!hasFrozen) && hasPendingFrozen)
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        var entity = chunkEntities[i];
+                        entityCommandBuffer.RemoveComponent<PendingFrozen>(entity);
+                    }
+                }
+            }
+
+            ThawChunks.Dispose();
+
+            entityCommandBuffer.Playback(EntityManager);
+            entityCommandBuffer.Dispose();
+        }
+
+        private static readonly ProfilerMarker k_ProfileUpdateNewRootTransforms = new ProfilerMarker("UpdateNewRootTransforms");
+        private static readonly ProfilerMarker k_ProfileUpdateDAGAttachDetach = new ProfilerMarker("UpdateDAG.AttachDetach");
+        private static readonly ProfilerMarker k_ProfileUpdateUpdateRemoved = new ProfilerMarker("UpdateRemoved");
+        private static readonly ProfilerMarker k_ProfileUpdateDAGPlayback = new ProfilerMarker("UpdateDAG.Playback");
+        bool UpdateDAG()
+        {
+            EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
+
+            k_ProfileUpdateNewRootTransforms.Begin();
+            UpdateNewRootTransforms(entityCommandBuffer);
+            k_ProfileUpdateNewRootTransforms.End();
+            
+            k_ProfileUpdateDAGAttachDetach.Begin();
+            bool changedAttached = UpdateAttach(entityCommandBuffer);
+            bool changedDetached = UpdateDetach(entityCommandBuffer);
+            k_ProfileUpdateDAGAttachDetach.End();
+            
+            k_ProfileUpdateUpdateRemoved.Begin();
+            UpdateRemoved(entityCommandBuffer);
+            k_ProfileUpdateUpdateRemoved.End();
+
+            k_ProfileUpdateDAGPlayback.Begin();
+            entityCommandBuffer.Playback(EntityManager);
+            entityCommandBuffer.Dispose();
+            k_ProfileUpdateDAGPlayback.End();
+
+            return changedAttached || changedDetached;
+        }
+
+        [BurstCompile]
+        struct RootLocalToWorld : IJobParallelFor
+        {
+            [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
+            [ReadOnly] public ArchetypeChunkComponentType<Rotation> rotationType;
+            [ReadOnly] public ArchetypeChunkComponentType<Position> positionType;
+            [ReadOnly] public ArchetypeChunkComponentType<Scale> scaleType;
+            public ArchetypeChunkComponentType<LocalToWorld> localToWorldType;
+            public uint lastSystemVersion;
+
+            public void Execute(int chunkIndex)
+            {
+                var chunk = chunks[chunkIndex];
+                var parentCount = chunk.Count;
+
+                var chunkRotations = chunk.GetNativeArray(rotationType);
+                var chunkPositions = chunk.GetNativeArray(positionType);
+                var chunkScales = chunk.GetNativeArray(scaleType);
+                var chunkLocalToWorlds = chunk.GetNativeArray(localToWorldType);
+
+                var chunkRotationsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(rotationType), lastSystemVersion);
+                var chunkPositionsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(positionType), lastSystemVersion);
+                var chunkScalesChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(scaleType), lastSystemVersion);
+                var chunkAnyChanged = chunkRotationsChanged || chunkPositionsChanged || chunkScalesChanged;
+
+                if (!chunkAnyChanged)
+                  return;
+
+                var chunkRotationsExist = chunkRotations.Length > 0;
+                var chunkPositionsExist = chunkPositions.Length > 0;
+                var chunkScalesExist = chunkScales.Length > 0;
+
+                // 001
+                if ((!chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToWorlds[i] = new LocalToWorld
+                        {
+                            Value = math.mul(float4x4.translate(chunkPositions[i].Value),
+                                float4x4.scale(chunkScales[i].Value))
+                        };
+                    }
+                }
+                // 010
+                else if ((!chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToWorlds[i] = new LocalToWorld
+                        {
+                            Value = new float4x4(chunkRotations[i].Value, new float3())
+                        };
+                    }
+                }
+                // 011
+                else if ((!chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToWorlds[i] = new LocalToWorld
+                        {
+                            Value = math.mul(new float4x4(chunkRotations[i].Value, new float3()),
+                                float4x4.scale(chunkScales[i].Value))
+                        };
+                    }
+                }
+                // 100
+                else if ((chunkPositionsExist) && (!chunkRotationsExist) && (!chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToWorlds[i] = new LocalToWorld
+                        {
+                            Value = float4x4.translate(chunkPositions[i].Value)
+                        };
+                    }
+                }
+                // 101
+                else if ((chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToWorlds[i] = new LocalToWorld
+                        {
+                            Value = math.mul(float4x4.translate(chunkPositions[i].Value),
+                                float4x4.scale(chunkScales[i].Value))
+                        };
+                    }
+                }
+                // 110
+                else if ((chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToWorlds[i] = new LocalToWorld
+                        {
+                            Value = new float4x4(chunkRotations[i].Value, chunkPositions[i].Value)
+                        };
+                    }
+                }
+                // 111
+                else if ((chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToWorlds[i] = new LocalToWorld
+                        {
+                            Value = math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value),
+                                float4x4.scale(chunkScales[i].Value))
+                        };
+                    }
+                }
+            }
+        }
+
+        JobHandle UpdateRootLocalToWorld(JobHandle inputDeps)
+        {
+            if (RootLocalToWorldChunks.Length == 0)
+            {
+                RootLocalToWorldChunks.Dispose();
+                return inputDeps;
+            }
+
+            var rootsLocalToWorldJob = new RootLocalToWorld
+            {
+                chunks = RootLocalToWorldChunks,
+                rotationType = RotationTypeRO,
+                positionType = PositionTypeRO,
+                scaleType = ScaleTypeRO,
+                localToWorldType = LocalToWorldTypeRW,
+                lastSystemVersion = LastSystemVersion,
+            };
+            var rootsLocalToWorldJobHandle = rootsLocalToWorldJob.Schedule(RootLocalToWorldChunks.Length, 4, inputDeps);
+            return rootsLocalToWorldJobHandle;
+        }
+
+        [BurstCompile]
+        struct InnerTreeLocalToParent : IJobParallelFor
+        {
+            [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
+            [ReadOnly] public ArchetypeChunkComponentType<Rotation> rotationType;
+            [ReadOnly] public ArchetypeChunkComponentType<Position> positionType;
+            [ReadOnly] public ArchetypeChunkComponentType<Scale> scaleType;
+            public ArchetypeChunkComponentType<LocalToParent> localToParentType;
+            public uint lastSystemVersion;
+
+            public void Execute(int chunkIndex)
+            {
+                var chunk = chunks[chunkIndex];
+                var parentCount = chunk.Count;
+
+                var chunkRotations = chunk.GetNativeArray(rotationType);
+                var chunkPositions = chunk.GetNativeArray(positionType);
+                var chunkScales = chunk.GetNativeArray(scaleType);
+                var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
+
+                var chunkRotationsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(rotationType), lastSystemVersion);
+                var chunkPositionsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(positionType), lastSystemVersion);
+                var chunkScalesChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(scaleType), lastSystemVersion);
+                var chunkAnyChanged = chunkRotationsChanged || chunkPositionsChanged || chunkScalesChanged;
+
+                if (!chunkAnyChanged)
+                  return;
+
+                var chunkRotationsExist = chunkRotations.Length > 0;
+                var chunkPositionsExist = chunkPositions.Length > 0;
+                var chunkScalesExist = chunkScales.Length > 0;
+
+                // 001
+                if ((!chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToParents[i] = new LocalToParent
+                        {
+                            Value = math.mul(float4x4.translate(chunkPositions[i].Value),
+                                float4x4.scale(chunkScales[i].Value))
+                        };
+                    }
+                }
+                // 010
+                else if ((!chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToParents[i] = new LocalToParent
+                        {
+                            Value = new float4x4(chunkRotations[i].Value, new float3())
+                        };
+                    }
+                }
+                // 011
+                else if ((!chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToParents[i] = new LocalToParent
+                        {
+                            Value = math.mul(new float4x4(chunkRotations[i].Value, new float3()),
+                                float4x4.scale(chunkScales[i].Value))
+                        };
+                    }
+                }
+                // 100
+                else if ((chunkPositionsExist) && (!chunkRotationsExist) && (!chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToParents[i] = new LocalToParent
+                        {
+                            Value = float4x4.translate(chunkPositions[i].Value)
+                        };
+                    }
+                }
+                // 101
+                else if ((chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToParents[i] = new LocalToParent
+                        {
+                            Value = math.mul(float4x4.translate(chunkPositions[i].Value),
+                                float4x4.scale(chunkScales[i].Value))
+                        };
+                    }
+                }
+                // 110
+                else if ((chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToParents[i] = new LocalToParent
+                        {
+                            Value = new float4x4(chunkRotations[i].Value, chunkPositions[i].Value)
+                        };
+                    }
+                }
+                // 111
+                else if ((chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToParents[i] = new LocalToParent
+                        {
+                            Value = math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value),
+                                float4x4.scale(chunkScales[i].Value))
+                        };
+                    }
+                }
+            }
+        }
+
+        JobHandle UpdateInnerTreeLocalToParent(JobHandle inputDeps)
+        {
+            if (InnerTreeLocalToParentChunks.Length == 0)
+            {
+                InnerTreeLocalToParentChunks.Dispose();
+                return inputDeps;
+            }
+
+            var innerTreeLocalToParentJob = new InnerTreeLocalToParent
+            {
+                chunks = InnerTreeLocalToParentChunks,
+                rotationType = RotationTypeRO,
+                positionType = PositionTypeRO,
+                scaleType = ScaleTypeRO,
+                localToParentType = LocalToParentTypeRW,
+                lastSystemVersion = LastSystemVersion
+            };
+            var innerTreeLocalToParentJobHandle = innerTreeLocalToParentJob.Schedule(InnerTreeLocalToParentChunks.Length, 4, inputDeps);
+            return innerTreeLocalToParentJobHandle;
+        }
+
+        [BurstCompile]
+        struct LeafLocalToParent : IJobParallelFor
+        {
+            [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
+            [ReadOnly] public ArchetypeChunkComponentType<Rotation> rotationType;
+            [ReadOnly] public ArchetypeChunkComponentType<Position> positionType;
+            [ReadOnly] public ArchetypeChunkComponentType<Scale> scaleType;
+            public ArchetypeChunkComponentType<LocalToParent> localToParentType;
+            public uint lastSystemVersion;
+
+            public void Execute(int chunkIndex)
+            {
+                var chunk = chunks[chunkIndex];
+                var parentCount = chunk.Count;
+
+                var chunkRotations = chunk.GetNativeArray(rotationType);
+                var chunkPositions = chunk.GetNativeArray(positionType);
+                var chunkScales = chunk.GetNativeArray(scaleType);
+                var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
+
+                var chunkRotationsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(rotationType), lastSystemVersion);
+                var chunkPositionsChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(positionType), lastSystemVersion);
+                var chunkScalesChanged = ChangeVersionUtility.DidAddOrChange(chunk.GetComponentVersion(scaleType), lastSystemVersion);
+                var chunkAnyChanged = chunkRotationsChanged || chunkPositionsChanged || chunkScalesChanged;
+
+                if (!chunkAnyChanged)
+                  return;
+
+                var chunkRotationsExist = chunkRotations.Length > 0;
+                var chunkPositionsExist = chunkPositions.Length > 0;
+                var chunkScalesExist = chunkScales.Length > 0;
+
+                // 001
+                if ((!chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToParents[i] = new LocalToParent
+                        {
+                            Value = math.mul(float4x4.translate(chunkPositions[i].Value),
+                                float4x4.scale(chunkScales[i].Value))
+                        };
+                    }
+                }
+                // 010
+                else if ((!chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToParents[i] = new LocalToParent
+                        {
+                            Value = new float4x4(chunkRotations[i].Value, new float3())
+                        };
+                    }
+                }
+                // 011
+                else if ((!chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToParents[i] = new LocalToParent
+                        {
+                            Value = math.mul(new float4x4(chunkRotations[i].Value, new float3()),
+                                float4x4.scale(chunkScales[i].Value))
+                        };
+                    }
+                }
+                // 100
+                else if ((chunkPositionsExist) && (!chunkRotationsExist) && (!chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToParents[i] = new LocalToParent
+                        {
+                            Value = float4x4.translate(chunkPositions[i].Value)
+                        };
+                    }
+                }
+                // 101
+                else if ((chunkPositionsExist) && (!chunkRotationsExist) && (chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToParents[i] = new LocalToParent
+                        {
+                            Value = math.mul(float4x4.translate(chunkPositions[i].Value),
+                                float4x4.scale(chunkScales[i].Value))
+                        };
+                    }
+                }
+                // 110
+                else if ((chunkPositionsExist) && (chunkRotationsExist) && (!chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToParents[i] = new LocalToParent
+                        {
+                            Value = new float4x4(chunkRotations[i].Value, chunkPositions[i].Value)
+                        };
+                    }
+                }
+                // 111
+                else if ((chunkPositionsExist) && (chunkRotationsExist) && (chunkScalesExist))
+                {
+                    for (int i = 0; i < parentCount; i++)
+                    {
+                        chunkLocalToParents[i] = new LocalToParent
+                        {
+                            Value = math.mul(new float4x4(chunkRotations[i].Value, chunkPositions[i].Value),
+                                float4x4.scale(chunkScales[i].Value))
+                        };
+                    }
+                }
+            }
+        }
+
+        JobHandle UpdateLeafLocalToParent(JobHandle inputDeps)
+        {
+            if (LeafLocalToParentChunks.Length == 0)
+            {
+                LeafLocalToParentChunks.Dispose();
+                return inputDeps;
+            }
+
+            var leafToLocalParentJob = new LeafLocalToParent
+            {
+                chunks = LeafLocalToParentChunks,
+                rotationType = RotationTypeRO,
+                positionType = PositionTypeRO,
+                scaleType = ScaleTypeRO,
+                localToParentType = LocalToParentTypeRW,
+                lastSystemVersion = LastSystemVersion
+            };
+            var leafToLocalParentJobHandle = leafToLocalParentJob.Schedule(LeafLocalToParentChunks.Length, 4, inputDeps);
+            return leafToLocalParentJobHandle;
+        }
+
+        [BurstCompile]
+        struct InnerTreeLocalToWorld : IJobParallelFor
+        {
+            [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<int> chunkIndices;
+
+            [NativeDisableParallelForRestriction] [DeallocateOnJobCompletion] [ReadOnly]
+            public NativeArray<ArchetypeChunk> chunks;
+
+            [ReadOnly] public ArchetypeChunkComponentType<Parent> parentType;
+            [ReadOnly] public ArchetypeChunkEntityType entityType;
+            [ReadOnly] public ArchetypeChunkComponentType<LocalToParent> localToParentType;
+            [NativeDisableParallelForRestriction] public ComponentDataFromEntity<LocalToWorld> localToWorldFromEntity;
+            public uint lastSystemVersion;
 
             public void Execute(int i)
             {
-                Entity entity = roots[i];
-                float4x4 matrix = rootMatrices[i];
-                Entity child;
-                NativeMultiHashMapIterator<Entity> iterator;
-                bool found = hierarchy.TryGetFirstValue(entity, out child, out iterator);
-                while (found)
+                var chunkIndex = chunkIndices[i];
+                var chunk = chunks[chunkIndex];
+                var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
+
+                var chunkParents = chunk.GetNativeArray(parentType);
+                var chunkEntities = chunk.GetNativeArray(entityType);
+                var previousParentEntity = Entity.Null;
+                var parentLocalToWorldMatrix = new float4x4();
+
+                for (int j = 0; j < chunk.Count; j++)
                 {
-                    TransformTree(child,matrix);
-                    found = hierarchy.TryGetNextValue(out child, ref iterator);
+                    var parentEntity = chunkParents[j].Value;
+                    if (parentEntity != previousParentEntity)
+                    {
+                        parentLocalToWorldMatrix = localToWorldFromEntity[parentEntity].Value;
+                        previousParentEntity = parentEntity;
+                    }
+                    var entity = chunkEntities[j];
+                    localToWorldFromEntity[entity] = new LocalToWorld
+                    {
+                        Value = math.mul(parentLocalToWorldMatrix, chunkLocalToParents[j].Value)
+                    };
                 }
             }
         }
 
         [BurstCompile]
-        struct ClearHierarchy : IJob
+        struct SortDepths : IJob
         {
-            public  NativeMultiHashMap<Entity, Entity> hierarchy;
+            [DeallocateOnJobCompletion] [NativeDisableParallelForRestriction] [ReadOnly]
+            public NativeArray<int> depths;
+
+            [NativeDisableParallelForRestriction] [ReadOnly]
+            public NativeArray<ArchetypeChunk> chunks;
+
+            [ReadOnly] public ArchetypeChunkSharedComponentType<Depth> depthType;
+            public int maxDepth;
+
+            public NativeArray<int> chunkIndices;
 
             public void Execute()
             {
-                hierarchy.Clear();
+                // Slow and dirty sort inner tree by depth
+                var chunkIndex = 0;
+                
+                for (int depth = -1; depth < maxDepth; depth++)
+                {
+                    for (int i = 0; i < chunks.Length; i++)
+                    {
+                        var chunk = chunks[i];
+                        var chunkDepthSharedIndex = chunk.GetSharedComponentIndex(depthType);
+                        var chunkDepth = -1;
+                        
+                        // -1 = Depth has been removed, but still matching archetype for some reason. #todo
+                        if (chunkDepthSharedIndex != -1)
+                        {
+                            chunkDepth = depths[chunkDepthSharedIndex];
+                        }
+
+                        if (chunkDepth == depth)
+                        {
+                            chunkIndices[chunkIndex] = i;
+                            chunkIndex++;
+                        }
+                    }
+                }
             }
         }
-        
-        NativeMultiHashMap<Entity, Entity> m_Hierarchy;
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        JobHandle UpdateInnerTreeLocalToWorld(JobHandle inputDeps)
         {
-            int rootCount = m_RootRotTransTransformGroup.Length + m_RootRotTransNoTransformGroup.Length +
-                            m_RootRotTransformGroup.Length + m_RootRotNoTransformGroup.Length +
-                            m_RootTransTransformGroup.Length + m_RootTransNoTransformGroup.Length +
-                            m_RootHeadingTransTransformGroup.Length + m_RootHeadingTransNoTransformGroup.Length;
-            if (rootCount == 0)
+            if (InnerTreeLocalToWorldChunks.Length == 0)
             {
+                InnerTreeLocalToWorldChunks.Dispose();
                 return inputDeps;
             }
             
-            var updateRootsDeps = inputDeps;
-            JobHandle? updateRootsBarrierJobHandle = null;
+            var sharedDepths = new List<Depth>();
+            var sharedDepthIndices = new List<int>();
+
+            var sharedComponentCount = EntityManager.GetSharedComponentCount();
+
+            EntityManager.GetAllUniqueSharedComponentData(sharedDepths, sharedDepthIndices);
+
+            var depthCount = sharedDepths.Count;
+            var depths = new NativeArray<int>(sharedComponentCount, Allocator.TempJob);
+            var maxDepth = 0;
             
-            //
-            // Update Roots (No Hierachies)
-            //
-            
-            if (m_ParentGroup.Length == 0)
+            for (int i = 0; i < depthCount; i++)
             {
-                if (m_RootRotTransTransformGroup.Length > 0)
+                var index = sharedDepthIndices[i];
+                var depth = sharedDepths[i].Value;
+                if (depth > maxDepth)
                 {
-                    var updateRotTransTransformRootsJob = new UpdateRotTransTransformNoHierarchyRoots
-                    {
-                        rotations = m_RootRotTransTransformGroup.rotations,
-                        positions = m_RootRotTransTransformGroup.positions,
-                        transforms = m_RootRotTransTransformGroup.transforms
-                    };
-                    var updateRotTransTransformRootsJobHandle = updateRotTransTransformRootsJob.Schedule(m_RootRotTransTransformGroup.Length, 64, updateRootsDeps);
-                    updateRootsBarrierJobHandle = (updateRootsBarrierJobHandle == null)?updateRotTransTransformRootsJobHandle: JobHandle.CombineDependencies(updateRootsBarrierJobHandle.Value, updateRotTransTransformRootsJobHandle);
-                }
-                
-                if (m_RootRotTransformGroup.Length > 0)
-                {
-                    var updateRotTransformRootsJob = new UpdateRotTransformNoHierarchyRoots
-                    {
-                        rotations = m_RootRotTransformGroup.rotations,
-                        transforms = m_RootRotTransformGroup.transforms
-                    };
-                    var updateRotTransformRootsJobHandle = updateRotTransformRootsJob.Schedule(m_RootRotTransformGroup.Length, 64, updateRootsDeps);
-                    updateRootsBarrierJobHandle = (updateRootsBarrierJobHandle == null)?updateRotTransformRootsJobHandle: JobHandle.CombineDependencies(updateRootsBarrierJobHandle.Value, updateRotTransformRootsJobHandle);
-                }
-                
-                if (m_RootTransTransformGroup.Length > 0)
-                {
-                    var updateTransTransformRootsJob = new UpdateTransTransformNoHierarchyRoots
-                    {
-                        positions = m_RootTransTransformGroup.positions,
-                        transforms = m_RootTransTransformGroup.transforms
-                    };
-                    var updateTransTransformRootsJobHandle = updateTransTransformRootsJob.Schedule(m_RootTransTransformGroup.Length, 64, updateRootsDeps);
-                    updateRootsBarrierJobHandle = (updateRootsBarrierJobHandle == null)?updateTransTransformRootsJobHandle: JobHandle.CombineDependencies(updateRootsBarrierJobHandle.Value, updateTransTransformRootsJobHandle);
-                }
-                
-                if (m_RootHeadingTransTransformGroup.Length > 0)
-                {
-                    var updateHeadingTransTransformRootsJob = new UpdateHeadingTransTransformNoHierarchyRoots
-                    {
-                        headings = m_RootHeadingTransTransformGroup.headings,
-                        positions = m_RootHeadingTransTransformGroup.positions,
-                        transforms = m_RootHeadingTransTransformGroup.transforms
-                    };
-                    var updateHeadingTransTransformRootsJobHandle = updateHeadingTransTransformRootsJob.Schedule(m_RootHeadingTransTransformGroup.Length, 64, updateRootsDeps);
-                    updateRootsBarrierJobHandle = (updateRootsBarrierJobHandle == null)?updateHeadingTransTransformRootsJobHandle: JobHandle.CombineDependencies(updateRootsBarrierJobHandle.Value, updateHeadingTransTransformRootsJobHandle);
+                    maxDepth = depth;
                 }
 
-                return (updateRootsBarrierJobHandle == null) ? updateRootsDeps : updateRootsBarrierJobHandle.Value;
+                depths[index] = depth;
             }
+            
+            var chunkIndices = new NativeArray<int>(InnerTreeLocalToWorldChunks.Length, Allocator.TempJob);
+            var sortDepthsJob = new SortDepths
+            {
+                depths = depths,
+                chunks = InnerTreeLocalToWorldChunks,
+                depthType = DepthTypeRO,
+                maxDepth = maxDepth,
+                chunkIndices = chunkIndices
+            };
+            var sortDepthsJobHandle = sortDepthsJob.Schedule(inputDeps);
 
-            //
-            // Update Roots (Hierarchies exist)
-            //
-
-            if (m_ParentGroup.Length > 0)
+            var innerTreeLocalToWorldJob = new InnerTreeLocalToWorld
             {
-                m_Hierarchy.Capacity = math.max(m_ParentGroup.Length + rootCount,m_Hierarchy.Capacity);
-
-                var clearHierarchyJob = new ClearHierarchy
-                {
-                    hierarchy = m_Hierarchy
-                };
-                var clearHierarchyJobHandle = clearHierarchyJob.Schedule(updateRootsDeps);
-
-                var buildHierarchyJob = new BuildHierarchy
-                {
-                    hierarchy = m_Hierarchy,
-                    transformParents = m_ParentGroup.transformParents,
-                    entities = m_ParentGroup.entities
-                };
-                var buildHierarchyJobHandle = buildHierarchyJob.Schedule(m_ParentGroup.Length, 64, clearHierarchyJobHandle);
-                updateRootsBarrierJobHandle = buildHierarchyJobHandle;
-            }
-
-            NativeArray<float4x4>? rotTransTransformRootMatrices = null;
-            if (m_RootRotTransTransformGroup.Length > 0)
-            {
-                rotTransTransformRootMatrices = new NativeArray<float4x4>(m_RootRotTransTransformGroup.Length, Allocator.TempJob,NativeArrayOptions.UninitializedMemory);
-                var updateRotTransTransformRootsJob = new UpdateRotTransTransformRoots
-                {
-                    rotations = m_RootRotTransTransformGroup.rotations,
-                    positions = m_RootRotTransTransformGroup.positions,
-                    matrices = rotTransTransformRootMatrices.Value,
-                    transforms = m_RootRotTransTransformGroup.transforms
-                };
-                var updateRotTransTransformRootsJobHandle = updateRotTransTransformRootsJob.Schedule(m_RootRotTransTransformGroup.Length, 64, updateRootsDeps);
-                updateRootsBarrierJobHandle = JobHandle.CombineDependencies(updateRootsBarrierJobHandle.Value, updateRotTransTransformRootsJobHandle);
-            }
-            
-            NativeArray<float4x4>? rotTransNoTransformRootMatrices = null;
-            if (m_RootRotTransNoTransformGroup.Length > 0)
-            {
-                rotTransNoTransformRootMatrices = new NativeArray<float4x4>(m_RootRotTransNoTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var updateRotTransNoTransformRootsJob = new UpdateRotTransNoTransformRoots
-                {
-                    rotations = m_RootRotTransNoTransformGroup.rotations,
-                    positions = m_RootRotTransNoTransformGroup.positions,
-                    matrices = rotTransNoTransformRootMatrices.Value
-                };
-                var updateRotTransNoTransformRootsJobHandle = updateRotTransNoTransformRootsJob.Schedule(m_RootRotTransNoTransformGroup.Length, 64, updateRootsDeps);
-                updateRootsBarrierJobHandle = JobHandle.CombineDependencies(updateRootsBarrierJobHandle.Value, updateRotTransNoTransformRootsJobHandle);
-            }
-            
-            NativeArray<float4x4>? rotTransformRootMatrices = null;
-            if (m_RootRotTransformGroup.Length > 0)
-            {
-                rotTransformRootMatrices = new NativeArray<float4x4>(m_RootRotTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var updateRotTransformRootsJob = new UpdateRotTransformRoots
-                {
-                    rotations = m_RootRotTransformGroup.rotations,
-                    matrices = rotTransformRootMatrices.Value,
-                    transforms = m_RootRotTransformGroup.transforms
-                };
-                var updateRotTransformRootsJobHandle = updateRotTransformRootsJob.Schedule(m_RootRotTransformGroup.Length, 64, updateRootsDeps);
-                updateRootsBarrierJobHandle = JobHandle.CombineDependencies(updateRootsBarrierJobHandle.Value, updateRotTransformRootsJobHandle);
-            }
-            
-            NativeArray<float4x4>? rotNoTransformRootMatrices = null;
-            if (m_RootRotNoTransformGroup.Length > 0)
-            {
-                rotNoTransformRootMatrices = new NativeArray<float4x4>(m_RootRotNoTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var updateRotNoTransformRootsJob = new UpdateRotNoTransformRoots
-                {
-                    rotations = m_RootRotNoTransformGroup.rotations,
-                    matrices = rotNoTransformRootMatrices.Value
-                };
-                var updateRotNoTransformRootsJobHandle = updateRotNoTransformRootsJob.Schedule(m_RootRotNoTransformGroup.Length, 64, updateRootsDeps);
-                updateRootsBarrierJobHandle = JobHandle.CombineDependencies(updateRootsBarrierJobHandle.Value, updateRotNoTransformRootsJobHandle);
-            }
-            
-            NativeArray<float4x4>? transTransformRootMatrices = null;
-            if (m_RootTransTransformGroup.Length > 0)
-            {
-                transTransformRootMatrices = new NativeArray<float4x4>(m_RootTransTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var updateTransTransformRootsJob = new UpdateTransTransformRoots
-                {
-                    positions = m_RootTransTransformGroup.positions,
-                    matrices = transTransformRootMatrices.Value,
-                    transforms = m_RootTransTransformGroup.transforms
-                };
-                var updateTransTransformRootsJobHandle = updateTransTransformRootsJob.Schedule(m_RootTransTransformGroup.Length, 64, updateRootsDeps);
-                updateRootsBarrierJobHandle = JobHandle.CombineDependencies(updateRootsBarrierJobHandle.Value, updateTransTransformRootsJobHandle);
-            }
-            
-            NativeArray<float4x4>? transNoTransformRootMatrices = null;
-            if (m_RootTransNoTransformGroup.Length > 0)
-            {
-                transNoTransformRootMatrices = new NativeArray<float4x4>(m_RootTransNoTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var updateTransNoTransformRootsJob = new UpdateTransNoTransformRoots
-                {
-                    positions = m_RootTransNoTransformGroup.positions,
-                    matrices = transNoTransformRootMatrices.Value
-                };
-                var updateTransNoTransformRootsJobHandle = updateTransNoTransformRootsJob.Schedule(m_RootTransNoTransformGroup.Length, 64, updateRootsDeps);
-                updateRootsBarrierJobHandle = JobHandle.CombineDependencies(updateRootsBarrierJobHandle.Value, updateTransNoTransformRootsJobHandle);
-            }
-            
-            NativeArray<float4x4>? headingTransTransformRootMatrices = null;
-            if (m_RootHeadingTransTransformGroup.Length > 0)
-            {
-                headingTransTransformRootMatrices = new NativeArray<float4x4>(m_RootHeadingTransTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var updateHeadingTransTransformRootsJob = new UpdateHeadingTransTransformRoots
-                {
-                    positions = m_RootHeadingTransTransformGroup.positions,
-                    headings = m_RootHeadingTransTransformGroup.headings,
-                    matrices = headingTransTransformRootMatrices.Value,
-                    transforms= m_RootHeadingTransTransformGroup.transforms
-                };
-                var updateHeadingTransTransformRootsJobHandle = updateHeadingTransTransformRootsJob.Schedule(m_RootHeadingTransTransformGroup.Length, 64, updateRootsDeps);
-                updateRootsBarrierJobHandle = JobHandle.CombineDependencies(updateRootsBarrierJobHandle.Value, updateHeadingTransTransformRootsJobHandle);
-            }
-            
-            NativeArray<float4x4>? headingTransNoTransformRootMatrices = null;
-            if (m_RootHeadingTransNoTransformGroup.Length > 0)
-            {
-                headingTransNoTransformRootMatrices = new NativeArray<float4x4>(m_RootHeadingTransNoTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var updateHeadingTransNoTransformRootsJob = new UpdateHeadingTransNoTransformRoots
-                {
-                    positions = m_RootHeadingTransNoTransformGroup.positions,
-                    headings = m_RootHeadingTransTransformGroup.headings,
-                    matrices = headingTransNoTransformRootMatrices.Value
-                };
-                var updateHeadingTransNoTransformRootsJobHandle = updateHeadingTransNoTransformRootsJob.Schedule(m_RootHeadingTransNoTransformGroup.Length, 64, updateRootsDeps);
-                updateRootsBarrierJobHandle = JobHandle.CombineDependencies(updateRootsBarrierJobHandle.Value, updateHeadingTransNoTransformRootsJobHandle);
-            }
-            
-            //
-            // Copy Root Entities for Sub Hierarchy Transform
-            //
-
-            var copyRootEntitiesDeps = updateRootsBarrierJobHandle.Value;
-            var copyRootEntitiesBarrierJobHandle = new JobHandle();
-
-            NativeArray<Entity>? rotTransTransformRoots = null;
-            if (m_RootRotTransTransformGroup.Length > 0)
-            {
-                rotTransTransformRoots = new NativeArray<Entity>(m_RootRotTransTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var copyRotTransTransformRootsJob = new CopyEntities
-                {
-                    Source = m_RootRotTransTransformGroup.entities,
-                    Results = rotTransTransformRoots.Value
-                };
-                var copyRotTransTransformRootsJobHandle = copyRotTransTransformRootsJob.Schedule(m_RootRotTransTransformGroup.Length, 64, copyRootEntitiesDeps);
-                copyRootEntitiesBarrierJobHandle = JobHandle.CombineDependencies(copyRootEntitiesBarrierJobHandle,copyRotTransTransformRootsJobHandle);
-            }
-            
-            NativeArray<Entity>? rotTransNoTransformRoots = null;
-            if (m_RootRotTransNoTransformGroup.Length > 0)
-            {
-                rotTransNoTransformRoots = new NativeArray<Entity>(m_RootRotTransNoTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var copyRotTransNoTransformRootsJob = new CopyEntities
-                {
-                    Source = m_RootRotTransNoTransformGroup.entities,
-                    Results = rotTransNoTransformRoots.Value
-                };
-                var copyRotTransNoTransformRootsJobHandle = copyRotTransNoTransformRootsJob.Schedule(m_RootRotTransNoTransformGroup.Length, 64, copyRootEntitiesDeps);
-                copyRootEntitiesBarrierJobHandle = JobHandle.CombineDependencies(copyRootEntitiesBarrierJobHandle, copyRotTransNoTransformRootsJobHandle);
-            }
-            
-            NativeArray<Entity>? rotTransformRoots = null;
-            if (m_RootRotTransformGroup.Length > 0)
-            {
-                rotTransformRoots = new NativeArray<Entity>(m_RootRotTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var copyRotTransformRootsJob = new CopyEntities
-                {
-                    Source = m_RootRotTransformGroup.entities,
-                    Results = rotTransformRoots.Value
-                };
-                var copyRotTransformRootsJobHandle = copyRotTransformRootsJob.Schedule(m_RootRotTransformGroup.Length, 64, copyRootEntitiesDeps);
-                copyRootEntitiesBarrierJobHandle = JobHandle.CombineDependencies(copyRootEntitiesBarrierJobHandle,copyRotTransformRootsJobHandle);
-            }
-            
-            NativeArray<Entity>? rotNoTransformRoots = null;
-            if (m_RootRotNoTransformGroup.Length > 0)
-            {
-                rotNoTransformRoots = new NativeArray<Entity>(m_RootRotNoTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var copyRotNoTransformRootsJob = new CopyEntities
-                {
-                    Source = m_RootRotNoTransformGroup.entities,
-                    Results = rotNoTransformRoots.Value
-                };
-                var copyRotNoTransformRootsJobHandle = copyRotNoTransformRootsJob.Schedule(m_RootRotNoTransformGroup.Length, 64, copyRootEntitiesDeps);
-                copyRootEntitiesBarrierJobHandle = JobHandle.CombineDependencies(copyRootEntitiesBarrierJobHandle, copyRotNoTransformRootsJobHandle);
-            }
-            
-            NativeArray<Entity>? transTransformRoots = null;
-            if (m_RootTransTransformGroup.Length > 0)
-            {
-                transTransformRoots = new NativeArray<Entity>(m_RootTransTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var copyTransTransformRootsJob = new CopyEntities
-                {
-                    Source = m_RootTransTransformGroup.entities,
-                    Results = transTransformRoots.Value
-                };
-                var copyTransTransformRootsJobHandle = copyTransTransformRootsJob.Schedule(m_RootTransTransformGroup.Length, 64, copyRootEntitiesDeps);
-                copyRootEntitiesBarrierJobHandle = JobHandle.CombineDependencies(copyRootEntitiesBarrierJobHandle,copyTransTransformRootsJobHandle);
-            }
-            
-            NativeArray<Entity>? transNoTransformRoots = null;
-            if (m_RootTransNoTransformGroup.Length > 0)
-            {
-                transNoTransformRoots = new NativeArray<Entity>(m_RootTransNoTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var copyTransNoTransformRootsJob = new CopyEntities
-                {
-                    Source = m_RootTransNoTransformGroup.entities,
-                    Results = transNoTransformRoots.Value
-                };
-                var copyTransNoTransformRootsJobHandle = copyTransNoTransformRootsJob.Schedule(m_RootTransNoTransformGroup.Length, 64, copyRootEntitiesDeps);
-                copyRootEntitiesBarrierJobHandle = JobHandle.CombineDependencies(copyRootEntitiesBarrierJobHandle, copyTransNoTransformRootsJobHandle);
-            }
-            
-            NativeArray<Entity>? headingTransTransformRoots = null;
-            if (m_RootHeadingTransTransformGroup.Length > 0)
-            {
-                headingTransTransformRoots = new NativeArray<Entity>(m_RootHeadingTransTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var copyHeadingTransTransformRootsJob = new CopyEntities
-                {
-                    Source = m_RootHeadingTransTransformGroup.entities,
-                    Results = headingTransTransformRoots.Value
-                };
-                var copyHeadingTransTransformRootsJobHandle = copyHeadingTransTransformRootsJob.Schedule(m_RootHeadingTransTransformGroup.Length, 64, copyRootEntitiesDeps);
-                copyRootEntitiesBarrierJobHandle = JobHandle.CombineDependencies(copyRootEntitiesBarrierJobHandle,copyHeadingTransTransformRootsJobHandle);
-            }
-            
-            NativeArray<Entity>? headingTransNoTransformRoots = null;
-            if (m_RootHeadingTransNoTransformGroup.Length > 0)
-            {
-                headingTransNoTransformRoots = new NativeArray<Entity>(m_RootHeadingTransNoTransformGroup.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-                var copyHeadingTransNoTransformRootsJob = new CopyEntities
-                {
-                    Source = m_RootHeadingTransNoTransformGroup.entities,
-                    Results = headingTransNoTransformRoots.Value
-                };
-                var copyHeadingTransNoTransformRootsJobHandle = copyHeadingTransNoTransformRootsJob.Schedule(m_RootHeadingTransNoTransformGroup.Length, 64, copyRootEntitiesDeps);
-                copyRootEntitiesBarrierJobHandle = JobHandle.CombineDependencies(copyRootEntitiesBarrierJobHandle, copyHeadingTransNoTransformRootsJobHandle);
-            }
-            
-            //
-            // Update Sub Hierarchy
-            //
-
-            var updateSubHierarchyDeps = copyRootEntitiesBarrierJobHandle;
-            var updateSubHierarchyBarrierJobHandle = new JobHandle();
-            
-            if (m_RootRotTransTransformGroup.Length > 0)
-            {
-                var updateRotTransTransformHierarchyJob = new UpdateSubHierarchy
-                {
-                    hierarchy = m_Hierarchy,
-                    roots = rotTransTransformRoots.Value,
-                    rootMatrices = rotTransTransformRootMatrices.Value,
-                    localPositions = m_LocalPositions,
-                    localRotations = m_LocalRotations,
-                    positions = m_Positions,
-                    rotations = m_Rotations,
-                    transformMatrices = m_TransformMatrices
-                };
-                var updateRotTransTransformHierarchyJobHandle = updateRotTransTransformHierarchyJob.Schedule(rotTransTransformRoots.Value.Length,64,updateSubHierarchyDeps);
-                updateSubHierarchyDeps = updateRotTransTransformHierarchyJobHandle;
-                updateSubHierarchyBarrierJobHandle = JobHandle.CombineDependencies(updateSubHierarchyBarrierJobHandle,updateRotTransTransformHierarchyJobHandle);
-            }
-            
-            if (m_RootRotTransNoTransformGroup.Length > 0)
-            {
-                var updateRotTransNoTransformHierarchyJob = new UpdateSubHierarchy
-                {
-                    hierarchy = m_Hierarchy,
-                    roots = rotTransNoTransformRoots.Value,
-                    rootMatrices = rotTransNoTransformRootMatrices.Value,
-                    localPositions = m_LocalPositions,
-                    localRotations = m_LocalRotations,
-                    positions = m_Positions,
-                    rotations = m_Rotations,
-                    transformMatrices = m_TransformMatrices
-                };
-                var updateRotTransNoTransformHierarchyJobHandle = updateRotTransNoTransformHierarchyJob.Schedule(rotTransNoTransformRoots.Value.Length,64,updateSubHierarchyDeps);
-                updateSubHierarchyDeps = updateRotTransNoTransformHierarchyJobHandle;
-                updateSubHierarchyBarrierJobHandle = JobHandle.CombineDependencies(updateSubHierarchyBarrierJobHandle,updateRotTransNoTransformHierarchyJobHandle);
-            }
-            
-            if (m_RootRotTransformGroup.Length > 0)
-            {
-                var updateRotTransformHierarchyJob = new UpdateSubHierarchy
-                {
-                    hierarchy = m_Hierarchy,
-                    roots = rotTransformRoots.Value,
-                    rootMatrices = rotTransformRootMatrices.Value,
-                    localPositions = m_LocalPositions,
-                    localRotations = m_LocalRotations,
-                    positions = m_Positions,
-                    rotations = m_Rotations,
-                    transformMatrices = m_TransformMatrices
-                };
-                var updateRotTransformHierarchyJobHandle = updateRotTransformHierarchyJob.Schedule(rotTransformRoots.Value.Length,1,updateSubHierarchyDeps);
-                updateSubHierarchyDeps = updateRotTransformHierarchyJobHandle;
-                updateSubHierarchyBarrierJobHandle = JobHandle.CombineDependencies(updateSubHierarchyBarrierJobHandle,updateRotTransformHierarchyJobHandle);
-            }
-            
-            if (m_RootRotNoTransformGroup.Length > 0)
-            {
-                var updateRotNoTransformHierarchyJob = new UpdateSubHierarchy
-                {
-                    hierarchy = m_Hierarchy,
-                    roots = rotNoTransformRoots.Value,
-                    rootMatrices = rotNoTransformRootMatrices.Value,
-                    localPositions = m_LocalPositions,
-                    localRotations = m_LocalRotations,
-                    positions = m_Positions,
-                    rotations = m_Rotations,
-                    transformMatrices = m_TransformMatrices
-                };
-                var updateRotNoTransformHierarchyJobHandle = updateRotNoTransformHierarchyJob.Schedule(rotNoTransformRoots.Value.Length,1,updateSubHierarchyDeps);
-                updateSubHierarchyDeps = updateRotNoTransformHierarchyJobHandle;
-                updateSubHierarchyBarrierJobHandle = JobHandle.CombineDependencies(updateSubHierarchyBarrierJobHandle,updateRotNoTransformHierarchyJobHandle);
-            }
-            
-            if (m_RootTransTransformGroup.Length > 0)
-            {
-                var updateTransTransformHierarchyJob = new UpdateSubHierarchy
-                {
-                    hierarchy = m_Hierarchy,
-                    roots = transTransformRoots.Value,
-                    rootMatrices = transTransformRootMatrices.Value,
-                    localPositions = m_LocalPositions,
-                    localRotations = m_LocalRotations,
-                    positions = m_Positions,
-                    rotations = m_Rotations,
-                    transformMatrices = m_TransformMatrices
-                };
-                var updateTransTransformHierarchyJobHandle = updateTransTransformHierarchyJob.Schedule(transTransformRoots.Value.Length,1,updateSubHierarchyDeps);
-                updateSubHierarchyDeps = updateTransTransformHierarchyJobHandle;
-                updateSubHierarchyBarrierJobHandle = JobHandle.CombineDependencies(updateSubHierarchyBarrierJobHandle,updateTransTransformHierarchyJobHandle);
-            }
-            
-            if (m_RootTransNoTransformGroup.Length > 0)
-            {
-                var updateTransNoTransformHierarchyJob = new UpdateSubHierarchy
-                {
-                    hierarchy = m_Hierarchy,
-                    roots = transNoTransformRoots.Value,
-                    rootMatrices = transNoTransformRootMatrices.Value,
-                    localPositions = m_LocalPositions,
-                    localRotations = m_LocalRotations,
-                    positions = m_Positions,
-                    rotations = m_Rotations,
-                    transformMatrices = m_TransformMatrices
-                };
-                var updateTransNoTransformHierarchyJobHandle = updateTransNoTransformHierarchyJob.Schedule(transNoTransformRoots.Value.Length,1,updateSubHierarchyDeps);
-                updateSubHierarchyDeps = updateTransNoTransformHierarchyJobHandle;
-                updateSubHierarchyBarrierJobHandle = JobHandle.CombineDependencies(updateSubHierarchyBarrierJobHandle,updateTransNoTransformHierarchyJobHandle);
-            }
-            
-            if (m_RootHeadingTransTransformGroup.Length > 0)
-            {
-                var updateHeadingTransTransformHierarchyJob = new UpdateSubHierarchy
-                {
-                    hierarchy = m_Hierarchy,
-                    roots = headingTransTransformRoots.Value,
-                    rootMatrices = headingTransTransformRootMatrices.Value,
-                    localPositions = m_LocalPositions,
-                    localRotations = m_LocalRotations,
-                    positions = m_Positions,
-                    rotations = m_Rotations,
-                    transformMatrices = m_TransformMatrices
-                };
-                var updateHeadingTransTransformHierarchyJobHandle = updateHeadingTransTransformHierarchyJob.Schedule(headingTransTransformRoots.Value.Length,1,updateSubHierarchyDeps);
-                updateSubHierarchyDeps = updateHeadingTransTransformHierarchyJobHandle;
-                updateSubHierarchyBarrierJobHandle = JobHandle.CombineDependencies(updateSubHierarchyBarrierJobHandle,updateHeadingTransTransformHierarchyJobHandle);
-            }
-            
-            if (m_RootHeadingTransNoTransformGroup.Length > 0)
-            {
-                var updateHeadingTransNoTransformHierarchyJob = new UpdateSubHierarchy
-                {
-                    hierarchy = m_Hierarchy,
-                    roots = headingTransNoTransformRoots.Value,
-                    rootMatrices = headingTransNoTransformRootMatrices.Value,
-                    localPositions = m_LocalPositions,
-                    localRotations = m_LocalRotations,
-                    positions = m_Positions,
-                    rotations = m_Rotations,
-                    transformMatrices = m_TransformMatrices
-                };
-                var updateHeadingTransNoTransformHierarchyJobHandle = updateHeadingTransNoTransformHierarchyJob.Schedule(headingTransNoTransformRoots.Value.Length,1,updateSubHierarchyDeps);
-                updateSubHierarchyDeps = updateHeadingTransNoTransformHierarchyJobHandle;
-                updateSubHierarchyBarrierJobHandle = JobHandle.CombineDependencies(updateSubHierarchyBarrierJobHandle,updateHeadingTransNoTransformHierarchyJobHandle);
-            }
-
-            return updateSubHierarchyBarrierJobHandle;
-        } 
-        
-        protected override void OnCreateManager(int capacity)
-        {
-            m_Hierarchy = new NativeMultiHashMap<Entity, Entity>(capacity, Allocator.Persistent);
+                chunkIndices = chunkIndices,
+                chunks = InnerTreeLocalToWorldChunks,
+                parentType = ParentTypeRO,
+                entityType = EntityTypeRO,
+                localToParentType = LocalToParentTypeRO,
+                localToWorldFromEntity = LocalToWorldFromEntityRW,
+                lastSystemVersion = LastSystemVersion
+            };
+            var innerTreeLocalToWorldJobHandle = innerTreeLocalToWorldJob.Schedule(InnerTreeLocalToWorldChunks.Length, 4, sortDepthsJobHandle);
+            return innerTreeLocalToWorldJobHandle;
         }
 
-        protected override void OnDestroyManager()
+        [BurstCompile]
+        struct LeafLocalToWorld : IJobParallelFor
         {
-            m_Hierarchy.Dispose();
+            [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
+            [ReadOnly] public ArchetypeChunkEntityType entityType;
+            [ReadOnly] public ArchetypeChunkComponentType<Parent> parentType;
+            [ReadOnly] public ArchetypeChunkComponentType<LocalToParent> localToParentType;
+            [NativeDisableParallelForRestriction] public ComponentDataFromEntity<LocalToWorld> localToWorldFromEntity;
+            public uint lastSystemVersion;
+
+            public void Execute(int i)
+            {
+                var chunk = chunks[i];
+                var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
+                var chunkEntities = chunk.GetNativeArray(entityType);
+                var chunkParents = chunk.GetNativeArray(parentType);
+                var previousParentEntity = Entity.Null;
+                var parentLocalToWorldMatrix = new float4x4();
+
+                for (int j = 0; j < chunk.Count; j++)
+                {
+                    var parentEntity = chunkParents[j].Value;
+                    if (parentEntity != previousParentEntity)
+                    {
+                        parentLocalToWorldMatrix = localToWorldFromEntity[parentEntity].Value;
+                        previousParentEntity     = parentEntity;
+                    }
+
+                    var entity = chunkEntities[j];
+                    localToWorldFromEntity[entity] = new LocalToWorld
+                    {
+                        Value = math.mul(parentLocalToWorldMatrix, chunkLocalToParents[j].Value)
+                    };
+                }
+            }
+        }
+
+        JobHandle UpdateLeafLocalToWorld(JobHandle inputDeps)
+        {
+            if (LeafLocalToWorldChunks.Length == 0)
+            {
+                LeafLocalToWorldChunks.Dispose();
+                return inputDeps;
+            }
+
+            var updateLeafLocalToWorldJob = new LeafLocalToWorld
+            {
+                chunks = LeafLocalToWorldChunks,
+                entityType = EntityTypeRO,
+                parentType = ParentTypeRO,
+                localToParentType = LocalToParentTypeRO,
+                localToWorldFromEntity = LocalToWorldFromEntityRW,
+                lastSystemVersion = LastSystemVersion
+            };
+            var updateLeafToWorldJobHandle = updateLeafLocalToWorldJob.Schedule(LeafLocalToWorldChunks.Length, 4, inputDeps);
+            return updateLeafToWorldJobHandle;
+        }
+
+        int ParentCount(Entity entity)
+        {
+            if (!EntityManager.HasComponent<Parent>(entity))
+            {
+                return 0;
+            }
+
+            return 1 + ParentCount(ParentFromEntityRO[entity].Value);
+        }
+
+        private static readonly ProfilerMarker k_ProfileUpdateDepthChunks = new ProfilerMarker("UpdateDepth.Chunks");
+        private static readonly ProfilerMarker k_ProfileUpdateDepthPlayback = new ProfilerMarker("UpdateDepth.Playback");
+        
+        void UpdateDepth()
+        {
+            if (DepthChunks.Length == 0)
+            {
+                DepthChunks.Dispose();
+                return;
+            }
+            
+            EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
+
+            k_ProfileUpdateDepthChunks.Begin();
+            for (int i = 0; i < DepthChunks.Length; i++)
+            {
+                var chunk = DepthChunks[i];
+                var entityCount = chunk.Count;
+                var parents = chunk.GetNativeArray(ParentTypeRO);
+                var entities = chunk.GetNativeArray(EntityTypeRO);
+                for (int j = 0; j < entityCount; j++)
+                {
+                    var entity = entities[j];
+                    var parentEntity = parents[j].Value;
+                    var parentCount = 1 + ParentCount(parentEntity);
+                    entityCommandBuffer.SetSharedComponent(entity, new Depth { Value = parentCount });
+                }
+            }
+            k_ProfileUpdateDepthChunks.End();
+            
+            k_ProfileUpdateDepthPlayback.Begin();
+            entityCommandBuffer.Playback(EntityManager);
+            entityCommandBuffer.Dispose();
+            k_ProfileUpdateDepthPlayback.End();
+            
+            DepthChunks.Dispose();
         }
         
+        void GatherQueries()
+        {
+            NewRootQuery = new EntityArchetypeQuery
+            {
+                Any = new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)}, 
+                None = new ComponentType[] {typeof(Frozen), typeof(Parent), typeof(LocalToWorld), typeof(Depth)},
+                All = Array.Empty<ComponentType>(),
+            };
+            AttachQuery = new EntityArchetypeQuery
+            {
+                Any = Array.Empty<ComponentType>(), 
+                None = Array.Empty<ComponentType>(),
+                All = new ComponentType[] {typeof(Attach)},
+            };
+            DetachQuery = new EntityArchetypeQuery
+            {
+                Any = Array.Empty<ComponentType>(),
+                None = new ComponentType[] {typeof(Attached)},
+                All = new ComponentType[] {typeof(Parent)},
+            };
+            RemovedQuery = new EntityArchetypeQuery
+            {
+                Any = Array.Empty<ComponentType>(),
+                None = new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)},
+                All = new ComponentType[] {typeof(LocalToWorld)},
+            };
+            PendingFrozenQuery = new EntityArchetypeQuery
+            {
+                Any = Array.Empty<ComponentType>(),
+                None = new ComponentType[] {typeof(Frozen)},
+                All = new ComponentType[] {typeof(LocalToWorld), typeof(Static),typeof(PendingFrozen)},
+            };
+            FrozenQuery = new EntityArchetypeQuery
+            {
+                Any = Array.Empty<ComponentType>(),
+                None = new ComponentType[] {typeof(PendingFrozen), typeof(Frozen)},
+                All = new ComponentType[] {typeof(LocalToWorld), typeof(Static)},
+            };
+            ThawQuery = new EntityArchetypeQuery
+            {
+                Any = new ComponentType[] {typeof(PendingFrozen), typeof(Frozen)},
+                None = new ComponentType[] {typeof(Static) }, 
+                All = Array.Empty<ComponentType>(),
+            };
+            RootLocalToWorldQuery = new EntityArchetypeQuery
+            {
+                Any = new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)},
+                None = new ComponentType[] {typeof(Frozen), typeof(Parent)},
+                All = new ComponentType[] {typeof(LocalToWorld)},
+            };
+            InnerTreeLocalToParentQuery = new EntityArchetypeQuery
+            {
+                Any = new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)},
+                None = new ComponentType[] {typeof(Frozen)},
+                All = new ComponentType[] {typeof(LocalToParent), typeof(Parent) },
+            };
+            LeafLocalToParentQuery = new EntityArchetypeQuery
+            {
+                Any = new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)},
+                None = new ComponentType[] {typeof(Frozen)},
+                All = new ComponentType[] {typeof(LocalToParent), typeof(Parent)},
+            };
+            InnerTreeLocalToWorldQuery = new EntityArchetypeQuery
+            {
+                Any = Array.Empty<ComponentType>(),
+                None = new ComponentType[] {typeof(Frozen)},
+                All = new ComponentType[] {typeof(Depth), typeof(LocalToParent), typeof(Parent), typeof(LocalToWorld)},
+            };
+            LeafLocalToWorldQuery = new EntityArchetypeQuery
+            {
+                Any = new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)},
+                None = new ComponentType[] {typeof(Frozen), typeof(Depth)},
+                All = new ComponentType[] {typeof(LocalToParent), typeof(Parent)},
+            };
+            DepthQuery = new EntityArchetypeQuery
+            {
+                Any = Array.Empty<ComponentType>(),
+                None = Array.Empty<ComponentType>(),
+                All = new ComponentType[] {typeof(Depth), typeof(Parent)},
+            };
+        }
+        
+        void GatherFrozenChunks()
+        {
+            PendingFrozenChunks = EntityManager.CreateArchetypeChunkArray(PendingFrozenQuery, Allocator.TempJob);
+            FrozenChunks = EntityManager.CreateArchetypeChunkArray(FrozenQuery, Allocator.TempJob);
+            ThawChunks = EntityManager.CreateArchetypeChunkArray(ThawQuery, Allocator.TempJob);
+        }
+        
+        void GatherDAGChunks()
+        {
+            NewRootChunks = EntityManager.CreateArchetypeChunkArray(NewRootQuery, Allocator.TempJob);
+            AttachChunks = EntityManager.CreateArchetypeChunkArray(AttachQuery, Allocator.TempJob);
+            DetachChunks = EntityManager.CreateArchetypeChunkArray(DetachQuery, Allocator.TempJob);
+            RemovedChunks = EntityManager.CreateArchetypeChunkArray(RemovedQuery, Allocator.TempJob);
+        }
+
+        void GatherDepthChunks()
+        {
+            DepthChunks = EntityManager.CreateArchetypeChunkArray(DepthQuery, Allocator.TempJob);
+        }
+
+        void GatherUpdateChunks()
+        {
+            RootLocalToWorldChunks = EntityManager.CreateArchetypeChunkArray(RootLocalToWorldQuery, Allocator.TempJob);
+            InnerTreeLocalToParentChunks = EntityManager.CreateArchetypeChunkArray(InnerTreeLocalToParentQuery, Allocator.TempJob);
+            LeafLocalToParentChunks = EntityManager.CreateArchetypeChunkArray(LeafLocalToParentQuery, Allocator.TempJob);
+            InnerTreeLocalToWorldChunks = EntityManager.CreateArchetypeChunkArray(InnerTreeLocalToWorldQuery, Allocator.TempJob);
+            LeafLocalToWorldChunks = EntityManager.CreateArchetypeChunkArray(LeafLocalToWorldQuery, Allocator.TempJob);
+        }
+
+        void GatherTypes()
+        {
+            ParentFromEntityRW = GetComponentDataFromEntity<Parent>(false);
+            LocalToWorldFromEntityRW = GetComponentDataFromEntity<LocalToWorld>(false);
+            LocalToWorldTypeRW = GetArchetypeChunkComponentType<LocalToWorld>(false);
+            LocalToParentTypeRW = GetArchetypeChunkComponentType<LocalToParent>(false);
+            
+            ParentFromEntityRO = GetComponentDataFromEntity<Parent>(true);
+            EntityTypeRO = GetArchetypeChunkEntityType();
+            ParentTypeRO = GetArchetypeChunkComponentType<Parent>(true);
+            LocalToParentTypeRO = GetArchetypeChunkComponentType<LocalToParent>(true);
+            DepthTypeRO = GetArchetypeChunkSharedComponentType<Depth>();
+            RotationTypeRO = GetArchetypeChunkComponentType<Rotation>(true);
+            PositionTypeRO = GetArchetypeChunkComponentType<Position>(true);
+            ScaleTypeRO = GetArchetypeChunkComponentType<Scale>(true);
+            AttachTypeRO = GetArchetypeChunkComponentType<Attach>(true);
+            
+            FrozenTypeRO = GetArchetypeChunkComponentType<Frozen>(true);
+            PendingFrozenTypeRO = GetArchetypeChunkComponentType<PendingFrozen>(true);
+        }
+
+        private static readonly ProfilerMarker k_ProfileGatherDAGChunks = new ProfilerMarker("GatherDAGChunks");
+        private static readonly ProfilerMarker k_ProfileUpdateDAG = new ProfilerMarker("UpdateDAG");
+        private static readonly ProfilerMarker k_ProfileGatherDepthChunks = new ProfilerMarker("GatherDepthChunks");
+        private static readonly ProfilerMarker k_ProfileUpdateDepth = new ProfilerMarker("UpdateDepth");
+        private static readonly ProfilerMarker k_ProfileGatherFrozenChunks = new ProfilerMarker("GatherFrozenChunks");
+        private static readonly ProfilerMarker k_ProfileUpdateFrozen = new ProfilerMarker("UpdateFrozen");
+        private static readonly ProfilerMarker k_ProfileGatherUpdateChunks = new ProfilerMarker("GatherUpdateChunks");
+        private static readonly ProfilerMarker k_ProfileUpdateRootLocalToWorld = new ProfilerMarker("UpdateRootLocalToWorld");
+        private static readonly ProfilerMarker k_ProfileUpdateInnerTreeLocalToParent = new ProfilerMarker("UpdateInnerTreeLocalToParent");
+        private static readonly ProfilerMarker k_ProfileUpdateLeafLocalToParent = new ProfilerMarker("UpdateLeafLocalToParent");
+        private static readonly ProfilerMarker k_ProfileUpdateInnerTreeLocalToWorld = new ProfilerMarker("UpdateInnerTreeLocalToWorld");
+        private static readonly ProfilerMarker k_ProfileUpdateLeafLocalToWorld = new ProfilerMarker("UpdateLeafLocalToWorld");
+        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        {
+            // #todo When add new Parent, recalc local space
+
+            // Update DAG
+            using (k_ProfileGatherDAGChunks.Auto())
+            {
+                GatherTypes();
+                GatherDAGChunks();
+            }
+
+            k_ProfileUpdateDAG.Begin();
+            var changedDepthStructure = UpdateDAG();
+            k_ProfileUpdateDAG.End();
+
+            // Update Transforms
+
+            if (changedDepthStructure)
+            {
+                using (k_ProfileGatherDepthChunks.Auto())
+                {
+                    GatherTypes();
+                    GatherDepthChunks();
+                }
+
+                using (k_ProfileUpdateDepth.Auto())
+                {
+                    UpdateDepth();
+                }
+            }
+
+            using (k_ProfileGatherFrozenChunks.Auto())
+            {
+                GatherTypes();
+                GatherFrozenChunks();
+            }
+
+            k_ProfileUpdateFrozen.Begin();
+            UpdatePendingFrozen();
+            UpdateFrozen();
+            UpdateThaw();
+            k_ProfileUpdateFrozen.End();
+
+            k_ProfileGatherUpdateChunks.Begin();
+            GatherTypes();
+            GatherUpdateChunks();
+            k_ProfileGatherUpdateChunks.End();
+
+            k_ProfileUpdateRootLocalToWorld.Begin();
+            var updateRootLocalToWorldJobHandle = UpdateRootLocalToWorld(inputDeps);
+            k_ProfileUpdateRootLocalToWorld.End();
+            
+            k_ProfileUpdateInnerTreeLocalToParent.Begin();
+            var updateInnerTreeLocalToParentJobHandle = UpdateInnerTreeLocalToParent(updateRootLocalToWorldJobHandle);
+            k_ProfileUpdateInnerTreeLocalToParent.End();
+            
+            k_ProfileUpdateLeafLocalToParent.Begin();
+            var updateLeafLocaltoParentJobHandle = UpdateLeafLocalToParent(updateInnerTreeLocalToParentJobHandle);
+            k_ProfileUpdateLeafLocalToParent.End();
+
+            k_ProfileUpdateInnerTreeLocalToWorld.Begin();
+            var updateInnerTreeLocalToWorldJobHandle = UpdateInnerTreeLocalToWorld(updateLeafLocaltoParentJobHandle);
+            k_ProfileUpdateInnerTreeLocalToWorld.End();
+            
+            k_ProfileUpdateLeafLocalToWorld.Begin();
+            var updateLeafLocalToWorldJobHandle = UpdateLeafLocalToWorld(updateInnerTreeLocalToWorldJobHandle);
+            k_ProfileUpdateLeafLocalToWorld.End();
+            
+            LastSystemVersion = GlobalSystemVersion;
+            return updateLeafLocalToWorldJobHandle;
+        }
     }
 }

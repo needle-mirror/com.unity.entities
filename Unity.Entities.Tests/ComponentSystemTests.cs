@@ -1,5 +1,6 @@
 ﻿using System;
 using NUnit.Framework;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -222,7 +223,7 @@ namespace Unity.Entities.Tests
 
     public class Issue101 : ECSTestsFixture
     {
-        [ComputeJobOptimization(CompileSynchronously = true)]
+        [BurstCompile(CompileSynchronously = true)]
         struct Issue101Job : IJob
         {
             [WriteOnly] public NativeHashMap<ulong, byte>.Concurrent hashMap;

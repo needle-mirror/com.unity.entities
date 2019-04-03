@@ -41,8 +41,6 @@ namespace Unity.Entities
 
         public static ReadOnlyCollection<World> AllWorlds => new ReadOnlyCollection<World>(allWorlds);
 
-        internal List<ScriptBehaviourManager> Patches { get; } = new List<ScriptBehaviourManager>();
-
         public bool IsCreated => m_BehaviourManagers != null;
 
         public void Dispose()
@@ -53,16 +51,6 @@ namespace Unity.Entities
 
             if (allWorlds.Contains(this))
                 allWorlds.Remove(this);
-
-            foreach (var behaviourManager in Patches)
-                try
-                {
-                    behaviourManager.DestroyInstance();
-                }
-                catch (Exception e)
-                {
-                    Debug.LogException(e);
-                }
 
             // Destruction should happen in reverse order to construction
             m_BehaviourManagers.Reverse();
@@ -105,13 +93,6 @@ namespace Unity.Entities
         public void SetDefaultCapacity(int value)
         {
             m_DefaultCapacity = value;
-        }
-
-        internal void AddComponentSystemPatch(Type type)
-        {
-            var patch = Activator.CreateInstance(type) as ScriptBehaviourManager;
-            patch.CreateInstance(this, 0);
-            Patches.Add(patch);
         }
 
         public static void DisposeAllWorlds()

@@ -11,6 +11,10 @@ namespace Unity.Entities
     {
     }
 
+    internal struct ProxyBufferElementData : IBufferElementData
+    {
+    }
+
     internal struct ProxySharedComponentData : ISharedComponentData
     {
     }
@@ -20,7 +24,7 @@ namespace Unity.Entities
         private readonly InjectionData[] m_ComponentDataInjections;
 
         private readonly int m_EntityArrayOffset;
-        private readonly InjectionData[] m_FixedArrayInjections;
+        private readonly InjectionData[] m_BufferArrayInjections;
         private readonly int m_GroupFieldOffset;
 
         private readonly InjectionContext m_InjectionContext;
@@ -31,7 +35,7 @@ namespace Unity.Entities
         private readonly int m_ComponentGroupIndex;
 
         private unsafe InjectComponentGroupData(ComponentSystemBase system, FieldInfo groupField,
-            InjectionData[] componentDataInjections, InjectionData[] fixedArrayInjections,
+            InjectionData[] componentDataInjections, InjectionData[] bufferArrayInjections,
             InjectionData[] sharedComponentInjections,
             FieldInfo entityArrayInjection, FieldInfo indexFromEntityInjection, InjectionContext injectionContext,
             FieldInfo lengthInjection, FieldInfo componentGroupIndexField, ComponentType[] componentRequirements)
@@ -41,12 +45,12 @@ namespace Unity.Entities
             m_ComponentGroupIndex = Array.IndexOf(system.ComponentGroups, m_EntityGroup);
 
             m_ComponentDataInjections = componentDataInjections;
-            m_FixedArrayInjections = fixedArrayInjections;
+            m_BufferArrayInjections = bufferArrayInjections;
             m_SharedComponentInjections = sharedComponentInjections;
             m_InjectionContext = injectionContext;
 
             PatchGetIndexInComponentGroup(m_ComponentDataInjections);
-            PatchGetIndexInComponentGroup(m_FixedArrayInjections);
+            PatchGetIndexInComponentGroup(m_BufferArrayInjections);
             PatchGetIndexInComponentGroup(m_SharedComponentInjections);
 
             injectionContext.PrepareEntries(m_EntityGroup);
@@ -106,12 +110,12 @@ namespace Unity.Entities
                 UnsafeUtility.CopyStructureToPtr(ref data, groupStructPtr + m_SharedComponentInjections[i].FieldOffset);
             }
 
-            for (var i = 0; i != m_FixedArrayInjections.Length; i++)
+            for (var i = 0; i != m_BufferArrayInjections.Length; i++)
             {
-                FixedArrayArray<int> data;
-                m_EntityGroup.GetFixedArrayArray(ref iterator, m_FixedArrayInjections[i].IndexInComponentGroup, length,
+                BufferArray<ProxyBufferElementData> data;
+                m_EntityGroup.GetBufferArray(ref iterator, m_BufferArrayInjections[i].IndexInComponentGroup, length,
                     out data);
-                UnsafeUtility.CopyStructureToPtr(ref data, groupStructPtr + m_FixedArrayInjections[i].FieldOffset);
+                UnsafeUtility.CopyStructureToPtr(ref data, groupStructPtr + m_BufferArrayInjections[i].FieldOffset);
             }
 
             if (m_EntityArrayOffset != -1)
@@ -137,18 +141,18 @@ namespace Unity.Entities
 
             var injectionContext = new InjectionContext();
             var componentDataInjections = new List<InjectionData>();
-            var fixedArrayInjections = new List<InjectionData>();
+            var bufferDataInjections = new List<InjectionData>();
             var sharedComponentInjections = new List<InjectionData>();
 
             var componentRequirements = new HashSet<ComponentType>();
             var error = CollectInjectedGroup(system, groupField, injectedGroupType, out entityArrayField,
                 out indexFromEntityField, injectionContext, out lengthField, out componentGroupIndexField,
-                componentRequirements, componentDataInjections, fixedArrayInjections, sharedComponentInjections);
+                componentRequirements, componentDataInjections, bufferDataInjections, sharedComponentInjections);
             if (error != null)
                 throw new ArgumentException(error);
 
             return new InjectComponentGroupData(system, groupField, componentDataInjections.ToArray(),
-                fixedArrayInjections.ToArray(), sharedComponentInjections.ToArray(), entityArrayField,
+                bufferDataInjections.ToArray(), sharedComponentInjections.ToArray(), entityArrayField,
                 indexFromEntityField, injectionContext, lengthField, componentGroupIndexField,
                 componentRequirements.ToArray());
         }
@@ -157,7 +161,7 @@ namespace Unity.Entities
             Type injectedGroupType, out FieldInfo entityArrayField, out FieldInfo indexFromEntityField,
             InjectionContext injectionContext, out FieldInfo lengthField, out FieldInfo componentGroupIndexField,
             ISet<ComponentType> componentRequirements, ICollection<InjectionData> componentDataInjections,
-            ICollection<InjectionData> fixedArrayInjections, ICollection<InjectionData> sharedComponentInjections)
+            ICollection<InjectionData> bufferDataInjections, ICollection<InjectionData> sharedComponentInjections)
         {
             //@TODO: Improve error messages...
             var fields =
@@ -185,11 +189,11 @@ namespace Unity.Entities
                     componentRequirements.Add(ComponentType.Subtractive(field.FieldType.GetGenericArguments()[0]));
                 }
                 else if (field.FieldType.IsGenericType &&
-                         field.FieldType.GetGenericTypeDefinition() == typeof(FixedArrayArray<>))
+                         field.FieldType.GetGenericTypeDefinition() == typeof(BufferArray<>))
                 {
                     var injection = new InjectionData(field, field.FieldType.GetGenericArguments()[0], isReadOnly);
 
-                    fixedArrayInjections.Add(injection);
+                    bufferDataInjections.Add(injection);
                     componentRequirements.Add(injection.ComponentType);
                 }
                 else if (field.FieldType.IsGenericType &&

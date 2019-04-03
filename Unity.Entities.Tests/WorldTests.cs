@@ -44,6 +44,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(count, World.AllWorlds.Count);
         }
 
+        [DisableAutoCreation]
         private class TestManager : ComponentSystem
         {
             protected override void OnUpdate() {}

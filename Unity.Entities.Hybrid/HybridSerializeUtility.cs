@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using UnityEditor;
+using UnityEngine;
 using UnityEngine.Assertions;
 
 namespace Unity.Entities.Serialization
@@ -9,12 +10,12 @@ namespace Unity.Entities.Serialization
         {
             int[] sharedComponentIndices;
             SerializeUtility.SerializeWorld(manager, writer, out sharedComponentIndices);
-            sharedData = Serialize(manager, sharedComponentIndices);
+            sharedData = SerializeSharedComponents(manager, sharedComponentIndices);
         }
 
         public static void Deserialize(EntityManager manager, BinaryReader reader, GameObject sharedData)
         {
-            int sharedComponentCount = Deserialize(manager, sharedData);
+            int sharedComponentCount = DeserializeSharedComponents(manager, sharedData, "");
             var transaction = manager.BeginExclusiveEntityTransaction();
             SerializeUtility.DeserializeWorld(transaction, reader);
             ReleaseSharedComponents(transaction, sharedComponentCount);
@@ -31,12 +32,13 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        public static GameObject Serialize(EntityManager manager, int[] sharedComponentIndices)
+        public static GameObject SerializeSharedComponents(EntityManager manager, int[] sharedComponentIndices)
         {
             if (sharedComponentIndices.Length == 0)
                 return null;
 
             var go = new GameObject("SharedComponents");
+            go.SetActive(false);
 
             for (int i = 0; i != sharedComponentIndices.Length; i++)
             {
@@ -48,13 +50,19 @@ namespace Unity.Entities.Serialization
                     throw new System.ArgumentException($"SharedComponentDataWrapper<{sharedData.GetType().FullName}> must be named '{typeName}'");
 
                 var com = go.AddComponent(componentType) as ComponentDataWrapperBase;
+                #if UNITY_EDITOR
+                if (!EditorUtility.IsPersistent(MonoScript.FromMonoBehaviour(com)))
+                {
+                    throw new System.ArgumentException($"SharedComponentDataWrapper<{sharedData.GetType().FullName}> must be defined in a file with the same name as the wrapper class");
+                }
+                #endif
                 com.UpdateSerializedData(manager, sharedComponentIndices[i]);
             }
 
             return go;
         }
 
-        public static unsafe int Deserialize(EntityManager manager, GameObject gameobject)
+        public static int DeserializeSharedComponents(EntityManager manager, GameObject gameobject, string debugSceneName)
         {
             if (gameobject == null)
                 return 0;
@@ -65,7 +73,14 @@ namespace Unity.Entities.Serialization
             for (int i = 0; i != sharedData.Length; i++)
             {
                 int index = sharedData[i].InsertSharedComponent(manager);
-                Assert.AreEqual(index, i + 1);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (index != i + 1)
+                {
+                    var newComponent = sharedData[i];
+                    var existingComponent = manager.m_SharedComponentManager.GetSharedComponentDataBoxed(index);
+                    throw new System.ArgumentException($"Shared Component {i} was inserted but got index {index} at load time than at build time when loading {debugSceneName}..\n{newComponent} vs {existingComponent}");
+                }
+#endif
             }
 
             return sharedData.Length;

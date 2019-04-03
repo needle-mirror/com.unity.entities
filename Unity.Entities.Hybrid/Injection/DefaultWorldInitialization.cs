@@ -56,22 +56,7 @@ namespace Unity.Entities
                 // Create all ComponentSystem
                 CreateBehaviourManagersForMatchingTypes(editorWorld, allTypes, world);
             }
-
-            foreach (var ass in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                try
-                {
-                    allTypes = ass.GetTypes();
-                }
-                catch (ReflectionTypeLoadException e)
-                {
-                    allTypes = e.Types.Where(t => t != null);
-                    Debug.LogWarning("DefaultWorldInitialization failed loading assembly: " + ass.Location);
-                }
-
-                AddComponentSystemPatchesForMatchingTypes(editorWorld, allTypes, world);
-            }
-
+            
             ScriptBehaviourUpdateOrder.UpdatePlayerLoop(world);
         }
 
@@ -81,7 +66,6 @@ namespace Unity.Entities
                 t.IsSubclassOf(typeof(ComponentSystemBase)) &&
                 !t.IsAbstract &&
                 !t.ContainsGenericParameters &&
-                t.GetCustomAttributes(typeof(ComponentSystemPatchAttribute), true).Length == 0 &&
                 t.GetCustomAttributes(typeof(DisableAutoCreationAttribute), true).Length == 0);
             foreach (var type in systemTypes)
             {
@@ -89,23 +73,6 @@ namespace Unity.Entities
                     continue;
 
                 GetBehaviourManagerAndLogException(world, type);
-            }
-        }
-
-        static void AddComponentSystemPatchesForMatchingTypes(bool editorWorld, IEnumerable<Type> allTypes, World world)
-        {
-            var systemTypes = allTypes.Where(t =>
-                t.IsSubclassOf(typeof(ComponentSystemBase)) &&
-                !t.IsAbstract &&
-                !t.ContainsGenericParameters &&
-                t.GetCustomAttributes(typeof(ComponentSystemPatchAttribute), true).Length > 0 &&
-                t.GetCustomAttributes(typeof(DisableAutoCreationAttribute), true).Length == 0);
-            foreach (var type in systemTypes)
-            {
-                if (editorWorld && type.GetCustomAttributes(typeof(ExecuteInEditMode), true).Length == 0)
-                    continue;
-
-                world.AddComponentSystemPatch(type);
             }
         }
     }

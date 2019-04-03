@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
@@ -12,8 +13,8 @@ namespace Unity.Entities
         public enum TypeCategory
         {
             ComponentData,
+            BufferData,
             ISharedComponentData,
-            OtherValueType,
             EntityData,
             Class
         }
@@ -37,19 +38,25 @@ namespace Unity.Entities
 
         public struct ComponentType
         {
-            public ComponentType(Type type, int size, TypeCategory category, FastEquality.Layout[] layout, EntityOffsetInfo[] entityOffsets, UInt64 memoryOrdering)
+            public ComponentType(Type type, int size, TypeCategory category, FastEquality.TypeInfo typeInfo, EntityOffsetInfo[] entityOffsets, UInt64 memoryOrdering, int bufferCapacity, int elementSize)
             {
                 Type = type;
                 SizeInChunk = size;
                 Category = category;
-                FastEqualityLayout = layout;
+                FastEqualityTypeInfo = typeInfo;
                 EntityOffsets = entityOffsets;
                 MemoryOrdering = memoryOrdering;
+                BufferCapacity = bufferCapacity;
+                ElementSize = elementSize;
             }
 
             public readonly Type Type;
+            // Note that this includes internal capacity and header overhead for buffers.
             public readonly int SizeInChunk;
-            public readonly FastEquality.Layout[] FastEqualityLayout;
+            // Normally the same as SizeInChunk (for components), but for buffers means size of an individual element.
+            public readonly int ElementSize;
+            public readonly int BufferCapacity;
+            public readonly FastEquality.TypeInfo FastEqualityTypeInfo;
             public readonly TypeCategory Category;
             public readonly EntityOffsetInfo[] EntityOffsets;
             public readonly UInt64 MemoryOrdering;
@@ -74,10 +81,10 @@ namespace Unity.Entities
             s_Types = new ComponentType[MaximumTypesCount];
             s_Count = 0;
 
-            s_Types[s_Count++] = new ComponentType(null, 0, TypeCategory.ComponentData, null, null, 0);
+            s_Types[s_Count++] = new ComponentType(null, 0, TypeCategory.ComponentData, FastEquality.TypeInfo.Null, null, 0, -1, 0);
             // This must always be first so that Entity is always index 0 in the archetype
             s_Types[s_Count++] = new ComponentType(typeof(Entity), sizeof(Entity), TypeCategory.EntityData,
-			    FastEquality.CreateLayout(typeof(Entity)), EntityRemapUtility.CalculateEntityOffsets(typeof(Entity)), 0);
+            FastEquality.CreateTypeInfo(typeof(Entity)), EntityRemapUtility.CalculateEntityOffsets(typeof(Entity)), 0, -1, sizeof(Entity));
         }
 
 
@@ -163,13 +170,24 @@ namespace Unity.Entities
             return (result != 0) ? result : 1;
         }
 
-        private static ComponentType BuildComponentType(Type type)
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        private static readonly Type[] s_SingularInterfaces =
+        {
+            typeof(IComponentData),
+            typeof(IBufferElementData),
+            typeof(ISharedComponentData),
+        };
+#endif
+
+        public static ComponentType BuildComponentType(Type type)
         {
             var componentSize = 0;
             TypeCategory category;
-            FastEquality.Layout[] fastEqualityLayout = null;
+            var typeInfo = FastEquality.TypeInfo.Null;
             EntityOffsetInfo[] entityOffsets = null;
+            int bufferCapacity = -1;
             var memoryOrdering = CalculateMemoryOrdering(type);
+            int elementSize = 0;
             if (typeof(IComponentData).IsAssignableFrom(type))
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -182,7 +200,30 @@ namespace Unity.Entities
 
                 category = TypeCategory.ComponentData;
                 componentSize = UnsafeUtility.SizeOf(type);
-                fastEqualityLayout = FastEquality.CreateLayout(type);
+                typeInfo = FastEquality.CreateTypeInfo(type);
+                entityOffsets = EntityRemapUtility.CalculateEntityOffsets(type);
+            }
+            else if (typeof(IBufferElementData).IsAssignableFrom(type))
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (type.IsClass)
+                    throw new ArgumentException($"{type} is an IBufferElementData, and thus must be a struct.");
+                if (!UnsafeUtility.IsBlittable(type))
+                    throw new ArgumentException(
+                        $"{type} is an IBufferElementData, and thus must be blittable (No managed object is allowed on the struct).");
+#endif
+
+                category = TypeCategory.BufferData;
+                elementSize = UnsafeUtility.SizeOf(type);
+
+                var capacityAttribute = (InternalBufferCapacityAttribute) type.GetCustomAttribute(typeof(InternalBufferCapacityAttribute));
+                if (capacityAttribute != null)
+                    bufferCapacity = capacityAttribute.Capacity;
+                else
+                    bufferCapacity = 128 / elementSize; // Rather than 2*cachelinesize, to make it cross platform deterministic
+
+                componentSize = sizeof(BufferHeader) + bufferCapacity * elementSize;
+                typeInfo = FastEquality.CreateTypeInfo(type);
                 entityOffsets = EntityRemapUtility.CalculateEntityOffsets(type);
              }
             else if (typeof(ISharedComponentData).IsAssignableFrom(type))
@@ -193,16 +234,7 @@ namespace Unity.Entities
 #endif
 
                 category = TypeCategory.ISharedComponentData;
-                fastEqualityLayout = FastEquality.CreateLayout(type);
-            }
-            else if (type.IsValueType)
-            {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (!UnsafeUtility.IsBlittable(type))
-                    throw new ArgumentException($"{type} is used for FixedArrays, and thus must be blittable.");
-#endif
-                category = TypeCategory.OtherValueType;
-                componentSize = UnsafeUtility.SizeOf(type);
+                typeInfo = FastEquality.CreateTypeInfo(type);
             }
             else if (type.IsClass)
             {
@@ -213,30 +245,25 @@ namespace Unity.Entities
                         "GameObjectEntity can not be used from EntityManager. The component is ignored when creating entities for a GameObject.");
 #endif
             }
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
             else
             {
                 throw new ArgumentException($"'{type}' is not a valid component");
             }
-#else
-            else
-            {
-                category = TypeCategory.OtherValueType;
-            }
-#endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (typeof(IComponentData).IsAssignableFrom(type) && typeof(ISharedComponentData).IsAssignableFrom(type))
-                throw new ArgumentException($"Component {type} can not be both IComponentData & ISharedComponentData");
-#endif
-            return new ComponentType(type, componentSize, category, fastEqualityLayout, entityOffsets, memoryOrdering);
-        }
+            {
+                int typeCount = 0;
+                foreach (Type t in s_SingularInterfaces)
+                {
+                    if (t.IsAssignableFrom(type))
+                        ++typeCount;
+                }
 
-        public static bool IsValidComponentTypeForArchetype(int typeIndex, bool isArray)
-        {
-            if (s_Types[typeIndex].Category == TypeCategory.OtherValueType)
-                return isArray;
-            return !isArray;
+                if (typeCount > 1)
+                    throw new ArgumentException($"Component {type} can only implement one of IComponentData, ISharedComponentData and IBufferElementData");
+            }
+#endif
+            return new ComponentType(type, componentSize, category, typeInfo, entityOffsets, memoryOrdering, bufferCapacity, elementSize > 0 ? elementSize : componentSize);
         }
 
         public static ComponentType GetComponentType(int typeIndex)

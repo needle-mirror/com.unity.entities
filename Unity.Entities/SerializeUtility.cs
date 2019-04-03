@@ -13,7 +13,14 @@ namespace Unity.Entities.Serialization
 {
     public static class SerializeUtility
     {
-        public static int CurrentFileFormatVersion = 2;
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct BufferPatchRecord
+        {
+            public int ChunkOffset;
+            public int AllocSizeBytes;
+        }
+
+        public static int CurrentFileFormatVersion = 5;
 
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader)
         {
@@ -42,6 +49,28 @@ namespace Unity.Entities.Serialization
                 chunk->ChangeVersion = (uint*) ((byte*) chunk +
                                                 Chunk.GetChangedComponentOffset(chunk->Archetype->TypesCount,
                                                     chunk->Archetype->NumSharedComponents));
+
+                // Allocate additional heap memory for buffers that have overflown into the heap, and read their data.
+                int bufferAllocationCount = reader.ReadInt();
+                if (bufferAllocationCount > 0)
+                {
+                    var bufferPatches = new NativeArray<BufferPatchRecord>(bufferAllocationCount, Allocator.Temp);
+                    reader.ReadArray(bufferPatches, bufferPatches.Length);
+
+                    // TODO: PERF: Batch malloc interface.
+                    for (int pi = 0; pi < bufferAllocationCount; ++pi)
+                    {
+                        var target = (BufferHeader*)OffsetFromPointer(chunk->Buffer, bufferPatches[pi].ChunkOffset);
+
+                        // TODO: Alignment
+                        target->Pointer = (byte*) UnsafeUtility.Malloc(bufferPatches[pi].AllocSizeBytes, 8, Allocator.Persistent);
+
+                        reader.ReadBytes(target->Pointer, bufferPatches[pi].AllocSizeBytes);
+                    }
+
+                    bufferPatches.Dispose();
+                }
+
                 manager.AddExistingChunk(chunk);
             }
 
@@ -64,14 +93,8 @@ namespace Unity.Entities.Serialization
                 for (int iType = 0; iType < archetypeComponentTypeCount; ++iType)
                 {
                     int typeIndex = types[reader.ReadInt()];
-                    int fixedArrayLength = reader.ReadInt();
 
-                    tempComponentTypes.Add(new ComponentType
-                    {
-                        TypeIndex = typeIndex,
-                        AccessModeType = ComponentType.AccessMode.ReadWrite,
-                        FixedArrayLength = fixedArrayLength
-                    });
+                    tempComponentTypes.Add(ComponentType.FromTypeIndex(typeIndex));
                 }
 
                 archetypes[i] = entityManager.CreateArchetype((ComponentType*) tempComponentTypes.GetUnsafePtr(),
@@ -87,6 +110,10 @@ namespace Unity.Entities.Serialization
         private static NativeArray<int> ReadTypeArray(BinaryReader reader)
         {
             int typeCount = reader.ReadInt();
+            var typeHashBuffer = new NativeArray<int>(typeCount, Allocator.Temp);
+
+            reader.ReadArray(typeHashBuffer, typeCount);
+
             int nameBufferSize = reader.ReadInt();
             var nameBuffer = new NativeArray<byte>(nameBufferSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             reader.ReadBytes(nameBuffer, nameBufferSize);
@@ -95,7 +122,13 @@ namespace Unity.Entities.Serialization
             for (int i = 0; i < typeCount; ++i)
             {
                 string typeName = StringFromNativeBytes(nameBuffer, offset);
-                types[i] = TypeManager.GetTypeIndex(Type.GetType(typeName));
+                var type = Type.GetType(typeName);
+                types[i] = TypeManager.GetTypeIndex(type);
+
+                if (typeHashBuffer[i] != TypeManager.GetComponentType(types[i]).FastEqualityTypeInfo.Hash)
+                {
+                    throw new ArgumentException($"Type layout has changed: '{type.Name}'");
+                }
 
                 if (types[i] == 0)
                 {
@@ -106,6 +139,7 @@ namespace Unity.Entities.Serialization
             }
 
             nameBuffer.Dispose();
+            typeHashBuffer.Dispose();
             return types;
         }
 
@@ -171,17 +205,24 @@ namespace Unity.Entities.Serialization
             {
                 var type = TypeManager.GetType(index);
                 var name = TypeManager.GetType(index).AssemblyQualifiedName;
+                var hash = TypeManager.GetComponentType(index).FastEqualityTypeInfo.Hash;
                 return new
                 {
                     index,
                     type,
                     name,
+                    hash,
                     asciiName = Encoding.ASCII.GetBytes(name)
                 };
             }).OrderBy(t => t.name).ToArray();
 
             int typeNameBufferSize = typeArray.Sum(t => t.asciiName.Length + 1);
             writer.Write(typeArray.Length);
+            foreach (var n in typeArray)
+            {
+                writer.Write(n.hash);
+            }
+
             writer.Write(typeNameBufferSize);
             foreach(var n in typeArray)
             {
@@ -200,11 +241,11 @@ namespace Unity.Entities.Serialization
             //TODO: ensure chunks are defragged?
 
             NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos;
+            var bufferPatches = new NativeList<BufferPatchRecord>(128, Allocator.Temp);
             var totalChunkCount = GenerateRemapInfo(entityManager, archetypeArray, out entityRemapInfos);
 
             writer.Write(totalChunkCount);
 
-            var entityPatchInfos = new NativeList<EntityRemapUtility.EntityPatchInfo>(128, Allocator.Temp);
             var tempChunk = (Chunk*)UnsafeUtility.Malloc(Chunk.kChunkSize, 16, Allocator.Temp);
 
             var sharedIndexToSerialize = new Dictionary<int, int>();
@@ -213,16 +254,43 @@ namespace Unity.Entities.Serialization
                 var archetype = archetypeArray[archetypeIndex].Archetype;
                 for (var c = (Chunk*)archetype->ChunkList.Begin; c != archetype->ChunkList.End; c = (Chunk*)c->ChunkListNode.Next)
                 {
+                    bufferPatches.Clear();
+
                     UnsafeUtility.MemCpy(tempChunk, c, Chunk.kChunkSize);
                     tempChunk->SharedComponentValueArray = (int*)((byte*)(tempChunk) + Chunk.GetSharedComponentOffset(archetype->NumSharedComponents));
 
-                    entityPatchInfos.Clear();
-                    for (var i = 0; i != archetype->TypesCount; ++i)
+                    byte* tempChunkBuffer = tempChunk->Buffer;
+
+                    // Find all buffer pointer locations and work out how much memory the deserializer must allocate on load.
+                    for (int ti = 0; ti < archetype->TypesCount; ++ti)
                     {
-                        EntityRemapUtility.AppendEntityPatches(ref entityPatchInfos, TypeManager.GetComponentType(archetype->Types[i].TypeIndex).EntityOffsets, archetype->Offsets[i], archetype->SizeOfs[i]);
+                        int index = archetype->TypeMemoryOrder[ti];
+
+                        if (!archetype->Types[index].IsBuffer)
+                            continue;
+
+                        int subArrayOffset = archetype->Offsets[index];
+                        BufferHeader* header = (BufferHeader*) OffsetFromPointer(tempChunkBuffer, subArrayOffset);
+                        int stride = archetype->SizeOfs[index];
+                        int count = c->Count;
+                        var ct = TypeManager.GetComponentType(archetype->Types[index].TypeIndex);
+
+                        for (int bi = 0; bi < count; ++bi)
+                        {
+                            if (header->Pointer != null)
+                            {
+                                header->Pointer = null;
+                                bufferPatches.Add(new BufferPatchRecord
+                                {
+                                    ChunkOffset = (int)(((byte*)header) - (byte*)tempChunkBuffer),
+                                    AllocSizeBytes = ct.ElementSize * header->Capacity,
+                                });
+                            }
+                            header = (BufferHeader*)OffsetFromPointer(header, stride);
+                        }
                     }
 
-                    EntityRemapUtility.PatchEntities(ref entityPatchInfos, tempChunk->Buffer, tempChunk->Count, ref entityRemapInfos);
+                    EntityRemapUtility.PatchEntities(archetype->ScalarEntityPatches, archetype->ScalarEntityPatchCount, archetype->BufferEntityPatches, archetype->BufferEntityPatchCount, tempChunkBuffer, tempChunk->Count, ref entityRemapInfos);
 
                     ClearUnusedChunkData(tempChunk);
                     tempChunk->ChunkListNode.Next = null;
@@ -259,17 +327,40 @@ namespace Unity.Entities.Serialization
                     }
 
                     writer.WriteBytes(tempChunk, Chunk.kChunkSize);
+
+                    writer.Write(bufferPatches.Length);
+
+                    if (bufferPatches.Length > 0)
+                    {
+                        writer.WriteList(bufferPatches);
+
+                        // Write heap backed data for each required patch.
+                        // TODO: PERF: Investigate static-only deserialization could manage one block and mark in pointers somehow that they are not indiviual
+                        for (int i = 0; i < bufferPatches.Length; ++i)
+                        {
+                            var patch = bufferPatches[i];
+                            // NOTE that this reads the pointer from the original, unpatched chunk.
+                            // We have nulled out the pointer in the serialized data above.
+                            var header = (BufferHeader*)OffsetFromPointer(c->Buffer, patch.ChunkOffset);
+                            writer.WriteBytes(header->Pointer, patch.AllocSizeBytes);
+                        }
+                    }
                 }
             }
 
+            bufferPatches.Dispose();
             entityRemapInfos.Dispose();
-            entityPatchInfos.Dispose();
             UnsafeUtility.Free(tempChunk, Allocator.Temp);
 
             sharedComponentsToSerialize = new int[sharedIndexToSerialize.Count];
 
             foreach (var i in sharedIndexToSerialize)
                 sharedComponentsToSerialize[i.Value - 1] = i.Key;
+        }
+
+        static unsafe byte* OffsetFromPointer(void* ptr, int offset)
+        {
+            return ((byte*)ptr) + offset;
         }
 
         static unsafe void WriteArchetypes(BinaryWriter writer, EntityArchetype[] archetypeArray, Dictionary<int, int> typeIndexMap)
@@ -284,7 +375,6 @@ namespace Unity.Entities.Serialization
                 {
                     var componentType = archetype.Archetype->Types[i];
                     writer.Write(typeIndexMap[componentType.TypeIndex]);
-                    writer.Write(componentType.FixedArrayLength);
                 }
             }
         }

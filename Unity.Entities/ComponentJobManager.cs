@@ -133,7 +133,6 @@ namespace Unity.Entities
             }
 
             AtomicSafetyHandle.Release(m_TempSafety);
-
 #endif
 
             UnsafeUtility.Free(m_JobDependencyCombineBuffer, Allocator.Persistent);
@@ -154,7 +153,26 @@ namespace Unity.Entities
                 CompleteWriteDependency(readerTypes[i]);
         }
 
-        public bool HasReaderOrWriterDependency(int type, JobHandle dependency)
+        internal void PreDisposeCheck()
+        {
+            for (var i = 0; i < kMaxTypes; i++)
+                m_ComponentSafetyHandles[i].WriteFence.Complete();
+
+            for (var i = 0; i < kMaxTypes * kMaxReadJobHandles; i++)
+                m_ReadJobFences[i].Complete();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            for (var i = 0; i < kMaxTypes; i++)
+            {
+                var res = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_ComponentSafetyHandles[i].SafetyHandle);
+                if (res == EnforceJobResult.DidSyncRunningJobs)
+                    Debug.LogError(
+                        "Disposing EntityManager but a job is still running against the ComponentData. It appears the job has not been registered with JobComponentSystem.AddDependency.");
+            }
+#endif
+        }
+
+            public bool HasReaderOrWriterDependency(int type, JobHandle dependency)
         {
             var writer = m_ComponentSafetyHandles[type].WriteFence;
             if (JobHandle.CheckFenceIsDependencyOrDidSyncFence(dependency, writer))

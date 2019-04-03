@@ -162,13 +162,23 @@ namespace Unity.Entities.Tests
 	    {
 	        Assert.Throws<System.ArgumentException>(() => m_Manager.CreateEntity(null, typeof(EcsTestData)));
 	    }
-	    
+
+        unsafe struct BigComponentData1 : IComponentData
+        {
+            public fixed int BigArray[10000];
+        }
+
+        unsafe struct BigComponentData2 : IComponentData
+        {
+            public fixed float BigArray[10000];
+        }
+
 	    [Test]
 	    public void CreateTooBigArchetypeThrows()
 	    {
 	        Assert.Throws<System.ArgumentException>(() =>
 	        {
-	            m_Manager.CreateArchetype(ComponentType.FixedArray(typeof(int), 10000), ComponentType.FixedArray(typeof(float), 10000)); 
+                m_Manager.CreateArchetype(typeof(BigComponentData1), typeof(BigComponentData2));
 	        });
 	    }
     }

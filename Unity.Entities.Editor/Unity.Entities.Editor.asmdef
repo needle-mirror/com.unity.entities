@@ -5,10 +5,13 @@
         "Unity.Entities.Hybrid",
         "Unity.Entities.Properties",
         "Unity.Mathematics",
-        "Unity.Properties"
+        "Unity.Properties",
+        "Unity.Collections"
     ],
+    "optionalUnityReferences": [],
     "includePlatforms": [
         "Editor"
     ],
-    "excludePlatforms": []
+    "excludePlatforms": [],
+    "allowUnsafeCode": false
 }

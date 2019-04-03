@@ -1,7 +1,10 @@
-﻿using UnityEditor.IMGUI.Controls;
+﻿using System;
+using UnityEditor.IMGUI.Controls;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Collections;
 using UnityEngine;
+using UnityEngine.Profiling;
 
 namespace Unity.Entities.Editor
 {
@@ -10,96 +13,91 @@ namespace Unity.Entities.Editor
     public delegate World WorldSelectionGetter();
     public delegate ScriptBehaviourManager SystemSelectionGetter();
     
-    public class EntityListView : TreeView {
-        private readonly Dictionary<int, Entity> entitiesById = new Dictionary<int, Entity>();
+    public class EntityListView : TreeView, IDisposable {
 
-        public ComponentGroup SelectedComponentGroup
+        public EntityListQuery SelectedEntityQuery
         {
-            get { return selectedComponentGroup; }
+            get => selectedEntityQuery;
             set
             {
-                if (value == null || selectedComponentGroup != value)
+                if (value == null || selectedEntityQuery != value)
                 {
-                    selectedComponentGroup = value;
+                    selectedEntityQuery = value;
                     Reload();
                 }
             }
         }
-        private ComponentGroup selectedComponentGroup;
-        int                    cachedVersion;
+        private EntityListQuery selectedEntityQuery;
 
-        private EntitySelectionCallback setEntitySelection;
-        private WorldSelectionGetter getWorldSelection;
-        private SystemSelectionGetter getSystemSelection;
+        private readonly EntitySelectionCallback setEntitySelection;
+        private readonly WorldSelectionGetter getWorldSelection;
+        private readonly SystemSelectionGetter getSystemSelection;
+        
+        private readonly EntityArrayListAdapter rows;
+        private NativeArray<ArchetypeChunk> chunkArray;
 
-        public EntityListView(TreeViewState state, ComponentGroup componentGroup, EntitySelectionCallback entitySelectionCallback, WorldSelectionGetter getWorldSelection, SystemSelectionGetter getSystemSelection) : base(state)
+        public EntityListView(TreeViewState state, EntityListQuery entityQuery, EntitySelectionCallback entitySelectionCallback, WorldSelectionGetter getWorldSelection, SystemSelectionGetter getSystemSelection) : base(state)
         {
             this.setEntitySelection = entitySelectionCallback;
             this.getWorldSelection = getWorldSelection;
             this.getSystemSelection = getSystemSelection;
-            selectedComponentGroup = componentGroup;
+            selectedEntityQuery = entityQuery;
+            rows = new EntityArrayListAdapter();
+            getNewSelectionOverride = (item, selection, shift) => new List<int>() {item.id};
             Reload();
         }
 
+        internal bool ShowingSomething => getWorldSelection() != null &&
+                                       (selectedEntityQuery != null || !(getSystemSelection() is ComponentSystemBase));
+
         public void UpdateIfNecessary()
         {
-            if (getWorldSelection() == null)
-                return;
-            if (selectedComponentGroup == null)
-            {
-                if (!(getSystemSelection() is ComponentSystemBase) && getWorldSelection().GetExistingManager<EntityManager>().Version != cachedVersion)
-                    Reload();
-            }
-            else if (selectedComponentGroup.GetCombinedComponentOrderVersion() != cachedVersion)
+            if (ShowingSomething)
                 Reload();
         }
 
-        private TreeViewItem CreateEntityItem(Entity entity)
-        {
-            entitiesById.Add(entity.Index, entity);
-            return new TreeViewItem { id = entity.Index };
-        }
+        public int EntityCount => rows.Count;
 
         protected override TreeViewItem BuildRoot()
         {
-            entitiesById.Clear();
-            var managerId = -1;
-            var root  = new TreeViewItem { id = managerId--, depth = -1, displayName = "Root" };
-            if (getWorldSelection() == null)
-            {
-                cachedVersion = -1;
-            }
-            else
-            {
-                if (SelectedComponentGroup == null)
-                {
-                    if (!(getSystemSelection() is ComponentSystemBase))
-                    {
-                        var entityManager = getWorldSelection().GetExistingManager<EntityManager>();
-                        var array = entityManager.GetAllEntities(Allocator.Temp);
-                        for (var i = 0; i < array.Length; ++i)
-                            root.AddChild(CreateEntityItem(array[i]));
-                        array.Dispose();
-                        cachedVersion = entityManager.Version;
-                    }
-                }
-                else
-                {
-                    getWorldSelection().GetExistingManager<EntityManager>().CompleteAllJobs();
-                    var entityArray = SelectedComponentGroup.GetEntityArray();
-                    for (var i = 0; i < entityArray.Length; ++i)
-                        root.AddChild(CreateEntityItem(entityArray[i]));
-                    cachedVersion = SelectedComponentGroup.GetCombinedComponentOrderVersion();
-                }
-                SetupDepthsFromParentsAndChildren(root);
-            }
-
-            if (entitiesById.Count == 0)
-            {
-                root.children = new List<TreeViewItem>();
-            }
+            var root  = new TreeViewItem { id = -1, depth = -1, displayName = "Root" };
             
             return root;
+        }
+
+        private readonly EntityArchetypeQuery allQuery = new EntityArchetypeQuery()
+        {
+            All = new ComponentType[0],
+            Any = new ComponentType[0],
+            None = new ComponentType[0]
+        };
+        
+        protected override IList<TreeViewItem> BuildRows(TreeViewItem root)
+        {
+            if (!ShowingSomething)
+                return new List<TreeViewItem>();
+            
+            var entityManager = getWorldSelection().GetExistingManager<EntityManager>();
+            
+            if (chunkArray.IsCreated)
+                chunkArray.Dispose();
+            var query = SelectedEntityQuery?.Query ?? allQuery;
+            
+            entityManager.CompleteAllJobs();
+            chunkArray = entityManager.CreateArchetypeChunkArray(query, Allocator.Persistent);
+
+            rows.SetSource(chunkArray, entityManager);
+            return rows;
+        }
+
+        protected override IList<int> GetAncestors(int id)
+        {
+            return id == -1 ? new List<int>() : new List<int>() {-1};
+        }
+
+        protected override IList<int> GetDescendantsThatHaveChildren(int id)
+        {
+            return new List<int>();
         }
 
         public override void OnGUI(Rect rect)
@@ -108,19 +106,12 @@ namespace Unity.Entities.Editor
                 base.OnGUI(rect);
         }
 
-        protected override void RowGUI(RowGUIArgs args)
-        {
-            if (args.item.displayName == null)
-                args.label = args.item.displayName = $"Entity {entitiesById[args.item.id].Index.ToString()}";
-            base.RowGUI(args);
-        }
-
         protected override void SelectionChanged(IList<int> selectedIds)
         {
             if (selectedIds.Count > 0)
             {
-                if (entitiesById.ContainsKey(selectedIds[0]))
-                    setEntitySelection(entitiesById[selectedIds[0]]);
+                if (rows.GetById(selectedIds[0], out var selectedEntity))
+                    setEntitySelection(selectedEntity);
             }
             else
             {
@@ -156,6 +147,12 @@ namespace Unity.Entities.Editor
             {
                 FrameItem(selection[0]);
             }
+        }
+
+        public void Dispose()
+        {
+            if (chunkArray.IsCreated)
+                chunkArray.Dispose();
         }
     }
 }

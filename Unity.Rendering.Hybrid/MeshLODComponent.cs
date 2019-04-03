@@ -1,24 +1,31 @@
 ﻿using Unity.Entities;
+using Unity.Mathematics;
 
 namespace Unity.Rendering
 {
-    public struct MeshLODGroupComponent : IComponentData
+    public struct ActiveLODGroupMask : IComponentData
     {
-        public int activeLod;
-        public float size;
-        public float biasMinusOne;
-        public float limit0;
-        public float limit1;
-        public float limit2;
-    }
-    public struct MeshLODComponent : IComponentData
-    {
-        public Entity group;
-        public int lod;
-        public int isInactive;
+        public int LODMask;
     }
 
-    public struct MeshLODInactive : IComponentData
+    public struct MeshLODGroupComponent : IComponentData
     {
+        public Entity    ParentGroup;
+        public int       ParentMask;
+        
+        public float4    LODDistances;
+        
+        public float3    WorldReferencePoint;
+    }
+    
+
+    public struct HLODComponent : IComponentData
+    {
+    }
+    
+    public struct MeshLODComponent : IComponentData
+    {
+        public Entity   Group;
+        public int      LODMask;
     }
 }

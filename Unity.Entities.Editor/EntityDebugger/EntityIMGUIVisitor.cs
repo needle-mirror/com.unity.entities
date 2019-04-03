@@ -13,13 +13,13 @@ namespace Unity.Entities.Editor
     public class EntityIMGUIVisitor : PropertyVisitor
         , IPrimitivePropertyVisitor
         , ICustomVisitPrimitives
-        , ICustomVisit<Unity.Mathematics.quaternion>
-        , ICustomVisit<Unity.Mathematics.float2>
-        , ICustomVisit<Unity.Mathematics.float3>
-        , ICustomVisit<Unity.Mathematics.float4>
-        , ICustomVisit<Unity.Mathematics.float4x4>
-        , ICustomVisit<Unity.Mathematics.float3x3>
-        , ICustomVisit<Unity.Mathematics.float2x2>
+        , ICustomVisit<quaternion>
+        , ICustomVisit<float2>
+        , ICustomVisit<float3>
+        , ICustomVisit<float4>
+        , ICustomVisit<float4x4>
+        , ICustomVisit<float3x3>
+        , ICustomVisit<float2x2>
     {
         private static HashSet<Type> _primitiveTypes = new HashSet<Type>();
 
@@ -54,6 +54,11 @@ namespace Unity.Entities.Editor
             return _primitiveTypes;
         }
 
+        private static bool IsTypeIdMarker(string s)
+        {
+            return s == "$TypeId";
+        }
+
         private class ComponentState
         {
             public ComponentState()
@@ -67,32 +72,74 @@ namespace Unity.Entities.Editor
 
         protected override void Visit<TValue>(TValue value)
         {
-            GUILayout.Label(Property.Name);
-        }
-
-        public override void VisitEnum<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
-        {
-            VisitSetup(ref container, ref context);
-
             var t = typeof(TValue);
             if (t.IsEnum)
             {
                 var options = Enum.GetNames(t).ToArray();
                 EditorGUILayout.Popup(
                     t.Name,
-                    Array.FindIndex(options, name => name == context.Value.ToString()),
+                    Array.FindIndex(options, name => name == value.ToString()),
                     options);
+            }
+            else
+            {
+                GUILayout.Label(Property.Name);
             }
         }
 
-        public override bool BeginContainer<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+        // TODO refactor w/ the 'ref' specific BeginContainer version
+
+        public override bool BeginContainer<TContainer, TValue>(TContainer container, VisitContext<TValue> context)
         {
             VisitSetup(ref container, ref context);
-            EditorGUI.indentLevel++;
 
             _currentPath.Push(Property.Name, context.Index);
 
-            if (typeof(TValue) == typeof(StructProxy))
+            var displayName = GetContainerDisplayName(context);
+            if (string.IsNullOrEmpty(displayName))
+                return true;
+
+            EditorGUI.indentLevel++;
+
+            return ShowContainerFoldoutIfNecessary<TValue>(displayName);
+        }
+
+        public override void EndContainer<TContainer, TValue>(TContainer container, VisitContext<TValue> context)
+        {
+            VisitSetup(ref container, ref context);
+            _currentPath.Pop();
+
+            var displayName = GetContainerDisplayName(context);
+            if (string.IsNullOrEmpty(displayName))
+                return;
+
+            EditorGUI.indentLevel--;
+        }
+
+        private string GetContainerDisplayName<TValue>(VisitContext<TValue> context)
+            where TValue : IPropertyContainer
+        {
+            var f = context.Value?.PropertyBag?.Properties?.First();
+            if (f != null && IsTypeIdMarker(f.Name))
+            {
+                if (f is ValueStructProperty<StructProxy, string>)
+                {
+                    return (f as ValueStructProperty<StructProxy, string>).GetValue(context.Value);
+                }
+
+                if (f is ValueClassProperty<ObjectContainerProxy, string>)
+                {
+                    return (f as ValueClassProperty<ObjectContainerProxy, string>).GetValue(context.Value);
+                }
+            }
+            return string.Empty;
+        }
+
+        private bool ShowContainerFoldoutIfNecessary<TValue>(string displayName)
+        {
+            var t = typeof(TValue);
+
+            if (typeof(IPropertyContainer).IsAssignableFrom(t))
             {
                 ComponentState state;
                 if (!_states.ContainsKey(_currentPath.ToString()))
@@ -101,11 +148,30 @@ namespace Unity.Entities.Editor
                 }
                 state = _states[_currentPath.ToString()];
 
-                state.Showing = EditorGUILayout.Foldout(state.Showing, context.Property.Name);
+                state.Showing = EditorGUILayout.Foldout(
+                    state.Showing,
+                    displayName,
+                    new GUIStyle(EditorStyles.foldout) { fontStyle = FontStyle.Bold }
+                );
 
                 return state.Showing;
             }
             return true;
+        }
+
+        public override bool BeginContainer<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+        {
+            VisitSetup(ref container, ref context);
+
+            _currentPath.Push(Property.Name, context.Index);
+
+            var displayName = GetContainerDisplayName(context);
+            if (string.IsNullOrEmpty(displayName))
+                return true;
+
+            EditorGUI.indentLevel++;
+
+            return ShowContainerFoldoutIfNecessary<TValue>(displayName);
         }
 
         public override void EndContainer<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
@@ -113,21 +179,25 @@ namespace Unity.Entities.Editor
             VisitSetup(ref container, ref context);
             _currentPath.Pop();
 
+            var displayName = GetContainerDisplayName(context);
+            if (string.IsNullOrEmpty(displayName))
+                return;
+
             EditorGUI.indentLevel--;
         }
 
-        public override bool BeginList<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+        public override bool BeginCollection<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
         {
             VisitSetup(ref container, ref context);
             return true;
         }
 
-        public override void EndList<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
+        public override void EndCollection<TContainer, TValue>(ref TContainer container, VisitContext<TValue> context)
         {
             VisitSetup(ref container, ref context);
         }
 
-        void ICustomVisit<Unity.Mathematics.quaternion>.CustomVisit(Unity.Mathematics.quaternion q)
+        void ICustomVisit<quaternion>.CustomVisit(quaternion q)
         {
             EditorGUILayout.Vector4Field(Property.Name, new Vector4(q.value.x, q.value.y, q.value.z, q.value.w));
         }
@@ -246,11 +316,15 @@ namespace Unity.Entities.Editor
 
         void ICustomVisit<string>.CustomVisit(string f)
         {
-            if (Property == null)
+            if (Property == null || IsTypeIdMarker(Property.Name))
             {
                 return;
             }
-            GUILayout.Label(f, EditorStyles.boldLabel);
+
+            DoField(Property, f, (label, val) =>
+            {
+                return EditorGUILayout.TextField(label, val.ToString());
+            });
         }
         #endregion
 

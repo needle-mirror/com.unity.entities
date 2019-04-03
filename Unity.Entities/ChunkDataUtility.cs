@@ -39,19 +39,6 @@ namespace Unity.Entities
 #endif
         }
 
-        public static void GetComponentDataWithTypeAndFixedArrayLength(Chunk* chunk, int index, int typeIndex,
-            out byte* outPtr, out int outArrayLength)
-        {
-            var archetype = chunk->Archetype;
-            var indexInTypeArray = GetIndexInTypeArray(archetype, typeIndex);
-
-            var offset = archetype->Offsets[indexInTypeArray];
-            var sizeOf = archetype->SizeOfs[indexInTypeArray];
-
-            outPtr = chunk->Buffer + (offset + sizeOf * index);
-            outArrayLength = archetype->Types[indexInTypeArray].FixedArrayLength;
-        }
-
         public static byte* GetComponentDataWithTypeRO(Chunk* chunk, int index, int typeIndex, ref int typeLookupCache)
         {
             var archetype = chunk->Archetype;
@@ -142,7 +129,7 @@ namespace Unity.Entities
             }
         }
 
-        public static void ClearComponents(Chunk* dstChunk, int dstIndex, int count)
+        public static void InitializeComponents(Chunk* dstChunk, int dstIndex, int count)
         {
             var arch = dstChunk->Archetype;
 
@@ -150,6 +137,7 @@ namespace Unity.Entities
             var sizeOfs = arch->SizeOfs;
             var dstBuffer = dstChunk->Buffer;
             var typesCount = arch->TypesCount;
+            var types = arch->Types;
 
             for (var t = 1; t != typesCount; t++)
             {
@@ -157,7 +145,18 @@ namespace Unity.Entities
                 var sizeOf = sizeOfs[t];
                 var dst = dstBuffer + (offset + sizeOf * dstIndex);
 
-                UnsafeUtility.MemClear(dst, sizeOf * count);
+                if (types[t].IsBuffer)
+                {
+                    for (var i = 0; i < count; ++i)
+                    {
+                        BufferHeader.Initialize((BufferHeader*)dst, types[t].BufferCapacity);
+                        dst += sizeOf;
+                    }
+                }
+                else
+                {
+                    UnsafeUtility.MemClear(dst, sizeOf * count);
+                }
             }
         }
 
@@ -172,15 +171,34 @@ namespace Unity.Entities
             var offsets = arch->Offsets;
             var sizeOfs = arch->SizeOfs;
             var typesCount = arch->TypesCount;
+            var types = arch->Types;
             // type[0] is always Entity, and will be patched up later, so just skip
             for (var t = 1; t != typesCount; t++)
             {
+                var type = types[t];
                 var offset = offsets[t];
                 var sizeOf = sizeOfs[t];
                 var src = srcBuffer + (offset + sizeOf * srcIndex);
                 var dst = dstBuffer + (offset + sizeOf * dstBaseIndex);
 
-                UnsafeUtility.MemCpyReplicate(dst, src, sizeOf, count);
+                if (!type.IsBuffer)
+                {
+                    UnsafeUtility.MemCpyReplicate(dst, src, sizeOf, count);
+                }
+                else
+                {
+                    var alignment = 8; // TODO: Need a way to compute proper alignment for arbitrary non-generic types in TypeManager
+                    for (int i = 0; i < count; ++i)
+                    {
+                        BufferHeader* srcHdr = (BufferHeader*) src;
+                        BufferHeader* dstHdr = (BufferHeader*) dst;
+                        BufferHeader.Initialize(dstHdr, type.BufferCapacity);
+                        BufferHeader.Assign(dstHdr, BufferHeader.GetElementPointer(srcHdr), srcHdr->Length, sizeOf, alignment);
+
+                        src += sizeOf;
+                        dst += sizeOf;
+                    }
+                }
             }
         }
 
@@ -189,34 +207,77 @@ namespace Unity.Entities
             var srcArch = srcChunk->Archetype;
             var dstArch = dstChunk->Archetype;
 
+            //Debug.Log($"Convert {EntityManager.EntityManagerDebug.GetArchetypeDebugString(srcArch)} to {EntityManager.EntityManagerDebug.GetArchetypeDebugString(dstArch)}");
+
             var srcI = 0;
             var dstI = 0;
             while (srcI < srcArch->TypesCount && dstI < dstArch->TypesCount)
+            {
+                var src = srcChunk->Buffer + srcArch->Offsets[srcI] + srcIndex * srcArch->SizeOfs[srcI];
+                var dst = dstChunk->Buffer + dstArch->Offsets[dstI] + dstIndex * dstArch->SizeOfs[dstI];
+
                 if (srcArch->Types[srcI] < dstArch->Types[dstI])
                 {
+                    // Clear any buffers we're not going to keep.
+                    if (srcArch->Types[srcI].IsBuffer)
+                    {
+                        BufferHeader.Destroy((BufferHeader*)src);
+                    }
+
                     ++srcI;
                 }
                 else if (srcArch->Types[srcI] > dstArch->Types[dstI])
                 {
                     // Clear components in the destination that aren't copied
-                    var dst = dstChunk->Buffer + dstArch->Offsets[dstI] + dstIndex * dstArch->SizeOfs[dstI];
-                    UnsafeUtility.MemClear(dst, dstArch->SizeOfs[dstI]);
+
+                    if (dstArch->Types[dstI].IsBuffer)
+                    {
+                        BufferHeader.Initialize((BufferHeader*)dst, dstArch->Types[dstI].BufferCapacity);
+                    }
+                    else
+                    {
+                        UnsafeUtility.MemClear(dst, dstArch->SizeOfs[dstI]);
+                    }
+
                     ++dstI;
                 }
                 else
                 {
-                    var src = srcChunk->Buffer + srcArch->Offsets[srcI] + srcIndex * srcArch->SizeOfs[srcI];
-                    var dst = dstChunk->Buffer + dstArch->Offsets[dstI] + dstIndex * dstArch->SizeOfs[dstI];
                     UnsafeUtility.MemCpy(dst, src, srcArch->SizeOfs[srcI]);
+
+                    // Poison source buffer to make sure there is no aliasing.
+                    if (srcArch->Types[srcI].IsBuffer)
+                    {
+                        BufferHeader.Initialize((BufferHeader*)src, srcArch->Types[srcI].BufferCapacity);
+                    }
+
                     ++srcI;
                     ++dstI;
                 }
+            }
+
+            // Handle remaining components in the source that aren't copied
+            for (; srcI < srcArch->TypesCount; ++srcI)
+            {
+                var src = srcChunk->Buffer + srcArch->Offsets[srcI] + srcIndex * srcArch->SizeOfs[srcI];
+                if (srcArch->Types[srcI].IsBuffer)
+                {
+                    BufferHeader.Destroy((BufferHeader*)src);
+                }
+            }
 
             // Clear remaining components in the destination that aren't copied
             for (; dstI < dstArch->TypesCount; ++dstI)
             {
                 var dst = dstChunk->Buffer + dstArch->Offsets[dstI] + dstIndex * dstArch->SizeOfs[dstI];
-                UnsafeUtility.MemClear(dst, dstArch->SizeOfs[dstI]);
+                if (dstArch->Types[dstI].IsBuffer)
+                {
+                    BufferHeader.Initialize((BufferHeader*)dst, dstArch->Types[dstI].BufferCapacity);
+                }
+                else
+                {
+                    UnsafeUtility.MemClear(dst, dstArch->SizeOfs[dstI]);
+                }
             }
         }
 

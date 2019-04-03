@@ -28,17 +28,6 @@ namespace Unity.Entities.Tests.Types
         }
 
         [Test]
-        public void EqualityOperator_WhenDifferentLength_ReturnsFalse()
-        {
-            var t1 = ComponentType.FixedArray(typeof(Entity), 1);
-            var t2 = ComponentType.FixedArray(typeof(Entity), 2);
-
-            var result = t1 == t2;
-
-            Assert.IsFalse(result);
-        }
-
-        [Test]
         public void EqualityOperator_WhenDifferentAccessMode_ReturnsFalse()
         {
             var t1 = new ComponentType(typeof(Entity), ComponentType.AccessMode.ReadWrite);
@@ -65,17 +54,6 @@ namespace Unity.Entities.Tests.Types
         {
             var t1 = new ComponentType(typeof(EmptySystem), ComponentType.AccessMode.ReadOnly);
             var t2 = new ComponentType(typeof(Entity), ComponentType.AccessMode.ReadOnly);
-
-            var result = t1 != t2;
-
-            Assert.IsTrue(result);
-        }
-
-        [Test]
-        public void InequalityOperator_WhenDifferentLength_ReturnsTrue()
-        {
-            var t1 = ComponentType.FixedArray(typeof(Entity), 1);
-            var t2 = ComponentType.FixedArray(typeof(Entity), 2);
 
             var result = t1 != t2;
 

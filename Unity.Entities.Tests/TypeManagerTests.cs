@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 
 namespace Unity.Entities.Tests
@@ -29,6 +30,21 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(archetype2Same, archetype2Same);
 
             Assert.AreNotEqual(archetype1, archetype2);
+		}
+
+        [InternalBufferCapacity(99)]
+        public struct IntElement : IBufferElementData
+        {
+            public int Value;
+        }
+
+		[Test]
+		public void BufferTypeClassificationWorks()
+		{
+            var t  = TypeManager.GetComponentType<IntElement>();
+            Assert.AreEqual(TypeManager.TypeCategory.BufferData, t.Category);
+            Assert.AreEqual(99, t.BufferCapacity);
+            Assert.AreEqual(UnsafeUtility.SizeOf<BufferHeader>() + 99 * sizeof(int), t.SizeInChunk);
 		}
 
         [Test]

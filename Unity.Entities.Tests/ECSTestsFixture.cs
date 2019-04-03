@@ -26,6 +26,7 @@ namespace Unity.Entities.Tests
         protected World m_PreviousWorld;
         protected World World;
         protected EntityManager m_Manager;
+        protected EntityManager.EntityManagerDebug m_ManagerDebug;
 
         protected int StressTestEntityCount = 1000;
         
@@ -36,6 +37,7 @@ namespace Unity.Entities.Tests
             World = World.Active = new World("Test World");
 
             m_Manager = World.GetOrCreateManager<EntityManager>();
+            m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
         }
 
         [TearDown]

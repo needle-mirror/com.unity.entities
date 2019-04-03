@@ -13,7 +13,5 @@
     "includePlatforms": [
         "Editor"
     ],
-    "includePlatforms": [],
-    "excludePlatforms": [],
     "allowUnsafeCode": true
 }

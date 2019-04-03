@@ -17,20 +17,15 @@ namespace Unity.Entities.Editor.Tests
             return World.Active;
         }
 
-        private static void SetComponentGroupSelection(ComponentGroup group)
+        private static void SetComponentGroupSelection(EntityListQuery query)
         {
         }
-
-        private static ScriptBehaviourManager GetSystemSelection()
-        {
-            return currentSystem;
-        }
-
-        private static ScriptBehaviourManager currentSystem = null;
 
         private static void SetSystemSelection(ScriptBehaviourManager system, World world)
         {
         }
+        
+        private EntityListQuery AllQuery => new EntityListQuery(new EntityArchetypeQuery(){All = new ComponentType[0], Any = new ComponentType[0], None = new ComponentType[0]});
 
         private World World2;
 
@@ -57,30 +52,58 @@ namespace Unity.Entities.Editor.Tests
         }
 
         [Test]
-        public void EntityListView_ReloadWhenSettingNullGroup()
+        public void EntityListView_ShowNothingWithoutWorld()
         {
             m_Manager.CreateEntity();
             var emptySystem = World.Active.GetOrCreateManager<EmptySystem>();
-            
-            var listView = new EntityListView(new TreeViewState(), null, SetEntitySelection, GetWorldSelection,
-                GetSystemSelection);
-            currentSystem = World.Active.GetExistingManager<EntityManager>();
-            listView.SelectedComponentGroup = null;
-            var rows = listView.GetRows();
-            Assert.AreEqual(1, rows.Count);
+            ScriptBehaviourManager currentSystem = null;
 
-            currentSystem = emptySystem;
-            listView.SelectedComponentGroup = null;
-            rows = listView.GetRows();
-            Assert.AreEqual(0, rows.Count);
+            using (var listView = new EntityListView(new TreeViewState(), null, SetEntitySelection, () => null,
+                () => currentSystem))
+            {
+                currentSystem = World.Active.GetExistingManager<EntityManager>();
+                listView.SelectedEntityQuery = null;
+                Assert.IsFalse(listView.ShowingSomething);
+
+                currentSystem = emptySystem;
+                listView.SelectedEntityQuery = null;
+                Assert.IsFalse(listView.ShowingSomething);
+
+                currentSystem = null;
+                listView.SelectedEntityQuery = null;
+                Assert.IsFalse(listView.ShowingSomething);
+
+                currentSystem = null;
+                listView.SelectedEntityQuery = AllQuery;
+                Assert.IsFalse(listView.ShowingSomething);
+            }
         }
 
         [Test]
-        public void EntityListView_CanSetNullGroup()
+        public void EntityListView_ShowEntitiesFromWorld()
         {
-            var listView = new EntityListView(new TreeViewState(), null, SetEntitySelection, GetWorldSelection, GetSystemSelection);
-            
-            Assert.DoesNotThrow( () => listView.SelectedComponentGroup = null );
+            m_Manager.CreateEntity();
+            var emptySystem = World.Active.GetOrCreateManager<EmptySystem>();
+            var selectedWorld = World.Active;
+            ScriptBehaviourManager currentSystem = null;
+
+            using (var listView = new EntityListView(new TreeViewState(), null, SetEntitySelection, () => selectedWorld,
+                () => currentSystem))
+            {
+                currentSystem = World.Active.GetExistingManager<EntityManager>();
+                listView.SelectedEntityQuery = AllQuery;
+                Assert.IsTrue(listView.ShowingSomething);
+                Assert.AreEqual(1, listView.GetRows().Count);
+                
+                currentSystem = World.Active.GetExistingManager<EntityManager>();
+                listView.SelectedEntityQuery = null;
+                Assert.IsTrue(listView.ShowingSomething);
+                Assert.AreEqual(1, listView.GetRows().Count);
+
+                currentSystem = emptySystem;
+                listView.SelectedEntityQuery = null;
+                Assert.IsFalse(listView.ShowingSomething);
+            }
         }
 
         [Test]

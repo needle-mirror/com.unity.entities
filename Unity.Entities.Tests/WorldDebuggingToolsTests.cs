@@ -8,6 +8,7 @@ namespace Unity.Entities.Tests
     public class WorldDebuggingToolsTests : ECSTestsFixture
     {
 
+        [DisableAutoCreation]
         class RegularSystem : ComponentSystem
         {
             struct Entities
@@ -26,6 +27,7 @@ namespace Unity.Entities.Tests
             }
         }
 
+        [DisableAutoCreation]
         class SubtractiveSystem : ComponentSystem
         {
             struct Entities

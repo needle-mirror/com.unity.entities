@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using NUnit.Framework;
 using Unity.Entities.Tests;
 using UnityEditor;
@@ -15,6 +16,7 @@ namespace Unity.Entities.Editor.Tests
         private ComponentGroup m_ComponentGroup;
         private Entity m_Entity;
         
+        [DisableAutoCreation]
         class SingleGroupSystem : ComponentSystem
         {
             
@@ -102,20 +104,20 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void EntityDebugger_SetAllSelections()
         {
-            
-            EntityDebugger.SetAllSelections(World.Active, m_System, m_ComponentGroup, m_Entity);
+            var entityListQuery = new EntityListQuery(m_ComponentGroup);
+            EntityDebugger.SetAllSelections(World.Active, m_System, entityListQuery, m_Entity);
             
             Assert.AreEqual(World.Active, m_Window.WorldSelection);
             Assert.AreEqual(m_System, m_Window.SystemSelection);
-            Assert.AreEqual(m_ComponentGroup, m_Window.ComponentGroupSelection);
+            Assert.AreEqual(m_ComponentGroup, m_Window.EntityListQuerySelection.Group);
             Assert.AreEqual(m_Entity, m_Window.EntitySelection);
         }
 
         [Test]
         public void EntityDebugger_RememberSelections()
         {
-            
-            EntityDebugger.SetAllSelections(World.Active, m_System, m_ComponentGroup, m_Entity);
+            var entityListQuery = new EntityListQuery(m_ComponentGroup);
+            EntityDebugger.SetAllSelections(World.Active, m_System, entityListQuery, m_Entity);
             
             m_Window.SetWorldSelection(null, true);
             
@@ -123,29 +125,34 @@ namespace Unity.Entities.Editor.Tests
             
             Assert.AreEqual(World.Active, m_Window.WorldSelection);
             Assert.AreEqual(m_System, m_Window.SystemSelection);
-            Assert.AreEqual(m_ComponentGroup, m_Window.ComponentGroupSelection);
+            Assert.AreEqual(m_ComponentGroup, m_Window.EntityListQuerySelection.Group);
             Assert.AreEqual(m_Entity, m_Window.EntitySelection);
         }
 
         [Test]
         public void EntityDebugger_SetAllEntitiesFilter()
         {
-            var components = new ComponentType[] {ComponentType.Create<EcsTestData>() };
-            var componentGroup = World.Active.GetExistingManager<EntityManager>().CreateComponentGroup(components);
+            var query = new EntityArchetypeQuery()
+            {
+                All = new ComponentType[] {ComponentType.Create<EcsTestData>() },
+                Any = new ComponentType[0],
+                None = new ComponentType[0]
+            };
+            var listQuery = new EntityListQuery(query);
             
             m_Window.SetWorldSelection(World.Active, true);
             m_Window.SetSystemSelection(null, null, true, true);
-            m_Window.SetAllEntitiesFilter(componentGroup);
-            Assert.AreEqual(componentGroup, m_Window.ComponentGroupSelection);
+            m_Window.SetAllEntitiesFilter(listQuery);
+            Assert.AreEqual(query, m_Window.EntityListQuerySelection.Query);
             
-            m_Window.SetComponentGroupSelection(null, true, true);
+            m_Window.SetEntityListSelection(null, true, true);
             m_Window.SetSystemSelection(World.Active.GetExistingManager<EntityManager>(), World.Active, true, true);
-            m_Window.SetAllEntitiesFilter(componentGroup);
-            Assert.AreEqual(componentGroup, m_Window.ComponentGroupSelection);
+            m_Window.SetAllEntitiesFilter(listQuery);
+            Assert.AreEqual(query, m_Window.EntityListQuerySelection.Query);
             
             m_Window.SetSystemSelection(m_System, World.Active, true, true);
-            m_Window.SetAllEntitiesFilter(componentGroup);
-            Assert.AreNotEqual(componentGroup, m_Window.ComponentGroupSelection);
+            m_Window.SetAllEntitiesFilter(listQuery);
+            Assert.AreNotEqual(listQuery, m_Window.EntityListQuerySelection);
         }
 
         [Test]

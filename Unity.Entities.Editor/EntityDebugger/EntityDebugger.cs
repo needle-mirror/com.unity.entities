@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEditor.IMGUI.Controls;
@@ -10,11 +11,7 @@ namespace Unity.Entities.Editor
     {
         private const float kSystemListWidth = 350f;
 
-#if UNITY_2018_2_OR_NEWER
-        [MenuItem("Window/Debug/Entity Debugger", false)]
-#else
-        [MenuItem("Window/Entity Debugger", false, 2017)]
-#endif
+        [MenuItem("Window/Analysis/Entity Debugger", false)]
         private static void OpenWindow()
         {
             GetWindow<EntityDebugger>("Entity Debugger");
@@ -66,14 +63,14 @@ namespace Unity.Entities.Editor
             }
         }
 
-        public ComponentGroup ComponentGroupSelection { get; private set; }
+        public EntityListQuery EntityListQuerySelection { get; private set; }
 
-        public void SetComponentGroupSelection(ComponentGroup newSelection, bool updateList, bool propagate)
+        public void SetEntityListSelection(EntityListQuery newSelection, bool updateList, bool propagate)
         {
-            ComponentGroupSelection = newSelection;
+            EntityListQuerySelection = newSelection;
             if (updateList)
-                componentGroupListView.SetComponentGroupSelection(newSelection);
-            entityListView.SelectedComponentGroup = newSelection;
+                componentGroupListView.SetEntityListSelection(newSelection);
+            entityListView.SelectedEntityQuery = newSelection;
             if (propagate)
                 entityListView.TouchSelection();
         }
@@ -95,13 +92,14 @@ namespace Unity.Entities.Editor
             }
         }
 
-        internal static void SetAllSelections(World world, ComponentSystemBase system, ComponentGroup componentGroup, Entity entity)
+        internal static void SetAllSelections(World world, ComponentSystemBase system, EntityListQuery entityQuery,
+            Entity entity)
         {
             if (Instance == null)
                 return;
             Instance.SetWorldSelection(world, false);
             Instance.SetSystemSelection(system, world, true, false);
-            Instance.SetComponentGroupSelection(componentGroup, true, false);
+            Instance.SetEntityListSelection(entityQuery, true, false);
             Instance.SetEntitySelection(entity, true);
             Instance.entityListView.FrameSelection();
         }
@@ -163,7 +161,8 @@ namespace Unity.Entities.Editor
 
         private void CreateEntityListView()
         {
-            entityListView = new EntityListView(entityListState, ComponentGroupSelection, x => SetEntitySelection(x, false), () => SystemSelectionWorld ?? WorldSelection, () => SystemSelection);
+            entityListView?.Dispose();
+            entityListView = new EntityListView(entityListState, EntityListQuerySelection, x => SetEntitySelection(x, false), () => SystemSelectionWorld ?? WorldSelection, () => SystemSelection);
         }
 
         private void CreateSystemListView()
@@ -174,7 +173,7 @@ namespace Unity.Entities.Editor
 
         private void CreateComponentGroupListView()
         {
-            componentGroupListView = ComponentGroupListView.CreateList(SystemSelection as ComponentSystemBase, componentGroupListStates, componentGroupListStateNames, x => SetComponentGroupSelection(x, false, true), () => SystemSelectionWorld);
+            componentGroupListView = ComponentGroupListView.CreateList(SystemSelection as ComponentSystemBase, componentGroupListStates, componentGroupListStateNames, x => SetEntityListSelection(x, false, true), () => SystemSelectionWorld);
         }
 
         private void CreateWorldPopup()
@@ -198,8 +197,14 @@ namespace Unity.Entities.Editor
             EditorApplication.playModeStateChanged += OnPlayModeStateChange;
         }
 
+        private void OnDestroy()
+        {
+            entityListView?.Dispose();
+        }
+
         private void OnDisable()
         {
+            entityListView?.Dispose();
             if (Instance == this)
                 Instance = null;
             if (selectionProxy)
@@ -221,11 +226,6 @@ namespace Unity.Entities.Editor
         private void Update()
         {
             systemListView.UpdateTimings();
-            
-            systemListView.UpdateIfNecessary();
-            componentGroupListView.UpdateIfNecessary();
-            entityListView.UpdateIfNecessary();
-            filterUI.GetTypes();
             
             if (Time.realtimeSinceStartup > lastUpdate + 0.5f) 
             { 
@@ -296,16 +296,20 @@ namespace Unity.Entities.Editor
             }
             else if (WorldSelection != null)
             {
+                GUILayout.BeginHorizontal();
                 filterUI.OnGUI();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label(entityListView.EntityCount.ToString());
+                GUILayout.EndHorizontal();
             }
         }
 
-        private ComponentGroup filterGroup;
+        private EntityListQuery filterQuery;
         private World systemSelectionWorld;
 
-        public void SetAllEntitiesFilter(ComponentGroup componentGroup)
+        public void SetAllEntitiesFilter(EntityListQuery entityQuery)
         {
-            filterGroup = componentGroup;
+            filterQuery = entityQuery;
             if (WorldSelection == null || SystemSelection is ComponentSystemBase)
                 return;
             ApplyAllEntitiesFilter();
@@ -313,10 +317,10 @@ namespace Unity.Entities.Editor
         
         private void ApplyAllEntitiesFilter()
         {
-            SetComponentGroupSelection(filterGroup, false, true);
+            SetEntityListSelection(filterQuery, false, true);
         }
 
-        private void EntityList()
+        void EntityList()
         {
             GUILayout.BeginVertical(Box);
             entityListView.OnGUI(GUIHelpers.GetExpandingRect());
@@ -341,6 +345,14 @@ namespace Unity.Entities.Editor
 
         private void OnGUI()
         {
+            if (Event.current.type == EventType.Layout)
+            {
+                systemListView.UpdateIfNecessary();
+                componentGroupListView.UpdateIfNecessary();
+                filterUI.GetTypes();
+                entityListView.UpdateIfNecessary();
+            }
+            
             if (Selection.activeObject == selectionProxy)
             {
                 if (!selectionProxy.Exists)

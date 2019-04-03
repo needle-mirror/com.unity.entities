@@ -409,38 +409,7 @@ namespace Unity.Entities
                 systemList.AddRange(CreateSystemDependencyList(world.BehaviourManagers, defaultPlayerLoop));
             }
 
-            var patchSystemList = new List<ScriptBehaviourManager>();
-            foreach (var world in worlds)
-            {
-                if (world.Patches.Count == 0)
-                    continue;
-                patchSystemList.AddRange(world.Patches);
-            }
-
             var ecsPlayerLoop = CreatePlayerLoop(systemList, defaultPlayerLoop);
-            for (var i = 0; i < ecsPlayerLoop.subSystemList.Length; ++i)
-            {
-                var subSystemList = new List<PlayerLoopSystem>();
-
-                for (var j = 0; j < ecsPlayerLoop.subSystemList[i].subSystemList.Length; j++)
-                {
-                    var next = ecsPlayerLoop.subSystemList[i].subSystemList[j];
-                    if (next.type.IsSubclassOf(typeof(ComponentSystem)))
-                        for (var k = 0; k < patchSystemList.Count; k++)
-                        {
-                            var patch = new PlayerLoopSystem();
-                            patch.type = patchSystemList[k].GetType();
-                            var tmp = new DummyDelagateWrapper(patchSystemList[k]);
-                            patch.updateDelegate = tmp.TriggerUpdate;
-                            subSystemList.Add(patch);
-                        }
-
-                    subSystemList.Add(next);
-                }
-
-                ecsPlayerLoop.subSystemList[i].subSystemList = subSystemList.ToArray();
-            }
-
             return ecsPlayerLoop;
         }
 

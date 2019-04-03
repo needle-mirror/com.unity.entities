@@ -187,7 +187,7 @@ namespace Unity.Entities.Tests
         {
             const int count = 65536;
 
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var cmds = new EntityCommandBuffer(Allocator.Temp);
             cmds.MinimumChunkSize = 512;
 
             for (int i = 0; i < count; ++i)
@@ -282,8 +282,8 @@ namespace Unity.Entities.Tests
             var sharedComp1List = new List<EcsTestSharedComp>();
             var sharedComp2List = new List<EcsTestSharedComp2>();
 
-            m_Manager.GetAllUniqueSharedComponentDatas<EcsTestSharedComp>(sharedComp1List);
-            m_Manager.GetAllUniqueSharedComponentDatas<EcsTestSharedComp2>(sharedComp2List);
+            m_Manager.GetAllUniqueSharedComponentData<EcsTestSharedComp>(sharedComp1List);
+            m_Manager.GetAllUniqueSharedComponentData<EcsTestSharedComp2>(sharedComp2List);
 
             // the count must be 2 - the default value of the shared component and the one we actually set
             Assert.AreEqual(2, sharedComp1List.Count);
@@ -307,7 +307,7 @@ namespace Unity.Entities.Tests
             cmds.Playback(m_Manager);
 
             var sharedCompList = new List<EcsTestSharedComp>();
-            m_Manager.GetAllUniqueSharedComponentDatas<EcsTestSharedComp>(sharedCompList);
+            m_Manager.GetAllUniqueSharedComponentData<EcsTestSharedComp>(sharedCompList);
 
             Assert.AreEqual(2, sharedCompList.Count);
             Assert.AreEqual(33, sharedCompList[1].value);
@@ -327,7 +327,7 @@ namespace Unity.Entities.Tests
             cmds.Playback(m_Manager);
 
             var sharedCompList = new List<EcsTestSharedComp>();
-            m_Manager.GetAllUniqueSharedComponentDatas<EcsTestSharedComp>(sharedCompList);
+            m_Manager.GetAllUniqueSharedComponentData<EcsTestSharedComp>(sharedCompList);
 
             Assert.AreEqual(1, sharedCompList.Count);
             Assert.AreEqual(0, sharedCompList[0].value);
@@ -358,7 +358,7 @@ namespace Unity.Entities.Tests
             cmds.Dispose();
 
             var list = new List<EcsTestSharedComp2>();
-            m_Manager.GetAllUniqueSharedComponentDatas<EcsTestSharedComp2>(list);
+            m_Manager.GetAllUniqueSharedComponentData<EcsTestSharedComp2>(list);
 
             Assert.AreEqual(2, list.Count);
             Assert.AreEqual(0, list[0].value0);
@@ -552,5 +552,99 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(10001, count);
         }
+
+        [Test]
+        public void PlaybackInvalidatesBuffers()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.CreateEntity();
+            DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>();
+            buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
+            cmds.Playback(m_Manager);
+
+            // Should not be possible to access the temporary buffer after playback.
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                buffer.Add(1);
+            });
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void AddBufferImplicitNoOverflow()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.CreateEntity();
+            DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>();
+            buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
+            cmds.Playback(m_Manager);
+            VerifySingleBuffer(3);
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void AddBufferImplicitOverflow()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.CreateEntity();
+            DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>();
+            buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+            cmds.Playback(m_Manager);
+            VerifySingleBuffer(10);
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void AddBufferExplicit()
+        {
+            var e = m_Manager.CreateEntity();
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>(e);
+            buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
+            cmds.Playback(m_Manager);
+
+            VerifySingleBuffer(3);
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void SetBufferImplicit()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsIntElement));
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.CreateEntity(archetype);
+            DynamicBuffer<EcsIntElement> buffer = cmds.SetBuffer<EcsIntElement>();
+            buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
+            cmds.Playback(m_Manager);
+            VerifySingleBuffer(3);
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void SetBufferExplicit()
+        {
+            var e = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            DynamicBuffer<EcsIntElement> buffer = cmds.SetBuffer<EcsIntElement>(e);
+            buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
+            cmds.Playback(m_Manager);
+            VerifySingleBuffer(3);
+            cmds.Dispose();
+        }
+
+        private void VerifySingleBuffer(int length)
+        {
+            var allEntities = m_Manager.GetAllEntities();
+            Assert.AreEqual(1, allEntities.Length);
+            var resultBuffer = m_Manager.GetBuffer<EcsIntElement>(allEntities[0]);
+            Assert.AreEqual(length, resultBuffer.Length);
+
+            for (int i = 0; i < length; ++i)
+            {
+                Assert.AreEqual(i + 1, resultBuffer[i].Value);
+            }
+            allEntities.Dispose();
+        }
+
     }
 }

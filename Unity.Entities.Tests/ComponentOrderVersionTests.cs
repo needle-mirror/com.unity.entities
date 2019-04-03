@@ -39,7 +39,7 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(SharedData1));
             group.CompleteDependency();
 
-            m_Manager.GetAllUniqueSharedComponentDatas(uniqueTypes);
+            m_Manager.GetAllUniqueSharedComponentData(uniqueTypes);
 
             for (int sharedIndex = 0; sharedIndex != uniqueTypes.Count; sharedIndex++)
             {

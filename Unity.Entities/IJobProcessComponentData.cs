@@ -534,16 +534,24 @@ namespace Unity.Entities
             {
                 if (jobData.Iterator.IsChangedFilter0 != 0)
                 {
-                    int begin;
-                    int end;
-                    while (JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out begin, out end))
+                    if (jobIndex >= 0)
                     {
+                        int begin;
+                        int end;
+                        while (JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out begin, out end))
+                        {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                        JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData),
-                            begin, end - begin);
+                            JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData),
+                                begin, end - begin);
 #endif
-                        ExecuteInnerLoopByChunk(ref jobData, begin, end);
+                            ExecuteInnerLoopByChunk(ref jobData, begin, end);
+                        }
                     }
+                    else
+                    {
+                        ExecuteInnerLoopByChunk(ref jobData, 0, jobData.Iterator.m_Length);
+                    }
+
                 }
                 else if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -684,15 +692,22 @@ namespace Unity.Entities
             {
                 if (jobData.Iterator.IsChangedFilter0 != 0 || jobData.Iterator.IsChangedFilter1 != 0)
                 {
-                    int begin;
-                    int end;
-                    while (JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out begin, out end))
+                    if(jobIndex >= 0)
                     {
+                        int begin;
+                        int end;
+                        while (JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out begin, out end))
+                        {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                        JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData),
-                            begin, end - begin);
+                            JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData),
+                                begin, end - begin);
 #endif
-                        ExecuteInnerLoopByChunk(ref jobData, begin, end);
+                            ExecuteInnerLoopByChunk(ref jobData, begin, end);
+                        }
+                    }
+                    else
+                    {
+                        ExecuteInnerLoopByChunk(ref jobData, 0, jobData.Iterator.m_Length);
                     }
                 }
                 else if (jobData.Iterator.m_IsParallelFor)
@@ -852,15 +867,22 @@ namespace Unity.Entities
                 if (jobData.Iterator.IsChangedFilter0 != 0 || jobData.Iterator.IsChangedFilter1 != 0 ||
                     jobData.Iterator.IsChangedFilter2 != 0)
                 {
-                    int begin;
-                    int end;
-                    while (JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out begin, out end))
+                    if (jobIndex >= 0)
                     {
+                        int begin;
+                        int end;
+                        while (JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out begin, out end))
+                        {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                        JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData),
-                            begin, end - begin);
+                            JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData),
+                                begin, end - begin);
 #endif
-                        ExecuteInnerLoopByChunk(ref jobData, begin, end);
+                            ExecuteInnerLoopByChunk(ref jobData, begin, end);
+                        }
+                    }
+                    else
+                    {
+                        ExecuteInnerLoopByChunk(ref jobData, 0, jobData.Iterator.m_Length);
                     }
                 }
                 else if (jobData.Iterator.m_IsParallelFor)

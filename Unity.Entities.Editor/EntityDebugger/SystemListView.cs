@@ -225,6 +225,11 @@ namespace Unity.Entities.Editor
                         --currentID;
                     }
                 }
+
+                if (!root.hasChildren)
+                {
+                    root.children = new List<TreeViewItem>(0);
+                }
             }
 
             state.expandedIDs = expandedIds;
@@ -252,11 +257,20 @@ namespace Unity.Entities.Editor
                     componentSystemBase.Enabled = GUI.Toggle(toggleRect, componentSystemBase.Enabled, GUIContent.none);
                 }
 
-                if (componentSystemBase?.ShouldRunSystem() ?? false)
+                if (componentSystemBase != null)
                 {
                     var timingRect = args.GetCellRect(2);
-                    var recorder = recordersByManager[manager];
-                    GUI.Label(timingRect, recorder.ReadMilliseconds().ToString("f2"), RightAlignedLabel);
+                    if (componentSystemBase.ShouldRunSystem())
+                    {
+                        var recorder = recordersByManager[manager];
+                        GUI.Label(timingRect, recorder.ReadMilliseconds().ToString("f2"), RightAlignedLabel);
+                    }
+                    else
+                    {
+                        GUI.enabled = false;
+                        GUI.Label(timingRect, "not run", RightAlignedLabel);
+                        GUI.enabled = enabled;
+                    }
                 }
             }
             else

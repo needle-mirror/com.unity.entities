@@ -5,7 +5,7 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace Unity.Entities
 {
     [NativeContainer]
-    [NativeContainerSupportsMinMaxWriteRestriction]
+    [NativeContainerIsReadOnly]
     public unsafe struct EntityArray
     {
         private ComponentChunkIterator m_Iterator;
@@ -13,8 +13,6 @@ namespace Unity.Entities
 
         private readonly int m_Length;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        private readonly int m_MinIndex;
-        private readonly int m_MaxIndex;
         private readonly AtomicSafetyHandle m_Safety;
 #endif
         public int Length => m_Length;
@@ -30,8 +28,6 @@ namespace Unity.Entities
             m_Cache = default(ComponentChunkCache);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            m_MinIndex = 0;
-            m_MaxIndex = length - 1;
             m_Safety = safety;
 #endif
         }
@@ -42,7 +38,7 @@ namespace Unity.Entities
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
-                if (index < m_MinIndex || index > m_MaxIndex)
+                if ((uint)index >= (uint)m_Length)
                     FailOutOfRangeError(index);
 #endif
 
@@ -56,11 +52,6 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         private void FailOutOfRangeError(int index)
         {
-            //@TODO: Make error message utility and share with NativeArray...
-            if (index < Length && (m_MinIndex != 0 || m_MaxIndex != Length - 1))
-                throw new IndexOutOfRangeException(
-                    $"Index {index} is out of restricted IJobParallelFor range [{m_MinIndex}...{m_MaxIndex}] in ReadWriteBuffer.\nReadWriteBuffers are restricted to only read & write the element at the job index. You can use double buffering strategies to avoid race conditions due to reading & writing in parallel to the same elements from a job.");
-
             throw new IndexOutOfRangeException($"Index {index} is out of range of '{Length}' Length.");
         }
 #endif
@@ -70,11 +61,12 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 
-            if (startIndex < m_MinIndex)
+            if (startIndex < 0)
                 FailOutOfRangeError(startIndex);
-            else if (startIndex + maxCount > m_MaxIndex + 1)
+            else if (startIndex + maxCount > m_Length)
                 FailOutOfRangeError(startIndex + maxCount);
 #endif
+
 
             m_Iterator.UpdateCache(startIndex, out m_Cache, false);
 

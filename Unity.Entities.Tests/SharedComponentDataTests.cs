@@ -1,6 +1,7 @@
 ﻿using System;
 using NUnit.Framework;
 using System.Collections.Generic;
+using Unity.Collections;
 using Unity.Entities;
 
 namespace Unity.Entities.Tests
@@ -116,7 +117,7 @@ namespace Unity.Entities.Tests
         public void GetAllUniqueSharedComponents()
         {
             var unique = new List<SharedData1>(0);
-            m_Manager.GetAllUniqueSharedComponentDatas(unique);
+            m_Manager.GetAllUniqueSharedComponentData(unique);
 
             Assert.AreEqual(1, unique.Count);
             Assert.AreEqual(default(SharedData1).value, unique[0].value);
@@ -126,7 +127,7 @@ namespace Unity.Entities.Tests
             m_Manager.SetSharedComponentData(e, new SharedData1(17));
 
             unique.Clear();
-            m_Manager.GetAllUniqueSharedComponentDatas(unique);
+            m_Manager.GetAllUniqueSharedComponentData(unique);
 
             Assert.AreEqual(2, unique.Count);
             Assert.AreEqual(default(SharedData1).value, unique[0].value);
@@ -135,7 +136,7 @@ namespace Unity.Entities.Tests
             m_Manager.SetSharedComponentData(e, new SharedData1(34));
 
             unique.Clear();
-            m_Manager.GetAllUniqueSharedComponentDatas(unique);
+            m_Manager.GetAllUniqueSharedComponentData(unique);
 
             Assert.AreEqual(2, unique.Count);
             Assert.AreEqual(default(SharedData1).value, unique[0].value);
@@ -144,7 +145,7 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(e);
 
             unique.Clear();
-            m_Manager.GetAllUniqueSharedComponentDatas(unique);
+            m_Manager.GetAllUniqueSharedComponentData(unique);
 
             Assert.AreEqual(1, unique.Count);
             Assert.AreEqual(default(SharedData1).value, unique[0].value);
@@ -170,7 +171,7 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(SharedData1));
 
             var unique = new List<SharedData1>(0);
-            m_Manager.GetAllUniqueSharedComponentDatas(unique);
+            m_Manager.GetAllUniqueSharedComponentData(unique);
             Assert.AreEqual(unqueValues, unique.Count);
             var forEachFilter = group.CreateForEachFilter(unique);
 
@@ -201,6 +202,20 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, m_Manager.GetSharedComponentData<SharedData1>(e).value);
 
             m_Manager.SetSharedComponentData(e, new SharedData1(17));
+
+            Assert.AreEqual(17, m_Manager.GetSharedComponentData<SharedData1>(e).value);
+        }
+        
+        [Test]
+        public void GetSharedComponentDataAfterArchetypeChange()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
+            Entity e = m_Manager.CreateEntity(archetype);
+
+            Assert.AreEqual(0, m_Manager.GetSharedComponentData<SharedData1>(e).value);
+
+            m_Manager.SetSharedComponentData(e, new SharedData1(17));
+            m_Manager.AddComponentData(e, new EcsTestData2 {value0 = 1, value1 = 2});
 
             Assert.AreEqual(17, m_Manager.GetSharedComponentData<SharedData1>(e).value);
         }
@@ -295,7 +310,72 @@ namespace Unity.Entities.Tests
             }
 
             group.Dispose();
+        }
+        
+        [Test]
+        public void SCG_DoesNotMatchRemovedSharedComponentInComponentGroup()
+        {
+            var archetype0 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
+            var archetype1 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData), typeof(SharedData2));
 
+            var group0 = m_Manager.CreateComponentGroup(typeof(SharedData1));
+            var group1 = m_Manager.CreateComponentGroup(typeof(SharedData2));
+            
+            var entity0 = m_Manager.CreateEntity(archetype0);
+            var entity1 = m_Manager.CreateEntity(archetype1);
+
+            Assert.AreEqual(2, group0.CalculateLength());
+            Assert.AreEqual(1, group1.CalculateLength());
+
+            m_Manager.RemoveComponent<SharedData2>(entity1);
+
+            Assert.AreEqual(2, group0.CalculateLength());
+            Assert.AreEqual(0, group1.CalculateLength());
+
+            group0.Dispose();
+            group1.Dispose();
+        }
+        
+        [Test]
+        public void SCG_DoesNotMatchRemovedSharedComponentInChunkQuery()
+        {
+            var archetype0 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
+            var archetype1 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData), typeof(SharedData2));
+
+            var query0 = new EntityArchetypeQuery
+            {
+                All = new ComponentType[] {typeof(SharedData1)},
+                Any = Array.Empty<ComponentType>(),
+                None = Array.Empty<ComponentType>()
+            };
+            var query1 = new EntityArchetypeQuery
+            {
+                All = new ComponentType[] {typeof(SharedData2)},
+                Any = Array.Empty<ComponentType>(),
+                None = Array.Empty<ComponentType>()
+            };
+
+            var entity0 = m_Manager.CreateEntity(archetype0);
+            var entity1 = m_Manager.CreateEntity(archetype1);
+
+            var preChunks0 = m_Manager.CreateArchetypeChunkArray(query0, Allocator.TempJob);
+            var preChunks1 = m_Manager.CreateArchetypeChunkArray(query1, Allocator.TempJob);
+
+            Assert.AreEqual(2, ArchetypeChunkArray.CalculateEntityCount(preChunks0));
+            Assert.AreEqual(1, ArchetypeChunkArray.CalculateEntityCount(preChunks1));
+
+            m_Manager.RemoveComponent<SharedData2>(entity1);
+            
+            var postChunks0 = m_Manager.CreateArchetypeChunkArray(query0, Allocator.TempJob);
+            var postChunks1 = m_Manager.CreateArchetypeChunkArray(query1, Allocator.TempJob);
+
+            Assert.AreEqual(2, ArchetypeChunkArray.CalculateEntityCount(postChunks0));
+            Assert.AreEqual(0, ArchetypeChunkArray.CalculateEntityCount(postChunks1));
+
+            preChunks0.Dispose();
+            preChunks1.Dispose();
+            postChunks0.Dispose();
+            postChunks1.Dispose();
         }
 
     }

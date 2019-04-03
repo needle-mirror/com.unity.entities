@@ -142,12 +142,17 @@ namespace Unity.Entities
                 return;
             var typeI = 0;
             var prevTypeI = 0;
+            var disabledIndex = TypeManager.GetTypeIndex<Disabled>();
+            var requestedDisabled = false;
             for (var i = 0; i < group->RequiredComponentsCount; ++i, ++typeI)
             {
                 while (archetype->Types[typeI].TypeIndex < group->RequiredComponents[i].TypeIndex &&
                        typeI < archetype->TypesCount)
                     ++typeI;
 
+                if (group->RequiredComponents[i].TypeIndex == disabledIndex)
+                    requestedDisabled = true;
+                
                 var hasComponent = !(typeI >= archetype->TypesCount);
 
                 // Type mismatch
@@ -164,6 +169,9 @@ namespace Unity.Entities
                 else
                     typeI = prevTypeI;
             }
+
+            if (archetype->Disabled && (!requestedDisabled))
+                return;
 
             var match = (MatchingArchetypes*) m_GroupDataChunkAllocator.Allocate(
                 MatchingArchetypes.GetAllocationSize(group->RequiredComponentsCount), 8);

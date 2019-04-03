@@ -8,18 +8,17 @@ namespace Unity.Entities.Editor
 {
     public static class ComponentGroupGUI
     {
-        public static void CalculateDrawingParts(ComponentType[] types, float width, out float height, out List<GUIStyle> styles, out List<GUIContent> names, out List<Rect> rects)
+        public static void CalculateDrawingParts(List<ComponentType> types, bool archetypeQueryMode, float width, out float height, out List<GUIStyle> styles, out List<GUIContent> names, out List<Rect> rects)
         {
-            var sortedTypes = new List<ComponentType>(types.Skip(1));
-            sortedTypes.Sort((Comparison<ComponentType>) CompareTypes);
-            styles = new List<GUIStyle>(sortedTypes.Count);
-            names = new List<GUIContent>(sortedTypes.Count);
-            rects = new List<Rect>(sortedTypes.Count);
+            types.Sort((Comparison<ComponentType>) CompareTypes);
+            styles = new List<GUIStyle>(types.Count);
+            names = new List<GUIContent>(types.Count);
+            rects = new List<Rect>(types.Count);
             var x = 0f;
             var y = 0f;
-            foreach (var type in sortedTypes)
+            foreach (var type in types)
             {
-                var style = StyleForAccessMode(type.AccessModeType);
+                var style = StyleForAccessMode(type.AccessModeType, archetypeQueryMode);
                 var content = new GUIContent((string) SpecifiedTypeName(type.GetManagedType()));
                 var rect = new Rect(new Vector2(x, y), style.CalcSize(content));
                 if (rect.xMax > width && x != 0f)
@@ -54,7 +53,7 @@ namespace Unity.Entities.Editor
 
         public static void ComponentListGUILayout(ComponentType[] types, float width)
         {
-            CalculateDrawingParts(types, width, out var height, out var styles, out var names, out var rects);
+            CalculateDrawingParts(types.ToList(), false, width, out var height, out var styles, out var names, out var rects);
 
             var wholeRect = GUILayoutUtility.GetRect(width, height);
             DrawComponentList(wholeRect, styles, names, rects);
@@ -95,14 +94,14 @@ namespace Unity.Entities.Editor
             return name;
         }
 
-        internal static GUIStyle StyleForAccessMode(ComponentType.AccessMode mode)
+        internal static GUIStyle StyleForAccessMode(ComponentType.AccessMode mode, bool archetypeQueryMode)
         {
             switch (mode)
             {
                 case ComponentType.AccessMode.ReadOnly:
-                    return EntityDebuggerStyles.ComponentReadOnly;
+                    return archetypeQueryMode ? EntityDebuggerStyles.ComponentRequired : EntityDebuggerStyles.ComponentReadOnly;
                 case ComponentType.AccessMode.ReadWrite:
-                    return EntityDebuggerStyles.ComponentReadWrite;
+                    return archetypeQueryMode ? EntityDebuggerStyles.ComponentRequired : EntityDebuggerStyles.ComponentReadWrite;
                 case ComponentType.AccessMode.Subtractive:
                     return EntityDebuggerStyles.ComponentSubtractive;
                 default:

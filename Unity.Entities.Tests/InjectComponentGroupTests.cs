@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using System;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -210,13 +211,13 @@ namespace Unity.Entities.Tests
 				public Entity entity;
 
 				public ComponentDataFromEntity<EcsTestData> ecsTestDataFromEntity;
-				public FixedArrayFromEntity<int> intArrayFromEntity;
+				public BufferDataFromEntity<EcsIntElement> intArrayFromEntity;
 
 				public void Execute()
 				{
-					var array = intArrayFromEntity[entity];
-					for (int i = 0;i<array.Length;i++)
-						array[i]++;
+					DynamicBuffer<EcsIntElement> array = intArrayFromEntity[entity];
+                    for (int i = 0; i < array.Length; i++)
+                        array[i] = new EcsIntElement { Value = array[i].Value + 1 };
 
 					var value = ecsTestDataFromEntity[entity];
 					value.value++;
@@ -225,7 +226,7 @@ namespace Unity.Entities.Tests
 			}
 
 			[Inject]
-			FixedArrayFromEntity<int> intArrayFromEntity;
+			BufferDataFromEntity<EcsIntElement> intArrayFromEntity;
 
 		    [Inject]
 			ComponentDataFromEntity<EcsTestData> ecsTestDataFromEntity;
@@ -243,18 +244,21 @@ namespace Unity.Entities.Tests
 			}
 		}
 
-		[Test]
-		public void FromEntitySystemIncrementInJobWorks()
-		{
-			var system = World.GetOrCreateManager<FromEntitySystemIncrementInJob> ();
+        [Test]
+        public void FromEntitySystemIncrementInJobWorks()
+        {
+            var system = World.GetOrCreateManager<FromEntitySystemIncrementInJob>();
 
-			var entity = m_Manager.CreateEntity (typeof(EcsTestData), ComponentType.FixedArray(typeof(int), 5));
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsIntElement));
+
+            m_Manager.GetBuffer<EcsIntElement>(entity).CopyFrom(new EcsIntElement[] { 0, -1, Int32.MinValue });
+
 			system.entity = entity;
 			system.Update();
 			system.Update();
 
 			Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(entity).value);
-			Assert.AreEqual(2, m_Manager.GetFixedArray<int>(entity)[0]);
+			Assert.AreEqual(2, m_Manager.GetBuffer<EcsIntElement>(entity)[0].Value);
 		}
 
 		[DisableAutoCreation]

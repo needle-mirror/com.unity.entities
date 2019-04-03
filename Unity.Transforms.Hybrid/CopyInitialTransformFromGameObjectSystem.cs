@@ -7,18 +7,15 @@ using UnityEngine.Jobs;
 
 namespace Unity.Transforms
 {
+    [UpdateBefore(typeof(EndFrameTransformSystem))]
     public class CopyInitialTransformFromGameObjectSystem : JobComponentSystem
     {
-        [Inject] ComponentDataFromEntity<LocalPosition> m_LocalPositions;
-        [Inject] ComponentDataFromEntity<LocalRotation> m_LocalRotations;
         [Inject] ComponentDataFromEntity<Position> m_Positions;
         [Inject] ComponentDataFromEntity<Rotation> m_Rotations;
 
         struct TransformStash
         {
-            public float3 localPosition;
             public float3 position;
-            public quaternion localRotation;
             public quaternion rotation;
         }
 
@@ -31,19 +28,15 @@ namespace Unity.Transforms
             {
                 transformStashes[index] = new TransformStash
                 {
-                    localPosition  = transform.localPosition,
                     rotation       = transform.rotation,
                     position       = transform.position,
-                    localRotation  = transform.localRotation,
                 };
             }
         }
 
-        [BurstCompile]
+        // [BurstCompile]
         struct CopyTransforms : IJobParallelFor
         {
-            [NativeDisableParallelForRestriction] public ComponentDataFromEntity<LocalPosition> localPositions;
-            [NativeDisableParallelForRestriction] public ComponentDataFromEntity<LocalRotation> localRotations;
             [NativeDisableParallelForRestriction] public ComponentDataFromEntity<Position> positions;
             [NativeDisableParallelForRestriction] public ComponentDataFromEntity<Rotation> rotations;
             [ReadOnly]
@@ -61,14 +54,6 @@ namespace Unity.Transforms
                 if (rotations.Exists(entity))
                 {
                     rotations[entity] = new Rotation { Value = transformStash.rotation };
-                }
-                if (localPositions.Exists(entity))
-                {
-                    localPositions[entity] = new LocalPosition { Value = transformStash.localPosition };
-                }
-                if (localRotations.Exists(entity))
-                {
-                    localRotations[entity] = new LocalRotation { Value = transformStash.localRotation };
                 }
             }
         }
@@ -115,8 +100,6 @@ namespace Unity.Transforms
             {
                 positions = m_Positions,
                 rotations = m_Rotations,
-                localPositions = m_LocalPositions,
-                localRotations = m_LocalRotations,
                 transformStashes = transformStashes,
                 entities = entities
             };

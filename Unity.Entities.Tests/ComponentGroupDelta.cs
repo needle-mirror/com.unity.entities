@@ -87,7 +87,7 @@ namespace Unity.Entities.Tests
 
             list.Dispose();
         }
-        
+
         [Test]
         [Ignore("Needs to be implemented")]
         public void IndexListSafety()
@@ -318,6 +318,41 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(100 + 2, m_Manager.GetComponentData<EcsTestData2>(entity0).value0);
             Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData2>(entity1).value0);
         }
+
+
+        [DisableAutoCreation]
+        public class DeltaProcessComponentSystemUsingRun : ComponentSystem
+        {
+            struct DeltaJob : IJobProcessComponentData<EcsTestData, EcsTestData2>
+            {
+                public void Execute([ChangedFilter][ReadOnly]ref EcsTestData input, ref EcsTestData2 output)
+                {
+                    output.value0 += input.value + 100;
+                }
+            }
+
+            protected override void OnUpdate()
+            {
+               new DeltaJob().Run(this);
+            }
+        }
+
+        [Test]
+        public void IJobProcessComponentDeltaWorksWhenUsingRun()
+        {
+            var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+
+            var deltaSystem = World.CreateManager<DeltaProcessComponentSystemUsingRun>();
+
+            SetValue(0, 2, ChangeMode.SetComponentData);
+
+            deltaSystem.Update();
+
+            Assert.AreEqual(100 + 2, m_Manager.GetComponentData<EcsTestData2>(entity0).value0);
+            Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData2>(entity1).value0);
+        }
+
 
 #if false
         [Test]

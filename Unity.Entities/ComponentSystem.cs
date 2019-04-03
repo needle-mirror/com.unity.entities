@@ -155,7 +155,41 @@ namespace Unity.Entities
             Array.Resize(ref array, array.Length + 1);
             array[array.Length - 1] = item;
         }
+        
+        public ArchetypeChunkComponentType<T> GetArchetypeChunkComponentType<T>(bool isReadOnly = false)
+            where T : struct, IComponentData
+        {
+            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.Create<T>());
+            return EntityManager.GetArchetypeChunkComponentType<T>(isReadOnly);
+        }
 
+        public ArchetypeChunkBufferType<T> GetArchetypeChunkBufferType<T>(bool isReadOnly = false)
+            where T : struct, IBufferElementData
+        {
+            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.Create<T>());
+            return EntityManager.GetArchetypeChunkBufferType<T>(isReadOnly);
+        }
+
+        public ArchetypeChunkSharedComponentType<T> GetArchetypeChunkSharedComponentType<T>()
+            where T : struct, ISharedComponentData
+        {
+            AddReaderWriter(ComponentType.ReadOnly<T>());
+            return EntityManager.GetArchetypeChunkSharedComponentType<T>();
+        }
+
+        public ArchetypeChunkEntityType GetArchetypeChunkEntityType()
+        {
+            AddReaderWriter(ComponentType.ReadOnly<Entity>());
+            return EntityManager.GetArchetypeChunkEntityType();
+        }
+        
+        public ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
+            where T : struct, IComponentData
+        {
+            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.Create<T>());
+            return EntityManager.GetComponentDataFromEntity<T>(isReadOnly);
+        }
+        
         internal void AddReaderWriter(ComponentType componentType)
         {
             if (CalculateReaderWriterDependency.Add(componentType, m_JobDependencyForReadingManagers, m_JobDependencyForWritingManagers))
@@ -168,7 +202,7 @@ namespace Unity.Entities
                 CompleteDependencyInternal();
             }
         }
-
+        
         internal ComponentGroup GetComponentGroupInternal(ComponentType* componentTypes, int count)
         {
             for (var i = 0; i != m_ComponentGroups.Length; i++)
@@ -437,16 +471,10 @@ namespace Unity.Entities
             m_PreviousFrameDependency.Complete();
         }
 
-        public ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(bool isReadOnly = false) where T : struct, IComponentData
+        public BufferDataFromEntity<T> GetBufferArrayFromEntity<T>(bool isReadOnly = false) where T : struct, IBufferElementData
         {
             AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.Create<T>());
-            return EntityManager.GetComponentDataFromEntity<T>(TypeManager.GetTypeIndex<T>(), isReadOnly);
-        }
-
-        public FixedArrayFromEntity<T> GetFixedArrayFromEntity<T>(bool isReadOnly = false) where T : struct
-        {
-            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.Create<T>());
-            return EntityManager.GetFixedArrayFromEntity<T>(TypeManager.GetTypeIndex<T>(), isReadOnly);
+            return EntityManager.GetBufferDataFromEntity<T>(isReadOnly);
         }
 
         protected virtual JobHandle OnUpdate(JobHandle inputDeps)
@@ -504,7 +532,11 @@ namespace Unity.Entities
 
     public unsafe abstract class BarrierSystem : ComponentSystem
     {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS	
+        private List<EntityCommandBuffer> m_PendingBuffers;	
+#else	
         private NativeList<EntityCommandBuffer> m_PendingBuffers;
+#endif
         private JobHandle m_ProducerHandle;
 
         public EntityCommandBuffer CreateCommandBuffer()
@@ -524,15 +556,21 @@ namespace Unity.Entities
         protected override void OnCreateManager(int capacity)
         {
             base.OnCreateManager(capacity);
-
+            
+#if ENABLE_UNITY_COLLECTIONS_CHECKS	
+            m_PendingBuffers = new List<EntityCommandBuffer>();	
+#else	
             m_PendingBuffers = new NativeList<EntityCommandBuffer>(Allocator.Persistent);
+#endif
         }
 
         protected override void OnDestroyManager()
         {
             FlushBuffers(false);
 
+#if !ENABLE_UNITY_COLLECTIONS_CHECKS
             m_PendingBuffers.Dispose();
+#endif
 
             base.OnDestroyManager();
         }
@@ -549,8 +587,12 @@ namespace Unity.Entities
             m_ProducerHandle.Complete();
             m_ProducerHandle = new JobHandle();
 
-            int length = m_PendingBuffers.Length;
-
+            int length;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS	
+            length = m_PendingBuffers.Count;	
+#else	
+            length = m_PendingBuffers.Length;	
+#endif
             for (int i = 0; i < length; ++i)
             {
                 if (playBack)
