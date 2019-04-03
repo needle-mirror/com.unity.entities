@@ -1,6 +1,7 @@
 ﻿using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Burst;
 using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.Scripting;
@@ -10,7 +11,7 @@ namespace Unity.Transforms2D
     [Preserve]
     public class MoveForward2DSystem : JobComponentSystem
     {
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct MoveForwardPosition : IJobProcessComponentData<Position2D, Heading2D, MoveSpeed>
         {
             public float dt;

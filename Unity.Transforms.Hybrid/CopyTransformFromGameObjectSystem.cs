@@ -1,6 +1,7 @@
 ﻿using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Burst;
 using Unity.Mathematics;
 using UnityEngine.Jobs;
 
@@ -21,7 +22,7 @@ namespace Unity.Transforms
             public quaternion rotation;
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct StashTransforms : IJobParallelForTransform
         {
             public NativeArray<TransformStash> transformStashes;
@@ -38,7 +39,7 @@ namespace Unity.Transforms
             }
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct CopyTransforms : IJobParallelFor
         {
             [NativeDisableParallelForRestriction] public ComponentDataFromEntity<LocalPosition> localPositions;

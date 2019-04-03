@@ -1,6 +1,7 @@
 ﻿using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Burst;
 using Unity.Mathematics;
 using Unity.Mathematics.Experimental;
 using Unity.Transforms;
@@ -12,7 +13,7 @@ namespace Unity.Transforms
     [UpdateBefore(typeof(TransformSystem))]
     public class MoveForwardSystem : JobComponentSystem
     {
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct MoveForwardRotation : IJobParallelFor
         {
             public ComponentDataArray<Position> positions;
@@ -29,7 +30,7 @@ namespace Unity.Transforms
             }
         }
         
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct MoveForwardHeading : IJobParallelFor
         {
             public ComponentDataArray<Position> positions;

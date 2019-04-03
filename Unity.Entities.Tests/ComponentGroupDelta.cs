@@ -87,7 +87,7 @@ namespace Unity.Entities.Tests
 
             list.Dispose();
         }
-
+        
         [Test]
         [Ignore("Needs to be implemented")]
         public void IndexListSafety()

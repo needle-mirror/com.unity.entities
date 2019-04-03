@@ -1,6 +1,7 @@
 ﻿using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Burst;
 using Unity.Mathematics;
 using Unity.Transforms;
 
@@ -28,7 +29,7 @@ namespace Unity.Transforms
 
         [Inject] private LocalHeadingsGroup m_LocalHeadingsGroup;
         
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct RotationFromHeading : IJobParallelFor
         {
             public ComponentDataArray<Rotation> rotations;
@@ -42,7 +43,7 @@ namespace Unity.Transforms
             }
         }
         
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct LocalRotationFromLocalHeading : IJobParallelFor
         {
             public ComponentDataArray<LocalRotation> rotations;

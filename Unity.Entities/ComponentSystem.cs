@@ -4,6 +4,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs.LowLevel.Unsafe;
+using System.Collections.Generic;
 
 namespace Unity.Entities
 {
@@ -545,10 +546,14 @@ namespace Unity.Entities
             m_ProducerHandle.Complete();
             m_ProducerHandle = new JobHandle();
 
-            for (int i = 0; i < m_PendingBuffers.Length; ++i)
+            int length = m_PendingBuffers.Length;
+
+            for (int i = 0; i < length; ++i)
             {
                 if (playBack)
+                {
                     m_PendingBuffers[i].Playback(EntityManager);
+                }
                 m_PendingBuffers[i].Dispose();
             }
         }

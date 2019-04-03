@@ -1,6 +1,7 @@
 ﻿using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Burst;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEditor;
@@ -25,7 +26,7 @@ namespace Unity.Rendering
             public int Length;
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct TransformCenterJob : IJobParallelForBatch
         {
             [NativeDisableParallelForRestriction]
@@ -50,8 +51,8 @@ namespace Unity.Rendering
                     x[i] = center.x;
                     y[i] = center.y;
                     z[i] = center.z;
-                    float scale = math.max(math.max(transform[start + i].Value.m0.x, transform[start + i].Value.m1.y),
-                        transform[start + i].Value.m2.z);
+                    float scale = math.max(math.max(transform[start + i].Value.c0.x, transform[start + i].Value.c1.y),
+                        transform[start + i].Value.c2.z);
                     r[i] = sphere[start + i].BoundingSphereRadius * scale;
                     cull[i] = sphere[start + i].CullStatus;
                 }
@@ -82,7 +83,7 @@ namespace Unity.Rendering
             public float4 bottomZ;
             public float4 bottomDist;
         }
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct FrustumCullJob : IJobParallelFor
         {
             [DeallocateOnJobCompletion][ReadOnly] public NativeArray<float4> center;

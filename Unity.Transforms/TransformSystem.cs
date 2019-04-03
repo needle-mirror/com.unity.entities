@@ -2,6 +2,7 @@
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Burst;
 using Unity.Mathematics;
 
 namespace Unity.Transforms
@@ -142,7 +143,7 @@ namespace Unity.Transforms
         }
         [Inject] ParentGroup m_ParentGroup;
         
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct UpdateRotTransTransformRoots : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Rotation> rotations;
@@ -159,7 +160,7 @@ namespace Unity.Transforms
             }
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct UpdateRotTransTransformNoHierarchyRoots : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Rotation> rotations;
@@ -174,7 +175,7 @@ namespace Unity.Transforms
             }
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct UpdateRotTransNoTransformRoots : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Rotation> rotations;
@@ -188,7 +189,7 @@ namespace Unity.Transforms
             }
         }
         
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct UpdateRotTransformRoots : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Rotation> rotations;
@@ -204,7 +205,7 @@ namespace Unity.Transforms
             }
         }
         
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct UpdateRotTransformNoHierarchyRoots : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Rotation> rotations;
@@ -218,7 +219,7 @@ namespace Unity.Transforms
             }
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct UpdateRotNoTransformRoots : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Rotation> rotations;
@@ -231,7 +232,7 @@ namespace Unity.Transforms
             }
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct UpdateTransTransformRoots : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Position> positions;
@@ -247,7 +248,7 @@ namespace Unity.Transforms
             }
         }
         
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct UpdateTransTransformNoHierarchyRoots : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Position> positions;
@@ -261,7 +262,7 @@ namespace Unity.Transforms
             }
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct UpdateTransNoTransformRoots : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Position> positions;
@@ -274,7 +275,7 @@ namespace Unity.Transforms
             }
         }
         
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct UpdateHeadingTransTransformRoots : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Position> positions;
@@ -291,7 +292,7 @@ namespace Unity.Transforms
             }
         }
         
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct UpdateHeadingTransTransformNoHierarchyRoots : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Position> positions;
@@ -306,7 +307,7 @@ namespace Unity.Transforms
             }
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct UpdateHeadingTransNoTransformRoots : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Position> positions;
@@ -320,7 +321,7 @@ namespace Unity.Transforms
             }
         }
         
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct BuildHierarchy : IJobParallelFor
         {
             public NativeMultiHashMap<Entity, Entity>.Concurrent hierarchy;
@@ -333,7 +334,7 @@ namespace Unity.Transforms
             }
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct UpdateSubHierarchy : IJobParallelFor
         {
             [ReadOnly] public NativeMultiHashMap<Entity, Entity>                                  hierarchy;
@@ -373,7 +374,7 @@ namespace Unity.Transforms
                 
                 if (localRotations.Exists(entity))
                 {
-                    var parentRotation = math.matrixToQuat(parentMatrix.m0.xyz, parentMatrix.m1.xyz, parentMatrix.m2.xyz);
+                    var parentRotation = math.matrixToQuat(parentMatrix.c0.xyz, parentMatrix.c1.xyz, parentMatrix.c2.xyz);
                     var localRotation = localRotations[entity].Value;
                     rotation = math.mul(parentRotation, localRotation);
                     if (rotations.Exists(entity))
@@ -413,7 +414,7 @@ namespace Unity.Transforms
             }
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct ClearHierarchy : IJob
         {
             public  NativeMultiHashMap<Entity, Entity> hierarchy;

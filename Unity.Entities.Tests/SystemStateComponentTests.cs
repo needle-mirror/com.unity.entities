@@ -9,38 +9,6 @@ namespace Unity.Entities.Tests
     public class SystemStateComponentTests : ECSTestsFixture
     {
         [Test]
-        public void SSC_NoRemoveWithSystemStateComponentData()
-        {
-            var entity = m_Manager.CreateEntity(
-                typeof(EcsTestData),
-                typeof(EcsTestSharedComp),
-                typeof(EcsState1)
-            );
-
-            m_Manager.SetComponentData(entity, new EcsTestData(1));
-            m_Manager.SetComponentData(entity, new EcsState1(2));
-            m_Manager.SetSharedComponentData(entity, new EcsTestSharedComp(3));
-
-            Assert.Throws<System.ArgumentException>(() => { m_Manager.RemoveComponent<EcsState1>(entity); });
-        }
-        
-        [Test]
-        public void SSC_NoRemoveSystemStateWithComponentData()
-        {
-            var entity = m_Manager.CreateEntity(
-                typeof(EcsTestData),
-                typeof(EcsTestSharedComp),
-                typeof(EcsState1)
-            );
-
-            m_Manager.SetComponentData(entity, new EcsTestData(1));
-            m_Manager.SetComponentData(entity, new EcsState1(2));
-            m_Manager.SetSharedComponentData(entity, new EcsTestSharedComp(3));
-
-            Assert.Throws<System.ArgumentException>(() => { m_Manager.RemoveSystemStateComponent<EcsTestData>(entity); });
-        }
-        
-        [Test]
         public void SSC_DeleteWhenEmpty()
         {
             var entity = m_Manager.CreateEntity(
@@ -85,7 +53,7 @@ namespace Unity.Entities.Tests
                 chunks.Dispose();
             }
 
-            m_Manager.RemoveSystemStateComponent<EcsState1>(entity);
+            m_Manager.RemoveComponent<EcsState1>(entity);
 
             {
                 var chunks = m_Manager.CreateArchetypeChunkArray(
@@ -158,7 +126,7 @@ namespace Unity.Entities.Tests
             for (var i = 0; i < 512; i += 2)
             {
                 var entity = entities[i];
-                m_Manager.RemoveSystemStateComponent<EcsState1>(entity);
+                m_Manager.RemoveComponent<EcsState1>(entity);
             }
 
             {
@@ -242,7 +210,7 @@ namespace Unity.Entities.Tests
             for (var i = 0; i < 256; i++)
             {
                 var entity = entities[i];
-                m_Manager.RemoveSystemStateComponent<EcsState1>(entity);
+                m_Manager.RemoveComponent<EcsState1>(entity);
             }
 
             {

@@ -1,6 +1,7 @@
 ﻿using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Burst;
 using UnityEngine.Jobs;
 
 namespace Unity.Transforms
@@ -13,7 +14,7 @@ namespace Unity.Transforms
         [Inject] [ReadOnly] ComponentDataFromEntity<LocalPosition> m_LocalPositions;
         [Inject] [ReadOnly] ComponentDataFromEntity<LocalRotation> m_LocalRotations;
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct CopyTransforms : IJobParallelForTransform
         {
             [ReadOnly] public ComponentDataFromEntity<Position> positions;

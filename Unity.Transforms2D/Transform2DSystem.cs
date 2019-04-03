@@ -1,6 +1,7 @@
 ﻿using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Burst;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine.Scripting;
@@ -30,7 +31,7 @@ namespace Unity.Transforms2D
         
         [Inject] RotTransGroup m_RotTransGroup;
     
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct TransToMatrix : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Position2D> positions;
@@ -46,7 +47,7 @@ namespace Unity.Transforms2D
             }
         }
         
-        [ComputeJobOptimization]
+        [BurstCompile]
         struct RotTransToMatrix : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Position2D> positions;
@@ -61,10 +62,10 @@ namespace Unity.Transforms2D
                 {
                     Value = new float4x4
                     {
-                        m0 = new float4( heading.y, 0.0f, -heading.x, 0.0f ),
-                        m1 = new float4( 0.0f, 1.0f, 0.0f, 0.0f ),
-                        m2 = new float4( heading.x, 0.0f, heading.y, 0.0f ),
-                        m3 = new float4( position.x, 0.0f, position.y, 1.0f )
+                        c0 = new float4( heading.y, 0.0f, -heading.x, 0.0f ),
+                        c1 = new float4( 0.0f, 1.0f, 0.0f, 0.0f ),
+                        c2 = new float4( heading.x, 0.0f, heading.y, 0.0f ),
+                        c3 = new float4( position.x, 0.0f, position.y, 1.0f )
                     }
                 };
             }

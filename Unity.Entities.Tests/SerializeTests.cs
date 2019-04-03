@@ -85,13 +85,13 @@ namespace Unity.Entities.Tests
             var reader = new TestBinaryReader(writer);
 
             var deserializedWorld = new World("SerializeEntities Test World 3");
+            var entityManager = deserializedWorld.GetOrCreateManager<EntityManager>();
 
-            SerializeUtility.DeserializeWorld(deserializedWorld.GetOrCreateManager<EntityManager>(), reader);
+            SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader);
+            entityManager.EndExclusiveEntityTransaction();
 
             try
             {
-                var entityManager = deserializedWorld.GetExistingManager<EntityManager>();
-
                 var allEntities = entityManager.GetAllEntities(Allocator.Temp);
                 var count = allEntities.Length;
                 allEntities.Dispose();

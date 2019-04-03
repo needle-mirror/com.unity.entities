@@ -150,25 +150,25 @@ namespace Unity.Entities.Editor
         void ICustomVisit<float2x2>.CustomVisit(float2x2 f)
         {
             GUILayout.Label(Property.Name);
-            EditorGUILayout.Vector2Field("", (Vector2)f.m0);
-            EditorGUILayout.Vector2Field("", (Vector2)f.m1);
+            EditorGUILayout.Vector2Field("", (Vector2)f.c0);
+            EditorGUILayout.Vector2Field("", (Vector2)f.c1);
         }
 
         void ICustomVisit<float3x3>.CustomVisit(float3x3 f)
         {
             GUILayout.Label(Property.Name);
-            EditorGUILayout.Vector3Field("", (Vector3)f.m0);
-            EditorGUILayout.Vector3Field("", (Vector3)f.m1);
-            EditorGUILayout.Vector3Field("", (Vector3)f.m2);
+            EditorGUILayout.Vector3Field("", (Vector3)f.c0);
+            EditorGUILayout.Vector3Field("", (Vector3)f.c1);
+            EditorGUILayout.Vector3Field("", (Vector3)f.c2);
         }
 
         void ICustomVisit<float4x4>.CustomVisit(float4x4 f)
         {
             GUILayout.Label(Property.Name);
-            EditorGUILayout.Vector4Field("", (Vector4)f.m0);
-            EditorGUILayout.Vector4Field("", (Vector4)f.m1);
-            EditorGUILayout.Vector4Field("", (Vector4)f.m2);
-            EditorGUILayout.Vector4Field("", (Vector4)f.m3);
+            EditorGUILayout.Vector4Field("", (Vector4)f.c0);
+            EditorGUILayout.Vector4Field("", (Vector4)f.c1);
+            EditorGUILayout.Vector4Field("", (Vector4)f.c2);
+            EditorGUILayout.Vector4Field("", (Vector4)f.c3);
         }
 
         #region ICustomVisitPrimitives

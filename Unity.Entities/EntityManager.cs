@@ -288,11 +288,6 @@ namespace Unity.Entities
             Entities->CreateEntities(ArchetypeManager, archetype.Archetype, entities, count);
         }
 
-        internal void AllocateConsecutiveEntitiesForLoading(int count)
-        {
-            m_Entities->AllocateConsecutiveEntitiesForLoading(count);
-        }
-
         public void DestroyEntity(ComponentGroup componentGroupFilter)
         {
             BeforeStructuralChange();
@@ -381,48 +376,24 @@ namespace Unity.Entities
                 m_CachedComponentTypeInArchetypeArray);
         }
 
-        public void RemoveComponents(Entity entity)
-        {
-            BeforeStructuralChange();
-            Entities->TryRemoveEntityId(&entity, 1, ArchetypeManager, m_SharedComponentManager, m_GroupManager,
-                m_CachedComponentTypeInArchetypeArray);
-        }
-
         public void RemoveComponent(Entity entity, ComponentType type)
         {
-            if (typeof(ISystemStateComponentData).IsAssignableFrom(type.GetManagedType()))
-                throw new ArgumentException(
-                    $"RemoveComponent<{type.GetManagedType()}> cannot be called on ISystemStateComponentData");
-
             BeforeStructuralChange();
             Entities->AssertEntityHasComponent(entity, type);
             Entities->RemoveComponent(entity, type, ArchetypeManager, m_SharedComponentManager, m_GroupManager,
                 m_CachedComponentTypeInArchetypeArray);
+            
+            var archetype = Entities->GetArchetype(entity);
+            if (archetype->SystemStateCleanupComplete)
+            {
+                Entities->TryRemoveEntityId(&entity, 1, ArchetypeManager, m_SharedComponentManager, m_GroupManager,
+                    m_CachedComponentTypeInArchetypeArray);
+            }
         }
 
         public void RemoveComponent<T>(Entity entity)
         {
             RemoveComponent(entity, ComponentType.Create<T>());
-        }
-
-        public void RemoveSystemStateComponent(Entity entity, ComponentType type)
-        {
-            if (!typeof(ISystemStateComponentData).IsAssignableFrom(type.GetManagedType()))
-                throw new ArgumentException(
-                    $"RemoveSystemStateComponent<{type.GetManagedType()}> cannot be called on IComponentData");
-
-            BeforeStructuralChange();
-
-            Entities->AssertEntityHasComponent(entity, type);
-            Entities->RemoveComponent(entity, type, ArchetypeManager, m_SharedComponentManager, m_GroupManager,
-                m_CachedComponentTypeInArchetypeArray);
-            Entities->TryRemoveEntityId(&entity, 1, ArchetypeManager, m_SharedComponentManager, m_GroupManager,
-                m_CachedComponentTypeInArchetypeArray);
-        }
-
-        public void RemoveSystemStateComponent<T>(Entity entity)
-        {
-            RemoveSystemStateComponent(entity, ComponentType.Create<T>());
         }
 
         public void AddComponentData<T>(Entity entity, T componentData) where T : struct, IComponentData
@@ -495,10 +466,21 @@ namespace Unity.Entities
             ArchetypeManager.SetManagedObject(chunk, componentType, chunkIndex, componentObject);
         }
 
+        public int GetSharedComponentCount()
+        {
+            return m_SharedComponentManager.GetSharedComponentCount();
+        }
+        
         public void GetAllUniqueSharedComponentDatas<T>(List<T> sharedComponentValues)
             where T : struct, ISharedComponentData
         {
             m_SharedComponentManager.GetAllUniqueSharedComponents(sharedComponentValues);
+        }
+        
+        public void GetAllUniqueSharedComponentDatas<T>(List<T> sharedComponentValues, List<int> sharedComponentIndices)
+            where T : struct, ISharedComponentData
+        {
+            m_SharedComponentManager.GetAllUniqueSharedComponents(sharedComponentValues, sharedComponentIndices);
         }
 
         public T GetSharedComponentData<T>(Entity entity) where T : struct, ISharedComponentData
@@ -734,12 +716,6 @@ namespace Unity.Entities
             return assignableTypes;
         }
 
-        internal void AddExistingChunk(Chunk* chunk)
-        {
-            m_ArchetypeManager.AddExistingChunk(chunk);
-            m_Entities->AddExistingChunk(chunk);
-        }
-
         private bool TestMatchingArchetypeAny(Archetype* archetype, ComponentType* anyTypes, int anyCount)
         {
             if (anyCount == 0) return true;
@@ -881,6 +857,12 @@ namespace Unity.Entities
 #endif
         }
 
+        public void PrepareForDeserialize()
+        {
+            Assert.AreEqual(0, Debug.EntityCount);
+            m_SharedComponentManager.PrepareForDeserialize();
+        }
+
         public class EntityManagerDebug
         {
             private readonly EntityManager m_Manager;
@@ -904,6 +886,17 @@ namespace Unity.Entities
             public bool IsSharedComponentManagerEmpty()
             {
                 return m_Manager.m_SharedComponentManager.IsEmpty();
+            }
+
+            public int EntityCount
+            {
+                get
+                {
+                    var allEntities = m_Manager.GetAllEntities();
+                    var count = allEntities.Length;
+                    allEntities.Dispose();
+                    return count;
+                }
             }
         }
     }

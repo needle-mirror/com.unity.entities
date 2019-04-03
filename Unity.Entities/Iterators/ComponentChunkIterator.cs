@@ -52,9 +52,9 @@ namespace Unity.Entities
         public void AssertValid()
         {
             if (Type == FilterType.SharedComponent)
-                Assert.IsTrue(Shared.Count < 2 && Shared.Count > 0);
+                Assert.IsTrue(Shared.Count <= 2 && Shared.Count > 0);
             else if (Type == FilterType.Changed)
-                Assert.IsTrue(Changed.Count < 2 && Changed.Count > 0);
+                Assert.IsTrue(Changed.Count <= 2 && Changed.Count > 0);
         }
 #endif
     }

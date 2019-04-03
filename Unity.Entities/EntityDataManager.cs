@@ -8,7 +8,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-    internal struct CleanupEntity : ISystemStateComponentData
+    internal struct CleanupEntity : IComponentData
     {
     }
 
@@ -209,18 +209,20 @@ namespace Unity.Entities
 
             entityDataManager->m_EntitiesFreeIndex = freeIndex;
 
-            // We can just chop-off the end, no need to copy anything
-            if (chunk->Count == indexInChunk + batchCount)
+            // Compute the number of things that need to moved and patched.
+            int patchCount = Math.Min(batchCount, chunk->Count - indexInChunk - batchCount);
+
+            if (0 == patchCount)
                 return;
 
             // updates EntitityData->indexInChunk to point to where the components will be moved to
             //Assert.IsTrue(chunk->archetype->sizeOfs[0] == sizeof(Entity) && chunk->archetype->offsets[0] == 0);
-            var movedEntities = (Entity*) chunk->Buffer + (chunk->Count - batchCount);
-            for (var i = 0; i != batchCount; i++)
+            var movedEntities = (Entity*) chunk->Buffer + (chunk->Count - patchCount);
+            for (var i = 0; i != patchCount; i++)
                 entityDataManager->m_Entities[movedEntities[i].Index].IndexInChunk = indexInChunk + i;
 
             // Move component data from the end to where we deleted components
-            ChunkDataUtility.Copy(chunk, chunk->Count - batchCount, chunk, indexInChunk, batchCount);
+            ChunkDataUtility.Copy(chunk, chunk->Count - patchCount, chunk, indexInChunk, patchCount);
         }
 
         public static void FreeDataEntitiesInChunk(EntityDataManager* entityDataManager, Chunk* chunk, int count, Entity* outputEntities)
@@ -586,21 +588,6 @@ namespace Unity.Entities
             IncrementComponentOrderVersion(newType, GetComponentChunk(entity), sharedComponentDataManager);
         }
 
-        private bool ArchetypeReadyToDeallocate(Archetype* archetype)
-        {
-            // Only Cleanup component remaining after removing public components, can delete
-            if (archetype->TypesCount == 2 &&
-                archetype->Types[1].TypeIndex == TypeManager.GetTypeIndex<CleanupEntity>()) return true;
-
-            for (var t = 1; t < archetype->TypesCount; ++t)
-            {
-                var typeIndex = archetype->Types[t].TypeIndex;
-                if (typeof(ISystemStateComponentData).IsAssignableFrom(TypeManager.GetType(typeIndex))) return false;
-            }
-
-            return true;
-        }
-
         public void TryRemoveEntityId(Entity* entities, int count, ArchetypeManager archetypeManager,
             SharedComponentDataManager sharedComponentDataManager,
             EntityGroupManager groupManager, ComponentTypeInArchetype* componentTypeInArchetypeArray)
@@ -615,7 +602,7 @@ namespace Unity.Entities
                     var chunk = EntityChunkBatch(manager, entities + entityIndex, count - entityIndex, out indexInChunk,
                         out batchCount);
                     var archetype = GetArchetype(entities[entityIndex]);
-                    if (ArchetypeReadyToDeallocate(archetype))
+                    if (!archetype->SystemStateCleanupNeeded)
                     {
                         DeallocateDataEntitiesInChunk(manager, entities + entityIndex, chunk, indexInChunk, batchCount);
                         IncrementComponentOrderVersion(chunk->Archetype, chunk, sharedComponentDataManager);
@@ -645,7 +632,10 @@ namespace Unity.Entities
                             for (var t = 1; t < archetype->TypesCount; ++t)
                             {
                                 var typeIndex = archetype->Types[t].TypeIndex;
-                                if (!typeof(ISystemStateComponentData).IsAssignableFrom(TypeManager.GetType(typeIndex)))
+                                var systemStateType = typeof(ISystemStateComponentData).IsAssignableFrom(TypeManager.GetType(typeIndex));
+                                var systemStateSharedType = typeof(ISystemStateSharedComponentData).IsAssignableFrom(TypeManager.GetType(typeIndex));
+                                
+                                if (!(systemStateType||systemStateSharedType))
                                 {
                                     ++removedTypes;
                                     removedComponentIsShared |= TypeManager.TypeCategory.ISharedComponentData ==
@@ -676,11 +666,13 @@ namespace Unity.Entities
                                     var srcIndex = 0;
                                     var dstIndex = 0;
                                     for (var t = 0; t < archetype->TypesCount; ++t)
+                                    {
                                         if (archetype->SharedComponentOffset[t] != -1)
                                         {
                                             var typeIndex = archetype->Types[t].TypeIndex;
-                                            if (!typeof(ISystemStateComponentData).IsAssignableFrom(
-                                                TypeManager.GetType(typeIndex)))
+                                            var systemStateType = typeof(ISystemStateComponentData).IsAssignableFrom(TypeManager.GetType(typeIndex));
+                                            var systemStateSharedType = typeof(ISystemStateSharedComponentData).IsAssignableFrom(TypeManager.GetType(typeIndex));
+                                            if (!(systemStateType||systemStateSharedType))
                                             {
                                                 srcIndex++;
                                             }
@@ -692,6 +684,7 @@ namespace Unity.Entities
                                                 dstIndex++;
                                             }
                                         }
+                                    }
                                 }
                                 else
                                 {

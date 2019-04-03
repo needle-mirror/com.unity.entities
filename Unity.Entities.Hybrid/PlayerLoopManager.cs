@@ -30,16 +30,18 @@ namespace Unity.Entities
         {
             if (k_DomainUnloadMethods == null)
             {
-                k_DomainUnloadMethods = new List<UnloadMethod>();
                 var go = new GameObject();
-                go.AddComponent<PlayerLoopDisableManager>().IsActive = true;
                 go.hideFlags = HideFlags.HideInHierarchy;
                 if (Application.isPlaying)
                     UnityEngine.Object.DontDestroyOnLoad(go);
                 else
                     go.hideFlags = HideFlags.HideAndDontSave;
+
+                go.AddComponent<PlayerLoopDisableManager>().IsActive = true;
+
+                k_DomainUnloadMethods = new List<UnloadMethod>();
             }
-            
+
             k_DomainUnloadMethods.Add(new UnloadMethod { Function = callback, Ordering = ordering });
         }
 

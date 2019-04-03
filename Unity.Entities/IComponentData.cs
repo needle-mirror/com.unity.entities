@@ -11,4 +11,8 @@
     public interface ISystemStateComponentData : IComponentData
     {
     }
+
+    public interface ISystemStateSharedComponentData : ISharedComponentData
+    {
+    }
 }

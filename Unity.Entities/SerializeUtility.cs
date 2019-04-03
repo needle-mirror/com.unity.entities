@@ -15,7 +15,7 @@ namespace Unity.Entities.Serialization
     {
         public static int CurrentFileFormatVersion = 2;
 
-        public static unsafe void DeserializeWorld(EntityManager manager, BinaryReader reader)
+        public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader)
         {
             int storedVersion = reader.ReadInt();
             if (storedVersion != CurrentFileFormatVersion)
@@ -48,7 +48,7 @@ namespace Unity.Entities.Serialization
             archetypes.Dispose();
         }
 
-        private static unsafe NativeArray<EntityArchetype> ReadArchetypes(BinaryReader reader, NativeArray<int> types, EntityManager entityManager,
+        private static unsafe NativeArray<EntityArchetype> ReadArchetypes(BinaryReader reader, NativeArray<int> types, ExclusiveEntityTransaction entityManager,
             out int totalEntityCount)
         {
             int archetypeCount = reader.ReadInt();
@@ -96,6 +96,12 @@ namespace Unity.Entities.Serialization
             {
                 string typeName = StringFromNativeBytes(nameBuffer, offset);
                 types[i] = TypeManager.GetTypeIndex(Type.GetType(typeName));
+
+                if (types[i] == 0)
+                {
+                    throw new ArgumentException("Unknown type '" + typeName + "'");
+                }
+
                 offset += typeName.Length + 1;
             }
 

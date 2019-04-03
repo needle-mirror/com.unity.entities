@@ -3,6 +3,7 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Burst;
 using System.Collections.Generic;
 
 namespace Unity.Entities.Tests
@@ -367,7 +368,7 @@ namespace Unity.Entities.Tests
         }
 
         // TODO: Burst breaks this test.
-        //[ComputeJobOptimization(CompileSynchronously = true)]
+        //[BurstCompile(CompileSynchronously = true)]
         public struct TestBurstCommandBufferJob : IJob
         {
             public Entity e0;
@@ -468,7 +469,7 @@ namespace Unity.Entities.Tests
                 var cmds = new EntityCommandBuffer(Allocator.TempJob);
                 for (var i = 0; i < entities.Length; i++)
                 {
-                    cmds.RemoveSystemStateComponent<EcsState1>(entities[i]);
+                    cmds.RemoveComponent<EcsState1>(entities[i]);
                 }
 
                 cmds.Playback(m_Manager);
@@ -480,6 +481,76 @@ namespace Unity.Entities.Tests
             allEntities.Dispose();
 
             Assert.AreEqual(0, count);
+        }
+
+        [Test]
+        public void TestShouldPlaybackFalse()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.CreateEntity();
+            cmds.ShouldPlayback = false;
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            var allEntities = m_Manager.GetAllEntities();
+            int count = allEntities.Length;
+            allEntities.Dispose();
+
+            Assert.AreEqual(0, count);
+        }
+
+        struct TestConcurrentJob : IJob
+        {
+            public EntityCommandBuffer.Concurrent Buffer;
+
+            public void Execute()
+            {
+                Buffer.CreateEntity();
+                Buffer.AddComponent(new EcsTestData { value = 1 });
+            }
+        }
+
+        [Test]
+        public void ConcurrentRecord()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.CreateEntity();
+            new TestConcurrentJob { Buffer = cmds }.Schedule().Complete();
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            var allEntities = m_Manager.GetAllEntities();
+            int count = allEntities.Length;
+            allEntities.Dispose();
+
+            Assert.AreEqual(2, count);
+        }
+
+        struct TestConcurrentParallelForJob : IJobParallelFor
+        {
+            public EntityCommandBuffer.Concurrent Buffer;
+
+            public void Execute(int index)
+            {
+                Buffer.CreateEntity();
+                Buffer.AddComponent(new EcsTestData { value = index });
+            }
+        }
+
+        [Test]
+        public void ConcurrentRecordParallelFor()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.CreateEntity();
+            new TestConcurrentParallelForJob { Buffer = cmds }.Schedule(10000, 64).Complete();
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            var allEntities = m_Manager.GetAllEntities();
+            int count = allEntities.Length;
+            allEntities.Dispose();
+
+            Assert.AreEqual(10001, count);
         }
     }
 }

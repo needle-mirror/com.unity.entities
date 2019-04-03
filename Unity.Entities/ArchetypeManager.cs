@@ -215,6 +215,9 @@ namespace Unity.Entities
         public int NumSharedComponents;
 
         public Archetype* PrevArchetype;
+        
+        public bool SystemStateCleanupComplete;
+        public bool SystemStateCleanupNeeded;
     }
 
     internal unsafe class ArchetypeManager : IDisposable
@@ -246,14 +249,13 @@ namespace Unity.Entities
 
         public void Dispose()
         {
-            // Free all allocated chunks for all allocated archetypes
+            // Move all chunks to become pooled chunks
             while (m_LastArchetype != null)
             {
                 while (!m_LastArchetype->ChunkList.IsEmpty)
                 {
-                    var chunk = m_LastArchetype->ChunkList.Begin;
-                    chunk->Remove();
-                    UnsafeUtility.Free(chunk, Allocator.Persistent);
+                    var chunk = (Chunk*)m_LastArchetype->ChunkList.Begin;
+                    SetChunkCount(chunk, 0);
                 }
 
                 m_LastArchetype = m_LastArchetype->PrevArchetype;
@@ -463,15 +465,43 @@ namespace Unity.Entities
             // Update the list of all created archetypes
             type->PrevArchetype = m_LastArchetype;
             m_LastArchetype = type;
-
+            
             UnsafeLinkedListNode.InitializeList(&type->ChunkList);
             UnsafeLinkedListNode.InitializeList(&type->ChunkListWithEmptySlots);
 
             m_TypeLookup.Add(GetHash(types, count), (IntPtr) type);
 
+            type->SystemStateCleanupComplete = ArchetypeSystemStateCleanupComplete(type);
+            type->SystemStateCleanupNeeded = ArchetypeSystemStateCleanupNeeded(type);
+
             groupManager.OnArchetypeAdded(type);
 
             return type;
+        }
+        
+        private bool ArchetypeSystemStateCleanupComplete(Archetype* archetype)
+        {
+            if (archetype->TypesCount == 2 && archetype->Types[1].TypeIndex == TypeManager.GetTypeIndex<CleanupEntity>()) return true;
+            return false;
+        }
+
+        private bool ArchetypeSystemStateCleanupNeeded(Archetype* archetype)
+        {
+            for (var t = 1; t < archetype->TypesCount; ++t)
+            {
+                var typeIndex = archetype->Types[t].TypeIndex;
+                var systemStateType =
+                    typeof(ISystemStateComponentData).IsAssignableFrom(TypeManager.GetType(typeIndex));
+                var systemStateSharedType =
+                    typeof(ISystemStateSharedComponentData).IsAssignableFrom(TypeManager.GetType(typeIndex));
+
+                if (systemStateType || systemStateSharedType)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public static Chunk* GetChunkFromEmptySlotNode(UnsafeLinkedListNode* node)
@@ -770,6 +800,7 @@ namespace Unity.Entities
             while (archetype != null)
             {
                 var countInArchetype = 0;
+                var chunkCount = 0;
                 for (var c = archetype->ChunkList.Begin; c != archetype->ChunkList.End; c = c->Next)
                 {
                     var chunk = (Chunk*) c;
@@ -778,9 +809,11 @@ namespace Unity.Entities
                     Assert.AreEqual(chunk->ChunkListWithEmptySlotsNode.IsInList, chunk->Capacity != chunk->Count);
 
                     countInArchetype += chunk->Count;
+                    chunkCount++;
                 }
 
                 Assert.AreEqual(countInArchetype, archetype->EntityCount);
+                Assert.AreEqual(chunkCount, archetype->ChunkCount);
 
                 totalCount += countInArchetype;
                 archetype = archetype->PrevArchetype;

@@ -154,9 +154,9 @@ namespace Unity.Entities.Properties
             StringBuffer.Append(' ', Style.Space * Indent);
             StringBuffer.AppendPropertyName(Property.Name);
             StringBuffer.Append('[');
-            StringBuffer.AppendFloat2(value.m0);
+            StringBuffer.AppendFloat2(value.c0);
             StringBuffer.Append(',');
-            StringBuffer.AppendFloat2(value.m1);
+            StringBuffer.AppendFloat2(value.c1);
             StringBuffer.Append(']');
             StringBuffer.Append(",\n");
         }
@@ -197,11 +197,11 @@ namespace Unity.Entities.Properties
             StringBuffer.Append(' ', Style.Space * Indent);
             StringBuffer.AppendPropertyName(Property.Name);
             StringBuffer.Append('[');
-            StringBuffer.AppendFloat3(value.m0);
+            StringBuffer.AppendFloat3(value.c0);
             StringBuffer.Append(',');
-            StringBuffer.AppendFloat3(value.m1);
+            StringBuffer.AppendFloat3(value.c1);
             StringBuffer.Append(',');
-            StringBuffer.AppendFloat3(value.m2);
+            StringBuffer.AppendFloat3(value.c2);
             StringBuffer.Append(']');
             StringBuffer.Append(",\n");
         }
@@ -211,13 +211,13 @@ namespace Unity.Entities.Properties
             StringBuffer.Append(' ', Style.Space * Indent);
             StringBuffer.AppendPropertyName(Property.Name);
             StringBuffer.Append('[');
-            StringBuffer.AppendFloat4(value.m0);
+            StringBuffer.AppendFloat4(value.c0);
             StringBuffer.Append(',');
-            StringBuffer.AppendFloat4(value.m1);
+            StringBuffer.AppendFloat4(value.c1);
             StringBuffer.Append(',');
-            StringBuffer.AppendFloat4(value.m2);
+            StringBuffer.AppendFloat4(value.c2);
             StringBuffer.Append(',');
-            StringBuffer.AppendFloat4(value.m3);
+            StringBuffer.AppendFloat4(value.c3);
             StringBuffer.Append(']');
             StringBuffer.Append(",\n");
         }

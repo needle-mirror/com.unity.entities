@@ -2,6 +2,7 @@ using System;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Burst;
 using Unity.Mathematics;
 
 namespace Unity.Entities
@@ -60,7 +61,7 @@ namespace Unity.Entities
             m_SortedBuffer = 0;
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         private struct InitializeIndices : IJobParallelFor
         {
             public NativeArray<int> buffer;
@@ -71,7 +72,7 @@ namespace Unity.Entities
             }
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         private struct MergeSortedPairs : IJobParallelFor
         {
             [NativeDisableParallelForRestriction] public NativeArray<int> buffer;
@@ -124,7 +125,7 @@ namespace Unity.Entities
             }
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         private struct MergeLeft : IJobParallelFor
         {
             [NativeDisableParallelForRestriction] public NativeArray<int> buffer;
@@ -170,7 +171,7 @@ namespace Unity.Entities
             }
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         private struct MergeRight : IJobParallelFor
         {
             [NativeDisableParallelForRestriction] public NativeArray<int> buffer;
@@ -216,7 +217,7 @@ namespace Unity.Entities
             }
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         private struct CopyRemainder : IJobParallelFor
         {
             [NativeDisableParallelForRestriction] public NativeArray<int> buffer;
@@ -333,7 +334,7 @@ namespace Unity.Entities
             return mergeSortedPairsJobHandle;
         }
 
-        [ComputeJobOptimization]
+        [BurstCompile]
         private struct AssignSharedValues : IJob
         {
             public NativeArray<int> buffer;
