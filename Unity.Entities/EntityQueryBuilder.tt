@@ -253,6 +253,8 @@ static List<Category[]> InitCombinations()
         GetCombinations(new[] { Category.D }, combinations[i], 5);
     for (int i = 0; i != baseCount; ++i)
         GetCombinations(new[] { Category.C }, combinations[i], 5);
+    for (int i = 0; i != baseCount; ++i)
+        GetCombinations(new[] { Category.B }, combinations[i], 5);
 
     combinations.Insert(0, new Category[0]);
 

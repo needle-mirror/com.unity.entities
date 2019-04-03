@@ -10,7 +10,6 @@ using Hash128 = UnityEngine.Hash128;
 namespace Unity.Scenes
 {
     [ExecuteAlways]
-    [AlwaysUpdateSystem]
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     public class SubSceneStreamingSystem : ComponentSystem
     {
@@ -46,8 +45,9 @@ namespace Unity.Scenes
         int MaximumMoveEntitiesFromPerFrame = 1;
         
         Stream[] m_Streams = new Stream[LoadScenesPerFrame];
+        ComponentGroup m_PendingStreamRequests;
+        ComponentGroup m_UnloadStreamRequests;
         ComponentGroup m_SceneFilter;
-        ComponentGroup m_SceneFilterPrefabs;
         ComponentGroup m_PublicRefFilter;
         ComponentGroup m_SectionData;
 
@@ -60,6 +60,18 @@ namespace Unity.Scenes
             for (int i = 0; i < LoadScenesPerFrame; ++i)
                 CreateStreamWorld(i);
             
+            m_PendingStreamRequests = GetComponentGroup(new EntityArchetypeQuery()
+            {
+                All = new[] {ComponentType.ReadWrite<RequestSceneLoaded>(), ComponentType.ReadWrite<SceneData>()},
+                None = new[] {ComponentType.ReadWrite<StreamingState>(), ComponentType.ReadWrite<IgnoreTag>() }
+            });
+
+            m_UnloadStreamRequests = GetComponentGroup(new EntityArchetypeQuery()
+            {
+                All = new[] {ComponentType.ReadWrite<StreamingState>()},
+                None = new[] {ComponentType.ReadWrite<RequestSceneLoaded>(), ComponentType.ReadWrite<IgnoreTag>()}
+            });
+
             m_PublicRefFilter = GetComponentGroup
             (
                 ComponentType.ReadWrite<SceneTag>(),
@@ -71,10 +83,13 @@ namespace Unity.Scenes
                 ComponentType.ReadWrite<SceneData>()
             );
 
-            //@TODO: Not handling inactive objects...
-            //@TODO: Shared component filtering is not supported when there is no EntityArchetypeQuery...
-            m_SceneFilter = GetComponentGroup(ComponentType.ReadWrite<SceneTag>() );
-            m_SceneFilterPrefabs = GetComponentGroup(ComponentType.ReadWrite<SceneTag>(), ComponentType.ReadWrite<Prefab>() );
+            m_SceneFilter = GetComponentGroup(
+                new EntityArchetypeQuery
+                {
+                    All = new [] {ComponentType.ReadWrite<SceneTag>() },
+                    Options = EntityArchetypeQueryOptions.IncludeDisabled | EntityArchetypeQueryOptions.IncludePrefab
+                }
+            );
         }
 
         protected override void OnDestroyManager()
@@ -341,27 +356,47 @@ namespace Unity.Scenes
         protected override void OnUpdate()
         {
             var destroySubScenes = new NativeList<Entity>(Allocator.Temp);
-            
-            var commands = new EntityCommandBuffer(Allocator.Temp);
-            Entities
-                .WithAll<RequestSceneLoaded, SceneData>()
-                .WithNone<StreamingState, IgnoreTag>()
-                .ForEach(entity =>
+
+            var sceneDataFromEntity = GetComponentDataFromEntity<SceneData>();
+
+            // Sections > 0 need the external references from sections 0 and will wait for it to be loaded.
+            // So we have to ensure sections 0 are loaded first, otherwise there's a risk of starving loading streams.
+            var priorityList = new NativeList<Entity>(Allocator.Temp);
+            using (var entities = m_PendingStreamRequests.ToEntityArray(Allocator.TempJob))
+            {
+                foreach (var entity in entities)
                 {
-                    var streamIndex = CreateAsyncLoadScene(entity);
-                    if (streamIndex != -1)
-                    {
-                        var streamingState = new StreamingState { ActiveStreamIndex = streamIndex, Status = StreamingStatus.NotYetProcessed};
-                        commands.AddComponent(entity, streamingState);
-                    }
-                });
-            commands.Playback(EntityManager);
-            commands.Dispose();
-            
-            Entities
-                .WithAll<StreamingState>()
-                .WithNone<RequestSceneLoaded, IgnoreTag>()
-                .ForEach(entity => destroySubScenes.Add(entity));
+                    if (priorityList.Length == LoadScenesPerFrame)
+                        break;
+                    if(sceneDataFromEntity[entity].SubSectionIndex == 0)
+                        priorityList.Add(entity);
+                }
+
+                foreach (var entity in entities)
+                {
+                    if (priorityList.Length == LoadScenesPerFrame)
+                        break;
+                    if(sceneDataFromEntity[entity].SubSectionIndex > 0)
+                        priorityList.Add(entity);
+                }
+            }
+
+            var priorityArray = priorityList.AsArray();
+
+            foreach (var entity in priorityArray)
+            {
+                var streamIndex = CreateAsyncLoadScene(entity);
+                if (streamIndex != -1)
+                {
+                    var streamingState = new StreamingState { ActiveStreamIndex = streamIndex, Status = StreamingStatus.NotYetProcessed};
+                    EntityManager.AddComponentData(entity, streamingState);
+                }
+            }
+
+            Entities.With(m_UnloadStreamRequests).ForEach((Entity entity) =>
+            {
+                destroySubScenes.Add(entity);
+            });
 
             foreach (var destroyScene in destroySubScenes.AsArray())
                 UnloadSceneImmediate(destroyScene);
@@ -377,7 +412,6 @@ namespace Unity.Scenes
                 m_SceneFilter.SetFilter(new SceneTag {SceneEntity = scene });
                                 
                 EntityManager.DestroyEntity(m_SceneFilter);
-                EntityManager.DestroyEntity(m_SceneFilterPrefabs);
                 
                 m_SceneFilter.ResetFilter();
             
@@ -404,17 +438,6 @@ namespace Unity.Scenes
             }
 
             return -1;
-        }
-        
-        public static void MarkDrivenByLiveLink(EntityManager manager, Entity sceneEntity)
-        {
-            if (!manager.HasComponent<StreamingState>(sceneEntity))
-                manager.AddComponentData(sceneEntity, new StreamingState { Status = StreamingStatus.Loaded});
-            else
-                manager.SetComponentData(sceneEntity, new StreamingState { Status = StreamingStatus.Loaded});
-            
-            if (!manager.HasComponent<IgnoreTag>(sceneEntity))
-                manager.AddComponentData(sceneEntity, new IgnoreTag());
         }
     }
 }

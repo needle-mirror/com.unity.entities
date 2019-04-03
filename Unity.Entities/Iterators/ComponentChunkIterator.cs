@@ -317,7 +317,7 @@ namespace Unity.Entities
         public static int CalculateLength(MatchingArchetypeList matchingArchetypes, ref ComponentGroupFilter filter)
         {
             var filterCopy = filter; // Necessary to avoid a nasty compiler error cause by fixed buffer types
-            
+
             var length = 0;
             if (!filter.RequiresMatchesFilter)
             {
@@ -334,7 +334,7 @@ namespace Unity.Entities
                     var match = matchingArchetypes.p[m];
                     if (match->Archetype->EntityCount <= 0)
                         continue;
-                    
+
                     int filteredCount = 0;
                     var archetype = match->Archetype;
                     int chunkCount = archetype->Chunks.Count;
@@ -391,7 +391,7 @@ namespace Unity.Entities
                         }
                         else
                         {
-                            var indexInComponentGroup1 = filterCopy.Shared.IndexInComponentGroup[1];
+                            var indexInComponentGroup1 = filterCopy.Changed.IndexInComponentGroup[1];
                             var componentIndexInChunk1 = match->IndexInArchetype[indexInComponentGroup1];
                             var changeVersions1 =
                                 archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk1);
@@ -600,7 +600,7 @@ namespace Unity.Entities
 
             return chunk->Buffer + archetype->Offsets[indexInArchetype];
         }
-        
+
         public void* GetCurrentChunkComponentDataPtr(bool isWriting, int indexInComponentGroup)
         {
             int indexInArchetype = m_CurrentMatchingArchetype->IndexInArchetype[indexInComponentGroup];
@@ -711,7 +711,7 @@ namespace Unity.Entities
 
             return index;
         }
-        
+
         internal static JobHandle PreparePrefilteredChunkLists(int unfilteredChunkCount, MatchingArchetypeList archetypes, ComponentGroupFilter filter,  JobHandle dependsOn, ScheduleMode mode, out NativeArray<byte> prefilterDataArray, out void* deferredCountData)
         {
             // Allocate one buffer for all prefilter data and distribute it
@@ -719,14 +719,18 @@ namespace Unity.Entities
             var sizeofChunkArray = sizeof(ArchetypeChunk) * unfilteredChunkCount;
             var sizeofIndexArray = sizeof(int) * unfilteredChunkCount;
             var prefilterDataSize = sizeofChunkArray + sizeofIndexArray + sizeof(int);
-            
-            prefilterDataArray = new NativeArray<byte>(prefilterDataSize, Allocator.TempJob);
-            var prefilterData = (byte*)prefilterDataArray.GetUnsafePtr();              
-            
+
+            var prefilterData = (byte*) UnsafeUtility.Malloc(prefilterDataSize, 64, Allocator.TempJob);
+            prefilterDataArray =NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<byte>(prefilterData, prefilterDataSize, Allocator.TempJob);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref prefilterDataArray, AtomicSafetyHandle.Create());
+#endif
+
             JobHandle prefilterHandle = default(JobHandle);
 
             if (filter.RequiresMatchesFilter)
-            {           
+            {
                 var prefilteringJob = new GatherChunksAndOffsetsWithFilteringJob
                 {
                     Archetypes = archetypes,
@@ -752,7 +756,7 @@ namespace Unity.Entities
                 else
                     gatherJob.Run();
             }
-            
+
             // ScheduleParallelForDeferArraySize expects a ptr to a structure with a void* and a count.
             // It only uses the count, so this is safe to fudge
             deferredCountData = prefilterData + sizeofChunkArray + sizeofIndexArray;

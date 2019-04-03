@@ -1,13 +1,12 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Unity.Entities;
-using Unity.Entities.Streaming;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEditor;
 using UnityEditor.SceneManagement;
-using UnityEngine.Experimental.PlayerLoop;
+using UnityEngine.Experimental.Rendering;
 using Object = UnityEngine.Object;
 
 namespace Unity.Scenes.Editor
@@ -31,51 +30,68 @@ namespace Unity.Scenes.Editor
         
         static int GlobalDirtyID = 0;
         static int PreviousGlobalDirtyID = 0;
-    
-        UInt64 m_LiveLinkEditSceneCullingMask = 1UL << 60;
-        UInt64 m_GameObjectSceneCullingMask = 1UL << 58;
-        UInt64 m_EntitySceneCullingMask = 1UL << 59;
+        MethodInfo m_GetDirtyIDMethod = typeof(Scene).GetProperty("dirtyID", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public).GetMethod;
+        
+        UInt64 m_LiveLinkEditSceneViewMask = 1UL << 60;
+        UInt64 m_LiveLinkEditGameViewMask = 1UL << 58;
+        HashSet<SceneAsset> m_EditingSceneAssets = new HashSet<SceneAsset>(); 
 
-        static void AddUnique(List<SubScene> list, SubScene scene)
+        static void AddUnique(ref List<SubScene> list, SubScene scene)
         {
+            if (list == null)
+                list = new List<SubScene>(10);
             if (!list.Contains(scene))
                 list.Add(scene);
         }
 
         protected override void OnUpdate()
         {
-            var needLiveLinkSync = new List<SubScene>();
-            var cleanupScene = new List<SubScene>();
-            var markSceneLoadedFromLiveLink = new List<SubScene>();
-            var removeSceneLoadedFromLiveLink = new List<SubScene>();
-
+            List<SubScene> needLiveLinkSync = null;
+            List<SubScene> cleanupScene = null;
+            List<SubScene> markSceneLoadedFromLiveLink = null;
+            List<SubScene> removeSceneLoadedFromLiveLink = null;
+            m_EditingSceneAssets.Clear();
+            
+            var liveLinkEnabled = SubSceneInspectorUtility.LiveLinkEnabled;
+            
             // By default all scenes need to have m_GameObjectSceneCullingMask, otherwise they won't show up in game view
             for (int i = 0; i != EditorSceneManager.sceneCount; i++)
             {
                 var scene = EditorSceneManager.GetSceneAt(i);
-                if (EditorSceneManager.GetSceneCullingMask(scene) == EditorSceneManager.DefaultSceneCullingMask)
+                if (scene.isSubScene)
                 {
-                    EditorSceneManager.SetSceneCullingMask(scene, EditorSceneManager.DefaultSceneCullingMask | m_GameObjectSceneCullingMask);
+                    if (liveLinkEnabled)
+                        EditorSceneManager.SetSceneCullingMask(scene, m_LiveLinkEditSceneViewMask);
+                    else
+                        EditorSceneManager.SetSceneCullingMask(scene, EditorSceneManager.DefaultSceneCullingMask | m_LiveLinkEditGameViewMask);
+
+                    var sceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(scene.path);
+                    if (scene.isLoaded && sceneAsset != null)
+                        m_EditingSceneAssets.Add(sceneAsset);    
                 }
-            }
+            }    
     
             if (PreviousGlobalDirtyID != GlobalDirtyID)
             {
-                Entities.ForEach((SubScene subScene) => subScene.LiveLinkDirtyID = -1);
+                Entities.ForEach((SubScene subScene) =>
+                {
+                    subScene.LiveLinkDirtyID = -1;
+                });
                 PreviousGlobalDirtyID = GlobalDirtyID;
             }
     
             Entities.ForEach((SubScene subScene) =>
             {
+                var isLoaded = m_EditingSceneAssets.Contains(subScene.SceneAsset);
                 // We are editing with live link. Ensure it is active & up to date
-                if (subScene.IsLoaded && SubSceneInspectorUtility.LiveLinkEnabled)
+                if (isLoaded && liveLinkEnabled)
                 {
                     if (subScene.LiveLinkDirtyID != GetSceneDirtyID(subScene.LoadedScene) || subScene.LiveLinkShadowWorld == null)
-                        AddUnique(needLiveLinkSync, subScene);
+                        AddUnique(ref needLiveLinkSync, subScene);
                 }
                 // We are editing without live link.
                 // We should have no entity representation loaded for the scene.
-                else if (subScene.IsLoaded && !SubSceneInspectorUtility.LiveLinkEnabled)
+                else if (isLoaded && !liveLinkEnabled)
                 {
                     var hasAnythingLoaded = false;
                     foreach (var s in subScene._SceneEntities)
@@ -83,8 +99,8 @@ namespace Unity.Scenes.Editor
 
                     if (hasAnythingLoaded)
                     {
-                        AddUnique(cleanupScene, subScene);
-                        AddUnique(markSceneLoadedFromLiveLink, subScene);
+                        AddUnique(ref cleanupScene, subScene);
+                        AddUnique(ref markSceneLoadedFromLiveLink, subScene);
                     }
                 }
                 // Scene is not being edited, thus should not be live linked.
@@ -96,60 +112,59 @@ namespace Unity.Scenes.Editor
 
                     if (isDrivenByLiveLink || subScene.LiveLinkShadowWorld != null)
                     {
-                        AddUnique(cleanupScene, subScene);
-                        AddUnique(removeSceneLoadedFromLiveLink, subScene);
+                        AddUnique(ref cleanupScene, subScene);
+                        AddUnique(ref removeSceneLoadedFromLiveLink, subScene);
                     }
                 }
-
-                if (subScene.LoadedScene.isLoaded)
-                {
-                    if (SubSceneInspectorUtility.LiveLinkEnabled)
-                       EditorSceneManager.SetSceneCullingMask(subScene.LoadedScene, m_LiveLinkEditSceneCullingMask | EditorSceneManager.DefaultSceneCullingMask);
-                    else
-                        EditorSceneManager.SetSceneCullingMask(subScene.LoadedScene, EditorSceneManager.DefaultSceneCullingMask | m_GameObjectSceneCullingMask);
-                }
             });
-    
-            foreach (var camera in Camera.allCameras)
+
+            if (needLiveLinkSync != null)
             {
-                if (camera.cameraType == CameraType.Game)
-                    camera.overrideSceneCullingMask = m_EntitySceneCullingMask | m_GameObjectSceneCullingMask;
-            }
-    
-            
-            // Live link changes to entity world
-            foreach (var scene in needLiveLinkSync)
-            {
-                // Prevent live link updating during drag operation
-                // (Currently performance is not good enough to do it completely live)
-                if (!IsHotControlActive())
-                    ApplyLiveLink(scene);
-                else
-                    EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
-            }
-            
-            // Live link changes to entity world
-            foreach (var scene in cleanupScene)
-            {
-                CleanupScene(scene);
-            }
-            
-            foreach (var scene in markSceneLoadedFromLiveLink)
-            {
-                foreach (var sceneEntity in scene._SceneEntities)
+                // Live link changes to entity world
+                foreach (var scene in needLiveLinkSync)
                 {
-                    if (!EntityManager.HasComponent<SubSceneStreamingSystem.IgnoreTag>(sceneEntity))
-                        EntityManager.AddComponentData(sceneEntity, new SubSceneStreamingSystem.IgnoreTag());
+                    // Prevent live link updating during drag operation
+                    // (Currently performance is not good enough to do it completely live)
+                    if (!IsHotControlActive())
+                        ApplyLiveLink(scene);
+                    else
+                        EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
                 }
             }
-            
-            foreach (var scene in removeSceneLoadedFromLiveLink)
+
+
+            if (cleanupScene != null)
             {
-                foreach (var sceneEntity in scene._SceneEntities)
+                // Live link changes to entity world
+                foreach (var scene in cleanupScene)
                 {
-                    EntityManager.RemoveComponent<SubSceneStreamingSystem.IgnoreTag>(sceneEntity);
+                    CleanupScene(scene);
                 }
             }
+
+            if (markSceneLoadedFromLiveLink != null)
+            {
+                foreach (var scene in markSceneLoadedFromLiveLink)
+                {
+                    foreach (var sceneEntity in scene._SceneEntities)
+                    {
+                        if (!EntityManager.HasComponent<SubSceneStreamingSystem.IgnoreTag>(sceneEntity))
+                            EntityManager.AddComponentData(sceneEntity, new SubSceneStreamingSystem.IgnoreTag());
+                    }
+                }
+            }
+
+            if (removeSceneLoadedFromLiveLink != null)
+            {
+                foreach (var scene in removeSceneLoadedFromLiveLink)
+                {
+                    foreach (var sceneEntity in scene._SceneEntities)
+                    {
+                        EntityManager.RemoveComponent<SubSceneStreamingSystem.IgnoreTag>(sceneEntity);
+                    }
+                }
+            }
+
         }
 
         void CleanupScene(SubScene scene)
@@ -222,7 +237,7 @@ namespace Unity.Scenes.Editor
                 var group = EntityManager.CreateComponentGroup(typeof(SceneTag), ComponentType.Exclude<EditorRenderData>());
                 group.SetFilter(new SceneTag {SceneEntity = liveLinkSceneEntity});
                 
-                EntityManager.AddSharedComponentData(group, new EditorRenderData() { SceneCullingMask = m_EntitySceneCullingMask, PickableObject = scene.gameObject });
+                EntityManager.AddSharedComponentData(group, new EditorRenderData() { SceneCullingMask = m_LiveLinkEditGameViewMask, PickableObject = scene.gameObject });
 
                 group.Dispose();
                 
@@ -267,12 +282,11 @@ namespace Unity.Scenes.Editor
             return modifications;
         }
         
-        static int GetSceneDirtyID(Scene scene)
+        int GetSceneDirtyID(Scene scene)
         {
             if (scene.IsValid())
             {
-                var method = typeof(Scene).GetProperty("dirtyID", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public).GetMethod;
-                return (int)method.Invoke(scene, null);
+                return (int)m_GetDirtyIDMethod.Invoke(scene, null);
             }
             else
                 return -1;
@@ -286,14 +300,42 @@ namespace Unity.Scenes.Editor
         protected override void OnCreateManager()
         {        
             Undo.postprocessModifications += PostprocessModifications;
-            Undo.undoRedoPerformed += SubSceneLiveLinkSystem.GlobalDirtyLiveLink;
+            Undo.undoRedoPerformed += GlobalDirtyLiveLink;
+            
+            Camera.onPreCull += OnPreCull;
+            RenderPipeline.beginCameraRendering += OnPreCull;
         }
-    
+
+        void OnPreCull(Camera camera)
+        {
+            if (camera.cameraType == CameraType.Game)
+            {
+                //Debug.Log("Configure game view");
+                camera.overrideSceneCullingMask = EditorSceneManager.DefaultSceneCullingMask | m_LiveLinkEditGameViewMask;
+            }
+            else if (camera.cameraType == CameraType.SceneView)
+            {
+                if (camera.scene.IsValid())
+                {
+                    // Debug.Log("Prefab view" + camera.GetInstanceID());
+                    camera.overrideSceneCullingMask = 0;
+                }
+                else
+                {
+                    // Debug.Log("Scene view" + camera.GetInstanceID());
+                    camera.overrideSceneCullingMask = EditorSceneManager.DefaultSceneCullingMask | m_LiveLinkEditSceneViewMask;
+                }
+            }
+                
+        }
+
         protected override void OnDestroyManager()
         {        
             Undo.postprocessModifications -= PostprocessModifications;
-            Undo.undoRedoPerformed -= SubSceneLiveLinkSystem.GlobalDirtyLiveLink;
-    
+            Undo.undoRedoPerformed -= GlobalDirtyLiveLink;
+            
+            Camera.onPreCull -= OnPreCull;
+            RenderPipeline.beginCameraRendering -= OnPreCull;
         }
     }
 }

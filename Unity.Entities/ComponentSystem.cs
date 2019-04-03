@@ -297,6 +297,15 @@ namespace Unity.Entities
             group.SetSingleton(value);
         }
 
+        public Entity GetSingletonEntity<T>()
+            where T : struct, IComponentData
+        {
+            var type = ComponentType.ReadOnly<T>();
+            var group = GetComponentGroupInternal(&type, 1);
+
+            return group.GetSingletonEntity();
+        }
+
         internal void AddReaderWriter(ComponentType componentType)
         {
             if (CalculateReaderWriterDependency.Add(componentType, ref JobDependencyForReadingManagersUnsafeList, ref JobDependencyForWritingManagersUnsafeList))

@@ -563,7 +563,7 @@ namespace Unity.Entities
             if (indexInComponentGroup == -1)
                 throw new InvalidOperationException( $"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityGroup.");
 #endif
-            
+
             JobHandle job;
             var res = ComponentChunkIterator.CreateComponentDataArray(m_GroupData->MatchingArchetypes, allocator, componentType, this, ref m_Filter, out job, GetDependency());
             job.Complete();
@@ -628,6 +628,24 @@ namespace Unity.Entities
 			output = new EntityArray(iterator, length);
 #endif
             return output;
+        }
+
+        public Entity GetSingletonEntity()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var groupLength = CalculateLength();
+            if (groupLength != 1)
+                throw new System.InvalidOperationException($"GetSingletonEntity() requires that exactly one exists but there are {groupLength}.");
+#endif
+
+
+            var iterator = GetComponentChunkIterator();
+            iterator.MoveToChunkWithoutFiltering(0);
+
+            Entity entity;
+            var array = iterator.GetCurrentChunkComponentDataPtr(false, 0);
+            UnsafeUtility.CopyPtrToStructure(array, out entity);
+            return entity;
         }
 
         /// <summary>

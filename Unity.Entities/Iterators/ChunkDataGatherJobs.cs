@@ -24,7 +24,7 @@ namespace Unity.Entities
             UnsafeUtility.MemCpy(dstChunksPtr + offset, archetype->Chunks.p, chunkCount * sizeof(Chunk*));
         }
     }
-    
+
     [BurstCompile]
     internal unsafe struct GatherChunksAndOffsetsJob : IJob
     {
@@ -33,21 +33,21 @@ namespace Unity.Entities
         [NativeDisableUnsafePtrRestriction]
         public void* PrefilterData;
         public int   UnfilteredChunkCount;
-        
+
         public void Execute()
         {
             var chunks = (ArchetypeChunk*) PrefilterData;
             var entityIndices = (int*) (chunks + UnfilteredChunkCount);
-            
+
             var chunkCounter = 0;
             var entityOffsetPrefixSum = 0;
-            
+
             for (var m = Archetypes.Count - 1; m >= 0; --m)
             {
                 var match = Archetypes.p[m];
                 if (match->Archetype->EntityCount <= 0)
                     continue;
-                
+
                 var archetype = match->Archetype;
                 int chunkCount = archetype->Chunks.Count;
                 var chunkEntityCountArray = archetype->Chunks.GetChunkEntityCountArray();
@@ -59,7 +59,7 @@ namespace Unity.Entities
                     entityOffsetPrefixSum += chunkEntityCountArray[chunkIndex];
                 }
             }
-            
+
             var outChunkCounter = entityIndices + UnfilteredChunkCount;
             *outChunkCounter = chunkCounter;
         }
@@ -133,7 +133,7 @@ namespace Unity.Entities
                 }
                 else
                 {
-                    var indexInComponentGroup2 = filter.Shared.IndexInComponentGroup[1];
+                    var indexInComponentGroup2 = filter.Changed.IndexInComponentGroup[1];
                     var componentIndexInChunk2 = match->IndexInArchetype[indexInComponentGroup2];
                     var changeVersions2 = archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk2);
 
@@ -149,7 +149,7 @@ namespace Unity.Entities
             FilteredCounts[index] = filteredCount;
         }
     }
-    
+
     [BurstCompile]
     internal unsafe struct GatherChunksAndOffsetsWithFilteringJob : IJob
     {
@@ -159,22 +159,22 @@ namespace Unity.Entities
         [NativeDisableUnsafePtrRestriction]
         public void* PrefilterData;
         public int   UnfilteredChunkCount;
-        
+
         public void Execute()
         {
             var chunks = (ArchetypeChunk*) PrefilterData;
             var entityIndices = (int*) (chunks + UnfilteredChunkCount);
-            
+
             var filter = Filter;
             var filteredChunkCount = 0;
             var filteredEntityOffset = 0;
-            
+
             for (var m = Archetypes.Count - 1; m >= 0; --m)
             {
                 var match = Archetypes.p[m];
                 if (match->Archetype->EntityCount <= 0)
                     continue;
-                
+
                 var archetype = match->Archetype;
                 int chunkCount = archetype->Chunks.Count;
                 var chunkEntityCountArray = archetype->Chunks.GetChunkEntityCountArray();
@@ -245,7 +245,7 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        var indexInComponentGroup1 = filter.Shared.IndexInComponentGroup[1];
+                        var indexInComponentGroup1 = filter.Changed.IndexInComponentGroup[1];
                         var componentIndexInChunk1 = match->IndexInArchetype[indexInComponentGroup1];
                         var changeVersions1 =
                             archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk1);

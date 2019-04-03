@@ -42,7 +42,7 @@ namespace Unity.Mathematics
                    && Contains(b.Center + float3( b.Extents.x,  b.Extents.y, -b.Extents.z))
                    && Contains(b.Center + float3( b.Extents.x,  b.Extents.y,  b.Extents.z));
         }
-        
+
         static float3 RotateExtents(float3 extents, float3 m0, float3 m1, float3 m2)
         {
             return math.abs(m0 * extents.x) + math.abs(m1 * extents.y) + math.abs(m2 * extents.z);
@@ -54,6 +54,11 @@ namespace Unity.Mathematics
             transformed.Extents = RotateExtents(localBounds.Extents, transform.c0.xyz, transform.c1.xyz, transform.c2.xyz);
             transformed.Center = math.transform(transform, localBounds.Center);
             return transformed;
+        }
+
+        public float DistanceSq(float3 point)
+        {
+            return lengthsq(max(abs(point - Center), Extents) - Extents);
         }
     }
 }

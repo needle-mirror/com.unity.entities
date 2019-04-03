@@ -33,18 +33,31 @@ namespace Unity.Entities.Tests
         }
     }
     
-    public class WordsTests	
+    [TestFixture("en-US")]
+    [TestFixture("da-DK")]
+    public class WordsTests
 	{
-	    [SetUp]
+        CultureInfo testCulture;
+        CultureInfo backupCulture;
+        
+        public WordsTests(string culture)
+        {
+            testCulture = CultureInfo.CreateSpecificCulture(culture);
+        }
+
+        [SetUp]
 	    public virtual void Setup()
 	    {
+            backupCulture = Thread.CurrentThread.CurrentCulture;
+            Thread.CurrentThread.CurrentCulture = testCulture;
 	        WordStorage.Setup();
 	    }
 
 	    [TearDown]
 	    public virtual void TearDown()
 	    {
-	    }
+            Thread.CurrentThread.CurrentCulture = backupCulture;
+        }
 
         [Test]
         unsafe public void Utf8EncodeDecode([Range(0, 0xD7FF, 997)] int input_ucs)
@@ -181,7 +194,7 @@ namespace Unity.Entities.Tests
             NativeString64 nativeLocalizedString = new NativeString64(localizedString);
             int offset = 0;
             float output = 0;
-            var result = nativeLocalizedString.Parse(ref offset, ref output);
+            var result = nativeLocalizedString.Parse(ref offset, ref output, localizedDecimalSeparator);
             Assert.AreEqual(expectedResult, result);
             Assert.AreEqual(expectedOffset, offset);
             if (result == ParseError.None)

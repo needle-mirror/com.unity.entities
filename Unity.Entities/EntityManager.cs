@@ -2663,6 +2663,9 @@ namespace Unity.Entities
                 #if !UNITY_CSHARP_TINY
                     var str = new System.Text.StringBuilder();
                     str.Append(entity.ToString());
+                    #if UNITY_EDITOR
+                        str.Append($" (name '{m_Manager.GetName(entity)}')");
+                    #endif
                     for (var i = 0; i < archetype->TypesCount; i++)
                     {
                         var componentTypeInArchetype = archetype->Types[i];

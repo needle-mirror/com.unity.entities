@@ -148,7 +148,7 @@ namespace Unity.Entities.Tests
             // Chunk versions are considered changed upon creation and until after they're first updated.
             deltaCheckSystem0.UpdateExpectedResults(new Entity[] { entity0, entity1 });
 
-            // First update of chunks. 
+            // First update of chunks.
             SetValue(0, 2, mode);
             SetValue(1, 2, mode);
             deltaCheckSystem0.UpdateExpectedResults(new Entity[] { entity0, entity1 });
@@ -179,7 +179,7 @@ namespace Unity.Entities.Tests
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             var deltaCheckSystem = World.CreateManager<DeltaCheckSystem>();
 
-            // First update of chunks after creation. 
+            // First update of chunks after creation.
             SetValue(0, 2, mode);
             SetValue(1, 2, mode);
             deltaCheckSystem.UpdateExpectedResults(new Entity[] { entity0, entity1 });
@@ -252,7 +252,7 @@ namespace Unity.Entities.Tests
 
             var deltaSystem = World.CreateManager<DeltaProcessComponentSystem>();
 
-            // First update of chunks after creation. 
+            // First update of chunks after creation.
             SetValue(0, -100, ChangeMode.SetComponentData);
             SetValue(1, -100, ChangeMode.SetComponentData);
             deltaSystem.Update();
@@ -682,6 +682,114 @@ namespace Unity.Entities.Tests
             }
 
             entities.Dispose();
+        }
+
+        [DisableAutoCreation]
+        class ChangeFilter1TestSystem : JobComponentSystem
+        {
+            struct ChangedFilterJob : IJobProcessComponentData<EcsTestData, EcsTestData2>
+            {
+                public void Execute(ref EcsTestData output, [ChangedFilter]ref EcsTestData2 output2)
+                {
+                    output.value = output2.value0;
+                }
+            }
+
+
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                return new ChangedFilterJob().Schedule(this, inputDeps);
+            }
+        }
+
+        [Test]
+        public void ChangeFilterWorksWithOneTypes()
+        {
+            var e = m_Manager.CreateEntity();
+            var system = World.GetOrCreateManager<ChangeFilter1TestSystem>();
+            m_Manager.AddComponentData(e, new EcsTestData(0));
+            m_Manager.AddComponentData(e, new EcsTestData2(1));
+
+            system.Update();
+            m_Manager.Debug.SetGlobalSystemVersion(10);
+
+            Assert.AreEqual(1, m_Manager.GetComponentData<EcsTestData>(e).value);
+
+            m_Manager.SetComponentData(e, new EcsTestData2(5));
+
+            system.Update();
+            m_Manager.Debug.SetGlobalSystemVersion(20);
+
+            Assert.AreEqual(5, m_Manager.GetComponentData<EcsTestData>(e).value);
+
+            m_Manager.SetComponentData(e, new EcsTestData(100));
+
+            system.Update();
+            m_Manager.Debug.SetGlobalSystemVersion(30);
+
+            Assert.AreEqual(100, m_Manager.GetComponentData<EcsTestData>(e).value);
+        }
+
+        [DisableAutoCreation]
+        class ChangeFilter2TestSystem : JobComponentSystem
+        {
+            struct ChangedFilterJob : IJobProcessComponentData<EcsTestData, EcsTestData2, EcsTestData3>
+            {
+                public void Execute(ref EcsTestData output, [ChangedFilter]ref EcsTestData2 output2, [ChangedFilter]ref EcsTestData3 output3)
+                {
+                    output.value = output2.value0 + output3.value0;
+                }
+            }
+
+
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                return new ChangedFilterJob().Schedule(this, inputDeps);
+            }
+        }
+
+        [Test]
+        public void ChangeFilterWorksWithTwoTypes()
+        {
+            var e = m_Manager.CreateEntity();
+            var system = World.GetOrCreateManager<ChangeFilter2TestSystem>();
+            m_Manager.AddComponentData(e, new EcsTestData(0));
+            m_Manager.AddComponentData(e, new EcsTestData2(1));
+            m_Manager.AddComponentData(e, new EcsTestData3(2));
+
+            system.Update();
+            m_Manager.Debug.SetGlobalSystemVersion(10);
+
+            Assert.AreEqual(3, m_Manager.GetComponentData<EcsTestData>(e).value);
+
+            m_Manager.SetComponentData(e, new EcsTestData2(5));
+
+            system.Update();
+            m_Manager.Debug.SetGlobalSystemVersion(20);
+
+            Assert.AreEqual(7, m_Manager.GetComponentData<EcsTestData>(e).value);
+
+            m_Manager.SetComponentData(e, new EcsTestData3(7));
+
+            system.Update();
+            m_Manager.Debug.SetGlobalSystemVersion(30);
+
+            Assert.AreEqual(12, m_Manager.GetComponentData<EcsTestData>(e).value);
+
+            m_Manager.SetComponentData(e, new EcsTestData2(8));
+            m_Manager.SetComponentData(e, new EcsTestData3(9));
+
+            system.Update();
+            m_Manager.Debug.SetGlobalSystemVersion(40);
+
+            Assert.AreEqual(17, m_Manager.GetComponentData<EcsTestData>(e).value);
+
+            m_Manager.SetComponentData(e, new EcsTestData(100));
+
+            system.Update();
+            m_Manager.Debug.SetGlobalSystemVersion(50);
+
+            Assert.AreEqual(100, m_Manager.GetComponentData<EcsTestData>(e).value);
         }
     }
 }
