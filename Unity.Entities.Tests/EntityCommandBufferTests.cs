@@ -1,0 +1,485 @@
+﻿using System;
+using NUnit.Framework;
+using Unity.Collections;
+using Unity.Entities;
+using Unity.Jobs;
+using System.Collections.Generic;
+
+namespace Unity.Entities.Tests
+{
+    public class EntityCommandBufferTests : ECSTestsFixture
+    {
+        [Test]
+        public void EmptyOK()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+        }
+
+        struct TestJob : IJob
+        {
+            public EntityCommandBuffer Buffer;
+
+            public void Execute()
+            {
+                Buffer.CreateEntity();
+                Buffer.AddComponent(new EcsTestData { value = 1 });
+            }
+        }
+
+        [Test]
+        public void SingleWriterEnforced()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var job = new TestJob {Buffer = cmds};
+
+            cmds.CreateEntity();
+            cmds.AddComponent(new EcsTestData { value = 42 });
+
+            var handle = job.Schedule();
+
+            Assert.Throws<InvalidOperationException>(() => { cmds.CreateEntity(); });
+            Assert.Throws<InvalidOperationException>(() => { job.Buffer.CreateEntity(); });
+
+            handle.Complete();
+
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var arr = group.GetComponentDataArray<EcsTestData>();
+            Assert.AreEqual(2, arr.Length);
+            Assert.AreEqual(42, arr[0].value);
+            Assert.AreEqual(1, arr[1].value);
+            group.Dispose();
+        }
+
+        [Test]
+        public void DisposeWhileJobRunningThrows()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var job = new TestJob {Buffer = cmds};
+
+            var handle = job.Schedule();
+
+            Assert.Throws<InvalidOperationException>(() => { cmds.Dispose(); });
+
+            handle.Complete();
+
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void ModifiesWhileJobRunningThrows()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var job = new TestJob {Buffer = cmds};
+
+            var handle = job.Schedule();
+
+            Assert.Throws<InvalidOperationException>(() => { cmds.CreateEntity(); });
+
+            handle.Complete();
+
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void PlaybackWhileJobRunningThrows()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var job = new TestJob {Buffer = cmds};
+
+            var handle = job.Schedule();
+
+            Assert.Throws<InvalidOperationException>(() => { cmds.Playback(m_Manager); });
+
+            handle.Complete();
+
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void ImplicitCreateEntity()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.CreateEntity();
+            cmds.AddComponent(new EcsTestData { value = 12 });
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var arr = group.GetComponentDataArray<EcsTestData>();
+            Assert.AreEqual(1, arr.Length);
+            Assert.AreEqual(12, arr[0].value);
+            group.Dispose();
+        }
+
+        [Test]
+        public void ImplicitCreateEntityWithArchetype()
+        {
+            var a = m_Manager.CreateArchetype(typeof(EcsTestData));
+
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.CreateEntity(a);
+            cmds.SetComponent(new EcsTestData { value = 12 });
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var arr = group.GetComponentDataArray<EcsTestData>();
+            Assert.AreEqual(1, arr.Length);
+            Assert.AreEqual(12, arr[0].value);
+            group.Dispose();
+        }
+
+        [Test]
+        public void ImplicitCreateEntityTwice()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.CreateEntity();
+            cmds.AddComponent(new EcsTestData { value = 12 });
+            cmds.CreateEntity();
+            cmds.AddComponent(new EcsTestData { value = 13 });
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var arr = group.GetComponentDataArray<EcsTestData>();
+            Assert.AreEqual(2, arr.Length);
+            Assert.AreEqual(12, arr[0].value);
+            Assert.AreEqual(13, arr[1].value);
+            group.Dispose();
+        }
+
+        [Test]
+        public void ImplicitCreateTwoComponents()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.CreateEntity();
+            cmds.AddComponent(new EcsTestData { value = 12 });
+            cmds.AddComponent(new EcsTestData2 { value0 = 1, value1 = 2 });
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            {
+                var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+                var arr = group.GetComponentDataArray<EcsTestData>();
+                Assert.AreEqual(1, arr.Length);
+                Assert.AreEqual(12, arr[0].value);
+                group.Dispose();
+            }
+
+            {
+                var group = m_Manager.CreateComponentGroup(typeof(EcsTestData2));
+                var arr = group.GetComponentDataArray<EcsTestData2>();
+                Assert.AreEqual(1, arr.Length);
+                Assert.AreEqual(1, arr[0].value0);
+                Assert.AreEqual(2, arr[0].value1);
+                group.Dispose();
+            }
+        }
+
+        [Test]
+        public void TestMultiChunks()
+        {
+            const int count = 65536;
+
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.MinimumChunkSize = 512;
+
+            for (int i = 0; i < count; ++i)
+            {
+                cmds.CreateEntity();
+                cmds.AddComponent(new EcsTestData { value = i });
+                cmds.AddComponent(new EcsTestData2 { value0 = i, value1 = i });
+            }
+
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            {
+                var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestData2));
+                var arr = group.GetComponentDataArray<EcsTestData>();
+                var arr2 = group.GetComponentDataArray<EcsTestData2>();
+                Assert.AreEqual(count, arr.Length);
+                for (int i = 0; i < count; ++i)
+                {
+                    Assert.AreEqual(i, arr[i].value);
+                    Assert.AreEqual(i, arr2[i].value0);
+                    Assert.AreEqual(i, arr2[i].value1);
+                }
+                group.Dispose();
+            }
+        }
+
+        [Test]
+        public void AddSharedComponent()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            var entity = m_Manager.CreateEntity();
+            cmds.AddSharedComponent(entity, new EcsTestSharedComp(10));
+            cmds.AddSharedComponent(entity, new EcsTestSharedComp2(20));
+
+            cmds.Playback(m_Manager);
+
+            Assert.AreEqual(10, m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity).value);
+            Assert.AreEqual(20, m_Manager.GetSharedComponentData<EcsTestSharedComp2>(entity).value1);
+
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void SetSharedComponent()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            var entity = m_Manager.CreateEntity();
+            var sharedComponent = new EcsTestSharedComp(10);
+            m_Manager.AddSharedComponentData(entity, sharedComponent);
+
+            cmds.SetSharedComponent(entity, new EcsTestSharedComp(33));
+
+            cmds.Playback(m_Manager);
+
+            Assert.AreEqual(33, m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity).value);
+
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void RemoveSharedComponent()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            var entity = m_Manager.CreateEntity();
+            var sharedComponent = new EcsTestSharedComp(10);
+            m_Manager.AddSharedComponentData(entity, sharedComponent);
+
+            cmds.RemoveComponent<EcsTestSharedComp>(entity);
+
+            cmds.Playback(m_Manager);
+
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestSharedComp>(entity), "The shared component was not removed.");
+
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void ImplicitAddSharedComponent()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            cmds.CreateEntity();
+            cmds.AddSharedComponent(new EcsTestSharedComp(10));
+            cmds.AddSharedComponent(new EcsTestSharedComp2(20));
+
+            cmds.Playback(m_Manager);
+
+            var sharedComp1List = new List<EcsTestSharedComp>();
+            var sharedComp2List = new List<EcsTestSharedComp2>();
+
+            m_Manager.GetAllUniqueSharedComponentDatas<EcsTestSharedComp>(sharedComp1List);
+            m_Manager.GetAllUniqueSharedComponentDatas<EcsTestSharedComp2>(sharedComp2List);
+
+            // the count must be 2 - the default value of the shared component and the one we actually set
+            Assert.AreEqual(2, sharedComp1List.Count);
+            Assert.AreEqual(2, sharedComp2List.Count);
+
+            Assert.AreEqual(10, sharedComp1List[1].value);
+            Assert.AreEqual(20, sharedComp2List[1].value1);
+
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void ImplicitSetSharedComponent()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            cmds.CreateEntity();
+            cmds.AddSharedComponent(new EcsTestSharedComp(10));
+            cmds.SetSharedComponent(new EcsTestSharedComp(33));
+
+            cmds.Playback(m_Manager);
+
+            var sharedCompList = new List<EcsTestSharedComp>();
+            m_Manager.GetAllUniqueSharedComponentDatas<EcsTestSharedComp>(sharedCompList);
+
+            Assert.AreEqual(2, sharedCompList.Count);
+            Assert.AreEqual(33, sharedCompList[1].value);
+
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void ImplicitSetSharedComponentDefault()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            cmds.CreateEntity();
+            cmds.AddSharedComponent(new EcsTestSharedComp());
+            cmds.SetSharedComponent(new EcsTestSharedComp());
+
+            cmds.Playback(m_Manager);
+
+            var sharedCompList = new List<EcsTestSharedComp>();
+            m_Manager.GetAllUniqueSharedComponentDatas<EcsTestSharedComp>(sharedCompList);
+
+            Assert.AreEqual(1, sharedCompList.Count);
+            Assert.AreEqual(0, sharedCompList[0].value);
+
+            cmds.Dispose();
+        }
+
+        struct TestJobWithManagedSharedData : IJob
+        {
+            public EntityCommandBuffer Buffer;
+            public EcsTestSharedComp2 Blah;
+
+            public void Execute()
+            {
+                Buffer.CreateEntity();
+                Buffer.AddSharedComponent(Blah);
+            }
+        }
+
+        [Test]
+        public void JobWithSharedComponentData()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var job = new TestJobWithManagedSharedData { Buffer = cmds, Blah = new EcsTestSharedComp2(12) };
+
+            job.Schedule().Complete();
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            var list = new List<EcsTestSharedComp2>();
+            m_Manager.GetAllUniqueSharedComponentDatas<EcsTestSharedComp2>(list);
+
+            Assert.AreEqual(2, list.Count);
+            Assert.AreEqual(0, list[0].value0);
+            Assert.AreEqual(0, list[0].value1);
+            Assert.AreEqual(12, list[1].value0);
+            Assert.AreEqual(12, list[1].value1);
+        }
+
+        // TODO: Burst breaks this test.
+        //[ComputeJobOptimization(CompileSynchronously = true)]
+        public struct TestBurstCommandBufferJob : IJob
+        {
+            public Entity e0;
+            public Entity e1;
+            public EntityCommandBuffer Buffer;
+
+            public void Execute()
+            {
+                Buffer.DestroyEntity(e0);
+                Buffer.DestroyEntity(e1);
+            }
+        }
+
+        [Test]
+        public void TestCommandBufferDelete()
+        {
+            Entity[] entities = new Entity[2];
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                entities[i] = m_Manager.CreateEntity();
+                m_Manager.AddComponentData(entities[i], new EcsTestData { value = i });
+            }
+
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            new TestBurstCommandBufferJob {
+                e0 = entities[0],
+                e1 = entities[1],
+                Buffer = cmds,
+            }.Schedule().Complete();
+
+            cmds.Playback(m_Manager);
+
+            cmds.Dispose();
+
+            var allEntities = m_Manager.GetAllEntities();
+            int count = allEntities.Length;
+            allEntities.Dispose();
+
+            Assert.AreEqual(0, count);
+        }
+        
+        [Test]
+        public void TestCommandBufferDeleteWithSystemState()
+        {
+            Entity[] entities = new Entity[2];
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                entities[i] = m_Manager.CreateEntity();
+                m_Manager.AddComponentData(entities[i], new EcsTestData { value = i });
+                m_Manager.AddComponentData(entities[i], new EcsState1 { Value = i });
+            }
+
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            new TestBurstCommandBufferJob {
+                e0 = entities[0],
+                e1 = entities[1],
+                Buffer = cmds,
+            }.Schedule().Complete();
+
+            cmds.Playback(m_Manager);
+
+            cmds.Dispose();
+
+            var allEntities = m_Manager.GetAllEntities();
+            int count = allEntities.Length;
+            allEntities.Dispose();
+
+            Assert.AreEqual(entities.Length, count);
+        }
+        
+        [Test]
+        public void TestCommandBufferDeleteRemoveSystemState()
+        {
+            Entity[] entities = new Entity[2];
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                entities[i] = m_Manager.CreateEntity();
+                m_Manager.AddComponentData(entities[i], new EcsTestData { value = i });
+                m_Manager.AddComponentData(entities[i], new EcsState1 { Value = i });
+            }
+
+            {
+                var cmds = new EntityCommandBuffer(Allocator.TempJob);
+                new TestBurstCommandBufferJob
+                {
+                    e0 = entities[0],
+                    e1 = entities[1],
+                    Buffer = cmds,
+                }.Schedule().Complete();
+
+                cmds.Playback(m_Manager);
+                cmds.Dispose();
+            }
+
+            {
+                var cmds = new EntityCommandBuffer(Allocator.TempJob);
+                for (var i = 0; i < entities.Length; i++)
+                {
+                    cmds.RemoveSystemStateComponent<EcsState1>(entities[i]);
+                }
+
+                cmds.Playback(m_Manager);
+                cmds.Dispose();
+            }
+
+            var allEntities = m_Manager.GetAllEntities();
+            int count = allEntities.Length;
+            allEntities.Dispose();
+
+            Assert.AreEqual(0, count);
+        }
+    }
+}
