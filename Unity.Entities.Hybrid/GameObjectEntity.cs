@@ -11,7 +11,11 @@ using Component = UnityEngine.Component;
 namespace Unity.Entities
 {
     //@TODO: This should be fully implemented in C++ for efficiency
+#if UNITY_2018_3_OR_NEWER
+    [ExecuteAlways]
+#else
     [ExecuteInEditMode]
+#endif
     [RequireComponent(typeof(GameObjectEntity))]
     public abstract class ComponentDataWrapperBase : MonoBehaviour, ISerializationCallbackReceiver
     {
@@ -213,7 +217,11 @@ namespace Unity.Entities
     }
 
     [DisallowMultipleComponent]
+#if UNITY_2018_3_OR_NEWER
+    [ExecuteAlways]
+#else
     [ExecuteInEditMode]
+#endif
     public class GameObjectEntity : MonoBehaviour
     {
         public EntityManager EntityManager { get; private set; }
@@ -336,6 +344,17 @@ namespace Unity.Entities
 
             EntityManager = null;
             Entity = new Entity();
+        }
+
+        public void CopyAllComponentsToEntity(EntityManager entityManager, Entity entity)
+        {
+            foreach (var wrapper in gameObject.GetComponents<ComponentDataWrapperBase>())
+            {
+                //@TODO: handle shared components and tag components
+                var type = wrapper.GetComponentType();
+                entityManager.AddComponent(entity, type);
+                wrapper.UpdateComponentData(entityManager, entity);
+            }
         }
     }
 }

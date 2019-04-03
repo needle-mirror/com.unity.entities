@@ -17,7 +17,7 @@ namespace Unity.Entities.Serialization
             public int AllocSizeBytes;
         }
 
-        public static int CurrentFileFormatVersion = 6;
+        public static int CurrentFileFormatVersion = 7;
 
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, int numSharedComponents)
         {
@@ -202,6 +202,13 @@ namespace Unity.Entities.Serialization
 
         public static unsafe void SerializeWorld(EntityManager entityManager, BinaryWriter writer, out int[] sharedComponentsToSerialize)
         {
+            var entityRemapInfos = new NativeArray<EntityRemapUtility.EntityRemapInfo>(entityManager.EntityCapacity, Allocator.Temp);
+            SerializeWorld(entityManager, writer, out sharedComponentsToSerialize, entityRemapInfos);
+            entityRemapInfos.Dispose();
+        }
+
+        public static unsafe void SerializeWorld(EntityManager entityManager, BinaryWriter writer, out int[] sharedComponentsToSerialize, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos)
+        {
             writer.Write(CurrentFileFormatVersion);
             var archetypeManager = entityManager.ArchetypeManager;
 
@@ -257,9 +264,8 @@ namespace Unity.Entities.Serialization
 
             //TODO: ensure chunks are defragged?
 
-            NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos;
             var bufferPatches = new NativeList<BufferPatchRecord>(128, Allocator.Temp);
-            var totalChunkCount = GenerateRemapInfo(entityManager, archetypeArray, out entityRemapInfos);
+            var totalChunkCount = GenerateRemapInfo(entityManager, archetypeArray, entityRemapInfos);
 
             writer.Write(totalChunkCount);
 
@@ -365,7 +371,6 @@ namespace Unity.Entities.Serialization
             }
 
             bufferPatches.Dispose();
-            entityRemapInfos.Dispose();
             UnsafeUtility.Free(tempChunk, Allocator.Temp);
 
             sharedComponentsToSerialize = new int[sharedIndexToSerialize.Count];
@@ -395,11 +400,9 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        static unsafe int GenerateRemapInfo(EntityManager entityManager, EntityArchetype[] archetypeArray, out NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos)
+        static unsafe int GenerateRemapInfo(EntityManager entityManager, EntityArchetype[] archetypeArray, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos)
         {
             int nextEntityId = 1; //0 is reserved for Entity.Null;
-
-            entityRemapInfos = new NativeArray<EntityRemapUtility.EntityRemapInfo>(entityManager.EntityCapacity, Allocator.Temp);
 
             int totalChunkCount = 0;
             for (int archetypeIndex = 0; archetypeIndex < archetypeArray.Length; ++archetypeIndex)

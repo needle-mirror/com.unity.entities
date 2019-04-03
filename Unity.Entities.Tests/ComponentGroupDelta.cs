@@ -124,8 +124,8 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Theory]
-        public void ChangeEntity(ChangeMode mode)
+        [Test]
+        public void ChangeEntity([Values]ChangeMode mode)
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData));
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -146,8 +146,8 @@ namespace Unity.Entities.Tests
             deltaCheckSystem1.UpdateExpect(new Entity[0]);
         }
 
-        [Theory]
-        public void GetEntityDataDoesNotChange(ChangeMode mode)
+        [Test]
+        public void GetEntityDataDoesNotChange([Values]ChangeMode mode)
         {
             m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -436,8 +436,8 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Theory]
-        public void ChangedFilterJobAfterAnotherJob2Comp(DeltaModifyComponentSystem2Comp.Variant variant)
+        [Test]
+        public void ChangedFilterJobAfterAnotherJob2Comp([Values]DeltaModifyComponentSystem2Comp.Variant variant)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
             var entities = new NativeArray<Entity>(10000, Allocator.Persistent);
@@ -569,8 +569,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Theory]
-        public void ChangedFilterJobAfterAnotherJob3Comp(DeltaModifyComponentSystem3Comp.Variant variant)
+        public void ChangedFilterJobAfterAnotherJob3Comp([Values]DeltaModifyComponentSystem3Comp.Variant variant)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestSharedComp));
             var entities = new NativeArray<Entity>(10000, Allocator.Persistent);

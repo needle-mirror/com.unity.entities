@@ -60,6 +60,8 @@ namespace Unity.Entities
         }
 
         public int ChunkCount => Archetype->ChunkCount;
+
+        public int ChunkCapacity => Archetype->ChunkCapacity;
     }
 
     public struct Entity : IEquatable<Entity>
@@ -230,14 +232,14 @@ namespace Unity.Entities
             if (count + 1 > m_CachedComponentTypeInArchetypeArrayLength)
                 throw new System.ArgumentException($"Archetypes can't hold more than {m_CachedComponentTypeInArchetypeArrayLength}");
             #endif
-            
+
             m_CachedComponentTypeInArchetypeArray[0] = new ComponentTypeInArchetype(ComponentType.Create<Entity>());
             for (var i = 0; i < count; ++i)
                 SortingUtilities.InsertSorted(m_CachedComponentTypeInArchetypeArray, i + 1, requiredComponents[i]);
             return count + 1;
         }
 
-        internal ComponentGroup CreateComponentGroup(params ComponentType[] requiredComponents)
+        public ComponentGroup CreateComponentGroup(params ComponentType[] requiredComponents)
         {
             return m_GroupManager.CreateEntityGroup(ArchetypeManager, Entities, requiredComponents);
         }
@@ -245,7 +247,7 @@ namespace Unity.Entities
         {
             return m_GroupManager.CreateEntityGroup(ArchetypeManager, Entities, queries);
         }
-        
+
         internal EntityArchetype CreateArchetype(ComponentType* types, int count)
         {
             var cachedComponentCount = PopulatedCachedTypeInArchetypeArray(types, count);
@@ -488,7 +490,7 @@ namespace Unity.Entities
             if (ComponentType.FromTypeIndex(typeIndex).IsZeroSized)
                 throw new System.ArgumentException($"GetComponentData<{typeof(T)}> can not be called with a zero sized component.");
 #endif
-            
+
             ComponentJobSafetyManager.CompleteReadAndWriteDependency(typeIndex);
 
             var ptr = Entities->GetComponentDataWithTypeRW(entity, typeIndex, Entities->GlobalSystemVersion);
@@ -722,11 +724,11 @@ namespace Unity.Entities
 
             ComponentJobSafetyManager.CompleteReadAndWriteDependency(typeIndex);
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS            
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (TypeManager.GetTypeInfo(typeIndex).SizeInChunk != size)
                 throw new System.ArgumentException($"SetComponentDataRaw<{TypeManager.GetType(typeIndex)}> can not be called with a zero sized component and must have same size as sizeof(T).");
 #endif
-            
+
             var ptr = Entities->GetComponentDataWithTypeRW(entity, typeIndex, Entities->GlobalSystemVersion);
             UnsafeUtility.MemCpy(ptr, data, size);
         }
@@ -737,12 +739,12 @@ namespace Unity.Entities
 
             ComponentJobSafetyManager.CompleteReadAndWriteDependency(typeIndex);
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS            
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (TypeManager.GetTypeInfo(typeIndex).IsZeroSized)
                 throw new System.ArgumentException($"GetComponentDataRaw<{TypeManager.GetType(typeIndex)}> can not be called with a zero sized component.");
 #endif
 
-            
+
             var ptr = Entities->GetComponentDataWithTypeRW(entity, typeIndex, Entities->GlobalSystemVersion);
             return ptr;
         }
@@ -797,6 +799,19 @@ namespace Unity.Entities
 
         public void MoveEntitiesFrom(EntityManager srcEntities)
         {
+            var entityRemapping = srcEntities.CreateEntityRemapArray(Allocator.TempJob);
+            try
+            {
+                MoveEntitiesFrom(srcEntities, entityRemapping);
+            }
+            finally
+            {
+                entityRemapping.Dispose();
+            }
+        }
+
+        public void MoveEntitiesFrom(EntityManager srcEntities, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
+        {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (srcEntities == this)
                 throw new ArgumentException("srcEntities must not be the same as this EntityManager.");
@@ -808,9 +823,38 @@ namespace Unity.Entities
             BeforeStructuralChange();
             srcEntities.BeforeStructuralChange();
 
-            ArchetypeManager.MoveChunks(srcEntities, ArchetypeManager, m_GroupManager, Entities, m_SharedComponentManager, m_CachedComponentTypeInArchetypeArray);
+            ArchetypeManager.MoveChunks(srcEntities, ArchetypeManager, m_GroupManager, Entities, m_SharedComponentManager, m_CachedComponentTypeInArchetypeArray, entityRemapping);
 
             //@TODO: Need to incrmeent the component versions based the moved chunks...
+        }
+
+        public NativeArray<EntityRemapUtility.EntityRemapInfo> CreateEntityRemapArray(Allocator allocator)
+        {
+            return new NativeArray<EntityRemapUtility.EntityRemapInfo>(m_Entities->Capacity, allocator);
+        }
+
+        public void MoveEntitiesFrom(EntityManager srcEntities, ComponentGroup filter, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if(filter.ArchetypeManager != srcEntities.ArchetypeManager)
+                throw new ArgumentException("EntityManager.MoveEntitiesFrom failed - srcEntities and filter must belong to the same World)");
+#endif
+            var chunks = filter.GetAllMatchingChunks(Allocator.TempJob);
+            MoveEntitiesFrom(srcEntities, chunks, entityRemapping);
+            chunks.Dispose();
+        }
+
+        internal void MoveEntitiesFrom(EntityManager srcEntities, NativeArray<ArchetypeChunk> chunks, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (srcEntities == this)
+                throw new ArgumentException("srcEntities must not be the same as this EntityManager.");
+#endif
+
+            BeforeStructuralChange();
+            srcEntities.BeforeStructuralChange();
+
+            ArchetypeManager.MoveChunks(srcEntities, chunks, ArchetypeManager, m_GroupManager, Entities, m_SharedComponentManager, m_CachedComponentTypeInArchetypeArray, entityRemapping);
         }
 
         public void CheckInternalConsistency()

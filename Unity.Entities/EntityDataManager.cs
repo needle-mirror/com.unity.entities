@@ -8,7 +8,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 
 namespace Unity.Entities
-{        
+{
     public unsafe struct ComponentTypes
     {
         ResizableArray64Byte<int> m_sorted;
@@ -56,14 +56,14 @@ namespace Unity.Entities
                     m_masks.m_SharedComponentMask |= mask;
                 if (typeInfo.IsZeroSized)
                     m_masks.m_ZeroSizedMask |= mask;
-            }                        
+            }
         }
 
         public int Length
         {
-            get => m_sorted.Length;                
+            get => m_sorted.Length;
         }
-        
+
         public int GetTypeIndex(int index)
         {
             return m_sorted[index];
@@ -72,7 +72,7 @@ namespace Unity.Entities
         {
             return TypeManager.GetType(m_sorted[index]);
         }
-        
+
         public ComponentTypes(ComponentType a)
         {
             m_sorted = new ResizableArray64Byte<int>();
@@ -80,7 +80,7 @@ namespace Unity.Entities
             m_sorted.Length = 1;
             var pointer = (int*)m_sorted.GetUnsafePointer();
             SortingUtilities.InsertSorted(pointer, 0, a.TypeIndex);
-            ComputeMasks();            
+            ComputeMasks();
         }
 
         public ComponentTypes(ComponentType a, ComponentType b)
@@ -91,7 +91,7 @@ namespace Unity.Entities
             var pointer = (int*)m_sorted.GetUnsafePointer();
             SortingUtilities.InsertSorted(pointer, 0, a.TypeIndex);
             SortingUtilities.InsertSorted(pointer, 1, b.TypeIndex);
-            ComputeMasks();            
+            ComputeMasks();
         }
 
         public ComponentTypes(ComponentType a, ComponentType b, ComponentType c)
@@ -103,7 +103,7 @@ namespace Unity.Entities
             SortingUtilities.InsertSorted(pointer, 0, a.TypeIndex);
             SortingUtilities.InsertSorted(pointer, 1, b.TypeIndex);
             SortingUtilities.InsertSorted(pointer, 2, c.TypeIndex);
-            ComputeMasks();            
+            ComputeMasks();
         }
 
         public ComponentTypes(ComponentType a, ComponentType b, ComponentType c, ComponentType d)
@@ -116,7 +116,7 @@ namespace Unity.Entities
             SortingUtilities.InsertSorted(pointer, 1, b.TypeIndex);
             SortingUtilities.InsertSorted(pointer, 2, c.TypeIndex);
             SortingUtilities.InsertSorted(pointer, 3, d.TypeIndex);
-            ComputeMasks();            
+            ComputeMasks();
         }
 
         public ComponentTypes(ComponentType a, ComponentType b, ComponentType c, ComponentType d, ComponentType e)
@@ -130,22 +130,22 @@ namespace Unity.Entities
             SortingUtilities.InsertSorted(pointer, 2, c.TypeIndex);
             SortingUtilities.InsertSorted(pointer, 3, d.TypeIndex);
             SortingUtilities.InsertSorted(pointer, 4, e.TypeIndex);
-            ComputeMasks();            
+            ComputeMasks();
         }
 
         public ComponentTypes(ComponentType[] componentType)
-        {           
+        {
             m_sorted = new ResizableArray64Byte<int>();
             m_masks = new Masks();
             m_sorted.Length = componentType.Length;
             var pointer = (int*)m_sorted.GetUnsafePointer();
             for(var i = 0; i < componentType.Length; ++i)
                 SortingUtilities.InsertSorted(pointer, i, componentType[i].TypeIndex);
-            ComputeMasks();            
+            ComputeMasks();
         }
-                
+
     }
-    
+
     internal struct CleanupEntity : IComponentData
     {
     }
@@ -515,6 +515,23 @@ namespace Unity.Entities
             }
         }
 
+        public void AllocateEntitiesForRemapping(EntityDataManager * srcEntityDataManager, Chunk* chunk, ref NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
+        {
+            var count = chunk->Count;
+            var entities = (Entity*)chunk->Buffer;
+            for (var i = 0; i != count; i++)
+            {
+                var entity = m_Entities + m_EntitiesFreeIndex;
+                if (entity->IndexInChunk == -1)
+                {
+                    IncreaseCapacity();
+                    entity = m_Entities + m_EntitiesFreeIndex;
+                }
+                EntityRemapUtility.AddEntityRemapping(ref entityRemapping, new Entity { Version = entities[i].Version, Index = entities[i].Index }, new Entity { Version = entity->Version, Index = m_EntitiesFreeIndex });
+                m_EntitiesFreeIndex = entity->IndexInChunk;
+            }
+        }
+
         public void RemapChunk(Archetype* arch, Chunk* chunk, int baseIndex, int count, ref NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
         {
             Assert.AreEqual(chunk->Archetype->Offsets[0], 0);
@@ -550,6 +567,23 @@ namespace Unity.Entities
             m_Entities[m_EntitiesCapacity - 1].IndexInChunk = -1;
 
             m_EntitiesFreeIndex = 0;
+        }
+
+        public void FreeEntities(Chunk* chunk)
+        {
+            var count = chunk->Count;
+            var entities = (Entity*)chunk->Buffer;
+            int freeIndex = m_EntitiesFreeIndex;
+            for (var i = 0; i != count; i++)
+            {
+                int index = entities[i].Index;
+                m_Entities[index].Version += 1;
+                m_Entities[index].Chunk = null;
+                m_Entities[index].IndexInChunk = freeIndex;
+                freeIndex = index;
+            }
+
+            m_EntitiesFreeIndex = freeIndex;
         }
 
         public bool HasComponent(Entity entity, int type)
@@ -622,7 +656,7 @@ namespace Unity.Entities
         {
             return m_Entities[entity.Index].Archetype;
         }
-        
+
         public Archetype* GetInstantiableArchetype(Entity entity, ArchetypeManager archetypeManager, EntityGroupManager groupManager, ComponentTypeInArchetype* componentTypeInArchetypeArray)
         {
             var srcArchetype = GetArchetype(entity);
@@ -672,7 +706,7 @@ namespace Unity.Entities
             var oldArchetype = GetArchetype(entity);
 
             var indexOfNewTypeInNewArchetype = stackalloc int[types.Length];
-            
+
             // zipper the two sorted arrays "type" and "componentTypeInArchetype" into "componentTypeInArchetype"
             // because this is done in-place, it must be done backwards so as not to disturb the existing contents.
 
@@ -708,7 +742,7 @@ namespace Unity.Entities
                 Assert.AreEqual(newThings, 0); // must not be any new things to copy remaining
                 Assert.AreEqual(oldThings, mixedThings); // all things we didn't copy must be old
             }
-            
+
             var newTypesCount = oldArchetype->TypesCount + (int)types.Length;
             var newArchetype = archetypeManager.GetOrCreateArchetype(componentTypeInArchetypeArray,
                 newTypesCount, groupManager);
@@ -719,7 +753,7 @@ namespace Unity.Entities
                 int* alloc2 = stackalloc int[newArchetype->NumSharedComponents];
                 var oldSharedComponentDataIndices = sharedComponentDataIndices;
                 sharedComponentDataIndices = alloc2;
-                
+
                 UInt64 sharedComponentInNewArchetypeIsNew = 0;
                 for (var i = 0; i < types.Length; ++i)
                     if (types.m_masks.IsSharedComponent(i))
@@ -744,9 +778,9 @@ namespace Unity.Entities
             }
 
             SetArchetype(archetypeManager, entity, newArchetype, sharedComponentDataIndices);
-            IncrementComponentOrderVersion(newArchetype, GetComponentChunk(entity), sharedComponentDataManager); 
+            IncrementComponentOrderVersion(newArchetype, GetComponentChunk(entity), sharedComponentDataManager);
         }
-        
+
         public void AddComponent(Entity entity, ComponentType type, ArchetypeManager archetypeManager,
             SharedComponentDataManager sharedComponentDataManager,
             EntityGroupManager groupManager, ComponentTypeInArchetype* componentTypeInArchetypeArray)

@@ -15,25 +15,39 @@ namespace Unity.Entities.Editor
 
         private EntityManager entityManager;
 
+        private ChunkFilter chunkFilter;
+
         public int Count { get; private set; }
 
-        public void SetSource(NativeArray<ArchetypeChunk> newChunkArray, EntityManager newEntityManager)
+        public void SetSource(NativeArray<ArchetypeChunk> newChunkArray, EntityManager newEntityManager, ChunkFilter newChunkFilter)
         {
             lastRequestedIndex = int.MaxValue;
             chunkArray = newChunkArray;
+            chunkFilter = newChunkFilter;
             Count = 0;
             if (chunkArray.IsCreated)
             {
-                foreach (var t in chunkArray)
-                    Count += t.Count;
+                for (var i = 0; i < chunkArray.Length; ++i)
+                {
+                    if (chunkFilter == null || (i >= chunkFilter.firstIndex && i <= chunkFilter.lastIndex))
+                    {
+                        Count += chunkArray[i].Count;
+                    }
+                }
             }
-
             entityManager = newEntityManager;
         }
 
         private int lastRequestedIndex;
         private int currentLocalIndex;
         private int currentChunk;
+
+        private void SkipFilteredChunks()
+        {
+            if (chunkFilter != null)
+                while (currentChunk < chunkFilter.firstIndex)
+                    ++currentChunk;
+        }
 
         public TreeViewItem this[int index]
         {
@@ -47,10 +61,14 @@ namespace Unity.Entities.Editor
                 {
                     currentLocalIndex = index;
                     currentChunk = 0;
+                    SkipFilteredChunks();
                 }
                 lastRequestedIndex = index;
                 while (chunkArray[currentChunk].Count <= currentLocalIndex)
+                {
                     currentLocalIndex -= chunkArray[currentChunk++].Count;
+                    SkipFilteredChunks();
+                }
                 
                 var entityArray = chunkArray[currentChunk].GetNativeArray(entityManager.GetArchetypeChunkEntityType());
                 var entity = entityArray[currentLocalIndex];

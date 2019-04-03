@@ -32,10 +32,7 @@ namespace Unity.Entities.Editor
         
         private readonly Dictionary<int, ComponentGroup> componentGroupsById = new Dictionary<int, ComponentGroup>();
         private readonly Dictionary<int, EntityArchetypeQuery> queriesById = new Dictionary<int, EntityArchetypeQuery>();
-        private readonly Dictionary<int, List<GUIStyle>> stylesById = new Dictionary<int, List<GUIStyle>>();
-        private readonly Dictionary<int, List<GUIContent>> namesById = new Dictionary<int, List<GUIContent>>();
-        private readonly Dictionary<int, List<Rect>> rectsById = new Dictionary<int, List<Rect>>();
-        private readonly Dictionary<int, float> heightsById = new Dictionary<int, float>();
+        private readonly Dictionary<int, ComponentGroupGUIControl> controlsById = new Dictionary<int, ComponentGroupGUIControl>();
 
         public ComponentSystemBase SelectedSystem
         {
@@ -94,7 +91,7 @@ namespace Unity.Entities.Editor
 
         protected override float GetCustomRowHeight(int row, TreeViewItem item)
         {
-            return heightsById.ContainsKey(item.id) ? heightsById[item.id] + 2 : rowHeight;
+            return controlsById.ContainsKey(item.id) ? controlsById[item.id].Height + 2 : rowHeight;
         }
 
         private static List<EntityArchetypeQuery> GetQueriesForSystem(ComponentSystemBase system)
@@ -125,7 +122,7 @@ namespace Unity.Entities.Editor
         {
             componentGroupsById.Clear();
             queriesById.Clear();
-            heightsById.Clear();
+            controlsById.Clear();
             var currentId = 0;
             var root  = new TreeViewItem { id = currentId++, depth = -1, displayName = "Root" };
             if (getWorldSelection() == null)
@@ -163,6 +160,20 @@ namespace Unity.Entities.Editor
                 else
                 {
                     SetupDepthsFromParentsAndChildren(root);
+                    
+                    foreach (var idGroupPair in componentGroupsById)
+                    {
+                        var newControl = new ComponentGroupGUIControl(idGroupPair.Value.Types, true);
+                        controlsById.Add(idGroupPair.Key, newControl);
+                    }
+                    foreach (var idQueryPair in queriesById)
+                    {
+                        var types = idQueryPair.Value.All.Concat(idQueryPair.Value.Any);
+                        types = types.Concat(idQueryPair.Value.None.Select(x => ComponentType.Subtractive(x.GetManagedType())));
+                
+                        var newControl = new ComponentGroupGUIControl(types, true);
+                        controlsById.Add(idQueryPair.Key, newControl);
+                    }
                 }
             }
             return root;
@@ -170,61 +181,23 @@ namespace Unity.Entities.Editor
 
         private float width;
 
-        private void CalculateDrawingParts(float newWidth)
-        {
-            width = newWidth;
-            stylesById.Clear();
-            namesById.Clear();
-            rectsById.Clear();
-            heightsById.Clear();
-            foreach (var idGroupPair in componentGroupsById)
-            {
-                float height;
-                List<GUIStyle> styles;
-                List<GUIContent> names;
-                List<Rect> rects;
-                ComponentGroupGUI.CalculateDrawingParts(new List<ComponentType>(idGroupPair.Value.Types), true, width, out height, out styles, out names, out rects);
-                stylesById.Add(idGroupPair.Key, styles);
-                namesById.Add(idGroupPair.Key, names);
-                rectsById.Add(idGroupPair.Key, rects);
-                heightsById.Add(idGroupPair.Key, height);
-            }
-            foreach (var idQueryPair in queriesById)
-            {
-                var types = new List<ComponentType>();
-                types.AddRange(idQueryPair.Value.All);
-                types.AddRange(idQueryPair.Value.Any);
-                types.AddRange(idQueryPair.Value.None.Select(x => ComponentType.Subtractive(x.GetManagedType())));
-
-                float height;
-                List<GUIStyle> styles;
-                List<GUIContent> names;
-                List<Rect> rects;
-                ComponentGroupGUI.CalculateDrawingParts(types, true, width, out height, out styles, out names, out rects);
-                stylesById.Add(idQueryPair.Key, styles);
-                namesById.Add(idQueryPair.Key, names);
-                rectsById.Add(idQueryPair.Key, rects);
-                heightsById.Add(idQueryPair.Key, height);
-            }
-            RefreshCustomRowHeights();
-        }
-
         public override void OnGUI(Rect rect)
         {
-
             if (getWorldSelection()?.GetExistingManager<EntityManager>()?.IsCreated == true)
             {
                 if (Event.current.type == EventType.Repaint)
                 {
-                    CalculateDrawingParts(rect.width - 60f);
+                    var newWidth = rect.width - 60f;
+                    if (newWidth != width)
+                    {
+                        width = newWidth;
+                        foreach (var control in controlsById.Values)
+                            control.UpdateSize(width);
+                    }
+                    RefreshCustomRowHeights();
                 }
                 base.OnGUI(rect);
             }
-        }
-
-        protected override void BeforeRowsGUI()
-        {
-            base.BeforeRowsGUI();
         }
 
         protected void DrawCount(RowGUIArgs args)
@@ -252,18 +225,14 @@ namespace Unity.Entities.Editor
         protected override void RowGUI(RowGUIArgs args)
         {
             base.RowGUI(args);
-            if (Event.current.type != EventType.Repaint || !heightsById.ContainsKey(args.item.id))
+            if (Event.current.type != EventType.Repaint || !controlsById.ContainsKey(args.item.id))
                 return;
 
             var position = args.rowRect.position;
             position.x = GetContentIndent(args.item);
             position.y += 1;
-            
-            ComponentGroupGUI.DrawComponentList(
-                new Rect(position.x, position.y, heightsById[args.item.id], width),
-                stylesById[args.item.id],
-                namesById[args.item.id],
-                rectsById[args.item.id]);
+
+            controlsById[args.item.id].OnGUI(position);
 
             DrawCount(args);
         }

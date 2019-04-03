@@ -26,7 +26,7 @@ namespace Unity.Entities.Editor.Tests
             using (var chunkArray = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob))
             {
                 var adapter = new EntityArrayListAdapter();
-                adapter.SetSource(chunkArray, m_Manager);
+                adapter.SetSource(chunkArray, m_Manager, null);
                 var e1 = adapter[50001].id;
                 var e2 = adapter[50002].id;
                 var e3 = adapter[50003].id;

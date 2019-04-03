@@ -21,6 +21,7 @@ namespace Unity.Entities.Editor
                 if (value == null || selectedEntityQuery != value)
                 {
                     selectedEntityQuery = value;
+                    chunkFilter = null;
                     Reload();
                 }
             }
@@ -28,11 +29,20 @@ namespace Unity.Entities.Editor
 
         private EntityListQuery selectedEntityQuery;
 
+        private ChunkFilter chunkFilter;
+        public void SetFilter(ChunkFilter filter)
+        {
+            chunkFilter = filter;
+            Reload();
+        }
+
         private readonly EntitySelectionCallback setEntitySelection;
         private readonly WorldSelectionGetter getWorldSelection;
         private readonly SystemSelectionGetter getSystemSelection;
         
         private readonly EntityArrayListAdapter rows;
+
+        public NativeArray<ArchetypeChunk> ChunkArray => chunkArray;
         private NativeArray<ArchetypeChunk> chunkArray;
 
         public EntityListView(TreeViewState state, EntityListQuery entityQuery, EntitySelectionCallback entitySelectionCallback, WorldSelectionGetter getWorldSelection, SystemSelectionGetter getSystemSelection) : base(state)
@@ -93,7 +103,7 @@ namespace Unity.Entities.Editor
                 chunkArray = SelectedEntityQuery.Group.CreateArchetypeChunkArray(Allocator.Persistent);
             }
 
-            rows.SetSource(chunkArray, entityManager);
+            rows.SetSource(chunkArray, entityManager, chunkFilter);
             return rows;
         }
 

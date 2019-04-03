@@ -1,4 +1,5 @@
 ﻿using System;
+using Unity.Collections;
 using UnityEditor;
 using UnityEngine;
 
@@ -10,6 +11,13 @@ namespace Unity.Entities.Serialization
         {
             int[] sharedComponentIndices;
             SerializeUtility.SerializeWorld(manager, writer, out sharedComponentIndices);
+            sharedData = SerializeSharedComponents(manager, sharedComponentIndices);
+        }
+
+        public static void Serialize(EntityManager manager, BinaryWriter writer, out GameObject sharedData, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos)
+        {
+            int[] sharedComponentIndices;
+            SerializeUtility.SerializeWorld(manager, writer, out sharedComponentIndices, entityRemapInfos);
             sharedData = SerializeSharedComponents(manager, sharedComponentIndices);
         }
 
@@ -72,7 +80,7 @@ namespace Unity.Entities.Serialization
             manager.m_SharedComponentManager.PrepareForDeserialize();
 
             var sharedData = gameobject.GetComponents<ComponentDataWrapperBase>();
-            
+
 
             for (int i = 0; i != sharedData.Length; i++)
             {

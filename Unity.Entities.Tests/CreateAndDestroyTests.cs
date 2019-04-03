@@ -303,5 +303,24 @@ namespace Unity.Entities.Tests
 	        actualTotalTypes.Dispose();
 	    }
 
+	    [Test]
+	    public void InstantiateWithSystemStateComponent()
+	    {
+	        for (int i = 0; i < 1000; ++i)
+	        {
+	            var src = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsState1), typeof(EcsTestData2));
+
+	            m_Manager.SetComponentData(src, new EcsTestData {value = i * 123});
+	            m_Manager.SetComponentData(src, new EcsTestData2 {value0 = i * 456, value1 = i * 789});
+
+	            var dst = m_Manager.Instantiate(src);
+
+	            Assert.AreEqual(i * 123, m_Manager.GetComponentData<EcsTestData>(dst).value);
+	            Assert.AreEqual(i * 456, m_Manager.GetComponentData<EcsTestData2>(dst).value0);
+	            Assert.AreEqual(i * 789, m_Manager.GetComponentData<EcsTestData2>(dst).value1);
+
+	            Assert.IsFalse(m_Manager.HasComponent<EcsState1>(dst));
+	        }
+	    }
 	}
 }

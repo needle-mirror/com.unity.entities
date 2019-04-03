@@ -52,7 +52,7 @@ namespace Unity.Entities
                 return true;
             }
         }
-        
+
         public ComponentType[] Types
         {
             get
@@ -104,7 +104,7 @@ namespace Unity.Entities
 
             ResetFilter();
         }
-        
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         internal AtomicSafetyHandle GetSafetyHandle(int indexInComponentGroup)
         {
@@ -145,20 +145,20 @@ namespace Unity.Entities
         {
             outIterator = new ComponentChunkIterator(m_GroupData->FirstMatchingArchetype, m_EntityDataManager->GlobalSystemVersion, ref m_Filter);
         }
-        
+
         internal int GetIndexInComponentGroup(int componentType)
         {
             var componentIndex = 0;
             while (componentIndex < m_GroupData->RequiredComponentsCount && m_GroupData->RequiredComponents[componentIndex].TypeIndex != componentType)
                 ++componentIndex;
-            
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (componentIndex >= m_GroupData->RequiredComponentsCount)
                 throw new InvalidOperationException( $"Trying to get iterator for {TypeManager.GetType(componentType)} but the required component type was not declared in the EntityGroup.");
 #endif
             return componentIndex;
         }
-        
+
         internal void GetComponentDataArray<T>(ref ComponentChunkIterator iterator, int indexInComponentGroup,
             int length, out ComponentDataArray<T> output) where T : struct, IComponentData
         {
@@ -168,7 +168,7 @@ namespace Unity.Entities
             if (componentType.IsZeroSized)
                 throw new ArgumentException($"GetComponentDataArray<{typeof(T)}> cannot be called on zero-sized IComponentData");
 #endif
-            
+
             iterator.IndexInComponentGroup = indexInComponentGroup;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             output = new ComponentDataArray<T>(iterator, length, GetSafetyHandle(indexInComponentGroup));
@@ -180,13 +180,13 @@ namespace Unity.Entities
         public ComponentDataArray<T> GetComponentDataArray<T>() where T : struct, IComponentData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
-            
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var componentType = ComponentType.FromTypeIndex(typeIndex);
             if (componentType.IsZeroSized)
                 throw new ArgumentException($"GetComponentDataArray<{typeof(T)}> cannot be called on zero-sized IComponentData");
 #endif
-            
+
             int length;
             ComponentChunkIterator iterator;
             GetComponentChunkIterator(out length, out iterator);
@@ -268,7 +268,7 @@ namespace Unity.Entities
         {
             return ComponentChunkIterator.CreateArchetypeChunkArray(m_GroupData->FirstMatchingArchetype, allocator, out jobhandle);
         }
-        
+
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator)
         {
             JobHandle job;
@@ -276,7 +276,7 @@ namespace Unity.Entities
             job.Complete();
             return res;
         }
-        
+
         public EntityArray GetEntityArray()
         {
             int length;
@@ -297,7 +297,7 @@ namespace Unity.Entities
         {
             return EntityGroupManager.CompareQuery(query, m_GroupData);
         }
-        
+
         public void ResetFilter()
         {
             if (m_Filter.Type == FilterType.SharedComponent)
@@ -419,7 +419,7 @@ namespace Unity.Entities
 
             return version;
         }
-        
+
 
         internal ArchetypeManager GetArchetypeManager()
         {
@@ -429,6 +429,25 @@ namespace Unity.Entities
         internal int CalculateNumberOfChunksWithoutFiltering()
         {
             return ComponentChunkIterator.CalculateNumberOfChunksWithoutFiltering(m_GroupData->FirstMatchingArchetype);
+        }
+
+		//TODO: Remove this once CreateArchetypeChunkArray supports filtering shared components
+        internal NativeList<ArchetypeChunk> GetAllMatchingChunks(Allocator allocator)
+        {
+            var chunks = new NativeList<ArchetypeChunk>(allocator);
+
+            for (var match = m_GroupData->FirstMatchingArchetype; match != null; match = match->Next)
+            {
+                var archeType = match->Archetype;
+                for (var c = (Chunk*) archeType->ChunkList.Begin; c != archeType->ChunkList.End; c = (Chunk*) c->ChunkListNode.Next)
+                {
+                    if (c->MatchesFilter(match, ref m_Filter))
+                    {
+                        chunks.Add(new ArchetypeChunk { m_Chunk = c });
+                    }
+                }
+            }
+            return chunks;
         }
     }
 }
