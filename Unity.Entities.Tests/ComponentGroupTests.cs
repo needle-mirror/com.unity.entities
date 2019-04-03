@@ -2,6 +2,8 @@
 using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
@@ -65,7 +67,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponent
+        [StandaloneFixme] // ISharedComponentData
         public void CreateArchetypeChunkArray_FiltersSharedComponents()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
@@ -101,7 +103,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponent
+        [StandaloneFixme] // ISharedComponentData
         public void CreateArchetypeChunkArray_FiltersTwoSharedComponents()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
@@ -266,6 +268,90 @@ namespace Unity.Entities.Tests
             )
             // NB: EcsTestData != EcsTestData2
             Assert.Throws<InvalidOperationException>(() => group.ToComponentDataArray<EcsTestData2>(Allocator.TempJob));
+        }
+
+#if !UNITY_ZEROPLAYER
+
+        [DisableAutoCreation]
+        [AlwaysUpdateSystem]
+        public class WriteEcsTestDataSystem : JobComponentSystem
+        {
+            private struct WriteJob : IJobProcessComponentData<EcsTestData>
+            {
+                public void Execute(ref EcsTestData c0) {}
+            }
+
+            protected override JobHandle OnUpdate(JobHandle input)
+            {
+                var job = new WriteJob() {};
+                return job.Schedule(this, input);
+            }
+        }
+
+        [Test]
+        public void CreateArchetypeChunkArray_SyncsChangeFilterTypes()
+        {
+            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            group.SetFilterChanged(typeof(EcsTestData));
+            var ws1 = World.GetOrCreateManager<WriteEcsTestDataSystem>();
+            ws1.Update();
+            var safetyHandle = m_Manager.ComponentJobSafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<EcsTestData>(), false);
+
+            Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckWriteAndThrow(safetyHandle));
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            AtomicSafetyHandle.CheckWriteAndThrow(safetyHandle);
+
+            chunks.Dispose();
+            group.Dispose();
+        }
+
+        [Test]
+        public void CalculateLength_SyncsChangeFilterTypes()
+        {
+            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            group.SetFilterChanged(typeof(EcsTestData));
+            var ws1 = World.GetOrCreateManager<WriteEcsTestDataSystem>();
+            ws1.Update();
+            var safetyHandle = m_Manager.ComponentJobSafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<EcsTestData>(), false);
+
+            Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckWriteAndThrow(safetyHandle));
+            group.CalculateLength();
+            AtomicSafetyHandle.CheckWriteAndThrow(safetyHandle);
+
+            group.Dispose();
+        }
+#endif
+
+        [Test]
+        [StandaloneFixme] // ISharedComponentData
+        public void ToEntityArrayOnFilteredGroup()
+        {
+            // Note - test is setup so that each entity is in its own chunk, this checks that entity indices are correct
+            var a = m_Manager.CreateEntity(typeof(EcsTestSharedComp), typeof(EcsTestData));
+            var b = m_Manager.CreateEntity(typeof(EcsTestSharedComp), typeof(EcsTestData2));
+            var c = m_Manager.CreateEntity(typeof(EcsTestSharedComp), typeof(EcsTestData3));
+
+            m_Manager.SetSharedComponentData(a, new EcsTestSharedComp {value = 123});
+            m_Manager.SetSharedComponentData(b, new EcsTestSharedComp {value = 456});
+            m_Manager.SetSharedComponentData(c, new EcsTestSharedComp {value = 123});
+
+            using (var group = m_Manager.CreateComponentGroup(typeof(EcsTestSharedComp)))
+            {
+                group.SetFilter(new EcsTestSharedComp {value = 123});
+                using (var entities = group.ToEntityArray(Allocator.TempJob))
+                {
+                    CollectionAssert.AreEquivalent(new[] {a, c}, entities);
+                }
+            }
+
+            using (var group = m_Manager.CreateComponentGroup(typeof(EcsTestSharedComp)))
+            {
+                group.SetFilter(new EcsTestSharedComp {value = 456});
+                using (var entities = group.ToEntityArray(Allocator.TempJob))
+                {
+                    CollectionAssert.AreEquivalent(new[] {b}, entities);
+                }
+            }
         }
     }
 }

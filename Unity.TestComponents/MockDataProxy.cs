@@ -10,6 +10,7 @@ namespace Unity.Entities.Tests
     }
 
     [DisallowMultipleComponent]
+    [UnityEngine.AddComponentMenu("Hidden/DontUse")]
     public class MockDataProxy : ComponentDataProxy<MockData>
     {
     }

@@ -61,7 +61,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         public void SharedComponentNoChangeVersionUnchanged()
         {
             AddEvenOddTestData();
@@ -98,7 +98,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         public void SharedComponentNoChangeValuesUnchanged()
         {
             AddEvenOddTestData();
@@ -123,7 +123,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         public void SharedComponentChangeOddGroupOrderOnlyOddVersionChanged()
         {
             AddEvenOddTestData();
@@ -134,7 +134,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         public void SharedComponentChangeOddGroupOrderEvenValuesUnchanged()
         {
             AddEvenOddTestData();
@@ -157,7 +157,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         public void SharedComponentDestroyAllButOneEntityInOddGroupOnlyOddVersionChanged()
         {
             AddEvenOddTestData();
@@ -168,7 +168,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         public void SharedComponentDestroyAllButOneEntityInOddGroupEvenValuesUnchanged()
         {
             AddEvenOddTestData();
@@ -228,7 +228,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         public void SetSharedComponent()
         {
             var entity = m_Manager.CreateEntity(typeof(SharedData1), typeof(SharedData2));
@@ -241,7 +241,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         public void DestroySharedComponentEntity()
         {
             var sharedData = new SharedData1(1);
@@ -258,7 +258,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         public void DestroySharedComponentDataSetsOrderVersionToZero()
         {
             var sharedData = new SharedData1(1);

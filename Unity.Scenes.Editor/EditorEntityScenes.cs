@@ -21,7 +21,14 @@ namespace Unity.Scenes.Editor
         static readonly ProfilerMarker k_ProfileEntitiesSceneSave = new ProfilerMarker("EntitiesScene.Save");
         static readonly ProfilerMarker k_ProfileEntitiesSceneCreatePrefab = new ProfilerMarker("EntitiesScene.CreatePrefab");
         static readonly ProfilerMarker k_ProfileEntitiesSceneSaveHeader = new ProfilerMarker("EntitiesScene.WriteHeader");
-    
+
+
+        public static bool IsEntitySubScene(Scene scene)
+        {
+            return scene.isSubScene;
+        }
+
+
         public static void WriteEntityScene(SubScene scene)
         {
             Entities.Hash128 guid = new GUID(AssetDatabase.AssetPathToGUID(scene.EditableScenePath));

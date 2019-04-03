@@ -1096,7 +1096,8 @@ namespace Unity.Entities
             var oldTypes = oldArchetype->Types;
 
             chunk->Archetype = newArchetype;
-            newArchetype->AddToChunkList(chunk, sharedComponentValues);
+            //Change version is overriden below
+            newArchetype->AddToChunkList(chunk, sharedComponentValues, 0);
             int chunkIndexInNewArchetype = chunk->ListIndex;
 
             //Copy change versions from old to new archetype

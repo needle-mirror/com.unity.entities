@@ -12,7 +12,7 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
             AssertDoesNotExist(entity);
         }
-	    
+
 	    [Test]
 	    unsafe public void DestroyNullIsIgnored()
 	    {
@@ -345,6 +345,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
+        [StandaloneFixme] // ISharedComponentData
 	    public void AddComponentsWithSharedComponentsWorks()
 	    {
 	        var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
@@ -414,7 +415,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
-        [TinyFixme] // ISharedComponent
+        [StandaloneFixme] // ISharedComponentData
 	    public void InstantiateWithSharedSystemStateComponent()
 	    {
 	        var srcEntity = m_Manager.CreateEntity();

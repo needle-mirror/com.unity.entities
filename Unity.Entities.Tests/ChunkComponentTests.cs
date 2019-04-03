@@ -166,7 +166,7 @@ namespace Unity.Entities.Tests
 #if !UNITY_ZEROPLAYER
         [DisableAutoCreation]
         [UpdateInGroup(typeof(PresentationSystemGroup))]
-        [TinyFixme]
+        [StandaloneFixme]
         private class ChunkBoundsUpdateSystem : JobComponentSystem
         {
             struct UpdateChunkBoundsJob : IJobProcessComponentData<ChunkBoundsComponent, ChunkHeader>
@@ -194,7 +194,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void SystemProcessMetaChunkComponent()
         {
             var chunkBoundsUpdateSystem = World.GetOrCreateManager<ChunkBoundsUpdateSystem> ();

@@ -49,26 +49,14 @@ namespace Unity.Entities.Tests
 		[Test]
 		public void CreateEntityWithIntThrows()
 		{
-			Assert.Throws<
-#if UNITY_CSHARP_TINY
-                System.InvalidOperationException
-#else
-                System.ArgumentException
-#endif
-            >(() => { m_Manager.CreateEntity(typeof(int));});
+			Assert.Throws<System.ArgumentException>(() => { m_Manager.CreateEntity(typeof(int));});
 		}
 
 		[Test]
 		public void AddComponentWithIntThrows()
 		{
 			var entity = m_Manager.CreateEntity();
-			Assert.Throws<
-#if UNITY_CSHARP_TINY
-                System.InvalidOperationException
-#else
-                System.ArgumentException
-#endif
-            >(() => { m_Manager.AddComponent(entity, ComponentType.ReadWrite<int>()); });
+			Assert.Throws<System.ArgumentException>(() => { m_Manager.AddComponent(entity, ComponentType.ReadWrite<int>()); });
 		}
 
 		[Test]
@@ -367,7 +355,7 @@ namespace Unity.Entities.Tests
 		}
 
         [Test]
-        [TinyFixme] // Real issue - Safety & Sentinel should be invalid after Destroy
+        [StandaloneFixme] // Real issue - Safety & Sentinel should be invalid after Destroy
         public void OutOfBoundsAccessThrows()
         {
 			var entityInt = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -382,7 +370,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // Real issue - Safety & Sentinel should be invalid after Destroy
+        [StandaloneFixme] // Real issue - Safety & Sentinel should be invalid after Destroy
         public void UseAfterStructuralChangeThrows()
         {
 			var entityInt = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -396,7 +384,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // Real issue - Safety & Sentinel should be invalid after Destroy
+        [StandaloneFixme] // Real issue - Safety & Sentinel should be invalid after Destroy
         public void UseAfterStructuralChangeThrows2()
         {
 			var entityInt = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -411,7 +399,7 @@ namespace Unity.Entities.Tests
         }
 
 	    [Test]
-	    [TinyFixme] // Real issue - Safety & Sentinel should be invalid after Add on structural change
+	    [StandaloneFixme] // Real issue - Safety & Sentinel should be invalid after Add on structural change
 	    public void UseAfterStructuralChangeThrows3()
 	    {
 	        var entityInt = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -423,7 +411,7 @@ namespace Unity.Entities.Tests
 
 
         [Test]
-        [TinyFixme] // Real issue - Safety & Sentinel should be invalid after Add on structural change
+        [StandaloneFixme] // Real issue - Safety & Sentinel should be invalid after Add on structural change
         public void WritingReadOnlyThrows()
         {
 			var entityInt = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -495,7 +483,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // IJob -  InjectionTestSystem : JobComponentSystem
+        [StandaloneFixme] // IJob -  InjectionTestSystem : JobComponentSystem
         public void Injection()
         {
             var system = World.Active.GetOrCreateManager<InjectionTestSystem>();
@@ -578,7 +566,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
-        [TinyFixme] // Real issue : buffer.AsNativeArray should invalidate the Safety
+        [StandaloneFixme] // Real issue : buffer.AsNativeArray should invalidate the Safety
 	    public void ArrayInvalidationWorks()
 	    {
 	        var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -599,7 +587,7 @@ namespace Unity.Entities.Tests
         }
 
 	    [Test]
-	    [TinyFixme] // Real issue : buffer.AsNativeArray should invalidate the Safety
+	    [StandaloneFixme] // Real issue : buffer.AsNativeArray should invalidate the Safety
 	    public void ArrayInvalidationHappensForAllInstances()
 	    {
 	        var e0 = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -650,7 +638,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
-	    [TinyFixme] // IJob
+	    [StandaloneFixme] // IJob
 	    public void BufferInvalidationNotPossibleWhenArraysAreGivenToJobs()
 	    {
 	        var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -685,7 +673,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
-	    [TinyFixme] // IJob
+	    [StandaloneFixme] // IJob
 	    public void ReadWriteDynamicBuffer()
 	    {
 	        var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -742,7 +730,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
-	    [TinyFixme] // IJob
+	    [StandaloneFixme] // IJob
 	    public void ReadOnlyDynamicBufferReadOnly()
 	    {
 	        ReadOnlyDynamicBufferImpl(true);
@@ -765,7 +753,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
-	    [TinyFixme] // IJob
+	    [StandaloneFixme] // IJob
 	    public void BufferInvalidationNotPossibleWhenBuffersAreGivenToJobs()
 	    {
 	        var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -797,7 +785,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
-	    [TinyFixme] // IJob
+	    [StandaloneFixme] // IJob
 	    public void NativeArrayInJobReadOnly()
 	    {
 	        var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));

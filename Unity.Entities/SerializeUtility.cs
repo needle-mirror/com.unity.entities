@@ -141,7 +141,7 @@ namespace Unity.Entities.Serialization
             if (totalBlobAssetSize != 0)
             {
                 manager.DataManager->AddSharedComponent(blobAssetRefChunks, ComponentType.ReadWrite<BlobAssetOwner>(), manager.ArchetypeManager, manager.EntityGroupManager, blobAssetOwnerIndex);
-                manager.SharedComponentDataManager.AddReference(blobAssetRefChunks.Length - 1);
+                manager.SharedComponentDataManager.AddReference(blobAssetOwnerIndex, blobAssetRefChunks.Length - 1);
                 blobAssetRefChunks.Dispose();
             }
 

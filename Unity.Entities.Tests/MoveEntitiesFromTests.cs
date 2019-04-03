@@ -6,7 +6,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.Tests
 {
-    [TinyFixme] // MultiWorlds
+    [StandaloneFixme] // MultiWorlds
     class MoveEntitiesFromTests : ECSTestsFixture
     {
         [Test]
@@ -54,7 +54,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         public void MoveEntitiesWithSharedComponentData()
         {
             var creationWorld = new World("CreationWorld");
@@ -206,7 +206,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         public void MoveEntitiesWithComponentGroupMovesChunkComponents()
         {
             var creationWorld = new World("CreationWorld");
@@ -409,7 +409,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         [Ignore("This behaviour is currently not intended. It prevents streaming efficiently.")]
         public void MoveEntitiesPatchesEntityReferencesInSharedComponentData()
         {
@@ -545,5 +545,26 @@ namespace Unity.Entities.Tests
             creationWorld.Dispose();
         }
 
+        [Test]
+        public void MoveEntitiesFromChunksAreConsideredChangedOnlyOnce()
+        {
+            var creationWorld = new World("CreationWorld");
+            var creationManager = creationWorld.GetOrCreateManager<EntityManager>();
+            var entity = creationManager.CreateEntity();
+            creationManager.AddComponentData(entity, new EcsTestData(42));
+
+            var system = World.GetOrCreateManager<TestEcsChangeSystem>();
+
+            system.Update();
+            Assert.AreEqual(0, system.NumChanged);
+
+            m_Manager.MoveEntitiesFrom(creationManager);
+
+            system.Update();
+            Assert.AreEqual(1, system.NumChanged);
+
+            system.Update();
+            Assert.AreEqual(0, system.NumChanged);
+        }
     }
 }

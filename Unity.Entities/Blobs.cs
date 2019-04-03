@@ -162,7 +162,7 @@ namespace Unity.Entities
         }
     }
 
-    public unsafe struct BlobAssetReference<T> where T : struct
+    public unsafe struct BlobAssetReference<T> : IEquatable<BlobAssetReference<T>> where T : struct
     {
         internal BlobAssetReferenceData m_data;
 
@@ -223,6 +223,33 @@ namespace Unity.Entities
         public static BlobAssetReference<T> Create(T value)
         {
             return Create(UnsafeUtility.AddressOf(ref value), UnsafeUtility.SizeOf<T>());
+        }
+
+        public static BlobAssetReference<T> Null => new BlobAssetReference<T>();
+
+        public static bool operator ==(BlobAssetReference<T> lhs, BlobAssetReference<T> rhs)
+        {
+            return lhs.m_data.m_Ptr == rhs.m_data.m_Ptr;
+        }
+
+        public static bool operator !=(BlobAssetReference<T> lhs, BlobAssetReference<T> rhs)
+        {
+            return lhs.m_data.m_Ptr != rhs.m_data.m_Ptr;
+        }
+
+        public bool Equals(BlobAssetReference<T> other)
+        {
+            return m_data.Equals(other.m_data);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return this == (BlobAssetReference<T>)obj;
+        }
+
+        public override int GetHashCode()
+        {
+            return m_data.GetHashCode();
         }
     }
 

@@ -42,6 +42,7 @@ namespace Unity.Transforms
     [UpdateInGroup(typeof(TransformSystemGroup))]
     [UpdateAfter(typeof(EndFrameCompositeRotationSystem))]
     [UpdateAfter(typeof(EndFrameCompositeScaleSystem))]
+    [UpdateBefore(typeof(EndFrameLocalToParentSystem))]
     public class EndFrameTRSToLocalToWorldSystem : TRSToLocalToWorldSystem
     {
     }

@@ -71,17 +71,19 @@ namespace Unity.Entities.Tests
         [Test]
         public void TestTypeManager()
         {
-            var entity = ComponentType.ReadWrite<Entity>();
-            var testData = ComponentType.ReadWrite<EcsTestData>();
+            var entityType = ComponentType.ReadWrite<Entity>();
+            var testDataType = ComponentType.ReadWrite<EcsTestData>();
 
-            Assert.AreEqual(entity, ComponentType.ReadWrite<Entity>());
-            Assert.AreEqual(entity, new ComponentType(typeof(Entity)));
-            Assert.AreEqual(testData, ComponentType.ReadWrite<EcsTestData>());
-            Assert.AreEqual(testData, new ComponentType(typeof(EcsTestData)));
+            Assert.AreEqual(entityType, ComponentType.ReadWrite<Entity>());
+            Assert.AreEqual(entityType, new ComponentType(typeof(Entity)));
+            Assert.AreEqual(testDataType, ComponentType.ReadWrite<EcsTestData>());
+            Assert.AreEqual(testDataType, new ComponentType(typeof(EcsTestData)));
             Assert.AreNotEqual(ComponentType.ReadWrite<Entity>(), ComponentType.ReadWrite<EcsTestData>());
-            Assert.AreNotEqual(entity, ComponentType.ReadOnly<EcsTestData>());
 
-            Assert.AreEqual(typeof(Entity), entity.GetManagedType());
+            Assert.AreEqual(ComponentType.AccessMode.ReadOnly, ComponentType.ReadOnly<EcsTestData>().AccessModeType);
+            Assert.AreEqual(ComponentType.AccessMode.ReadOnly, ComponentType.ReadOnly(typeof(EcsTestData)).AccessModeType);
+
+            Assert.AreEqual(typeof(Entity), entityType.GetManagedType());
         }
 
 #if !UNITY_ZEROPLAYER

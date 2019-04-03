@@ -41,7 +41,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void DeleteWhenEmpty()
         {
             var entity = m_Manager.CreateEntity(
@@ -69,7 +69,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void DeleteWhenEmptyArray()
         {
             var entities = new Entity[512];
@@ -124,7 +124,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void DeleteWhenEmptyArray2()
         {
             var entities = new Entity[512];

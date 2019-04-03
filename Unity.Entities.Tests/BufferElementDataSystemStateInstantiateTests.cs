@@ -5,7 +5,7 @@ namespace Unity.Entities.Tests
     public class BufferElementDataSystemStateInstantiateTests : ECSTestsFixture
     {
         [Test]
-        [TinyFixme] // Real issue
+        [StandaloneFixme] // Real issue
         public unsafe void InstantiateDoesNotCreatesCopy()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));

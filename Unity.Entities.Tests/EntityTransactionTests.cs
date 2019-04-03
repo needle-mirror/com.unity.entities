@@ -10,7 +10,7 @@ using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
-    [TinyFixme] // Asserts on JobDebugger in constructor
+    [StandaloneFixme] // Asserts on JobDebugger in constructor
     class EntityTransactionTests : ECSTestsFixture
     {
         ComponentGroup m_Group;
@@ -84,7 +84,7 @@ namespace Unity.Entities.Tests
 
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void CommitAfterNotRegisteredTransactionJobLogsError()
         {
             var job = new CreateEntityJob();

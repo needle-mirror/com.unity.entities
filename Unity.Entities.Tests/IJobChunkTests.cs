@@ -43,7 +43,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // IJob
+        [StandaloneFixme] // IJob
         public void IJobChunkProcessFiltered()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
@@ -123,7 +123,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // IJob
+        [StandaloneFixme] // IJob
         public void IJobChunkProcessChunkIndex()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
@@ -156,7 +156,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // IJob
+        [StandaloneFixme] // IJob
         public void IJobChunkProcessEntityOffset()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
@@ -189,7 +189,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // IJob
+        [StandaloneFixme] // IJob
         public void IJobChunkProcessChunkMultiArchetype()
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));

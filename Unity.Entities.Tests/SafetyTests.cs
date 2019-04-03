@@ -40,7 +40,7 @@ namespace Unity.Entities.Tests
 
 
         [Test]
-        [TinyFixme] // Real problem : Atomic Safety
+        [StandaloneFixme] // Real problem : Atomic Safety
         public void ReadOnlyComponentDataArray()
         {
             var group = m_Manager.CreateComponentGroup(typeof(EcsTestData2), ComponentType.ReadOnly(typeof(EcsTestData)));
@@ -62,7 +62,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // Real problem : Atomic Safety
+        [StandaloneFixme] // Real problem : Atomic Safety
         public void AccessComponentArrayAfterCreationThrowsException()
         {
             CreateEntityWithDefaultData(0);
@@ -76,7 +76,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // Real problem : Atomic Safety
+        [StandaloneFixme] // Real problem : Atomic Safety
         public void CreateEntityInvalidatesArray()
         {
             CreateEntityWithDefaultData(0);
@@ -106,7 +106,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // Real problem : Atomic Safety
+        [StandaloneFixme] // Real problem : Atomic Safety
         public void ComponentDataArrayFromEntityThrowsIfNotExist()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -210,7 +210,7 @@ namespace Unity.Entities.Tests
         }
 
 	    [Test]
-        [TinyFixme] // Real problem - sizeof(BigComponentData1) = 4 vs 40000 expected
+        [StandaloneFixme] // Real problem - sizeof(BigComponentData1) = 4 vs 40000 expected
 	    public void CreateTooBigArchetypeThrows()
 	    {
 	        Assert.Throws<System.ArgumentException>(() =>

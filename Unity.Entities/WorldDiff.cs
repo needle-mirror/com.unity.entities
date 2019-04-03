@@ -44,6 +44,21 @@ namespace Unity.Entities
 
         public static readonly EntityGuid Null = new EntityGuid();
 
+        public static bool operator ==(EntityGuid lhs, EntityGuid rhs)
+        {
+            return lhs.a == rhs.a && lhs.b == rhs.b;
+        }
+
+        public static bool operator !=(EntityGuid lhs, EntityGuid rhs)
+        {
+            return !(lhs == rhs);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is EntityGuid entityGuid ? Equals(entityGuid) : false;
+        }
+
         public bool Equals(EntityGuid other)
         {
             return a == other.a && b == other.b;

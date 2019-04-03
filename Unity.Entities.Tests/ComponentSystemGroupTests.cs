@@ -1,7 +1,11 @@
+using System;
 using System.Collections;
 using System.Linq;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Unity.Jobs;
+using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
@@ -31,7 +35,7 @@ namespace Unity.Entities.Tests
         public void SortEmptyParentSystem()
         {
             var parent = new TestGroup();
-            parent.SortSystemUpdateList();
+            Assert.DoesNotThrow(() => { parent.SortSystemUpdateList(); });
         }
 
         [DisableAutoCreation]
@@ -42,8 +46,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void SortOneChildSystem()
         {
-            var parent = new TestGroup();
-            var child = new TestSystem();
+            var parent = World.CreateManager<TestGroup>();
+            var child = World.CreateManager<TestSystem>();
             parent.AddSystemToUpdateList(child);
             parent.SortSystemUpdateList();
             CollectionAssert.AreEqual(new[] {child}, parent.Systems);
@@ -62,9 +66,9 @@ namespace Unity.Entities.Tests
         [Test]
         public void SortTwoChildSystems_CorrectOrder()
         {
-            var parent = new TestGroup();
-            var child1 = new Sibling1System();
-            var child2 = new Sibling2System();
+            var parent = World.CreateManager<TestGroup>();
+            var child1 = World.CreateManager<Sibling1System>();
+            var child2 = World.CreateManager<Sibling2System>();
             parent.AddSystemToUpdateList(child1);
             parent.AddSystemToUpdateList(child2);
             parent.SortSystemUpdateList();
@@ -115,13 +119,13 @@ namespace Unity.Entities.Tests
 #endif
         public void DetectCircularDependency_Throws()
         {
-            var parent = new TestGroup();
-            var child1 = new Circle1System();
-            var child2 = new Circle2System();
-            var child3 = new Circle3System();
-            var child4 = new Circle4System();
-            var child5 = new Circle5System();
-            var child6 = new Circle6System();
+            var parent = World.CreateManager<TestGroup>();
+            var child1 = World.CreateManager<Circle1System>();
+            var child2 = World.CreateManager<Circle2System>();
+            var child3 = World.CreateManager<Circle3System>();
+            var child4 = World.CreateManager<Circle4System>();
+            var child5 = World.CreateManager<Circle5System>();
+            var child6 = World.CreateManager<Circle6System>();
             parent.AddSystemToUpdateList(child3);
             parent.AddSystemToUpdateList(child6);
             parent.AddSystemToUpdateList(child2);
@@ -150,5 +154,88 @@ namespace Unity.Entities.Tests
             }
             Assert.IsTrue(foundCycleMatch);
         }
+
+
+        [DisableAutoCreation]
+        class Unconstrained1System : TestSystemBase
+        {
+        }
+        [DisableAutoCreation]
+        class Unconstrained2System : TestSystemBase
+        {
+        }
+        [DisableAutoCreation]
+        class Unconstrained3System : TestSystemBase
+        {
+        }
+        [DisableAutoCreation]
+        class Unconstrained4System : TestSystemBase
+        {
+        }
+        [Test]
+        public void SortUnconstrainedSystems_IsDeterministic()
+        {
+            var parent = World.CreateManager<TestGroup>();
+            var child1 = World.CreateManager<Unconstrained1System>();
+            var child2 = World.CreateManager<Unconstrained2System>();
+            var child3 = World.CreateManager<Unconstrained3System>();
+            var child4 = World.CreateManager<Unconstrained4System>();
+            parent.AddSystemToUpdateList(child2);
+            parent.AddSystemToUpdateList(child4);
+            parent.AddSystemToUpdateList(child3);
+            parent.AddSystemToUpdateList(child1);
+            parent.SortSystemUpdateList();
+            CollectionAssert.AreEqual(parent.Systems, new TestSystemBase[] {child1, child2, child3, child4});
+        }
+
+        [DisableAutoCreation]
+        private class UpdateCountingSystemBase : ComponentSystem
+        {
+            public int CompleteUpdateCount = 0;
+            protected override void OnUpdate()
+            {
+                ++CompleteUpdateCount;
+            }
+        }
+        [DisableAutoCreation]
+        class NonThrowing1System : UpdateCountingSystemBase
+        {
+        }
+        [DisableAutoCreation]
+        class NonThrowing2System : UpdateCountingSystemBase
+        {
+        }
+        [DisableAutoCreation]
+        class ThrowingSystem : UpdateCountingSystemBase
+        {
+            public string ExceptionMessage = "I should always throw!";
+            protected override void OnUpdate()
+            {
+                if (CompleteUpdateCount == 0)
+                {
+                    throw new InvalidOperationException(ExceptionMessage);
+                }
+                base.OnUpdate();
+            }
+        }
+
+#if !UNITY_CSHARP_TINY // Tiny precompiles systems, and lacks a Regex overload for LogAssert.Expect()
+        [Test]
+        public void SystemInGroupThrows_LaterSystemsRun()
+        {
+            var parent = World.CreateManager<TestGroup>();
+            var child1 = World.CreateManager<NonThrowing1System>();
+            var child2 = World.CreateManager<ThrowingSystem>();
+            var child3 = World.CreateManager<NonThrowing2System>();
+            parent.AddSystemToUpdateList(child1);
+            parent.AddSystemToUpdateList(child2);
+            parent.AddSystemToUpdateList(child3);
+            parent.Update();
+            LogAssert.Expect(LogType.Exception, new Regex(child2.ExceptionMessage));
+            Assert.AreEqual(1, child1.CompleteUpdateCount);
+            Assert.AreEqual(0, child2.CompleteUpdateCount);
+            Assert.AreEqual(1, child3.CompleteUpdateCount);
+        }
+#endif
     }
 }

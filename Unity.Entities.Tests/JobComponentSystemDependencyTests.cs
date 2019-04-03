@@ -113,7 +113,7 @@ namespace Unity.Entities.Tests
                     return input;
                 }
             }
-            
+
             protected override void OnCreateManager()
             {
                 m_WriteGroup = GetComponentGroup(ComponentType.ReadWrite<EcsTestData>());
@@ -171,8 +171,19 @@ namespace Unity.Entities.Tests
             rs1.Update();
             rs3.Update();
         }
-        
-        
+
+        [Test]
+        public void ReadAfterWrite_JobProcessComponentDataGroup_Works()
+        {
+            var entity = m_Manager.CreateEntity (typeof(EcsTestData));
+            m_Manager.SetComponentData(entity, new EcsTestData(42));
+            var ws = World.GetOrCreateManager<WriteSystem>();
+            var rs = World.GetOrCreateManager<ReadSystem2>();
+
+            ws.Update();
+            rs.Update();
+        }
+
         [DisableAutoCreation]
         class UseEcsTestDataFromEntity: JobComponentSystem
         {
@@ -182,7 +193,7 @@ namespace Unity.Entities.Tests
 
                 public void Execute()
                 {
-                    
+
                 }
             }
 
@@ -192,8 +203,8 @@ namespace Unity.Entities.Tests
                 return job.Schedule(dep);
             }
         }
-        
-        // The writer dependency on EcsTestData is not predeclared during 
+
+        // The writer dependency on EcsTestData is not predeclared during
         // OnCreateManager, but we still expect the code to work correctly.
         // This should result in a sync point when adding the dependency for the first time.
         [Test]
@@ -201,7 +212,7 @@ namespace Unity.Entities.Tests
         {
             var systemA = World.CreateManager<UseEcsTestDataFromEntity>();
             var systemB = World.CreateManager<UseEcsTestDataFromEntity>();
-            
+
             systemA.Update();
             systemB.Update();
         }

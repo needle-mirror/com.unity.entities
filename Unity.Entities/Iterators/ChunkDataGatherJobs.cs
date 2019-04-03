@@ -24,6 +24,46 @@ namespace Unity.Entities
             UnsafeUtility.MemCpy(dstChunksPtr + offset, archetype->Chunks.p, chunkCount * sizeof(Chunk*));
         }
     }
+    
+    [BurstCompile]
+    internal unsafe struct GatherChunksAndOffsetsJob : IJob
+    {
+        public MatchingArchetypeList Archetypes;
+
+        [NativeDisableUnsafePtrRestriction]
+        public void* PrefilterData;
+        public int   UnfilteredChunkCount;
+        
+        public void Execute()
+        {
+            var chunks = (ArchetypeChunk*) PrefilterData;
+            var entityIndices = (int*) (chunks + UnfilteredChunkCount);
+            
+            var chunkCounter = 0;
+            var entityOffsetPrefixSum = 0;
+            
+            for (var m = Archetypes.Count - 1; m >= 0; --m)
+            {
+                var match = Archetypes.p[m];
+                if (match->Archetype->EntityCount <= 0)
+                    continue;
+                
+                var archetype = match->Archetype;
+                int chunkCount = archetype->Chunks.Count;
+                var chunkEntityCountArray = archetype->Chunks.GetChunkEntityCountArray();
+
+                for (int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex)
+                {
+                    chunks[chunkCounter] = new ArchetypeChunk {m_Chunk = archetype->Chunks.p[chunkIndex]};
+                    entityIndices[chunkCounter++] = entityOffsetPrefixSum;
+                    entityOffsetPrefixSum += chunkEntityCountArray[chunkIndex];
+                }
+            }
+            
+            var outChunkCounter = entityIndices + UnfilteredChunkCount;
+            *outChunkCounter = chunkCounter;
+        }
+    }
 
     [BurstCompile]
     unsafe struct GatherChunksWithFiltering : IJobParallelFor
@@ -107,6 +147,128 @@ namespace Unity.Entities
             }
 
             FilteredCounts[index] = filteredCount;
+        }
+    }
+    
+    [BurstCompile]
+    internal unsafe struct GatherChunksAndOffsetsWithFilteringJob : IJob
+    {
+        public MatchingArchetypeList Archetypes;
+        public ComponentGroupFilter Filter;
+
+        [NativeDisableUnsafePtrRestriction]
+        public void* PrefilterData;
+        public int   UnfilteredChunkCount;
+        
+        public void Execute()
+        {
+            var chunks = (ArchetypeChunk*) PrefilterData;
+            var entityIndices = (int*) (chunks + UnfilteredChunkCount);
+            
+            var filter = Filter;
+            var filteredChunkCount = 0;
+            var filteredEntityOffset = 0;
+            
+            for (var m = Archetypes.Count - 1; m >= 0; --m)
+            {
+                var match = Archetypes.p[m];
+                if (match->Archetype->EntityCount <= 0)
+                    continue;
+                
+                var archetype = match->Archetype;
+                int chunkCount = archetype->Chunks.Count;
+                var chunkEntityCountArray = archetype->Chunks.GetChunkEntityCountArray();
+
+                if (filter.Type == FilterType.SharedComponent)
+                {
+                    var indexInComponentGroup0 = filter.Shared.IndexInComponentGroup[0];
+                    var sharedComponentIndex0 = filter.Shared.SharedComponentIndex[0];
+                    var componentIndexInChunk0 =
+                        match->IndexInArchetype[indexInComponentGroup0] - archetype->FirstSharedComponent;
+                    var sharedComponents0 =
+                        archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk0);
+
+                    if (filter.Shared.Count == 1)
+                    {
+                        for (var i = 0; i < chunkCount; ++i)
+                        {
+                            if (sharedComponents0[i] == sharedComponentIndex0)
+                            {
+                                chunks[filteredChunkCount] = new ArchetypeChunk
+                                    {m_Chunk = archetype->Chunks.p[i]};
+                                entityIndices[filteredChunkCount++] = filteredEntityOffset;
+                                filteredEntityOffset += chunkEntityCountArray[i];
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var indexInComponentGroup1 = filter.Shared.IndexInComponentGroup[1];
+                        var sharedComponentIndex1 = filter.Shared.SharedComponentIndex[1];
+                        var componentIndexInChunk1 =
+                            match->IndexInArchetype[indexInComponentGroup1] - archetype->FirstSharedComponent;
+                        var sharedComponents1 =
+                            archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk1);
+
+                        for (var i = 0; i < chunkCount; ++i)
+                        {
+                            if (sharedComponents0[i] == sharedComponentIndex0 &&
+                                sharedComponents1[i] == sharedComponentIndex1)
+                            {
+                                chunks[filteredChunkCount] = new ArchetypeChunk
+                                    {m_Chunk = archetype->Chunks.p[i]};
+                                entityIndices[filteredChunkCount++] = filteredEntityOffset;
+                                filteredEntityOffset += chunkEntityCountArray[i];
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    var indexInComponentGroup0 = filter.Changed.IndexInComponentGroup[0];
+                    var componentIndexInChunk0 = match->IndexInArchetype[indexInComponentGroup0];
+                    var changeVersions0 = archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk0);
+
+                    var requiredVersion = filter.RequiredChangeVersion;
+                    if (filter.Changed.Count == 1)
+                    {
+                        for (var i = 0; i < chunkCount; ++i)
+                        {
+                            if (ChangeVersionUtility.DidChange(changeVersions0[i], requiredVersion))
+                            {
+                                chunks[filteredChunkCount] = new ArchetypeChunk
+                                    {m_Chunk = archetype->Chunks.p[i]};
+                                entityIndices[filteredChunkCount++] = filteredEntityOffset;
+                                filteredEntityOffset += chunkEntityCountArray[i];
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var indexInComponentGroup1 = filter.Shared.IndexInComponentGroup[1];
+                        var componentIndexInChunk1 = match->IndexInArchetype[indexInComponentGroup1];
+                        var changeVersions1 =
+                            archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk1);
+
+                        for (var i = 0; i < chunkCount; ++i)
+                        {
+                            if (ChangeVersionUtility.DidChange(changeVersions0[i], requiredVersion) ||
+                                ChangeVersionUtility.DidChange(changeVersions1[i], requiredVersion))
+                            {
+                                chunks[filteredChunkCount] = new ArchetypeChunk
+                                    {m_Chunk = archetype->Chunks.p[i]};
+                                entityIndices[filteredChunkCount++] = filteredEntityOffset;
+                                filteredEntityOffset += chunkEntityCountArray[i];
+                            }
+                        }
+                    }
+                }
+            }
+
+            UnsafeUtility.MemMove(chunks + filteredChunkCount, chunks + UnfilteredChunkCount, filteredChunkCount * sizeof(int));
+
+            var chunkCounter = entityIndices + UnfilteredChunkCount;
+            *chunkCounter = filteredChunkCount;
         }
     }
 

@@ -155,6 +155,7 @@ namespace Unity.Entities
 //------------------------------------------------------------------------------
 #if !UNITY_ZEROPLAYER
 
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
@@ -192,6 +193,7 @@ namespace Unity.Entities
             var executeParams = new StringBuilder();
             var executeCallParams = new StringBuilder();
             var ptrs = new StringBuilder();
+            var typeLookupCache = new StringBuilder();
 
             var interfaceName = withEntity ? "IJobProcessComponentDataWithEntity" : "IJobProcessComponentData";
             
@@ -201,7 +203,7 @@ namespace Unity.Entities
                 executeParams.Append("Entity entity, int index, ");
                 ptrs.AppendLine
                 (
-$"                        var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(chunkIterator.GetCurrentChunkComponentDataPtr(false, 0));"
+$"                        var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));"
                 );
             }
                         
@@ -209,7 +211,15 @@ $"                        var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ch
             {
                 ptrs.AppendLine
                 (
-$"                        var ptr{i} = UnsafeUtilityEx.RestrictNoAlias(chunkIterator.GetCurrentChunkComponentDataPtr(jobData.Iterator.IsReadOnly{i} == 0, jobData.Iterator.IndexInGroup{i}));"
+
+$@"                        ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex{i}, ref typeLookupCache{i});
+                        var ptr{i} = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly{i} == 0, typeLookupCache{i}, jobData.Iterator.GlobalSystemVersion));"
+                );
+                
+                typeLookupCache.AppendLine
+                (
+
+$@"                        var typeLookupCache{i} = 0; "
                 );
 
                 genericConstraints.Append($"            where U{i} : struct, IComponentData");
@@ -255,9 +265,14 @@ $"                        var ptr{i} = UnsafeUtilityEx.RestrictNoAlias(chunkIter
 
                 var isParallelFor = innerloopBatchCount != -1;
                 Initialize(system, componentGroup, typeof(T), typeof(JobStruct_Process_{comboString}<{untypedGenericParams}>), isParallelFor, ref JobStruct_ProcessInfer_{comboString}<T>.Cache, out fullData.Iterator);
-                return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, ref JobStruct_ProcessInfer_{comboString}<T>.Cache, dependsOn, mode);
-            }}
+                
+                var unfilteredChunkCount = fullData.Iterator.m_Length;
+                var iterator = JobStruct_ProcessInfer_{comboString}<T>.Cache.ComponentGroup.GetComponentChunkIterator();
 
+                var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
+                               
+                return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_{comboString}<T>.Cache, deferredCountData, prefilterHandle, mode);            
+            }}
 
             [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
             public interface IBaseJobProcessComponentData_{comboString} : IBaseJobProcessComponentData {{ }}
@@ -269,6 +284,10 @@ $"                        var ptr{i} = UnsafeUtilityEx.RestrictNoAlias(chunkIter
     
                 public ProcessIterationData Iterator;
                 public T Data;
+                
+                [DeallocateOnJobCompletion]
+                [NativeDisableContainerSafetyRestriction]
+                public NativeArray<byte> PrefilterData;
             }}
     
             [StructLayout(LayoutKind.Sequential)]
@@ -278,6 +297,10 @@ $"                        var ptr{i} = UnsafeUtilityEx.RestrictNoAlias(chunkIter
             {{
                 public ProcessIterationData Iterator;
                 public T Data;
+                
+                [DeallocateOnJobCompletion]
+                [NativeDisableContainerSafetyRestriction]
+                public NativeArray<byte> PrefilterData;
     
                 [Preserve]
                 public static IntPtr Initialize(JobType jobType)
@@ -289,41 +312,35 @@ $"                        var ptr{i} = UnsafeUtilityEx.RestrictNoAlias(chunkIter
 
                 public static unsafe void Execute(ref JobStruct_Process_{comboString}<T, {genericParams}> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
                 {{
+                    var chunks = (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(jobData.PrefilterData);
+                    var entityIndices = (int*) (chunks + jobData.Iterator.m_Length);
+                    var chunkCount = *(entityIndices + jobData.Iterator.m_Length);
+
                     if (jobData.Iterator.m_IsParallelFor)
                     {{
                         int begin, end;
                         while (JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out begin, out end))
-                            ExecuteChunk(ref jobData, bufferRangePatchData, begin, end);
+                            ExecuteChunk(ref jobData, bufferRangePatchData, begin, end, chunks, entityIndices);
                     }}
                     else
                     {{
-                        ExecuteChunk(ref jobData, bufferRangePatchData, 0, jobData.Iterator.m_Length);
+                        ExecuteChunk(ref jobData, bufferRangePatchData, 0, chunkCount, chunks, entityIndices);
                     }}
                 }}
 
-                static unsafe void ExecuteChunk(ref JobStruct_Process_{comboString}<T, {genericParams}> jobData, IntPtr bufferRangePatchData, int begin, int end)
+                static unsafe void ExecuteChunk(ref JobStruct_Process_{comboString}<T, {genericParams}> jobData, IntPtr bufferRangePatchData, int begin, int end, ArchetypeChunk* chunks, int* entityIndices)
                 {{
-                    ref ComponentChunkIterator chunkIterator = ref jobData.Iterator.Iterator;
-    
+{typeLookupCache}
                     for (var blockIndex = begin; blockIndex != end; ++blockIndex)
-                    {{
-                        jobData.Iterator.Iterator.MoveToChunkWithoutFiltering(blockIndex);
-    
-                        var processBlock = jobData.Iterator.Iterator.MatchesFilter();
-    
-                        if (!processBlock)
-                            continue;
-    
-                        int beginIndex, endIndex;
-                        chunkIterator.GetCurrentChunkRange(out beginIndex, out endIndex);
+                    {{    
+                        var chunk = chunks[blockIndex];
+                        int beginIndex = entityIndices[blockIndex];
+                        var count = chunk.Count;
     #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                        JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, endIndex - beginIndex);
-    #endif
-    
-                        var count = chunkIterator.GetCurrentChunkCount();
-    
-{ptrs}
-    
+                        JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
+    #endif       
+{ptrs}   
+
                         for (var i = 0; i != count; i++)
                         {{
                             jobData.Data.Execute({executeCallParams});

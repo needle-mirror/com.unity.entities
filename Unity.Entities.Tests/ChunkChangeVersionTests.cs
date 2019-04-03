@@ -143,6 +143,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [StandaloneFixme] // ISharedComponentData
         public void AddSharedComponentMarksSrcAndDestChunkAsChanged()
         {
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -157,6 +158,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [StandaloneFixme] // ISharedComponentData
         public void SetSharedComponentMarksSrcAndDestChunkAsChanged()
         {
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
@@ -170,6 +172,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [StandaloneFixme] // ISharedComponentData
         public void SwapComponentsMarksSrcAndDestChunkAsChanged()
         {
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));

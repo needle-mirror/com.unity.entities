@@ -9,6 +9,7 @@ namespace Unity.Entities.Tests
     }
 
     [UnityEngine.DisallowMultipleComponent]
+    [UnityEngine.AddComponentMenu("Hidden/DontUse")]
     public class MockSharedDisallowMultipleProxy : SharedComponentDataProxy<MockSharedDisallowMultiple>
     {
 

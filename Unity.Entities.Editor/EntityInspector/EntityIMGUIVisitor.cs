@@ -531,7 +531,7 @@ namespace Unity.Entities.Editor
 
             DoField(Property, f, (label, val) =>
             {
-                return EditorGUILayout.TextField(label, val.ToString());
+                return EditorGUILayout.TextField(label, val);
             });
         }
         #endregion

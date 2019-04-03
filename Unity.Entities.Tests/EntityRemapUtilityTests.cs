@@ -60,7 +60,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(Entity.Null, EntityRemapUtility.RemapEntity(ref m_Remapping, Entity.Null));
         }
 
-        struct EmptyStruct
+        struct EmptyStruct : IComponentData
         {
         }
 
@@ -71,16 +71,18 @@ namespace Unity.Entities.Tests
 #else
             unsafe {
                 var info = TypeManager.GetTypeInfo(TypeManager.GetTypeIndex(type));
-                TypeManager.EntityOffsetInfo[] ei = new TypeManager.EntityOffsetInfo[info.EntityOffsetCount];
-                for (var i = 0; i < info.EntityOffsetCount; ++i)
-                    ei[i] = info.EntityOffsets[i];
-                return ei;
+                if (info.EntityOffsetCount > 0) {
+                    TypeManager.EntityOffsetInfo[] ei = new TypeManager.EntityOffsetInfo[info.EntityOffsetCount];
+                    for (var i = 0; i < info.EntityOffsetCount; ++i)
+                        ei[i] = info.EntityOffsets[i];
+                    return ei;
+                }
+                return null;
             }
 #endif
         }
 
         [Test]
-        [TinyFixme] // No Reflection
         public void CalculateEntityOffsetsReturnsNullIfNoEntities()
         {
             var offsets = GetEntityOffsets(typeof(EmptyStruct));
@@ -96,7 +98,7 @@ namespace Unity.Entities.Tests
         }
 
 
-        struct TwoEntityStruct
+        struct TwoEntityStruct : IComponentData
         {
             // The offsets of these fields are accessed through reflection
             #pragma warning disable CS0169  // field never used warning.
@@ -108,7 +110,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // No Reflection
         public void CalculateEntityOffsetsReturnsOffsetsOfEntities()
         {
             var offsets = GetEntityOffsets(typeof(TwoEntityStruct));
@@ -118,6 +119,9 @@ namespace Unity.Entities.Tests
         }
 
         struct EmbeddedEntityStruct
+#if UNITY_ZEROPLAYER
+            : IComponentData
+#endif
         {
             // The offsets of these fields are accessed through reflection
             #pragma warning disable CS0169  // field never used warning.
@@ -127,7 +131,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // No Reflection
         public void CalculateEntityOffsetsReturnsOffsetsOfEmbeddedEntities()
         {
             var offsets = GetEntityOffsets(typeof(EmbeddedEntityStruct));

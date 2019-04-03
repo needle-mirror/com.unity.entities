@@ -7,7 +7,7 @@ using Unity.Jobs;
 using Unity.Entities;
 using Unity.Entities.Tests;
 
-[TinyFixme]    // Should this work for Tiny?
+[StandaloneFixme]    // Should this work for Tiny?
 public class BlobTests : ECSTestsFixture
 {
 	//@TODO: Test Prevent NativeArray and other containers inside of Blob data
@@ -140,6 +140,7 @@ public class BlobTests : ECSTestsFixture
         }
     }
 
+    [DisableAutoCreation]
     class DummySystem : JobComponentSystem
     {
         protected override JobHandle OnUpdate(JobHandle inHandle)
@@ -180,6 +181,21 @@ public class BlobTests : ECSTestsFixture
         jobHandle.Complete ();
     }
 
+    [Test]
+    public void BlobAssetReferenceIsComparable()
+    {
+        var blob1 = ConstructBlobData();
+        var blob2 = ConstructBlobData();
+        var blobNull = new BlobAssetReference<MyData>();
+
+        var temp1 = blob1;
+
+        Assert.IsTrue(blob1 != blob2);
+        Assert.IsTrue(blob1 != BlobAssetReference<MyData>.Null);
+        Assert.IsTrue(blobNull == BlobAssetReference<MyData>.Null);
+        Assert.IsTrue(blob1 == temp1);
+        Assert.IsTrue(blob2 != temp1);
+    }
 
     BlobAssetReference<MyData> CreateBlobEntities()
     {

@@ -59,7 +59,7 @@ namespace Unity.Entities.Tests
 #pragma warning restore 649	
 	    
 	    [Test]
-        [TinyFixme]
+        [StandaloneFixme]
 	    public void ComponentAccessAfterScheduledJobThrowsEntityArray()
 	    {
 	        m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -76,7 +76,7 @@ namespace Unity.Entities.Tests
 	    }
 			
 	    [Test]
-        [TinyFixme]
+        [StandaloneFixme]
 	    public void ComponentGroupArrayJobScheduleDetectsWriteDependency()
 	    {
 	        var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -92,7 +92,7 @@ namespace Unity.Entities.Tests
 	    }
 		
 		[Test]
-        [TinyFixme]
+        [StandaloneFixme]
 		public void ComponentGroupArrayJobScheduleReadOnlyParallelIsAllowed()
 		{
 			var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -116,7 +116,7 @@ namespace Unity.Entities.Tests
 	    }
 		
 		[Test]
-        [TinyFixme]
+        [StandaloneFixme]
 		public void ComponentGroupArrayExclude()
 		{
 			m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));

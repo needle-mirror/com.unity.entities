@@ -454,9 +454,42 @@ namespace Unity.Entities.Tests
             writer.Dispose();
         }
 
+        struct ExternalSharedComponentValue
+        {
+            public object obj;
+            public int hashcode;
+            public int typeIndex;
+        }
+
+        ExternalSharedComponentValue[] ExtractSharedComponentValues(int[] indices, EntityManager manager)
+        {
+            var values = new ExternalSharedComponentValue[indices.Length];
+            for (int i = 0; i < indices.Length; ++i)
+            {
+                object value = manager.m_SharedComponentManager.GetSharedComponentDataNonDefaultBoxed(indices[i]);
+                int typeIndex = TypeManager.GetTypeIndex(value.GetType());
+                int hash = SharedComponentDataManager.GetHashCodeFast(value, typeIndex);
+                values[i] = new ExternalSharedComponentValue {obj = value, hashcode = hash, typeIndex = typeIndex};
+            }
+            return values;
+        }
+
+        void InsertSharedComponentValues(ExternalSharedComponentValue[] values, EntityManager manager)
+        {
+            for (int i = 0; i < values.Length; ++i)
+            {
+                ExternalSharedComponentValue value = values[i];
+                int index = manager.m_SharedComponentManager.InsertSharedComponentAssumeNonDefault(value.typeIndex,
+                    value.hashcode, value.obj);
+                Assert.AreEqual(i+1, index);
+            }
+        }
+
         [Test]
         public unsafe void SerializeEntitiesWorksWithBlobAssetReferences()
         {
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestSharedComp), typeof(EcsTestData));
+            var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestSharedComp2), typeof(EcsTestData2));
             var dummyEntity = CreateEntityWithDefaultData(0); //To ensure entity indices are offset
 
             var allocator = new BlobAllocator(-1);
@@ -471,16 +504,29 @@ namespace Unity.Entities.Tests
             var arrayComponent = new EcsTestDataBlobAssetArray {array = allocator.CreateBlobAssetReference<BlobArray<float>>(Allocator.Temp)};
             allocator.Dispose();
 
-            var e1 = m_Manager.CreateEntity();
-            m_Manager.AddComponentData(e1, arrayComponent);
-            var e2 = m_Manager.CreateEntity();
-            m_Manager.AddComponentData(e2, arrayComponent);
+            const int entityCount = 1000;
+            var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
 
-            var e3 = m_Manager.CreateEntity();
+            m_Manager.CreateEntity(archetype1, entities);
+            for (int i = 0; i < entityCount; ++i)
+            {
+                m_Manager.AddComponentData(entities[i], arrayComponent);
+                m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp(i%4));
+            }
 
-            var intComponent = new EcsTestDataBlobAssetRef {value = BlobAssetReference<int>.Create(42)};
-            m_Manager.AddComponentData(e3, intComponent);
+            var intComponents = new NativeArray<EcsTestDataBlobAssetRef>(entityCount/5, Allocator.Temp);
+            for(int i=0; i<intComponents.Length; ++i)
+                intComponents[i] = new EcsTestDataBlobAssetRef {value = BlobAssetReference<int>.Create(i)};
 
+
+            m_Manager.CreateEntity(archetype2, entities);
+            for (int i = 0; i < entityCount; ++i)
+            {
+                var intComponent = intComponents[i % intComponents.Length];
+                m_Manager.AddComponentData(entities[i], intComponent);
+                m_Manager.SetComponentData(entities[i], new EcsTestData2(intComponent.value.Value));
+                m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp2(i%3));
+            }
 
             m_Manager.DestroyEntity(dummyEntity);
             var writer = new TestBinaryWriter();
@@ -488,27 +534,35 @@ namespace Unity.Entities.Tests
             int[] sharedData;
             SerializeUtility.SerializeWorld(m_Manager, writer, out sharedData);
 
-            m_Manager.DestroyEntity(e1);
-            m_Manager.DestroyEntity(e2);
-            m_Manager.DestroyEntity(e3);
+            var sharedComponents = ExtractSharedComponentValues(sharedData, m_Manager);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalGroup);
 
             arrayComponent.array.Release();
-            intComponent.value.Release();
+            for(int i=0; i<intComponents.Length; ++i)
+                intComponents[i].value.Release();
 
             var reader = new TestBinaryReader(writer);
 
             var deserializedWorld = new World("SerializeEntities Test World 3");
             var entityManager = deserializedWorld.GetOrCreateManager<EntityManager>();
 
-            SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, 0);
+            InsertSharedComponentValues(sharedComponents, entityManager);
+
+            SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, sharedData.Length);
             entityManager.EndExclusiveEntityTransaction();
+            for (int i = 0; i < sharedData.Length; ++i)
+                entityManager.m_SharedComponentManager.RemoveReference(i+1);
+
+            Assert.IsTrue(entityManager.m_SharedComponentManager.AllSharedComponentReferencesAreFromChunks(entityManager.ArchetypeManager));
 
             try
             {
-                var group = entityManager.CreateComponentGroup(typeof(EcsTestDataBlobAssetArray));
+                var group1 = entityManager.CreateComponentGroup(typeof(EcsTestDataBlobAssetArray));
+                var group2 = entityManager.CreateComponentGroup(typeof(EcsTestDataBlobAssetRef));
 
-                Assert.AreEqual(2, group.CalculateLength());
-                var entities1 = group.ToEntityArray(Allocator.TempJob);
+                var entities1 = group1.ToEntityArray(Allocator.TempJob);
+                Assert.AreEqual(entityCount, entities1.Length);
                 var new_e1 = entities1[0];
                 arrayComponent = entityManager.GetComponentData<EcsTestDataBlobAssetArray>(new_e1);
                 var a = arrayComponent.array;
@@ -517,8 +571,16 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(3.5f, a.Value[2]);
                 Assert.AreEqual(4.4f, a.Value[3]);
                 Assert.AreEqual(5.3f, a.Value[4]);
-
                 entities1.Dispose();
+
+                var entities2 = group2.ToEntityArray(Allocator.TempJob);
+                Assert.AreEqual(entityCount, entities2.Length);
+                for (int i = 0; i < entityCount; ++i)
+                {
+                    var val = entityManager.GetComponentData<EcsTestData2>(entities2[i]).value0;
+                    Assert.AreEqual(val, entityManager.GetComponentData<EcsTestDataBlobAssetRef>(entities2[i]).value.Value);
+                }
+                entities2.Dispose();
             }
             finally
             {
@@ -528,6 +590,43 @@ namespace Unity.Entities.Tests
 
             float f = 1.0f;
             Assert.Throws<InvalidOperationException>(() => f = arrayComponent.array.Value[0]);
+        }
+
+        [Test]
+        public void DeserializedChunksAreConsideredChangedOnlyOnce()
+        {
+            TestBinaryReader CreateSerializedData()
+            {
+                var world = new World("DeserializedChunksAreConsideredChangedOnlyOnce World");
+                var manager = world.GetOrCreateManager<EntityManager>();
+                var entity = manager.CreateEntity();
+                manager.AddComponentData(entity, new EcsTestData(42));
+                var writer = new TestBinaryWriter();
+                SerializeUtility.SerializeWorld(manager, writer, out var sharedData);
+                world.Dispose();
+                return new TestBinaryReader(writer);
+            }
+
+            var reader = CreateSerializedData();
+
+            var deserializedWorld = new World("DeserializedChunksAreConsideredChangedOnlyOnce World 2");
+            var deserializedManager = deserializedWorld.GetOrCreateManager<EntityManager>();
+            var system = deserializedWorld.GetOrCreateManager<TestEcsChangeSystem>();
+
+            system.Update();
+            Assert.AreEqual(0, system.NumChanged);
+
+            SerializeUtility.DeserializeWorld(deserializedManager.BeginExclusiveEntityTransaction(), reader, 0);
+            deserializedManager.EndExclusiveEntityTransaction();
+            reader.Dispose();
+
+            system.Update();
+            Assert.AreEqual(1, system.NumChanged);
+
+            system.Update();
+            Assert.AreEqual(0, system.NumChanged);
+
+            deserializedWorld.Dispose();
         }
     }
 }

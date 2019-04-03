@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Unity.Assertions;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
@@ -149,7 +150,7 @@ namespace Unity.Entities
         static unsafe void Initialize(ComponentSystemBase system, ComponentGroup componentGroup, Type jobType, Type wrapperJobType,
             bool isParallelFor, ref JobProcessComponentDataCache cache, out ProcessIterationData iterator)
         {
-            // Get the job reflection data and cache it if we don't already have it cached.
+        // Get the job reflection data and cache it if we don't already have it cached.
             if (isParallelFor && cache.JobReflectionDataParallelFor == IntPtr.Zero ||
                 !isParallelFor && cache.JobReflectionData == IntPtr.Zero)
             {
@@ -202,26 +203,25 @@ namespace Unity.Entities
                 for (var i = 0; i != cache.ProcessTypesCount; i++)
                     isReadOnly[i] = cache.Types[i].AccessModeType == ComponentType.AccessMode.ReadOnly ? 1 : 0;
             }
-
-            // Set process iteration data's ComponentChunkIterator
-            iterator.Iterator = group.GetComponentChunkIterator();
-
-            // Get each type's index in the component group and store them on the process iteration data for output.
-            iterator.IndexInGroup0 = iterator.IndexInGroup1 = iterator.IndexInGroup2 = iterator.IndexInGroup3 = iterator.IndexInGroup4 = iterator.IndexInGroup5 = -1;
-            fixed (int* groupIndices = &iterator.IndexInGroup0)
+            
+            iterator.TypeIndex0 = iterator.TypeIndex1 = iterator.TypeIndex2 = iterator.TypeIndex3 = iterator.TypeIndex4 = iterator.TypeIndex5 = -1;
+            fixed (int* typeIndices = &iterator.TypeIndex0)
             {
                 for (var i = 0; i != cache.ProcessTypesCount; i++)
-                    groupIndices[i] = group.GetIndexInComponentGroup(cache.Types[i].TypeIndex);
+                    typeIndices[i] = cache.Types[i].TypeIndex;
             }
 
             iterator.m_IsParallelFor = isParallelFor;
             iterator.m_Length = group.CalculateNumberOfChunksWithoutFiltering();
 
+            iterator.GlobalSystemVersion = group.GetComponentChunkIterator().m_GlobalSystemVersion;
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             iterator.m_MaxIndex = iterator.m_Length - 1;
             iterator.m_MinIndex = 0;
             
-            iterator.m_Safety0 = iterator.m_Safety1 = iterator.m_Safety2 = iterator.m_Safety3 = iterator.m_Safety4 = iterator.m_Safety5= default(AtomicSafetyHandle);
+            iterator.m_Safety0 = iterator.m_Safety1 = iterator.m_Safety2 = iterator.m_Safety3 = iterator.m_Safety4 =
+ iterator.m_Safety5 = default(AtomicSafetyHandle);
 
             iterator.m_SafetyReadOnlyCount = 0;
             fixed (AtomicSafetyHandle* safety = &iterator.m_Safety0)
@@ -229,7 +229,8 @@ namespace Unity.Entities
                 for (var i = 0; i != cache.ProcessTypesCount; i++)
                     if (cache.Types[i].AccessModeType == ComponentType.AccessMode.ReadOnly)
                     {
-                        safety[iterator.m_SafetyReadOnlyCount] = group.GetSafetyHandle(group.GetIndexInComponentGroup(cache.Types[i].TypeIndex));
+                        safety[iterator.m_SafetyReadOnlyCount] =
+ group.GetSafetyHandle(group.GetIndexInComponentGroup(cache.Types[i].TypeIndex));
                         iterator.m_SafetyReadOnlyCount++;
                     }
             }
@@ -240,7 +241,8 @@ namespace Unity.Entities
                 for (var i = 0; i != cache.ProcessTypesCount; i++)
                     if (cache.Types[i].AccessModeType == ComponentType.AccessMode.ReadWrite)
                     {
-                        safety[iterator.m_SafetyReadOnlyCount + iterator.m_SafetyReadWriteCount] = group.GetSafetyHandle(group.GetIndexInComponentGroup(cache.Types[i].TypeIndex));
+                        safety[iterator.m_SafetyReadOnlyCount + iterator.m_SafetyReadWriteCount] =
+ group.GetSafetyHandle(group.GetIndexInComponentGroup(cache.Types[i].TypeIndex));
                         iterator.m_SafetyReadWriteCount++;
                     }
             }
@@ -272,13 +274,14 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct ProcessIterationData
         {
-            public ComponentChunkIterator Iterator;
-            public int IndexInGroup0;
-            public int IndexInGroup1;
-            public int IndexInGroup2;
-            public int IndexInGroup3;
-            public int IndexInGroup4;
-            public int IndexInGroup5;
+            public uint GlobalSystemVersion;
+            
+            public int TypeIndex0;
+            public int TypeIndex1;
+            public int TypeIndex2;
+            public int TypeIndex3;
+            public int TypeIndex4;
+            public int TypeIndex5;
 
             public int IsReadOnly0;
             public int IsReadOnly1;
@@ -333,24 +336,34 @@ namespace Unity.Entities
             return CalculateEntityCount(system, typeof(T));
         }
 
-
-        
-        static unsafe JobHandle Schedule(void* fullData, int length, int innerloopBatchCount,
-            bool isParallelFor, ref JobProcessComponentDataCache cache, JobHandle dependsOn, ScheduleMode mode)
+        static unsafe JobHandle Schedule(void* fullData, NativeArray<byte> prefilterData, int unfilteredLength, int innerloopBatchCount, 
+            bool isParallelFor, bool isFiltered, ref JobProcessComponentDataCache cache, void* deferredCountData, JobHandle dependsOn, ScheduleMode mode)
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS 
+            try
+            {
+#endif
             if (isParallelFor)
             {
-                var scheduleParams =
-                    new JobsUtility.JobScheduleParameters(fullData, cache.JobReflectionDataParallelFor, dependsOn,
-                        mode);
-                return JobsUtility.ScheduleParallelFor(ref scheduleParams, length, innerloopBatchCount);
+                var scheduleParams = new JobsUtility.JobScheduleParameters(fullData, cache.JobReflectionDataParallelFor, dependsOn, mode);
+                if(isFiltered)
+                    return JobsUtility.ScheduleParallelForDeferArraySize(ref scheduleParams, innerloopBatchCount, deferredCountData, null);
+                else
+                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, unfilteredLength, innerloopBatchCount);
             }
             else
             {
-                var scheduleParams =
-                    new JobsUtility.JobScheduleParameters(fullData, cache.JobReflectionData, dependsOn, mode);
+                var scheduleParams = new JobsUtility.JobScheduleParameters(fullData, cache.JobReflectionData, dependsOn, mode);
                 return JobsUtility.Schedule(ref scheduleParams);
             }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS 
+            }
+            catch (InvalidOperationException e)
+            {
+                prefilterData.Dispose();
+                throw e;
+            }
+#endif           
         }
     }
 }

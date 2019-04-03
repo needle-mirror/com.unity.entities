@@ -47,7 +47,7 @@ namespace Unity.Entities.Tests
 
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void CreateEntityTriggersChange()
         {
             Entity[] entity = new Entity[] { m_Manager.CreateEntity(typeof(EcsTestData)) };
@@ -136,7 +136,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void ChangeEntity([Values]ChangeMode mode)
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -172,7 +172,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void GetEntityDataDoesNotChange([Values]ChangeMode mode)
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -191,7 +191,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void ChangeEntityWrap()
         {
            m_Manager.Debug.SetGlobalSystemVersion(uint.MaxValue-3);
@@ -210,7 +210,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void NoChangeEntityWrap()
         {
             m_Manager.Debug.SetGlobalSystemVersion(uint.MaxValue - 3);
@@ -244,7 +244,7 @@ namespace Unity.Entities.Tests
 
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void IJobProcessComponentDeltaWorks()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
@@ -291,7 +291,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void IJobProcessComponentDeltaWorksWhenUsingRun()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
@@ -320,7 +320,7 @@ namespace Unity.Entities.Tests
 
 #if false
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void IJobProcessComponentDeltaWorksWhenSetSharedComponent()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestSharedComp));
@@ -394,7 +394,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void ChangedFilterJobAfterAnotherJob1Comp()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
@@ -517,7 +517,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void ChangedFilterJobAfterAnotherJob2Comp([Values]DeltaModifyComponentSystem2Comp.Variant variant)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));

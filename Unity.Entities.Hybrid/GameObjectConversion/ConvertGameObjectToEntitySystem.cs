@@ -2,55 +2,61 @@
 using Unity.Entities;
 using UnityEngine;
 
-
-public interface IConvertGameObjectToEntity
+namespace Unity.Entities
 {
-    void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem);
-}
-
-public interface IDeclareReferencedPrefabs
-{
-    void DeclareReferencedPrefabs(List<GameObject> gameObjects);
-}
-
-
-class ConvertGameObjectToEntitySystem : GameObjectConversionSystem
-{
-    protected override void OnUpdate()
+    public interface IConvertGameObjectToEntity
     {
-        var convertibles = new List<IConvertGameObjectToEntity>();
-
-        ForEach((Transform transform) =>
-        {
-            transform.GetComponents(convertibles);
-
-            foreach (var c in convertibles)
-            {
-                var entity = GetPrimaryEntity((Component) c);
-                c.Convert(entity, DstEntityManager, this);
-            }
-        });
+        void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem);
     }
-}
 
-[DisableAutoCreation]
-class ConvertGameObjectToEntitySystemDeclarePrefabs : GameObjectConversionSystem
-{
-    protected override void OnUpdate()
-    {        
-        //@TODO: Support prefab to prefab referencing recursion...
-        var declares = new List<IDeclareReferencedPrefabs>();
-        var prefabs = new List<GameObject>();
+    public interface IDeclareReferencedPrefabs
+    {
+        void DeclareReferencedPrefabs(List<GameObject> referencedPrefabs);
+    }
 
-        ForEach((Transform transform) =>
+    public class RequiresEntityConversionAttribute : System.Attribute
+    {
+    
+    }
+
+    class ConvertGameObjectToEntitySystem : GameObjectConversionSystem
+    {
+        protected override void OnUpdate()
         {
-            transform.GetComponents(declares);
+            var convertibles = new List<IConvertGameObjectToEntity>();
 
-            foreach (var c in declares)
-                c.DeclareReferencedPrefabs(prefabs);
-        });
+            Entities.ForEach((Transform transform) =>
+            {
+                transform.GetComponents(convertibles);
 
-        foreach (var p in prefabs)
-            AddReferencedPrefab(p);    
+                foreach (var c in convertibles)
+                {
+                    var entity = GetPrimaryEntity((Component) c);
+                    c.Convert(entity, DstEntityManager, this);
+                }
+            });
+        }
+    }
+
+    [DisableAutoCreation]
+    class ConvertGameObjectToEntitySystemDeclarePrefabs : GameObjectConversionSystem
+    {
+        protected override void OnUpdate()
+        {        
+            //@TODO: Support prefab to prefab referencing recursion...
+            var declares = new List<IDeclareReferencedPrefabs>();
+            var prefabs = new List<GameObject>();
+
+            Entities.ForEach((Transform transform) =>
+            {
+                transform.GetComponents(declares);
+
+                foreach (var c in declares)
+                    c.DeclareReferencedPrefabs(prefabs);
+            });
+
+            foreach (var p in prefabs)
+                AddReferencedPrefab(p);    
+        }
     }
 }

@@ -112,6 +112,18 @@ namespace Unity.Entities.BuildUtils
                 return AlignAndSizeOfType(fixedSpecialType.MetadataType, bits);
             }
 
+            // Handle the case where we have a fixed buffer. Cecil will name it: "<MyMemberName>e_FixedBuffer"
+            if(type.ClassSize != -1 && type.Name.Contains(">e__FixedBuffer"))
+            {
+                // Fixed buffers can only be of primitive types so inspect the fields if the buffer (there should only be one)
+                // and determine the packing requirement for the type
+                if (type.Fields.Count() != 1)
+                    throw new ArgumentException("A FixedBuffer type contains more than one field, this should not happen");
+
+                var fieldAlignAndSize = AlignAndSizeOfType(type.Fields[0].FieldType.MetadataType, bits);
+                return new AlignAndSize(fieldAlignAndSize.align, type.ClassSize);
+            }
+
             if (ValueTypeAlignment[bits].ContainsKey(type))
             {
                 var sz = ValueTypeAlignment[bits][type];

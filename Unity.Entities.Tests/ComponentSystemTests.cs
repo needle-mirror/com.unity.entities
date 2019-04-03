@@ -134,7 +134,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // IJob
+        [StandaloneFixme] // IJob
         public void DestroySystemWhileJobUsingArrayIsRunningWorks()
         {
             var system = World.CreateManager<ScheduleJobAndDestroyArray>();

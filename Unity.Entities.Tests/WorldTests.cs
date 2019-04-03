@@ -23,7 +23,7 @@ namespace Unity.Entities.Tests
 
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void ActiveWorldResets()
         {
             int count = World.AllWorlds.Count();
@@ -55,7 +55,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void WorldVersionIsConsistent()
         {
             var world = new World("WorldX");
@@ -78,7 +78,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void UsingDisposedWorldThrows()
         {
             var world = new World("WorldX");
@@ -99,7 +99,7 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate() { }
         }
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void AddWorldDuringConstructorThrows ()
         {
             var world = new World("WorldX");
@@ -124,7 +124,7 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate() { }
         }
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void SystemThrowingInOnCreateManagerIsRemoved()
         {
             var world = new World("WorldX");
@@ -150,7 +150,7 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate() { }
         }
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void SystemIsAccessibleDuringOnCreateManager ()
         {
             var world = new World("WorldX");

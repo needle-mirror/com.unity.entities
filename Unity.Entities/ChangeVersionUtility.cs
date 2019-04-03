@@ -4,9 +4,6 @@
     {
         public static bool DidChange(uint changeVersion, uint requiredVersion)
         {
-            // initial state data always triggers a change
-            if (changeVersion == 0)
-                return true;
             // When a system runs for the first time, everything is considered changed.
             if (requiredVersion == 0)
                 return true;

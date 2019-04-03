@@ -5,13 +5,37 @@ using UnityEngine;
 
 namespace Unity.Entities
 {
+    public delegate void ConfigInit(World world);
+
     public static class DefaultTinyWorldInitialization
     {
+        /// <summary>
+        /// Initialize the DOTS-RT World with all the boilerplate that needs to be done.
+        /// ComponentSystems will be created and sorted into the high level ComponentSystemGroups.
+        /// </summary>
+        /// <param name="worldName"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        /// <exception cref="Exception"></exception>
         public static World Initialize(string worldName)
+        {
+            World world = InitializeWorld(worldName);
+            InitializeSystems(world);
+            SortSystems(world);
+            return world;
+        }
+
+        public static World InitializeWorld(string worldName)
         {
             var world = new World(worldName);
             World.Active = world;
+            // Entity manager must be first so that other things can find it.
+            world.AddManager(new EntityManager());
+            return world;
+        }
 
+        public static void InitializeSystems(World world)
+        {
             var allSystemTypes = TypeManager.GetSystems();
             var allSystemNames = TypeManager.SystemNames;
 
@@ -19,9 +43,6 @@ namespace Unity.Entities
             {
                 throw new InvalidOperationException("DefaultTinyWorldInitialization: No Systems found.");
             }
-
-            // Entity manager must be first so that other things can find it.
-            world.AddManager(new EntityManager());
 
             // Create top level presentation system and simulation systems.
             InitializationSystemGroup initializationSystemGroup = new InitializationSystemGroup();
@@ -88,12 +109,9 @@ namespace Unity.Entities
                     groupSystem.AddSystemToUpdateList(system);
                 }
             }
-
-            SortSystems(world);
-            return world;
         }
 
-        static public void SortSystems(World world)
+        public static void SortSystems(World world)
         {
             var initializationSystemGroup = world.GetExistingManager<InitializationSystemGroup>();
             var simulationSystemGroup = world.GetExistingManager<SimulationSystemGroup>();

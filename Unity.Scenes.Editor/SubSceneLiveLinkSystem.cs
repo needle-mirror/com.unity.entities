@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Unity.Entities;
@@ -61,11 +61,11 @@ namespace Unity.Scenes.Editor
     
             if (PreviousGlobalDirtyID != GlobalDirtyID)
             {
-                ForEach((SubScene subScene) => subScene.LiveLinkDirtyID = -1);
+                Entities.ForEach((SubScene subScene) => subScene.LiveLinkDirtyID = -1);
                 PreviousGlobalDirtyID = GlobalDirtyID;
             }
     
-            ForEach((SubScene subScene) =>
+            Entities.ForEach((SubScene subScene) =>
             {
                 // We are editing with live link. Ensure it is active & up to date
                 if (subScene.IsLoaded && SubSceneInspectorUtility.LiveLinkEnabled)
@@ -254,7 +254,7 @@ namespace Unity.Scenes.Editor
                 if (target)
                 {
                     var targetScene = target.scene;
-                    ForEach((SubScene scene) =>
+                    Entities.ForEach((SubScene scene) =>
                     {
                         if (scene.IsLoaded && scene.LoadedScene == targetScene)
                         {

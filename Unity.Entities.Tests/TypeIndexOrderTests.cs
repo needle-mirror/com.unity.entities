@@ -113,7 +113,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public unsafe void TypesInArchetypeAreOrderedAsExpected()
         {
             var archetype = m_Manager.CreateArchetype(

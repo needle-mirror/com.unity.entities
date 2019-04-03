@@ -7,7 +7,7 @@ class TransformConversion : GameObjectConversionSystem
 {
     protected override void OnUpdate()
     {
-        ForEach((Transform transform) =>
+        Entities.ForEach((Transform transform) =>
         {
             var entity = GetPrimaryEntity(transform);
 

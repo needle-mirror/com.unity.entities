@@ -42,6 +42,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [StandaloneFixme]
         public void AddRemoveSharedComponentWithGroupWorks()
         {
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -78,7 +79,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         public void AddRemoveAnyComponentWithGroupWorksWith([ValueSource(nameof(GetTestTypes))] ComponentType type)
         {
             var metaChunkGroup = m_Manager.CreateComponentGroup(typeof(ChunkHeader));
@@ -117,7 +118,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         public void RemoveAnyComponentWithGroupIgnoresChunksThatDontHaveTheComponent([ValueSource(nameof(GetTestTypes))] ComponentType type)
         {
             var metaChunkGroup = m_Manager.CreateComponentGroup(typeof(ChunkHeader));
@@ -161,7 +162,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
         public void AddRemoveComponentWithGroupPreservesChangeVersions()
         {
             m_ManagerDebug.SetGlobalSystemVersion(10);

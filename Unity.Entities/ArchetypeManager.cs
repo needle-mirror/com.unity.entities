@@ -502,7 +502,7 @@ namespace Unity.Entities
             get { return ref *(UnsafePtrList*)UnsafeUtility.AddressOf(ref ChunksWithEmptySlots); }
         }
 
-        public void AddToChunkList(Chunk *chunk, SharedComponentValues sharedComponentIndices)
+        public void AddToChunkList(Chunk *chunk, SharedComponentValues sharedComponentIndices, uint changeVersion)
         {
             chunk->ListIndex = Chunks.Count;
             if (Chunks.Count == Chunks.Capacity)
@@ -1115,7 +1115,7 @@ namespace Unity.Entities
         public void AddExistingChunk(Chunk* chunk, int* sharedComponentIndices)
         {
             var archetype = chunk->Archetype;
-            archetype->AddToChunkList(chunk, sharedComponentIndices);
+            archetype->AddToChunkList(chunk, sharedComponentIndices, m_Entities->GlobalSystemVersion);
             archetype->EntityCount += chunk->Count;
 
             for (var i = 0; i < archetype->NumSharedComponents; ++i)
@@ -1145,7 +1145,7 @@ namespace Unity.Entities
                 }
             }
 
-            archetype->AddToChunkList(chunk, sharedComponentValues);
+            archetype->AddToChunkList(chunk, sharedComponentValues, m_Entities->GlobalSystemVersion);
 
             Assert.IsTrue(archetype->Chunks.Count != 0);
 
@@ -1497,13 +1497,17 @@ namespace Unity.Entities
                     srcArchetype->FreeChunksBySharedComponents.Init(16);
                 }
 
-                // Zero change versions
-                for (int i = 0; i < dstArchetype->TypesCount; ++i)
+                var globalSystemVersion = dstEntityDataManager->GlobalSystemVersion;
+                // Set change versions to GlobalSystemVersion
+                for (int iType = 0; iType < dstArchetype->TypesCount; ++iType)
                 {
-                    var dstArray = dstArchetype->Chunks.GetChangeVersionArrayForType(i) + dstChunkCount;
-                    UnsafeUtility.MemClear(dstArray, srcChunkCount*sizeof(uint));
+                    var dstArray = dstArchetype->Chunks.GetChangeVersionArrayForType(iType) + dstChunkCount;
+                    for (int i = 0; i < srcChunkCount; ++i)
+                    {
+                        dstArray[i] = globalSystemVersion;
+                    }
                 }
-
+                
                 // Copy chunk count array
                 var dstCountArray = dstArchetype->Chunks.GetChunkEntityCountArray() + dstChunkCount;
                 UnsafeUtility.MemCpy(dstCountArray, srcArchetype->Chunks.GetChunkEntityCountArray(), sizeof(int) * srcChunkCount);
@@ -1672,6 +1676,7 @@ namespace Unity.Entities
         {
             [ReadOnly] public NativeArray<RemapChunk> remapChunks;
             [ReadOnly] public NativeArray<int> remapShared;
+            public uint globalSystemVersion;
 
             public void Execute()
             {
@@ -1702,7 +1707,7 @@ namespace Unity.Entities
                     chunk->Archetype = dstArchetype;
 
                     dstArchetype->EntityCount += chunk->Count;
-                    dstArchetype->AddToChunkList(chunk, sharedComponentValues);
+                    dstArchetype->AddToChunkList(chunk, sharedComponentValues, globalSystemVersion);
                     if (chunk->Count < chunk->Capacity)
                         EmptySlotTrackingAddChunk(chunk);
                 }
@@ -1767,7 +1772,8 @@ namespace Unity.Entities
             var moveChunksBetweenArchetypeJob = new MoveChunksBetweenArchetypeJob
             {
                 remapChunks = remapChunks,
-                remapShared = remapShared
+                remapShared = remapShared,
+                globalSystemVersion = dstEntityDataManager->GlobalSystemVersion
             }.Schedule(remapChunksJob);
 
             moveChunksBetweenArchetypeJob.Complete();

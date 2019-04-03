@@ -4,6 +4,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
 
 namespace Unity.Entities
@@ -71,7 +72,7 @@ namespace Unity.Entities
     /// </summary>
     internal unsafe struct ComponentChunkIterator
     {
-        private readonly MatchingArchetypeList m_MatchingArchetypeList;
+        internal readonly MatchingArchetypeList m_MatchingArchetypeList;
         private int m_CurrentMatchingArchetypeIndex;
 
         private int m_CurrentMatchingArchetypeIndexNext => m_CurrentMatchingArchetypeIndex - 1;
@@ -90,9 +91,9 @@ namespace Unity.Entities
         private int m_CurrentArchetypeIndex;
         private int m_CurrentChunkIndex;
 
-        private ComponentGroupFilter m_Filter;
+        internal ComponentGroupFilter m_Filter;
 
-        private readonly uint m_GlobalSystemVersion;
+        internal readonly uint m_GlobalSystemVersion;
 
         public int IndexInComponentGroup;
 
@@ -590,16 +591,20 @@ namespace Unity.Entities
             endIndex = beginIndex + (*m_CurrentChunk)->Count;
         }
 
-        public void* GetCurrentChunkComponentDataPtr(bool isWriting, int indexInComponentGroup)
+        internal static void* GetChunkComponentDataPtr(Chunk* chunk, bool isWriting, int indexInArchetype, uint systemVersion)
         {
-            var archetype = m_CurrentMatchingArchetype->Archetype;
-
-            int indexInArchetype = m_CurrentMatchingArchetype->IndexInArchetype[indexInComponentGroup];
+            var archetype = chunk->Archetype;
 
             if (isWriting)
-                (*m_CurrentChunk)->SetChangeVersion(indexInArchetype, m_GlobalSystemVersion);
+                chunk->SetChangeVersion(indexInArchetype, systemVersion);
 
-            return (*m_CurrentChunk)->Buffer + archetype->Offsets[indexInArchetype];
+            return chunk->Buffer + archetype->Offsets[indexInArchetype];
+        }
+        
+        public void* GetCurrentChunkComponentDataPtr(bool isWriting, int indexInComponentGroup)
+        {
+            int indexInArchetype = m_CurrentMatchingArchetype->IndexInArchetype[indexInComponentGroup];
+            return GetChunkComponentDataPtr(*m_CurrentChunk, isWriting, indexInArchetype, m_GlobalSystemVersion);
         }
 
         public void UpdateChangeVersion()
@@ -705,6 +710,55 @@ namespace Unity.Entities
             }
 
             return index;
+        }
+        
+        internal static JobHandle PreparePrefilteredChunkLists(int unfilteredChunkCount, MatchingArchetypeList archetypes, ComponentGroupFilter filter,  JobHandle dependsOn, ScheduleMode mode, out NativeArray<byte> prefilterDataArray, out void* deferredCountData)
+        {
+            // Allocate one buffer for all prefilter data and distribute it
+            // We keep the full buffer as a "dummy array" so we can deallocate it later with [DeallocateOnJobCompletion]
+            var sizeofChunkArray = sizeof(ArchetypeChunk) * unfilteredChunkCount;
+            var sizeofIndexArray = sizeof(int) * unfilteredChunkCount;
+            var prefilterDataSize = sizeofChunkArray + sizeofIndexArray + sizeof(int);
+            
+            prefilterDataArray = new NativeArray<byte>(prefilterDataSize, Allocator.TempJob);
+            var prefilterData = (byte*)prefilterDataArray.GetUnsafePtr();              
+            
+            JobHandle prefilterHandle = default(JobHandle);
+
+            if (filter.RequiresMatchesFilter)
+            {           
+                var prefilteringJob = new GatherChunksAndOffsetsWithFilteringJob
+                {
+                    Archetypes = archetypes,
+                    Filter = filter,
+                    PrefilterData = prefilterData,
+                    UnfilteredChunkCount = unfilteredChunkCount
+                };
+                if (mode == ScheduleMode.Batched)
+                    prefilterHandle = prefilteringJob.Schedule(dependsOn);
+                else
+                    prefilteringJob.Run();
+            }
+            else
+            {
+                var gatherJob = new GatherChunksAndOffsetsJob
+                {
+                    Archetypes = archetypes,
+                    PrefilterData = prefilterData,
+                    UnfilteredChunkCount = unfilteredChunkCount
+                };
+                if (mode == ScheduleMode.Batched)
+                    prefilterHandle = gatherJob.Schedule(dependsOn);
+                else
+                    gatherJob.Run();
+            }
+            
+            // ScheduleParallelForDeferArraySize expects a ptr to a structure with a void* and a count.
+            // It only uses the count, so this is safe to fudge
+            deferredCountData = prefilterData + sizeofChunkArray + sizeofIndexArray;
+            deferredCountData = (byte*)deferredCountData - sizeof(void*);
+
+            return prefilterHandle;
         }
     }
 }

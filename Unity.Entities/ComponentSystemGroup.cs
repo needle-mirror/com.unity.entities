@@ -137,21 +137,34 @@ namespace Unity.Entities
         }
         public struct TypeHeapElement : IComparable<TypeHeapElement>
         {
-            private int typeHash;
-            public Type type;
+            private string typeName;
+            public int unsortedIndex;
 
-            public TypeHeapElement(Type t)
+            public TypeHeapElement(int index, Type t)
             {
-                type = t;
-                typeHash = t.GetHashCode();
+                unsortedIndex = index;
+                typeName = TypeManager.SystemName(t);
             }
             public int CompareTo(TypeHeapElement other)
             {
-                if (typeHash < other.typeHash)
+#if UNITY_CSHARP_TINY
+                // Workaround for missing string.CompareTo() in HPC#. This is not a fully compatible substitute,
+                // but should be suitable for comparing system names.
+                if (typeName.Length < other.typeName.Length)
                     return -1;
-                else if (typeHash > other.typeHash)
+                if (typeName.Length > other.typeName.Length)
                     return 1;
+                for (int i = 0; i < typeName.Length; ++i)
+                {
+                    if (typeName[i] < other.typeName[i])
+                        return -1;
+                    if (typeName[i] > other.typeName[i])
+                        return 1;
+                }
                 return 0;
+#else
+                return typeName.CompareTo(other.typeName);
+#endif
             }
         }
 
@@ -259,18 +272,18 @@ namespace Unity.Entities
             }
 
             // Clear the systems list and rebuild it in sorted order from the lookup table
-            var readySystems = new Heap<int>(m_systemsToUpdate.Count);
+            var readySystems = new Heap<TypeHeapElement>(m_systemsToUpdate.Count);
             m_systemsToUpdate.Clear();
             for (int i = 0; i < sysAndDep.Length; ++i)
             {
                 if (sysAndDep[i].nAfter == 0)
                 {
-                    readySystems.Insert(i);
+                    readySystems.Insert(new TypeHeapElement(i, sysAndDep[i].system.GetType()));
                 }
             }
             while (!readySystems.Empty)
             {
-                int sysIndex = readySystems.Extract();
+                int sysIndex = readySystems.Extract().unsortedIndex;
                 SysAndDep sd = sysAndDep[sysIndex];
                 Type sysType = sd.system.GetType();
 
@@ -285,7 +298,7 @@ namespace Unity.Entities
                     sysAndDep[beforeIndex].nAfter--;
                     if (sysAndDep[beforeIndex].nAfter == 0)
                     {
-                        readySystems.Insert(beforeIndex);
+                        readySystems.Insert(new TypeHeapElement(beforeIndex, sysAndDep[beforeIndex].system.GetType()));
                     }
                 }
             }
@@ -343,7 +356,14 @@ namespace Unity.Entities
         {
             foreach (var sys in m_systemsToUpdate)
             {
-                sys.Update();
+                try
+                {
+                    sys.Update();
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
                 if (World.QuitUpdate)
                     break;
             }

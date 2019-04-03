@@ -220,7 +220,7 @@ namespace Unity.Entities.Tests
     public class WorldDiffTests : WorldDiffTestFixture
     {
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void DiffOnly()
         {
             using (var diff = WorldDiffer.UpdateDiff(m_After, m_Shadow, Allocator.TempJob))
@@ -266,7 +266,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void CreateWithComponentData()
         {
             var guid = GenerateEntityGuid(0);
@@ -281,7 +281,7 @@ namespace Unity.Entities.Tests
 
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void CreateWithPrefabComponent()
         {
             var guid = GenerateEntityGuid(0);
@@ -295,7 +295,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void CreateWithDisabledComponent()
         {
             var guid = GenerateEntityGuid(0);
@@ -325,7 +325,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void RemapEntityRef()
         {
             // Create extra entity to make sure test doesn't accidentally succeed with no remapping
@@ -350,7 +350,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void MissingEntityRefBecomesNull()
         {
             var guid = GenerateEntityGuid(0);
@@ -368,7 +368,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void AddComponent()
         {
             var guid = GenerateEntityGuid(0);
@@ -388,7 +388,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void RemoveComponent()
         {
             var guid = GenerateEntityGuid(0);
@@ -409,7 +409,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void CreateSharedComponent()
         {
             for (int i = 0; i != 3; i++)
@@ -429,7 +429,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void ChangeSharedComponent()
         {
             var guid = GenerateEntityGuid(0);
@@ -448,7 +448,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void SharedComponentDiff()
         {
             var e = m_Manager.CreateEntity();
@@ -466,7 +466,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void ChangeSrcAppliesToAllDstInstances([Values]bool prefabTag)
         {
             var guid = GenerateEntityGuid(0);
@@ -492,7 +492,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void DynamicBuffer([Values(1, 100)]int bufferLength)
         {
             var guid = GenerateEntityGuid(0);
@@ -513,7 +513,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void DynamicBufferWithEntityStress()
         {
             int[] sizes = {10, 0, 100, 100, 7, 9, 13, 13, 13, 1};
@@ -580,7 +580,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void StressCreation()
         {
             // Add shared component to scramble src shared indices
@@ -599,7 +599,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void StressDestroyOnClient()
         {
             CreateStressData(0,    2000, false, true, false);
@@ -614,7 +614,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void StressDestroyOnServer()
         {
             CreateStressData(0,    2000, false, true, false);
@@ -630,7 +630,7 @@ namespace Unity.Entities.Tests
 
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void StressTestRecreation()
         {
             // Add shared component to scramble src shared indices
@@ -697,7 +697,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void EntityPatchWithMissingEntityDoesNotThrow()
         {
             var guid = GenerateEntityGuid(0);
@@ -718,7 +718,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void EntityPatchWithAmbiguousTargetDoesNotThrow()
         {
             var guid = GenerateEntityGuid(0);
@@ -738,7 +738,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void NewEntityIsReplicatedIntoExistingPrefabInstances([Values(1, 10)]int instanceCount)
         {
             var rootGUID = GenerateEntityGuid(1);

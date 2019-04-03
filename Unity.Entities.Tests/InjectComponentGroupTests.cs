@@ -109,7 +109,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
-        [TinyFixme] // ISharedComponent
+        [StandaloneFixme] // ISharedComponentData
 	    public void ComponentGroupFromInjectedGroup()
 	    {
 	        var system = World.GetOrCreateManager<ComponentGroupAsPartOfInjectedGroupSystem>();
@@ -133,7 +133,7 @@ namespace Unity.Entities.Tests
 	    }
 
 		[Test]
-        [TinyFixme] // AtomicSafety
+        [StandaloneFixme] // AtomicSafety
         public void ReadOnlyComponentDataArray()
         {
             var readOnlySystem = World.GetOrCreateManager<PureReadOnlySystem> ();
@@ -149,7 +149,7 @@ namespace Unity.Entities.Tests
 
 
 	    [Test]
-        [TinyFixme] // ISharedComponentData
+        [StandaloneFixme] // ISharedComponentData
 	    public void SharedComponentDataArray()
 	    {
 	        var sharedComponentSystem = World.GetOrCreateManager<SharedComponentSystem> ();
@@ -166,7 +166,7 @@ namespace Unity.Entities.Tests
 
 
         [Test]
-        [TinyFixme] // Real problem - Test failure
+        [StandaloneFixme] // Real problem - Test failure
         public void RemoveComponentGroupTracking()
         {
             var pureSystem = World.GetOrCreateManager<PureEcsTestSystem> ();
@@ -194,7 +194,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme] // Real problem - Test failure
+        [StandaloneFixme] // Real problem - Test failure
         public void EntityGroupTracking()
         {
             var pureSystem = World.GetOrCreateManager<PureEcsTestSystem> ();
@@ -254,7 +254,7 @@ namespace Unity.Entities.Tests
 		}
 
         [Test]
-        [TinyFixme] // IJob
+        [StandaloneFixme] // IJob
         public void FromEntitySystemIncrementInJobWorks()
         {
             var system = World.GetOrCreateManager<FromEntitySystemIncrementInJob>();
@@ -295,7 +295,7 @@ namespace Unity.Entities.Tests
 		}
 
 		[Test]
-        [TinyFixme] // IJob
+        [StandaloneFixme] // IJob
 		public void OnCreateManagerComponentGroupInjectionWorks()
 		{
 			var entity = m_Manager.CreateEntity (typeof(EcsTestData));
@@ -327,7 +327,7 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
-        [TinyFixme] // IJob
+        [StandaloneFixme] // IJob
 	    public void OnDestroyManagerComponentGroupInjectionWorks()
 	    {
 	        var system = World.GetOrCreateManager<OnDestroyManagerComponentGroupInjectionSystem>();

@@ -506,7 +506,7 @@ namespace Unity.Entities
                     return c.TypeIndex;
             }
 
-            throw new InvalidOperationException("Tried to GetTypeIndex for type that has not been set up by the static type registry.");
+            throw new ArgumentException("Tried to GetTypeIndex for type that has not been set up by the static type registry.");
         }
 #endif
 
@@ -610,9 +610,13 @@ namespace Unity.Entities
 
         public static string SystemName(Type t)
         {
+#if UNITY_CSHARP_TINY
             int index = GetSystemTypeIndex(t);
             if (index < 0 || index >= SystemNames.Length) return "null";
             return SystemNames[index];
+#else
+            return t.FullName;
+#endif
         }
 
         public static int GetSystemTypeIndex(Type t)
@@ -987,7 +991,7 @@ namespace Unity.Entities
 #else
         private static int CreateTypeIndexThreadSafe(Type type)
         {
-            throw new InvalidOperationException("Tried to GetTypeIndex for type that has not been set up by the static registry.");
+            throw new ArgumentException("Tried to GetTypeIndex for type that has not been set up by the static registry.");
         }
 #endif
     }

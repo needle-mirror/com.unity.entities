@@ -3,7 +3,7 @@ using NUnit.Framework;
 
 namespace Unity.Entities.Tests
 {
-    class ForEachBasicTests : ComponentQueryBuilderTestFixture
+    class ForEachBasicTests : EntityQueryBuilderTestFixture
     {
         [SetUp]
         public void CreateTestEntities()
@@ -80,7 +80,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    class ForEachTests : ComponentQueryBuilderTestFixture
+    class ForEachTests : EntityQueryBuilderTestFixture
     {
         [Test]
         public void Many()

@@ -34,6 +34,7 @@ namespace Unity.Entities.Tests
 	    {
 	    }
 	    [DisallowMultipleComponent]
+        [UnityEngine.AddComponentMenu("Hidden/DontUse")]
 	    public class TransformAccessArrayTestTagProxy : ComponentDataProxy<TransformAccessArrayTestTag> { }
 
 	    [Test]

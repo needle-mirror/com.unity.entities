@@ -8,6 +8,7 @@ namespace Unity.Entities.Tests
         public int Value;
     }
 
+    [UnityEngine.AddComponentMenu("Hidden/DontUse")]
     public class MockSharedDataProxy : SharedComponentDataProxy<MockSharedData>
     {
     }

@@ -51,7 +51,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void DeleteWhenEmpty()
         {
             var entity = m_Manager.CreateEntity(
@@ -80,7 +80,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void DeleteWhenEmptyArray()
         {
             var entities = new Entity[512];
@@ -136,7 +136,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void DeleteWhenEmptyArray2()
         {
             var entities = new Entity[512];
@@ -192,7 +192,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void DoNotInstantiateSystemState()
         {
             var entity0 = m_Manager.CreateEntity(
@@ -219,7 +219,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void DeleteFromEntity()
         {
             var entities = new Entity[512];
@@ -267,7 +267,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void DeleteFromComponentGroup()
         {
             var entities = new Entity[512];
@@ -312,7 +312,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void DeleteTagFromComponentGroup()
         {
             var entities = new Entity[512];

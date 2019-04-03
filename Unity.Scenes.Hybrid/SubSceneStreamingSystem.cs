@@ -46,8 +46,6 @@ namespace Unity.Scenes
         int MaximumMoveEntitiesFromPerFrame = 1;
         
         Stream[] m_Streams = new Stream[LoadScenesPerFrame];
-        ComponentGroup m_PendingStreamRequests;
-        ComponentGroup m_UnloadStreamRequests;
         ComponentGroup m_SceneFilter;
         ComponentGroup m_SceneFilterPrefabs;
         ComponentGroup m_PublicRefFilter;
@@ -62,18 +60,6 @@ namespace Unity.Scenes
             for (int i = 0; i < LoadScenesPerFrame; ++i)
                 CreateStreamWorld(i);
             
-            m_PendingStreamRequests = GetComponentGroup(new EntityArchetypeQuery()
-            {
-                All = new[] {ComponentType.ReadWrite<RequestSceneLoaded>(), ComponentType.ReadWrite<SceneData>()},
-                None = new[] {ComponentType.ReadWrite<StreamingState>(), ComponentType.ReadWrite<IgnoreTag>() }
-            });
-
-            m_UnloadStreamRequests = GetComponentGroup(new EntityArchetypeQuery()
-            {
-                All = new[] {ComponentType.ReadWrite<StreamingState>()},
-                None = new[] {ComponentType.ReadWrite<RequestSceneLoaded>(), ComponentType.ReadWrite<IgnoreTag>()}
-            });
-
             m_PublicRefFilter = GetComponentGroup
             (
                 ComponentType.ReadWrite<SceneTag>(),
@@ -357,23 +343,25 @@ namespace Unity.Scenes
             var destroySubScenes = new NativeList<Entity>(Allocator.Temp);
             
             var commands = new EntityCommandBuffer(Allocator.Temp);
-            ForEach((Entity entity) =>
-            {
-                var streamIndex = CreateAsyncLoadScene(entity);
-                if (streamIndex != -1)
+            Entities
+                .WithAll<RequestSceneLoaded, SceneData>()
+                .WithNone<StreamingState, IgnoreTag>()
+                .ForEach(entity =>
                 {
-                    var streamingState = new StreamingState { ActiveStreamIndex = streamIndex, Status = StreamingStatus.NotYetProcessed};
-                    commands.AddComponent(entity, streamingState);
-                }
-            }, m_PendingStreamRequests);
+                    var streamIndex = CreateAsyncLoadScene(entity);
+                    if (streamIndex != -1)
+                    {
+                        var streamingState = new StreamingState { ActiveStreamIndex = streamIndex, Status = StreamingStatus.NotYetProcessed};
+                        commands.AddComponent(entity, streamingState);
+                    }
+                });
             commands.Playback(EntityManager);
             commands.Dispose();
             
-
-            ForEach((Entity entity) =>
-            {
-                destroySubScenes.Add(entity);
-            }, m_UnloadStreamRequests);
+            Entities
+                .WithAll<StreamingState>()
+                .WithNone<RequestSceneLoaded, IgnoreTag>()
+                .ForEach(entity => destroySubScenes.Add(entity));
 
             foreach (var destroyScene in destroySubScenes.AsArray())
                 UnloadSceneImmediate(destroyScene);

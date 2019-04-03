@@ -291,7 +291,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void ComponentGroupFilteredEntityIndexWithMultipleArchetypes()
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
@@ -320,7 +320,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [TinyFixme]
+        [StandaloneFixme]
         public void ComponentGroupFilteredChunkCount()
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));

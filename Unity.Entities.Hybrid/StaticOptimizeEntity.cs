@@ -9,6 +9,7 @@ using Component = UnityEngine.Component;
 namespace Unity.Entities
 {
     [DisallowMultipleComponent]
+    [RequiresEntityConversion]
     public class StaticOptimizeEntity : MonoBehaviour
     {
     }

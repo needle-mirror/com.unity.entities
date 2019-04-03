@@ -9,6 +9,7 @@ using Unity.Mathematics;
 namespace Unity.Transforms
 {
     [Serializable]
+    [WriteGroup(typeof(LocalToParent))]
     public struct ParentScaleInverse : IComponentData
     {
         public float4x4 Value;

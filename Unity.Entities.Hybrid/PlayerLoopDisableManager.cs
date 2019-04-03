@@ -1,8 +1,10 @@
-﻿using UnityEngine;
+﻿using UnityEditor;
+using UnityEngine;
 
 namespace Unity.Entities
 {
     [ExecuteAlways]
+    [AddComponentMenu("Hidden/Disabled")]
     class PlayerLoopDisableManager : MonoBehaviour
     {
         public bool IsActive;

@@ -4,8 +4,10 @@ using UnityEngine;
 namespace Unity.Entities.Tests
 {
     [DisallowMultipleComponent]
+    [UnityEngine.AddComponentMenu("Hidden/DontUse")]
     public class EcsFooTestProxy : ComponentDataProxy<EcsFooTest> { }
     [DisallowMultipleComponent]
+    [UnityEngine.AddComponentMenu("Hidden/DontUse")]
     public class EcsTestProxy : ComponentDataProxy<EcsTestData> { }
 
     class EntityManagerTests : ECSTestsFixture

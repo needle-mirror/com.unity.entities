@@ -307,7 +307,10 @@ namespace Unity.Entities
 
         internal void AddReaderWriters(ComponentGroup group)
         {
-            group.AddReaderWritersToLists(ref JobDependencyForReadingManagersUnsafeList, ref JobDependencyForWritingManagersUnsafeList);
+            if (group.AddReaderWritersToLists(ref JobDependencyForReadingManagersUnsafeList, ref JobDependencyForWritingManagersUnsafeList))
+            {
+                CompleteDependencyInternal();
+            }
         }
 
         internal ComponentGroup GetComponentGroupInternal(ComponentType* componentTypes, int count)
@@ -424,17 +427,17 @@ namespace Unity.Entities
     public abstract partial class ComponentSystem : ComponentSystemBase
     {
         EntityCommandBuffer m_DeferredEntities;
-        ComponentQueryCache m_ComponentQueryCache;
+        EntityQueryCache m_EntityQueryCache;
 
         public EntityCommandBuffer PostUpdateCommands => m_DeferredEntities;
 
-        protected internal void InitComponentQueryCache(int cacheSize) =>
-            m_ComponentQueryCache = new ComponentQueryCache(cacheSize);
+        protected internal void InitEntityQueryCache(int cacheSize) =>
+            m_EntityQueryCache = new EntityQueryCache(cacheSize);
 
-        internal ComponentQueryCache GetOrCreateComponentQueryCache()
-            => m_ComponentQueryCache ?? (m_ComponentQueryCache = new ComponentQueryCache());
+        internal EntityQueryCache GetOrCreateEntityQueryCache()
+            => m_EntityQueryCache ?? (m_EntityQueryCache = new EntityQueryCache());
 
-        protected internal ComponentQueryBuilder Entities => new ComponentQueryBuilder(this);
+        protected internal EntityQueryBuilder Entities => new EntityQueryBuilder(this);
 
         unsafe void BeforeOnUpdate()
         {
@@ -701,7 +704,7 @@ namespace Unity.Entities
             m_PreviousFrameDependency = m_SafetyManager.AddDependency(m_JobDependencyForReadingManagers.p, m_JobDependencyForReadingManagers.Count, m_JobDependencyForWritingManagers.p, m_JobDependencyForWritingManagers.Count, dependency);
         }
     }
-    
+
     [Obsolete("BarrierSystem has been renamed. Use EntityCommandBufferSystem instead (UnityUpgradable) -> EntityCommandBufferSystem", true)]
     [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
     public struct BarrierSystem { }

@@ -7,7 +7,7 @@ using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
-    [TinyFixme] // Tiny ignores because of the assert in the constructor.
+    [StandaloneFixme] // Tiny ignores because of the assert in the constructor.
     class JobSafetyTests : ECSTestsFixture
 	{
         public JobSafetyTests()

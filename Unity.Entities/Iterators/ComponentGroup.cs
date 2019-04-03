@@ -8,40 +8,116 @@ using Unity.Jobs;
 namespace Unity.Entities
 {
     /// <summary>
-    ///     Define a query to find archetypes with specific component(s).
-    ///     Any - Gets archetypes that have one or more of the given components
-    ///     None - Gets archetypes that do not have the given components
-    ///     All - Gets archetypes that have all the given components
-    ///     Example:
-    ///     Player has components: Position, Rotation, Player
-    ///     Enemy1 has components: Position, Rotation, Melee
-    ///     Enemy2 has components: Position, Rotation, Ranger
-    ///     The query below would give you all of the archetypes that:
-    ///         have any of [Melee or Ranger], AND have none of [Player], AND have all of [Position and Rotation]
-    ///     new EntityArchetypeQuery {
+    /// Defines a query to find archetypes with specific components.
+    /// </summary>
+    /// <remarks>
+    /// A query combines components in the All, Any, and None sets according to the
+    /// following rules:
+    ///
+    /// * All - Includes archetypes that have every component in this set
+    /// * Any - Includes archetypes that have at least one component in this set
+    /// * None - Excludes archetypes that have any component in this set
+    ///
+    /// For example, given entities with the following components:
+    ///
+    /// * Player has components: Position, Rotation, Player
+    /// * Enemy1 has components: Position, Rotation, Melee
+    /// * Enemy2 has components: Position, Rotation, Ranger
+    ///
+    /// The query below would give you all of the archetypes that:
+    /// have any of [Melee or Ranger], AND have none of [Player], AND have all of [Position and Rotation]
+    /// <code>
+    /// new EntityArchetypeQuery {
     ///     Any = new ComponentType[] {typeof(Melee), typeof(Ranger)},
     ///     None = new ComponentType[] {typeof(Player)},
-    ///     All = new ComponentType[] {typeof(Position), typeof(Rotation)} }
-    /// </summary>
-
+    ///     All = new ComponentType[] {typeof(Position), typeof(Rotation)}
+    /// }
+    /// </code>
+    ///
+    /// In other words, the query selects the Enemy1 and Enemy2 entities, but not the Player entity.
+    /// </remarks>
     public class EntityArchetypeQuery
     {
+        /// <summary>
+        /// The query includes archetypes that contain at least one (but possibly more) of the
+        /// components in the Any list.
+        /// </summary>
         public ComponentType[] Any = Array.Empty<ComponentType>();
+        /// <summary>
+        /// The query excludes archetypes that contain any of the
+        /// components in the None list.
+        /// </summary>
         public ComponentType[] None = Array.Empty<ComponentType>();
+        /// <summary>
+        /// The query includes archetypes that contain all of the
+        /// components in the All list.
+        /// </summary>
         public ComponentType[] All = Array.Empty<ComponentType>();
+        /// <summary>
+        /// Specialized query options.
+        /// </summary>
+        /// <remarks>
+        /// You should not need to set these options for most queries.
+        ///
+        /// Options is a bit mask; use the bitwise OR operator to combine multiple options.
+        /// </remarks>
         public EntityArchetypeQueryOptions Options = EntityArchetypeQueryOptions.Default;
     }
 
+    /// <summary>
+    /// The bit flags to use for the <see cref="EntityArchetypeQuery.Options"/> field.
+    /// </summary>
     [Flags]
     public enum EntityArchetypeQueryOptions
     {
+        /// <summary>
+        /// No options specified.
+        /// </summary>
         Default = 0,
+        /// <summary>
+        /// The query includes the special <see cref="Prefab"/> component.
+        /// </summary>
         IncludePrefab = 1,
+        /// <summary>
+        /// The query includes the special <see cref="Disabled"/> component.
+        /// </summary>
         IncludeDisabled = 2,
+        /// <summary>
+        /// The query should filter selected entities based on the
+        /// <see cref="WriteGroupAttribute"/> settings of the components specified in the query.
+        /// </summary>
         FilterWriteGroup = 4,
     }
 
-    //@TODO: Rename to ComponentQuery
+    //@TODO: Rename to EntityView
+    /// <summary>
+    /// A ComponentGroup provides a query-based view of your component data.
+    /// </summary>
+    /// <remarks>
+    /// A ComponentGroup defines a view of your data based on a query for the set of
+    /// component types that an archetype must contain in order for its chunks and entities
+    /// to be included in the view. You can also exclude archetypes that contain specific types
+    /// of components. For simple queries, you can create a ComponentGroup based on an array of
+    /// component types. The following example defines a ComponentGroup that finds all entities
+    /// with both RotationQuaternion and RotationSpeed components.
+    ///
+    /// <code>
+    /// ComponentGroup m_Group = GetComponentGroup(typeof(RotationQuaternion),
+    ///                                            ComponentType.ReadOnly{RotationSpeed}());
+    /// </code>
+    ///
+    /// The query uses `ComponentType.ReadOnly` instead of the simpler `typeof` expression
+    /// to designate that the system does not write to RotationSpeed. Always specify read only
+    /// when possible, since there are fewer constraints on read access to data, which can help
+    /// the Job scheduler execute your Jobs more efficiently.
+    ///
+    /// For more complex queries, you can use an <see cref="EntityArchetypeQuery"/> instead of a
+    /// simple list of component types.
+    ///
+    /// Use the <see cref="EntityManager.CreateComponentGroup(Unity.Entities.ComponentType[])"/> or
+    /// <see cref="ComponentSystemBase.GetComponentGroup(Unity.Entities.ComponentType[])"/> functions
+    /// to get a ComponentGroup instance.
+    /// </remarks>
     public unsafe class ComponentGroup : IDisposable
     {
         readonly ComponentJobSafetyManager m_SafetyManager;
@@ -112,7 +188,7 @@ namespace Unity.Entities
 #endif
 
         /// <summary>
-        ///     Gets array of all ComponentTypes in this ComponentGroup's ArchetypeQueries.
+        /// Gets the array of <see cref="ComponentType"/> objects included in this ComponentGroup.
         /// </summary>
         /// <returns>Array of ComponentTypes</returns>
         internal ComponentType[] GetQueryTypes()
@@ -219,11 +295,15 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        ///     Calculates number of entities in this ComponentGroup.
+        /// Calculates the number of entities selected by this ComponentGroup.
         /// </summary>
-        /// <returns>Number of entities</returns>
+        /// <remarks>
+        /// The ComponentGroup must run the query and apply any filters to calculate the entity count.
+        /// </remarks>
+        /// <returns>The number of entities based on the current ComponentGroup properties.</returns>
         public int CalculateLength()
         {
+            SyncFilterTypes();
             return ComponentChunkIterator.CalculateLength(m_GroupData->MatchingArchetypes, ref m_Filter);
         }
 
@@ -366,7 +446,7 @@ namespace Unity.Entities
         ///     Gives the caller a job handle so it can wait for GatherChunks to finish.
         /// </summary>
         /// <param name="allocator">Allocator to use for the array.</param>
-        /// <param name="jobHandle">Handle to the GatherChunks job used to fill the output array.</param>
+        /// <param name="jobhandle">Handle to the GatherChunks job used to fill the output array.</param>
         /// <returns>NativeArray of all the chunks in this ComponentChunkIterator.</returns>
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator, out JobHandle jobhandle)
         {
@@ -394,15 +474,7 @@ namespace Unity.Entities
         /// <returns>NativeArray of all the chunks in this ComponentChunkIterator.</returns>
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator)
         {
-            if (m_Filter.Type == FilterType.Changed)
-            {
-                fixed (int* indexInComponentGroupPtr = m_Filter.Changed.IndexInComponentGroup)
-                    for (int i = 0; i < m_Filter.Changed.Count; ++i)
-                    {
-                        var type = m_GroupData->RequiredComponents[indexInComponentGroupPtr[i]];
-                        SafetyManager.CompleteWriteDependency(type.TypeIndex);
-                    }
-            }
+            SyncFilterTypes();
             JobHandle job;
             var res = ComponentChunkIterator.CreateArchetypeChunkArray(m_GroupData->MatchingArchetypes, allocator, out job, ref m_Filter);
             job.Complete();
@@ -410,6 +482,13 @@ namespace Unity.Entities
         }
 
 
+        /// <summary>
+        /// Creates a NativeArray containing the selected entities.
+        /// </summary>
+        /// <param name="allocator">The type of memory to allocate.</param>
+        /// <param name="jobhandle">A handle that you can use as a dependency for a Job
+        /// that uses the NativeArray.</param>
+        /// <returns>An array containing all the entities selected by the ComponentGroup.</returns>
         public NativeArray<Entity> ToEntityArray(Allocator allocator, out JobHandle jobhandle)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -421,6 +500,12 @@ namespace Unity.Entities
             return ComponentChunkIterator.CreateEntityArray(m_GroupData->MatchingArchetypes, allocator, entityType,  this, ref m_Filter, out jobhandle, GetDependency());
         }
 
+        /// <summary>
+        /// Creates a NativeArray containing the selected entities.
+        /// </summary>
+        /// <remarks>This version of the function blocks until the Job used to fill the array is complete.</remarks>
+        /// <param name="allocator">The type of memory to allocate.</param>
+        /// <returns>An array containing all the entities selected by the ComponentGroup.</returns>
         public NativeArray<Entity> ToEntityArray(Allocator allocator)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -434,6 +519,15 @@ namespace Unity.Entities
             return res;
         }
 
+        /// <summary>
+        /// Creates a NativeArray containing the components of type T for the selected entities.
+        /// </summary>
+        /// <param name="allocator">The type of memory to allocate.</param>
+        /// <param name="jobhandle">A handle that you can use as a dependency for a Job
+        /// that uses the NativeArray.</param>
+        /// <typeparam name="T">The component type.</typeparam>
+        /// <returns>An array containing the specified component for all the entities selected
+        /// by the ComponentGroup.</returns>
         public NativeArray<T> ToComponentDataArray<T>(Allocator allocator, out JobHandle jobhandle)
             where T : struct,IComponentData
         {
@@ -445,6 +539,15 @@ namespace Unity.Entities
             return ComponentChunkIterator.CreateComponentDataArray(m_GroupData->MatchingArchetypes, allocator, componentType, this, ref m_Filter, out jobhandle, GetDependency());
         }
 
+        /// <summary>
+        /// Creates a NativeArray containing the components of type T for the selected entities.
+        /// </summary>
+        /// <param name="allocator">The type of memory to allocate.</param>
+        /// <typeparam name="T">The component type.</typeparam>
+        /// <returns>An array containing the specified component for all the entities selected
+        /// by the ComponentGroup.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if you ask for a component that is not part of
+        /// the group.</exception>
         public NativeArray<T> ToComponentDataArray<T>(Allocator allocator)
             where T : struct, IComponentData
         {
@@ -527,6 +630,14 @@ namespace Unity.Entities
             return output;
         }
 
+        /// <summary>
+        /// Gets the value of a singleton component.
+        /// </summary>
+        /// <remarks>A singleton component is a component of which only one instance exists in the world
+        /// and which has been set with <see cref="SetSingleton{T}(T)"/>.</remarks>
+        /// <typeparam name="T">The component type.</typeparam>
+        /// <returns>A copy of the singleton component.</returns>
+        /// <exception cref="InvalidOperationException"></exception>
         public T GetSingleton<T>()
             where T : struct, IComponentData
         {
@@ -549,6 +660,37 @@ namespace Unity.Entities
             return value;
         }
 
+        /// <summary>
+        /// Sets the value of a singleton component.
+        /// </summary>
+        /// <remarks>
+        /// For a component to be a singleton, there can be only one instance of that component
+        /// in a <see cref="World"/>. The component must be the only component in its archetype
+        /// and you cannot use the same type of component as a normal component.
+        ///
+        /// To create a singleton, create an entity with the singleton component as its only component,
+        /// and then use `SetSingleton()` to assign a value.
+        ///
+        /// For example, if you had a component defined as:
+        /// <code>
+        /// public struct Singlet: IComponentData{ public int Value; }
+        /// </code>
+        ///
+        /// You could create a singleton as follows:
+        ///
+        /// <code>
+        /// var entityManager = World.Active.EntityManager;
+        /// var singletonEntity = entityManager.CreateEntity(typeof(Singlet));
+        /// var singletonGroup = entityManager.CreateComponentGroup(typeof(Singlet));
+        /// singletonGroup.SetSingleton&lt;Singlet&gt;(new Singlet {Value = 1});
+        /// </code>
+        ///
+        /// You can set and get the singleton value from a ComponentGroup or a ComponentSystem.
+        /// </remarks>
+        /// <param name="value">An instance of type T containing the values to set.</param>
+        /// <typeparam name="T">The component type.</typeparam>
+        /// <exception cref="InvalidOperationException">Thrown if more than one instance of this component type
+        /// exists in the world or the component type appears in more than one archetype.</exception>
         public void SetSingleton<T>(T value)
             where T : struct, IComponentData
         {
@@ -575,6 +717,12 @@ namespace Unity.Entities
             return EntityGroupManager.CompareComponents(componentTypes, count, m_GroupData);
         }
 
+        // @TODO: Define what CompareComponents() does
+        /// <summary>
+        ///
+        /// </summary>
+        /// <param name="componentTypes"></param>
+        /// <returns></returns>
         public bool CompareComponents(ComponentType[] componentTypes)
         {
             fixed (ComponentType* componentTypesPtr = componentTypes)
@@ -583,20 +731,32 @@ namespace Unity.Entities
             }
         }
 
+        /// <summary>
+        ///
+        /// </summary>
+        /// <param name="componentTypes"></param>
+        /// <returns></returns>
         public bool CompareComponents(NativeArray<ComponentType> componentTypes)
         {
             return EntityGroupManager.CompareComponents((ComponentType*)componentTypes.GetUnsafeReadOnlyPtr(), componentTypes.Length, m_GroupData);
         }
 
+        /// <summary>
+        ///
+        /// </summary>
+        /// <param name="query"></param>
+        /// <returns></returns>
         public bool CompareQuery(EntityArchetypeQuery[] query)
         {
             return EntityGroupManager.CompareQuery(query, m_GroupData);
         }
 
         /// <summary>
-        ///     Resets this ComponentGroup's filter.
-        ///     Removes references to shared component data, if applicable, then resets the filter type to None.
+        /// Resets this ComponentGroup's filter.
         /// </summary>
+        /// <remarks>
+        /// Removes references to shared component data, if applicable, then resets the filter type to None.
+        /// </remarks>
         public void ResetFilter()
         {
             if (m_Filter.Type == FilterType.SharedComponent)
@@ -630,9 +790,12 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        ///     Creates a new SharedComponent filter on a given ISharedComponentData type for this ComponentGroup.
+        /// Filters this ComponentGroup so that it only selects entities with shared component values
+        /// matching the values specified by the `sharedComponent1` parameter.
         /// </summary>
-        /// <param name="sharedComponent1">A struct that implements ISharedComponentData</param>
+        /// <param name="sharedComponent1">The shared component values on which to filter.</param>
+        /// <typeparam name="SharedComponent1">The type of shared component. (The type must also be
+        /// one of the types used to create the ComponentGroup.</typeparam>
         public void SetFilter<SharedComponent1>(SharedComponent1 sharedComponent1)
             where SharedComponent1 : struct, ISharedComponentData
         {
@@ -647,6 +810,19 @@ namespace Unity.Entities
             SetFilter(ref filter);
         }
 
+        /// <summary>
+        /// Filters this ComponentGroup based on the values of two separate shared components.
+        /// </summary>
+        /// <remarks>
+        /// The filter only selects entities for which both shared component values
+        /// specified by the `sharedComponent1` and `sharedComponent2` parameters match.
+        /// </remarks>
+        /// <param name="sharedComponent1">Shared component values on which to filter.</param>
+        /// <param name="sharedComponent2">Shared component values on which to filter.</param>
+        /// <typeparam name="SharedComponent1">The type of shared component. (The type must also be
+        /// one of the types used to create the ComponentGroup.</typeparam>
+        /// <typeparam name="SharedComponent2">The type of shared component. (The type must also be
+        /// one of the types used to create the ComponentGroup.</typeparam>
         public void SetFilter<SharedComponent1, SharedComponent2>(SharedComponent1 sharedComponent1,
             SharedComponent2 sharedComponent2)
             where SharedComponent1 : struct, ISharedComponentData
@@ -667,8 +843,11 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        ///     Saves a given ComponentType's index in RequiredComponents in this group's Changed filter.
+        /// Filters out entities in chunks for which the specified component has not changed.
         /// </summary>
+        /// <remarks>
+        ///     Saves a given ComponentType's index in RequiredComponents in this group's Changed filter.
+        /// </remarks>
         /// <param name="componentType">ComponentType to mark as changed on this ComponentGroup's filter.</param>
         public void SetFilterChanged(ComponentType componentType)
         {
@@ -686,9 +865,12 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        ///     Saves given ComponentTypes' indices in RequiredComponents in this group's Changed filter.
+        /// Filters out entities in chunks for which the specified components have not changed.
         /// </summary>
-        /// <param name="componentType">Array of ComponentTypes to mark as changed on this ComponentGroup's filter.</param>
+        /// <remarks>
+        ///     Saves given ComponentTypes' indices in RequiredComponents in this group's Changed filter.
+        /// </remarks>
+        /// <param name="componentType">Array of up to two ComponentTypes to mark as changed on this ComponentGroup's filter.</param>
         public void SetFilterChanged(ComponentType[] componentType)
         {
             if (componentType.Length > ComponentGroupFilter.ChangedFilter.Capacity)
@@ -735,6 +917,10 @@ namespace Unity.Entities
                 m_GroupData->WriterTypes, m_GroupData->WriterTypesCount, job);
         }
 
+        /// <summary>
+        ///
+        /// </summary>
+        /// <returns></returns>
         public int GetCombinedComponentOrderVersion()
         {
             var version = 0;
@@ -755,13 +941,33 @@ namespace Unity.Entities
             return ComponentChunkIterator.CalculateNumberOfChunksWithoutFiltering(m_GroupData->MatchingArchetypes);
         }
 
-        internal void AddReaderWritersToLists(ref UnsafeList reading, ref UnsafeList writing)
+        internal bool AddReaderWritersToLists(ref UnsafeList reading, ref UnsafeList writing)
         {
+            bool anyAdded = false;
             for (int i = 0; i < m_GroupData->ReaderTypesCount; ++i)
-                CalculateReaderWriterDependency.AddReaderTypeIndex(m_GroupData->ReaderTypes[i], ref reading, ref writing);
-
+                anyAdded |= CalculateReaderWriterDependency.AddReaderTypeIndex(m_GroupData->ReaderTypes[i], ref reading, ref writing);
+ 
             for (int i = 0; i < m_GroupData->WriterTypesCount; ++i)
-                CalculateReaderWriterDependency.AddWriterTypeIndex(m_GroupData->WriterTypes[i], ref reading, ref writing);
+                anyAdded |=CalculateReaderWriterDependency.AddWriterTypeIndex(m_GroupData->WriterTypes[i], ref reading, ref writing);
+            return anyAdded;
+        }
+
+        /// <summary>
+        /// Syncs the needed types for the filter.
+        /// For every type that is change filtered we need to CompleteWriteDependency to avoid race conditions on the
+        /// change version of those types
+        /// </summary>
+        internal void SyncFilterTypes()
+        {
+            if (m_Filter.Type == FilterType.Changed)
+            {
+                fixed (int* indexInComponentGroupPtr = m_Filter.Changed.IndexInComponentGroup)
+                    for (int i = 0; i < m_Filter.Changed.Count; ++i)
+                    {
+                        var type = m_GroupData->RequiredComponents[indexInComponentGroupPtr[i]];
+                        SafetyManager.CompleteWriteDependency(type.TypeIndex);
+                    }
+            }
         }
     }
 }
