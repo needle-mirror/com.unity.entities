@@ -18,12 +18,13 @@ namespace Unity.Entities
         private readonly int m_MinIndex;
         private readonly int m_MaxIndex;
         private readonly AtomicSafetyHandle m_Safety;
+        private readonly AtomicSafetyHandle m_ArrayInvalidationSafety;
 #endif
         public int Length => m_Length;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         internal BufferArray(ComponentChunkIterator iterator, int length, bool isReadOnly,
-            AtomicSafetyHandle safety)
+            AtomicSafetyHandle safety, AtomicSafetyHandle arrayInvalidationSafety)
 #else
         internal BufferArray(ComponentChunkIterator iterator, int length, bool isReadOnly)
 #endif
@@ -37,6 +38,7 @@ namespace Unity.Entities
             m_MinIndex = 0;
             m_MaxIndex = length - 1;
             m_Safety = safety;
+            m_ArrayInvalidationSafety = arrayInvalidationSafety;
 #endif
         }
 
@@ -53,7 +55,7 @@ namespace Unity.Entities
 
                 if (index < m_Cache.CachedBeginIndex || index >= m_Cache.CachedEndIndex)
                 {
-                    m_Iterator.UpdateCache(index, out m_Cache, !m_IsReadOnly);
+                    m_Iterator.MoveToEntityIndexAndUpdateCache(index, out m_Cache, !m_IsReadOnly);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     if (m_Cache.CachedSizeOf < sizeof(BufferHeader))
                         throw new InvalidOperationException("size cache info is broken");
@@ -63,7 +65,7 @@ namespace Unity.Entities
                 BufferHeader* header = (BufferHeader*) ((byte*)m_Cache.CachedPtr + index * m_Cache.CachedSizeOf);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                return new DynamicBuffer<T>(header, m_Safety);
+                return new DynamicBuffer<T>(header, m_Safety, m_ArrayInvalidationSafety);
 #else
                 return new DynamicBuffer<T>(header);
 #endif

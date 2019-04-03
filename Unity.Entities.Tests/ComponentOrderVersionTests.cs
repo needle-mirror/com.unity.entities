@@ -211,6 +211,18 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
+        public void ChangedOnlyAffectedArchetype()
+        {
+            var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData3));
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            m_Manager.RemoveComponent<EcsTestData2>(entity1);
+            
+            Assert.AreEqual(3, m_Manager.GetComponentOrderVersion<EcsTestData>());
+            Assert.AreEqual(2, m_Manager.GetComponentOrderVersion<EcsTestData2>());
+            Assert.AreEqual(1, m_Manager.GetComponentOrderVersion<EcsTestData3>());
+        } 
+        
+        [Test]
         public void SetSharedComponent()
         {
             var entity = m_Manager.CreateEntity(typeof(SharedData1), typeof(SharedData2));

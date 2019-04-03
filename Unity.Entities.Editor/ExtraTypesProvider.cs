@@ -38,27 +38,52 @@ namespace Unity.Entities.Editor
                             {
                                 type
                             };
+
+                            bool withEntity = false;
                             foreach (var @interface in type.GetInterfaces())
                             {
                                 if (@interface.Name.StartsWith("IJobProcessComponentData"))
+                                {
                                     genericArgumentList.AddRange(@interface.GetGenericArguments());
+                                    withEntity |= @interface.Name.StartsWith("IJobProcessComponentDataWithEntity");
+                                }
                             }
                             var genericArgs = genericArgumentList.ToArray();
                             int argCount = genericArgs.Length - 1;
 
+                            Type generatedType;
                             if (argCount == 1)
                             {
-                                var generatedType = typeof(JobProcessComponentDataExtensions.JobStruct_Process1<,>).MakeGenericType(genericArgs);
+                                if (withEntity)
+                                    generatedType = typeof(JobProcessComponentDataExtensions.JobStruct_Process1_WE<,>).MakeGenericType(genericArgs);
+                                else
+                                    generatedType = typeof(JobProcessComponentDataExtensions.JobStruct_Process1<,>).MakeGenericType(genericArgs);
                                 extraTypes.Add(generatedType.ToString());
                             }
                             else if (argCount == 2)
                             {
-                                var generatedType = typeof(JobProcessComponentDataExtensions.JobStruct_Process2<,,>).MakeGenericType(genericArgs);
+                                if (withEntity)
+                                    generatedType = typeof(JobProcessComponentDataExtensions.JobStruct_Process2_WE<,,>).MakeGenericType(genericArgs);
+                                else
+                                    generatedType = typeof(JobProcessComponentDataExtensions.JobStruct_Process2<,,>).MakeGenericType(genericArgs);
+                                    
                                 extraTypes.Add(generatedType.ToString());
                             }
                             else if (argCount == 3)
                             {
-                                var generatedType = typeof(JobProcessComponentDataExtensions.JobStruct_Process3<,,,>).MakeGenericType(genericArgs);
+                                if (withEntity)
+                                    generatedType = typeof(JobProcessComponentDataExtensions.JobStruct_Process3_WE<,,,>).MakeGenericType(genericArgs);
+                                else
+                                    generatedType = typeof(JobProcessComponentDataExtensions.JobStruct_Process3<,,,>).MakeGenericType(genericArgs);
+                                
+                                extraTypes.Add(generatedType.ToString());
+                            }
+                            else if (argCount == 4)
+                            {
+                                if (withEntity)
+                                    generatedType = typeof(JobProcessComponentDataExtensions.JobStruct_Process4_WE<,,,,>).MakeGenericType(genericArgs);
+                                else
+                                    generatedType = typeof(JobProcessComponentDataExtensions.JobStruct_Process4<,,,,>).MakeGenericType(genericArgs);
                                 extraTypes.Add(generatedType.ToString());
                             }
                         }

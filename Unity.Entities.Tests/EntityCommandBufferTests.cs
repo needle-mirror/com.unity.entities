@@ -410,7 +410,7 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(0, count);
         }
-        
+
         [Test]
         public void TestCommandBufferDeleteWithSystemState()
         {
@@ -440,7 +440,7 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(entities.Length, count);
         }
-        
+
         [Test]
         public void TestCommandBufferDeleteRemoveSystemState()
         {
@@ -483,6 +483,59 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, count);
         }
 
+        
+        [Test]
+        public void Instantiate()
+        {
+            var e = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(e, new EcsTestData(5));
+            
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.Instantiate(e);
+            cmds.Instantiate(e);
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            VerifyEcsTestData(3, 5);
+        }
+        
+        [Test]
+        public void InstantiateWithSetComponentDataWorks()
+        {
+            var e = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(e, new EcsTestData(5));
+            
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            
+            cmds.Instantiate(e);
+            cmds.SetComponent(new EcsTestData(11));
+
+            cmds.Instantiate(e);
+            cmds.SetComponent(new EcsTestData(11));
+            
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            m_Manager.DestroyEntity(e);
+            
+            VerifyEcsTestData(2, 11);
+        }
+        
+        [Test]
+        public void DestroyEntityTwiceThrows()
+        {
+            var e = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(e, new EcsTestData(5));
+            
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            
+            cmds.DestroyEntity(e);
+            cmds.DestroyEntity(e);
+
+            Assert.Throws<ArgumentException>(() => cmds.Playback(m_Manager) );
+            cmds.Dispose();
+        }
+        
         [Test]
         public void TestShouldPlaybackFalse()
         {
@@ -571,6 +624,36 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void ArrayAliasesOfPendingBuffersAreInvalidateOnResize()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.CreateEntity();
+            var buffer = cmds.AddBuffer<EcsIntElement>();
+            buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
+            var array = buffer.ToNativeArray();
+            buffer.Add(12);
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                int val = array[0];
+            });
+            // Refresh array alias
+            array = buffer.ToNativeArray();
+            cmds.Playback(m_Manager);
+
+            // Should not be possible to access the temporary buffer after playback.
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                buffer.Add(1);
+            });
+            // Array should not be accessible after playback
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                int l = array[0];
+            });
+            cmds.Dispose();
+        }
+
+        [Test]
         public void AddBufferImplicitNoOverflow()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -646,5 +729,17 @@ namespace Unity.Entities.Tests
             allEntities.Dispose();
         }
 
+        private void VerifyEcsTestData(int length, int expectedValue)
+        {
+            var allEntities = m_Manager.GetAllEntities();
+            Assert.AreEqual(length, allEntities.Length);
+
+            for (int i = 0; i < length; ++i)
+            {
+                Assert.AreEqual(expectedValue, m_Manager.GetComponentData<EcsTestData>(allEntities[i]).value);
+            }
+            allEntities.Dispose();
+        }
+        
     }
 }

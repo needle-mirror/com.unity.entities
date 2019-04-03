@@ -211,7 +211,7 @@ namespace Unity.Entities.Tests
 				public Entity entity;
 
 				public ComponentDataFromEntity<EcsTestData> ecsTestDataFromEntity;
-				public BufferDataFromEntity<EcsIntElement> intArrayFromEntity;
+				public BufferFromEntity<EcsIntElement> intArrayFromEntity;
 
 				public void Execute()
 				{
@@ -226,7 +226,7 @@ namespace Unity.Entities.Tests
 			}
 
 			[Inject]
-			BufferDataFromEntity<EcsIntElement> intArrayFromEntity;
+			BufferFromEntity<EcsIntElement> intArrayFromEntity;
 
 		    [Inject]
 			ComponentDataFromEntity<EcsTestData> ecsTestDataFromEntity;

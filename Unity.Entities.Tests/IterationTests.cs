@@ -25,8 +25,11 @@ namespace Unity.Entities.Tests
 			m_Manager.DestroyEntity(entity);
 		}
 
-		struct TempComponentNeverInstantiated : IComponentData
-		{}
+	    struct TempComponentNeverInstantiated : IComponentData
+	    {
+	        private int m_Internal;
+	    }
+	    
 		[Test]
 		public void IterateEmptyArchetype()
 		{

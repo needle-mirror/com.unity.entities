@@ -5,10 +5,11 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace Unity.Entities
 {
     [NativeContainer]
-    public unsafe struct BufferDataFromEntity<T> where T : struct, IBufferElementData
+    public unsafe struct BufferFromEntity<T> where T : struct, IBufferElementData
     {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         private readonly AtomicSafetyHandle m_Safety;
+        private readonly AtomicSafetyHandle m_ArrayInvalidationSafety;
 #endif
         [NativeDisableUnsafePtrRestriction] private readonly EntityDataManager* m_Entities;
         private readonly int m_TypeIndex;
@@ -17,22 +18,23 @@ namespace Unity.Entities
         int                              m_TypeLookupCache;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal BufferDataFromEntity(int typeIndex, EntityDataManager* entityData, bool isReadOnly,
-            AtomicSafetyHandle safety)
+        internal BufferFromEntity(int typeIndex, EntityDataManager* entityData, bool isReadOnly,
+            AtomicSafetyHandle safety, AtomicSafetyHandle arrayInvalidationSafety)
         {
             m_Safety = safety;
+            m_ArrayInvalidationSafety = arrayInvalidationSafety;
             m_TypeIndex = typeIndex;
             m_Entities = entityData;
             m_IsReadOnly = isReadOnly;
             m_TypeLookupCache = 0;
             m_GlobalSystemVersion = entityData->GlobalSystemVersion;
 
-            if (TypeManager.GetComponentType(m_TypeIndex).Category != TypeManager.TypeCategory.BufferData)
+            if (TypeManager.GetTypeInfo(m_TypeIndex).Category != TypeManager.TypeCategory.BufferData)
                 throw new ArgumentException(
                     $"GetComponentBufferArray<{typeof(T)}> must be IBufferElementData");
         }
 #else
-        internal BufferDataFromEntity(int typeIndex, EntityDataManager* entityData, bool isReadOnly)
+        internal BufferFromEntity(int typeIndex, EntityDataManager* entityData, bool isReadOnly)
         {
             m_TypeIndex = typeIndex;
             m_Entities = entityData;
@@ -68,7 +70,7 @@ namespace Unity.Entities
                 BufferHeader* header = (BufferHeader*) m_Entities->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_TypeLookupCache);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                return new DynamicBuffer<T>(header, m_Safety);
+                return new DynamicBuffer<T>(header, m_Safety, m_ArrayInvalidationSafety);
 #else
                 return new DynamicBuffer<T>(header);
 #endif

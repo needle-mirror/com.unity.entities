@@ -47,6 +47,7 @@ namespace Unity.Entities
             {
                 m_ComponentSafetyHandles[i].SafetyHandle = AtomicSafetyHandle.Create();
                 AtomicSafetyHandle.SetAllowSecondaryVersionWriting(m_ComponentSafetyHandles[i].SafetyHandle, false);
+                m_ComponentSafetyHandles[i].BufferHandle = AtomicSafetyHandle.Create();
             }
 #endif
 
@@ -99,13 +100,19 @@ namespace Unity.Entities
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             for (var i = 0; i != count; i++)
+            {
                 AtomicSafetyHandle.CheckDeallocateAndThrow(m_ComponentSafetyHandles[i].SafetyHandle);
+                AtomicSafetyHandle.CheckDeallocateAndThrow(m_ComponentSafetyHandles[i].BufferHandle);
+            }
 
             for (var i = 0; i != count; i++)
             {
                 AtomicSafetyHandle.Release(m_ComponentSafetyHandles[i].SafetyHandle);
                 m_ComponentSafetyHandles[i].SafetyHandle = AtomicSafetyHandle.Create();
                 AtomicSafetyHandle.SetAllowSecondaryVersionWriting(m_ComponentSafetyHandles[i].SafetyHandle, false);
+
+                AtomicSafetyHandle.Release(m_ComponentSafetyHandles[i].BufferHandle);
+                m_ComponentSafetyHandles[i].BufferHandle = AtomicSafetyHandle.Create();
             }
 #endif
 
@@ -125,9 +132,10 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             for (var i = 0; i < kMaxTypes; i++)
             {
-                var res = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompletedAndRelease(m_ComponentSafetyHandles[i]
-                    .SafetyHandle);
-                if (res == EnforceJobResult.DidSyncRunningJobs)
+                var res0 = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompletedAndRelease(m_ComponentSafetyHandles[i].SafetyHandle);
+                var res1 = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompletedAndRelease(m_ComponentSafetyHandles[i].BufferHandle);
+
+                if (res0 == EnforceJobResult.DidSyncRunningJobs || res1 == EnforceJobResult.DidSyncRunningJobs)
                     Debug.LogError(
                         "Disposing EntityManager but a job is still running against the ComponentData. It appears the job has not been registered with JobComponentSystem.AddDependency.");
             }
@@ -144,13 +152,13 @@ namespace Unity.Entities
             m_ReadJobFences = null;
         }
 
-        public void CompleteDependencies(int* readerTypes, int readerTypesCount, int* writerTypes, int writerTypesCount)
+        public void CompleteDependenciesNoChecks(int* readerTypes, int readerTypesCount, int* writerTypes, int writerTypesCount)
         {
             for (var i = 0; i != writerTypesCount; i++)
-                CompleteReadAndWriteDependency(writerTypes[i]);
+                CompleteReadAndWriteDependencyNoChecks(writerTypes[i]);
 
             for (var i = 0; i != readerTypesCount; i++)
-                CompleteWriteDependency(readerTypes[i]);
+                CompleteWriteDependencyNoChecks(readerTypes[i]);
         }
 
         internal void PreDisposeCheck()
@@ -164,8 +172,9 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             for (var i = 0; i < kMaxTypes; i++)
             {
-                var res = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_ComponentSafetyHandles[i].SafetyHandle);
-                if (res == EnforceJobResult.DidSyncRunningJobs)
+                var res0 = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_ComponentSafetyHandles[i].SafetyHandle);
+                var res1 = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_ComponentSafetyHandles[i].BufferHandle);
+                if (res0 == EnforceJobResult.DidSyncRunningJobs || res1 == EnforceJobResult.DidSyncRunningJobs)
                     Debug.LogError(
                         "Disposing EntityManager but a job is still running against the ComponentData. It appears the job has not been registered with JobComponentSystem.AddDependency.");
             }
@@ -266,27 +275,45 @@ namespace Unity.Entities
 #endif
         }
 
-        public void CompleteWriteDependency(int type)
+        public void CompleteWriteDependencyNoChecks(int type)
         {
             m_ComponentSafetyHandles[type].WriteFence.Complete();
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckReadAndThrow(m_ComponentSafetyHandles[type].SafetyHandle);
-#endif
         }
 
-        public void CompleteReadAndWriteDependency(int type)
+        public void CompleteReadAndWriteDependencyNoChecks(int type)
         {
             for (var i = 0; i < m_ComponentSafetyHandles[type].NumReadFences; ++i)
                 m_ReadJobFences[type * kMaxReadJobHandles + i].Complete();
             m_ComponentSafetyHandles[type].NumReadFences = 0;
 
             m_ComponentSafetyHandles[type].WriteFence.Complete();
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckWriteAndThrow(m_ComponentSafetyHandles[type].SafetyHandle);
-#endif
         }
 
+        public void CompleteWriteDependency(int type)
+        {
+            CompleteWriteDependencyNoChecks(type);
+            
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_ComponentSafetyHandles[type].SafetyHandle);
+            AtomicSafetyHandle.CheckReadAndThrow(m_ComponentSafetyHandles[type].BufferHandle);
+#endif
+            
+        }
+
+        public void CompleteReadAndWriteDependency(int type)
+        {
+            CompleteReadAndWriteDependencyNoChecks(type);
+            
+#if ENABLE_UNITY_COLLECTIONS_CHECKS            
+            AtomicSafetyHandle.CheckWriteAndThrow(m_ComponentSafetyHandles[type].SafetyHandle);
+            AtomicSafetyHandle.CheckWriteAndThrow(m_ComponentSafetyHandles[type].BufferHandle);
+#endif
+        }
+        
+        
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        
+        
         public AtomicSafetyHandle GetSafetyHandle(int type, bool isReadOnly)
         {
             m_HasCleanHandles = false;
@@ -295,6 +322,13 @@ namespace Unity.Entities
                 AtomicSafetyHandle.UseSecondaryVersion(ref handle);
 
             return handle;
+        }
+
+        public AtomicSafetyHandle GetBufferSafetyHandle(int type)
+        {
+            m_HasCleanHandles = false;
+
+            return m_ComponentSafetyHandles[type].BufferHandle;
         }
 #endif
 
@@ -316,7 +350,10 @@ namespace Unity.Entities
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             for (var i = 0; i != TypeManager.GetTypeCount(); i++)
+            {
                 AtomicSafetyHandle.CheckDeallocateAndThrow(m_ComponentSafetyHandles[i].SafetyHandle);
+                AtomicSafetyHandle.CheckDeallocateAndThrow(m_ComponentSafetyHandles[i].BufferHandle);
+            }
 #endif
 
             IsInTransaction = true;
@@ -327,7 +364,10 @@ namespace Unity.Entities
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             for (var i = 0; i != TypeManager.GetTypeCount(); i++)
+            {
                 AtomicSafetyHandle.Release(m_ComponentSafetyHandles[i].SafetyHandle);
+                AtomicSafetyHandle.Release(m_ComponentSafetyHandles[i].BufferHandle);
+            }
 #endif
         }
 
@@ -351,6 +391,8 @@ namespace Unity.Entities
             {
                 m_ComponentSafetyHandles[i].SafetyHandle = AtomicSafetyHandle.Create();
                 AtomicSafetyHandle.SetAllowSecondaryVersionWriting(m_ComponentSafetyHandles[i].SafetyHandle, false);
+
+                m_ComponentSafetyHandles[i].BufferHandle = AtomicSafetyHandle.Create();
             }
 #endif
         }
@@ -380,6 +422,7 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             public AtomicSafetyHandle SafetyHandle;
+            public AtomicSafetyHandle BufferHandle;
 #endif
             public JobHandle WriteFence;
             public int NumReadFences;

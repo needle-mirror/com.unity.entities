@@ -163,27 +163,34 @@ namespace Unity.Entities
         public static void ReplicateComponents(Chunk* srcChunk, int srcIndex, Chunk* dstChunk, int dstBaseIndex,
             int count)
         {
-            Assert.IsTrue(srcChunk->Archetype == dstChunk->Archetype);
-
-            var arch = srcChunk->Archetype;
-            var srcBuffer = srcChunk->Buffer;
-            var dstBuffer = dstChunk->Buffer;
-            var offsets = arch->Offsets;
-            var sizeOfs = arch->SizeOfs;
-            var typesCount = arch->TypesCount;
-            var types = arch->Types;
+            var srcArchetype  = srcChunk->Archetype;
+            var dstArchetype  = dstChunk->Archetype;
+            var srcBuffer     = srcChunk->Buffer;
+            var dstBuffer     = dstChunk->Buffer;
+            var srcOffsets    = srcArchetype->Offsets;
+            var srcSizeOfs    = srcArchetype->SizeOfs;
+            var srcTypesCount = srcArchetype->TypesCount;
+            var srcTypes      = srcArchetype->Types;
+            var dstTypeIndex  = 1;
             // type[0] is always Entity, and will be patched up later, so just skip
-            for (var t = 1; t != typesCount; t++)
+            for (var srcTypeIndex = 1; srcTypeIndex != srcTypesCount; srcTypeIndex++)
             {
-                var type = types[t];
-                var offset = offsets[t];
-                var sizeOf = sizeOfs[t];
-                var src = srcBuffer + (offset + sizeOf * srcIndex);
-                var dst = dstBuffer + (offset + sizeOf * dstBaseIndex);
+                var srcType   = srcTypes[srcTypeIndex];
+                var dstType   = srcTypes[dstTypeIndex];
+                
+                // Type does not exist in destination. Skip it.
+                if (srcType.TypeIndex != dstType.TypeIndex)
+                    continue;
+                
+                var srcOffset = srcOffsets[srcTypeIndex];
+                var srcSizeOf = srcSizeOfs[srcTypeIndex];
+                
+                var src = srcBuffer + (srcOffset + srcSizeOf * srcIndex);
+                var dst = dstBuffer + (srcOffset + srcSizeOf * dstBaseIndex);
 
-                if (!type.IsBuffer)
+                if (!srcType.IsBuffer)
                 {
-                    UnsafeUtility.MemCpyReplicate(dst, src, sizeOf, count);
+                    UnsafeUtility.MemCpyReplicate(dst, src, srcSizeOf, count);
                 }
                 else
                 {
@@ -192,13 +199,15 @@ namespace Unity.Entities
                     {
                         BufferHeader* srcHdr = (BufferHeader*) src;
                         BufferHeader* dstHdr = (BufferHeader*) dst;
-                        BufferHeader.Initialize(dstHdr, type.BufferCapacity);
-                        BufferHeader.Assign(dstHdr, BufferHeader.GetElementPointer(srcHdr), srcHdr->Length, sizeOf, alignment);
+                        BufferHeader.Initialize(dstHdr, srcType.BufferCapacity);
+                        BufferHeader.Assign(dstHdr, BufferHeader.GetElementPointer(srcHdr), srcHdr->Length, srcSizeOf, alignment);
 
-                        src += sizeOf;
-                        dst += sizeOf;
+                        src += srcSizeOf;
+                        dst += srcSizeOf;
                     }
                 }
+
+                dstTypeIndex++;
             }
         }
 

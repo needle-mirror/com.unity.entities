@@ -41,7 +41,7 @@ namespace Unity.Entities.Tests
 		[Test]
 		public void BufferTypeClassificationWorks()
 		{
-            var t  = TypeManager.GetComponentType<IntElement>();
+            var t  = TypeManager.GetTypeInfo<IntElement>();
             Assert.AreEqual(TypeManager.TypeCategory.BufferData, t.Category);
             Assert.AreEqual(99, t.BufferCapacity);
             Assert.AreEqual(UnsafeUtility.SizeOf<BufferHeader>() + 99 * sizeof(int), t.SizeInChunk);
@@ -70,10 +70,62 @@ namespace Unity.Entities.Tests
 #pragma warning restore 0169
 		}
 
-        [Test]
-        public void NonBlittableComponentDataThrows()
-        {
-            Assert.Throws<System.ArgumentException>(() => { ComponentType.Create<NonBlittableComponentData>(); });
-        }
+	    class ClassComponentData : IComponentData
+	    {
+	    }
+
+	    interface InterfaceComponentData : IComponentData
+	    {
+
+	    }
+
+	    struct NonBlittableBuffer: IBufferElementData
+	    {
+#pragma warning disable 0169 // "never used" warning
+	        string empty;
+#pragma warning restore 0169
+	    }
+
+	    class ClassBuffer: IBufferElementData
+	    {
+	    }
+
+	    interface InterfaceBuffer : IBufferElementData
+	    {
+
+	    }
+
+	    class ClassShared : ISharedComponentData
+	    {
+	    }
+
+	    interface InterfaceShared : ISharedComponentData
+	    {
+
+	    }
+
+	    [Test]
+	    public void ComponentDataConstraints()
+	    {
+	        Assert.Throws<System.ArgumentException>(() => { ComponentType.Create<NonBlittableComponentData>(); });
+	        Assert.Throws<System.ArgumentException>(() => { ComponentType.Create<ClassComponentData>(); });
+	        Assert.Throws<System.ArgumentException>(() => { ComponentType.Create<InterfaceComponentData>(); });
+	    }
+
+	    [Test]
+	    public void BufferConstraints()
+	    {
+	        Assert.Throws<System.ArgumentException>(() => { ComponentType.Create<NonBlittableBuffer>(); });
+	        Assert.Throws<System.ArgumentException>(() => { ComponentType.Create<ClassBuffer>(); });
+	        Assert.Throws<System.ArgumentException>(() => { ComponentType.Create<InterfaceBuffer>(); });
+	    }
+
+
+	    [Test]
+	    public void SharedComponentConstraints()
+	    {
+	        Assert.Throws<System.ArgumentException>(() => { ComponentType.Create<ClassShared>(); });
+	        Assert.Throws<System.ArgumentException>(() => { ComponentType.Create<InterfaceShared>(); });
+	    }
     }
 }

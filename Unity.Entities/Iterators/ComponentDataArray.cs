@@ -43,7 +43,7 @@ namespace Unity.Entities
             GetUnsafeChunkPtrCheck(startIndex, maxCount);
 #endif
 
-            m_Iterator.UpdateCache(startIndex, out m_Cache, isWriting);
+            m_Iterator.MoveToEntityIndexAndUpdateCache(startIndex, out m_Cache, isWriting);
 
             void* ptr = (byte*) m_Cache.CachedPtr + startIndex * m_Cache.CachedSizeOf;
             actualCount = Math.Min(maxCount, m_Cache.CachedEndIndex - startIndex);
@@ -100,7 +100,7 @@ namespace Unity.Entities
 #endif
 
                 if (index < m_Cache.CachedBeginIndex || index >= m_Cache.CachedEndIndex)
-                    m_Iterator.UpdateCache(index, out m_Cache, false);
+                    m_Iterator.MoveToEntityIndexAndUpdateCache(index, out m_Cache, false);
 
                 return UnsafeUtility.ReadArrayElement<T>(m_Cache.CachedPtr, index);
             }
@@ -112,7 +112,12 @@ namespace Unity.Entities
 #endif
 
                 if (index < m_Cache.CachedBeginIndex || index >= m_Cache.CachedEndIndex)
-                    m_Iterator.UpdateCache(index, out m_Cache, true);
+                    m_Iterator.MoveToEntityIndexAndUpdateCache(index, out m_Cache, true);
+                else if (!m_Cache.IsWriting)
+                {
+                    m_Cache.IsWriting = true;
+                    m_Iterator.UpdateChangeVersion();
+                }
 
                 UnsafeUtility.WriteArrayElement(m_Cache.CachedPtr, index, value);
             }

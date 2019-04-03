@@ -7,100 +7,6 @@ using UnityEditor;
 namespace Unity.Entities.Tests
 {
     [TestFixture]
-    public class ComponentGroupIndexFilter : ECSTestsFixture
-    {
-        public Entity CreateEntity(int value, int sharedValue)
-        {
-            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
-            m_Manager.SetComponentData(entity, new EcsTestData(value));
-            m_Manager.SetSharedComponentData(entity, new EcsTestSharedComp(sharedValue));
-            return entity;
-        }
-
-        void CreateEntities(int count)
-        {
-            for (int i = 0; i != count; i++)
-                CreateEntity(i, i / 7);
-        }
-
-        void CheckFilter(NativeArray<int> indexList)
-        {
-            var group = EmptySystem.GetComponentGroup(typeof(EcsTestData));
-            group.SetFilter(indexList);
-
-            var array = group.GetComponentDataArray<EcsTestData>();
-
-            for (int i = 0; i != indexList.Length; i++)
-                Assert.AreEqual(indexList[i], array[i].value);
-        }
-
-        [Test]
-        public void IterateFiltered()
-        {
-            CreateEntities(100);
-
-            var list = new NativeArray<int>(10, Allocator.Temp);
-            for (int i = 0; i != 10; i++)
-                list[i] = 10 * i;
-
-            CheckFilter(list);
-
-            list.Dispose();
-        }
-
-        [Test]
-        public void Consecutive()
-        {
-            CreateEntities(100);
-
-            var list = new NativeArray<int>(99, Allocator.Temp);
-            for (int i = 0; i != 99; i++)
-                list[i] = i + 1;
-
-            CheckFilter(list);
-
-            list.Dispose();
-        }
-
-        [Test]
-        public void IterateStress()
-        {
-            UnityEngine.Random.InitState(0);
-            int entityCount = 100;
-            CreateEntities(100);
-
-            var list = new NativeArray<int>(200, Allocator.Temp);
-            for (int i = 0; i != list.Length;)
-            {
-                int count = UnityEngine.Random.Range(1, 29);
-                if (count + i > list.Length)
-                    count = list.Length - i;
-                int baseIndex = UnityEngine.Random.Range(0, entityCount - count);
-
-                for (int j = 0; j < count; j++)
-                    list[j + i] = baseIndex + j;
-
-                i += count;
-            }
-
-            CheckFilter(list);
-
-            list.Dispose();
-        }
-
-        [Test]
-        [Ignore("Needs to be implemented")]
-        public void IndexListSafety()
-        {
-            throw new System.NotImplementedException();
-
-            // * Destroy / mutate index list while job is running
-            // * Index out of bounds for IndexList...
-
-        }
-    }
-
-    [TestFixture]
     public class ComponentGroupDelta : ECSTestsFixture
     {
         // * TODO: using out of date version cached ComponentDataArray should give exception... (We store the System order version in it...)
@@ -298,7 +204,7 @@ namespace Unity.Entities.Tests
 
             protected override JobHandle OnUpdate(JobHandle deps)
             {
-                return new DeltaJob().Schedule(this, 1, deps);
+                return new DeltaJob().Schedule(this, deps);
             }
         }
 
@@ -416,7 +322,7 @@ namespace Unity.Entities.Tests
 
             protected override JobHandle OnUpdate(JobHandle deps)
             {
-                return new DeltaJob().Schedule(this, 1, deps);
+                return new DeltaJob().Schedule(this, deps);
             }
         }
 
@@ -522,9 +428,9 @@ namespace Unity.Entities.Tests
                 switch (variant)
                 {
                     case Variant.FirstComponentChanged:
-                        return new DeltaJobChanged0().Schedule(this, 1, deps);
+                        return new DeltaJobChanged0().Schedule(this, deps);
                     case Variant.SecondComponentChanged:
-                        return new DeltaJobChanged1().Schedule(this, 1, deps);
+                        return new DeltaJobChanged1().Schedule(this, deps);
                 }
 
                 throw new NotImplementedException();
@@ -653,11 +559,11 @@ namespace Unity.Entities.Tests
                 switch (variant)
                 {
                     case Variant.FirstComponentChanged:
-                        return new DeltaJobChanged0().Schedule(this, 1, deps);
+                        return new DeltaJobChanged0().Schedule(this, deps);
                     case Variant.SecondComponentChanged:
-                        return new DeltaJobChanged1().Schedule(this, 1, deps);
+                        return new DeltaJobChanged1().Schedule(this, deps);
                     case Variant.ThirdComponentChanged:
-                        return new DeltaJobChanged2().Schedule(this, 1, deps);
+                        return new DeltaJobChanged2().Schedule(this, deps);
                 }
 
                 throw new NotImplementedException();

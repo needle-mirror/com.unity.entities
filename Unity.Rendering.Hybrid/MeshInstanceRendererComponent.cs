@@ -7,7 +7,7 @@ namespace Unity.Rendering
 {
     /// <summary>
     /// Render Mesh with Material (must be instanced material) by object to world matrix.
-    /// Specified by TransformMatrix associated with Entity.
+    /// Specified by the LocalToWorld associated with Entity.
     /// </summary>
     [Serializable]
 	public struct MeshInstanceRenderer : ISharedComponentData

@@ -20,10 +20,16 @@ namespace Unity.Entities.Serialization
             public int AllocSizeBytes;
         }
 
-        public static int CurrentFileFormatVersion = 5;
+        public static int CurrentFileFormatVersion = 6;
 
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader)
         {
+            if (manager.ArchetypeManager.CountEntities() != 0)
+            {
+                throw new ArgumentException(
+                    $"DeserializeWorld can only be used on completely empty EntityManager. Please create a new empty World and use EntityManager.MoveEntitiesFrom to move the loaded entities into the destination world instead.");
+            }
+            
             int storedVersion = reader.ReadInt();
             if (storedVersion != CurrentFileFormatVersion)
             {
@@ -125,7 +131,7 @@ namespace Unity.Entities.Serialization
                 var type = Type.GetType(typeName);
                 types[i] = TypeManager.GetTypeIndex(type);
 
-                if (typeHashBuffer[i] != TypeManager.GetComponentType(types[i]).FastEqualityTypeInfo.Hash)
+                if (typeHashBuffer[i] != TypeManager.GetTypeInfo(types[i]).FastEqualityTypeInfo.Hash)
                 {
                     throw new ArgumentException($"Type layout has changed: '{type.Name}'");
                 }
@@ -205,7 +211,7 @@ namespace Unity.Entities.Serialization
             {
                 var type = TypeManager.GetType(index);
                 var name = TypeManager.GetType(index).AssemblyQualifiedName;
-                var hash = TypeManager.GetComponentType(index).FastEqualityTypeInfo.Hash;
+                var hash = TypeManager.GetTypeInfo(index).FastEqualityTypeInfo.Hash;
                 return new
                 {
                     index,
@@ -273,7 +279,7 @@ namespace Unity.Entities.Serialization
                         BufferHeader* header = (BufferHeader*) OffsetFromPointer(tempChunkBuffer, subArrayOffset);
                         int stride = archetype->SizeOfs[index];
                         int count = c->Count;
-                        var ct = TypeManager.GetComponentType(archetype->Types[index].TypeIndex);
+                        var ct = TypeManager.GetTypeInfo(archetype->Types[index].TypeIndex);
 
                         for (int bi = 0; bi < count; ++bi)
                         {

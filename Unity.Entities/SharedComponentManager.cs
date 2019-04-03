@@ -85,7 +85,7 @@ namespace Unity.Entities
                 return index;
             }
 
-            var typeInfo = TypeManager.GetComponentType(typeIndex).FastEqualityTypeInfo;
+            var typeInfo = TypeManager.GetTypeInfo(typeIndex).FastEqualityTypeInfo;
             var hashcode = FastEquality.GetHashCode(ref newData, typeInfo);
             return Add(typeIndex, hashcode, newData);
         }
@@ -93,7 +93,7 @@ namespace Unity.Entities
         private unsafe int FindSharedComponentIndex<T>(int typeIndex, T newData) where T : struct
         {
             var defaultVal = default(T);
-            var typeInfo = TypeManager.GetComponentType(typeIndex).FastEqualityTypeInfo;
+            var typeInfo = TypeManager.GetTypeInfo(typeIndex).FastEqualityTypeInfo;
             if (FastEquality.Equals(ref defaultVal, ref newData, typeInfo))
                 return 0;
             return FindNonDefaultSharedComponentIndex(typeIndex, FastEquality.GetHashCode(ref newData, typeInfo),
@@ -239,7 +239,7 @@ namespace Unity.Entities
 
             var typeIndex = m_SharedComponentType[index];
 
-            var typeInfo = TypeManager.GetComponentType(typeIndex).FastEqualityTypeInfo;
+            var typeInfo = TypeManager.GetTypeInfo(typeIndex).FastEqualityTypeInfo;
             var hashCode = GetHashCodeFast(m_SharedComponentData[index], typeInfo);
 
             m_SharedComponentData[index] = null;
@@ -316,7 +316,7 @@ namespace Unity.Entities
                 var srcData = srcSharedComponents.m_SharedComponentData[srcIndex];
                 var typeIndex = srcSharedComponents.m_SharedComponentType[srcIndex];
 
-                var typeInfo = TypeManager.GetComponentType(typeIndex).FastEqualityTypeInfo;
+                var typeInfo = TypeManager.GetTypeInfo(typeIndex).FastEqualityTypeInfo;
                 var hashCode = GetHashCodeFast(srcData, typeInfo);
 
                 var dstIndex = InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, srcData, typeInfo);
@@ -366,7 +366,7 @@ namespace Unity.Entities
 
                 var typeIndex = srcSharedComponents.m_SharedComponentType[srcIndex];
 
-                var typeInfo = TypeManager.GetComponentType(typeIndex).FastEqualityTypeInfo;
+                var typeInfo = TypeManager.GetTypeInfo(typeIndex).FastEqualityTypeInfo;
                 var hashCode = GetHashCodeFast(srcData, typeInfo);
 
                 var dstIndex = InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, srcData, typeInfo);

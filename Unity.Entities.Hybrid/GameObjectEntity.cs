@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using RequireComponent = UnityEngine.RequireComponent;
@@ -20,44 +21,48 @@ namespace Unity.Entities
 
         internal abstract int InsertSharedComponent(EntityManager manager);
         internal abstract void UpdateSerializedData(EntityManager manager, int sharedComponentIndex);
-        
+
+        internal bool CanSynchronizeWithEntityManager(out EntityManager entityManager, out Entity entity)
+        {
+            entityManager = null;
+            entity = Entity.Null;
+            var gameObjectEntity = GetComponent<GameObjectEntity>();
+            if (gameObjectEntity == null)
+                return false;
+            if (gameObjectEntity.EntityManager == null)
+                return false;
+            if (!gameObjectEntity.EntityManager.Exists(gameObjectEntity.Entity))
+                return false;
+            if (!gameObjectEntity.EntityManager.HasComponent(gameObjectEntity.Entity, GetComponentType()))
+                return false;
+            entityManager = gameObjectEntity.EntityManager;
+            entity = gameObjectEntity.Entity;
+            return true;
+        }
         
         void OnValidate()
         {
-            var gameObjectEntity = GetComponent<GameObjectEntity>();
-            if (gameObjectEntity == null)
-                return;
-            if (gameObjectEntity.EntityManager == null)
-                return;
-            if (!gameObjectEntity.EntityManager.Exists(gameObjectEntity.Entity))
-                return;
-            if (!gameObjectEntity.EntityManager.HasComponent(gameObjectEntity.Entity, GetComponentType()))
-                return;
-
-            UpdateComponentData(gameObjectEntity.EntityManager, gameObjectEntity.Entity);
+            if (CanSynchronizeWithEntityManager(out var entityManager, out var entity))
+                UpdateComponentData(entityManager, entity);
         }
         
         public void OnBeforeSerialize()
         {
-            var gameObjectEntity = GetComponent<GameObjectEntity>();
-            if (gameObjectEntity == null)
-                return;
-            if (gameObjectEntity.EntityManager == null)
-                return;
-            if (!gameObjectEntity.EntityManager.Exists(gameObjectEntity.Entity))
-                return;
-            if (!gameObjectEntity.EntityManager.HasComponent(gameObjectEntity.Entity, GetComponentType()))
-                return;
-            UpdateSerializedData(gameObjectEntity.EntityManager, gameObjectEntity.Entity);
+            if (CanSynchronizeWithEntityManager(out var entityManager, out var entity))
+                UpdateSerializedData(entityManager, entity);
         }
 
         public void OnAfterDeserialize() { }
     }
 
+    internal sealed class WrappedComponentDataAttribute : PropertyAttribute
+    {
+    }
+
     //@TODO: This should be fully implemented in C++ for efficiency
     public class ComponentDataWrapper<T> : ComponentDataWrapperBase where T : struct, IComponentData
     {
-        [SerializeField]
+        [SerializeField, WrappedComponentData]
         T m_SerializedData;
 
         public T Value
@@ -69,6 +74,8 @@ namespace Unity.Entities
             set
             {
                 m_SerializedData = value;
+                if (CanSynchronizeWithEntityManager(out var entityManager, out var entity))
+                    UpdateComponentData(entityManager, entity);
             }
         }
 
@@ -80,29 +87,39 @@ namespace Unity.Entities
 
         internal override void UpdateComponentData(EntityManager manager, Entity entity)
         {
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var componentType = ComponentType.FromTypeIndex(typeIndex);
+            if (componentType.IsZeroSized)
+                return;
+
             manager.SetComponentData(entity, m_SerializedData);
         }
         
         internal override void UpdateSerializedData(EntityManager manager, Entity entity)
         {
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var componentType = ComponentType.FromTypeIndex(typeIndex);
+            if (componentType.IsZeroSized) 
+                return;
+                
             m_SerializedData = manager.GetComponentData<T>(entity);
         }
         
         internal override int InsertSharedComponent(EntityManager manager)
         {
-            throw new System.InvalidOperationException();
+            throw new InvalidOperationException();
         }
 
         internal override void UpdateSerializedData(EntityManager manager, int sharedComponentIndex)
         {
-            throw new System.InvalidOperationException();
+            throw new InvalidOperationException();
         }
     }
 
     //@TODO: This should be fully implemented in C++ for efficiency
     public class SharedComponentDataWrapper<T> : ComponentDataWrapperBase where T : struct, ISharedComponentData
     {
-        [SerializeField]
+        [SerializeField, WrappedComponentData]
         T m_SerializedData;
 
         public T Value
@@ -114,6 +131,8 @@ namespace Unity.Entities
             set
             {
                 m_SerializedData = value;
+                if (CanSynchronizeWithEntityManager(out var entityManager, out var entity))
+                    UpdateComponentData(entityManager, entity);
             }
         }
 

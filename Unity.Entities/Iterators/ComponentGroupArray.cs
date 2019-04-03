@@ -127,7 +127,7 @@ namespace Unity.Entities
         public int CacheEndIndex;
 
         private ComponentChunkIterator m_ChunkIterator;
-        private fixed int m_ComponentTypes[kMaxStream];
+        private fixed int m_IndexInComponentGroup[kMaxStream];
         private fixed bool m_IsWriting[kMaxStream];
 
         // The following fields must not be renamed, unless JobReflectionData.cpp is changed accordingly.
@@ -164,25 +164,20 @@ namespace Unity.Entities
             m_ComponentDataCount = staticCache.ComponentDataCount;
             m_ComponentCount = staticCache.ComponentCount;
 
-            fixed (int* componentTypes = m_ComponentTypes)
+            fixed (int* indexInComponentGroup = m_IndexInComponentGroup)
+            fixed (byte* cacheBytes = m_Caches)
+            fixed (bool* isWriting = m_IsWriting)
             {
-                fixed (byte* cacheBytes = m_Caches)
-                {
-                    fixed (bool* isWriting = m_IsWriting)
-                    {
-                        var streams = (ComponentGroupStream*) cacheBytes;
+                var streams = (ComponentGroupStream*) cacheBytes;
 
-                        for (var i = 0; i < staticCache.ComponentDataCount + staticCache.ComponentCount; i++)
-                        {
-                            componentTypes[i] = staticCache.ComponentTypes[i].TypeIndex;
-                            streams[i].FieldOffset = (ushort) staticCache.ComponentFieldOffsets[i];
-                            isWriting[i] = staticCache.ComponentTypes[i].AccessModeType ==
-                                           ComponentType.AccessMode.ReadWrite;
-                        }
-                    }
+                for (var i = 0; i < staticCache.ComponentDataCount + staticCache.ComponentCount; i++)
+                {
+                    indexInComponentGroup[i] = staticCache.ComponentGroup.GetIndexInComponentGroup(staticCache.ComponentTypes[i].TypeIndex);
+                    streams[i].FieldOffset = (ushort) staticCache.ComponentFieldOffsets[i];
+                    isWriting[i] = staticCache.ComponentTypes[i].AccessModeType == ComponentType.AccessMode.ReadWrite;
                 }
             }
-
+            
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_Safety0 = new AtomicSafetyHandle();
             m_Safety1 = new AtomicSafetyHandle();
@@ -225,34 +220,30 @@ namespace Unity.Entities
         {
             ComponentChunkCache cache;
 
-            m_ChunkIterator.UpdateCache(index, out cache, false);
+            m_ChunkIterator.MoveToEntityIndex(index);
 
-            CacheBeginIndex = cache.CachedBeginIndex;
-            CacheEndIndex = cache.CachedEndIndex;
-
-            fixed (int* componentTypes = m_ComponentTypes)
+            fixed (int* indexInComponentGroup = m_IndexInComponentGroup)
+            fixed (byte* cacheBytes = m_Caches)
+            fixed (bool* isWriting = m_IsWriting)
             {
-                fixed (byte* cacheBytes = m_Caches)
+                var streams = (ComponentGroupStream*) cacheBytes;
+                var totalCount = m_ComponentDataCount + m_ComponentCount;
+                for (var i = 0; i < totalCount; i++)
                 {
-                    fixed (bool* isWriting = m_IsWriting)
-                    {
-                        var streams = (ComponentGroupStream*) cacheBytes;
-                        var totalCount = m_ComponentDataCount + m_ComponentCount;
-                        for (var i = 0; i < totalCount; i++)
-                        {
-                            int indexInArcheType;
-                            m_ChunkIterator.GetCacheForType(componentTypes[i], isWriting[i], out cache,
-                                out indexInArcheType);
-                            streams[i].SizeOf = cache.CachedSizeOf;
-                            streams[i].CachedPtr = (byte*) cache.CachedPtr;
+                    m_ChunkIterator.UpdateCacheToCurrentChunk(out cache, isWriting[i], indexInComponentGroup[i]);
+                    CacheBeginIndex = cache.CachedBeginIndex;
+                    CacheEndIndex = cache.CachedEndIndex;
+
+                    int indexInArcheType = m_ChunkIterator.GetIndexInArchetypeFromCurrentChunk(indexInComponentGroup[i]);
+
+                    streams[i].SizeOf = cache.CachedSizeOf;
+                    streams[i].CachedPtr = (byte*) cache.CachedPtr;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                            if (indexInArcheType > ushort.MaxValue)
-                                throw new ArgumentException(
-                                    $"There is a maximum of {ushort.MaxValue} components on one entity.");
+                    if (indexInArcheType > ushort.MaxValue)
+                        throw new ArgumentException(
+                            $"There is a maximum of {ushort.MaxValue} components on one entity.");
 #endif
-                            streams[i].TypeIndexInArchetype = (ushort) indexInArcheType;
-                        }
-                    }
+                    streams[i].TypeIndexInArchetype = (ushort) indexInArcheType;
                 }
             }
         }

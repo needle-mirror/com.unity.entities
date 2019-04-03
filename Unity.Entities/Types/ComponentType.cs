@@ -18,6 +18,11 @@ namespace Unity.Entities
         public int TypeIndex;
         public AccessMode AccessModeType;
         public int BufferCapacity;
+        
+        public bool IsSystemStateComponent => TypeManager.IsSystemStateComponent(TypeIndex);
+        public bool IsSystemStateSharedComponent => TypeManager.IsSystemStateSharedComponent(TypeIndex);
+        public bool IsSharedComponent => TypeManager.IsSharedComponent(TypeIndex);
+        public bool IsZeroSized => TypeManager.GetTypeInfo(TypeIndex).IsZeroSized;
 
         public static ComponentType Create<T>()
         {
@@ -26,7 +31,7 @@ namespace Unity.Entities
 
         public static ComponentType FromTypeIndex(int typeIndex)
         {
-            TypeManager.ComponentType ct = TypeManager.GetComponentType(typeIndex);
+            TypeManager.TypeInfo ct = TypeManager.GetTypeInfo(typeIndex);
 
             ComponentType type;
             type.TypeIndex = typeIndex;
@@ -66,7 +71,7 @@ namespace Unity.Entities
         public ComponentType(Type type, AccessMode accessModeType = AccessMode.ReadWrite)
         {
             TypeIndex = TypeManager.GetTypeIndex(type);
-            var ct = TypeManager.GetComponentType(TypeIndex);
+            var ct = TypeManager.GetTypeInfo(TypeIndex);
             BufferCapacity = ct.BufferCapacity;
             AccessModeType = accessModeType;
         }

@@ -44,18 +44,6 @@ namespace Unity.Entities
             return null;
         }
 
-        public ComponentGroup CreateEntityGroupIfCached(ArchetypeManager typeMan, EntityDataManager* entityDataManager,
-            ComponentType* requiredTypes,
-            int requiredCount)
-        {
-            var hash = HashUtility.Fletcher32((ushort*) requiredTypes,
-                requiredCount * sizeof(ComponentType) / sizeof(short));
-            var grp = GetCachedGroupData(hash, requiredTypes, requiredCount);
-            if (grp != null)
-                return new ComponentGroup(grp, m_JobSafetyManager, typeMan, entityDataManager);
-            return null;
-        }
-
         public ComponentGroup CreateEntityGroup(ArchetypeManager typeMan, EntityDataManager* entityDataManager,
             ComponentType* requiredTypes, int requiredCount)
         {
@@ -64,8 +52,6 @@ namespace Unity.Entities
             var grp = GetCachedGroupData(hash, requiredTypes, requiredCount);
             if (grp != null)
                 return new ComponentGroup(grp, m_JobSafetyManager, typeMan, entityDataManager);
-
-            m_JobSafetyManager.CompleteAllJobsAndInvalidateArrays();
 
             grp = (EntityGroupData*) m_GroupDataChunkAllocator.Allocate(sizeof(EntityGroupData), 8);
             grp->PrevGroup = m_LastGroupData;
@@ -117,9 +103,7 @@ namespace Unity.Entities
                 }
             }
 
-            grp->RequiredComponents =
-                (ComponentType*) m_GroupDataChunkAllocator.Construct(sizeof(ComponentType) * requiredCount, 4,
-                    requiredTypes);
+            grp->RequiredComponents = (ComponentType*) m_GroupDataChunkAllocator.Construct(sizeof(ComponentType) * requiredCount, 4, requiredTypes);
 
             grp->FirstMatchingArchetype = null;
             grp->LastMatchingArchetype = null;
@@ -143,7 +127,9 @@ namespace Unity.Entities
             var typeI = 0;
             var prevTypeI = 0;
             var disabledIndex = TypeManager.GetTypeIndex<Disabled>();
+            var prefabIndex = TypeManager.GetTypeIndex<Prefab>();
             var requestedDisabled = false;
+            var requestedPrefab = false;
             for (var i = 0; i < group->RequiredComponentsCount; ++i, ++typeI)
             {
                 while (archetype->Types[typeI].TypeIndex < group->RequiredComponents[i].TypeIndex &&
@@ -152,6 +138,8 @@ namespace Unity.Entities
 
                 if (group->RequiredComponents[i].TypeIndex == disabledIndex)
                     requestedDisabled = true;
+                if (group->RequiredComponents[i].TypeIndex == prefabIndex)
+                    requestedPrefab = true;
                 
                 var hasComponent = !(typeI >= archetype->TypesCount);
 
@@ -172,11 +160,13 @@ namespace Unity.Entities
 
             if (archetype->Disabled && (!requestedDisabled))
                 return;
+            if (archetype->Prefab && (!requestedPrefab))
+                return;
 
             var match = (MatchingArchetypes*) m_GroupDataChunkAllocator.Allocate(
                 MatchingArchetypes.GetAllocationSize(group->RequiredComponentsCount), 8);
             match->Archetype = archetype;
-            var typeIndexInArchetypeArray = match->TypeIndexInArchetypeArray;
+            var typeIndexInArchetypeArray = match->IndexInArchetype;
 
             if (group->LastMatchingArchetype == null)
                 group->LastMatchingArchetype = match;
@@ -206,8 +196,7 @@ namespace Unity.Entities
 
         public MatchingArchetypes* Next;
 
-        //@TODO: Rename to IndexInArchetype
-        public fixed int TypeIndexInArchetypeArray[1];
+        public fixed int IndexInArchetype[1];
 
         public static int GetAllocationSize(int requiredComponentsCount)
         {

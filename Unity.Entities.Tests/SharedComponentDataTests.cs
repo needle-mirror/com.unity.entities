@@ -152,48 +152,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CreateForEachFilter()
-        {
-            var archetype1 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
-
-            const int unqueValues = 500;
-            const int entitiesPerValue = 100;
-            for (int i = 0; i < unqueValues; ++i)
-            {
-                for (int j = 0; j < entitiesPerValue; ++j)
-                {
-                    Entity e = m_Manager.CreateEntity(archetype1);
-                    m_Manager.SetComponentData(e, new EcsTestData((i << 16) + j));
-                    m_Manager.SetSharedComponentData(e, new SharedData1(i));
-                }
-            }
-
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(SharedData1));
-
-            var unique = new List<SharedData1>(0);
-            m_Manager.GetAllUniqueSharedComponentData(unique);
-            Assert.AreEqual(unqueValues, unique.Count);
-            var forEachFilter = group.CreateForEachFilter(unique);
-
-            for (int sharedValue = 0; sharedValue < unique.Count; ++sharedValue)
-            {
-                bool[] foundEntities = new bool[entitiesPerValue];
-                var componentArray = group.GetComponentDataArray<EcsTestData>(forEachFilter, sharedValue);
-                Assert.AreEqual(entitiesPerValue, componentArray.Length);
-                for (int i = 0; i < entitiesPerValue; ++i)
-                {
-                    int index = componentArray[i].value;
-                    Assert.AreEqual(sharedValue, index>>16);
-                    Assert.IsFalse(foundEntities[index&0xffff]);
-                    foundEntities[index&0xffff] = true;
-                }
-            }
-
-            forEachFilter.Dispose();
-            group.Dispose();
-        }
-
-        [Test]
         public void GetSharedComponentData()
         {
             var archetype = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));

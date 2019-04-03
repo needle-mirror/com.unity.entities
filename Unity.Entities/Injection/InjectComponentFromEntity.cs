@@ -8,12 +8,12 @@ namespace Unity.Entities
     internal struct InjectFromEntityData
     {
         private readonly InjectionData[] m_InjectComponentDataFromEntity;
-        private readonly InjectionData[] m_InjectBufferDataFromEntity;
+        private readonly InjectionData[] m_InjectBufferFromEntity;
 
-        public InjectFromEntityData(InjectionData[] componentDataFromEntity, InjectionData[] bufferDataFromEntity)
+        public InjectFromEntityData(InjectionData[] componentDataFromEntity, InjectionData[] bufferFromEntity)
         {
             m_InjectComponentDataFromEntity = componentDataFromEntity;
-            m_InjectBufferDataFromEntity = bufferDataFromEntity;
+            m_InjectBufferFromEntity = bufferFromEntity;
         }
 
         public static bool SupportsInjections(FieldInfo field)
@@ -22,13 +22,13 @@ namespace Unity.Entities
                 field.FieldType.GetGenericTypeDefinition() == typeof(ComponentDataFromEntity<>))
                 return true;
             if (field.FieldType.IsGenericType &&
-                field.FieldType.GetGenericTypeDefinition() == typeof(BufferDataFromEntity<>))
+                field.FieldType.GetGenericTypeDefinition() == typeof(BufferFromEntity<>))
                 return true;
             return false;
         }
 
         public static void CreateInjection(FieldInfo field, EntityManager entityManager,
-            List<InjectionData> componentDataFromEntity, List<InjectionData> bufferDataFromEntity)
+            List<InjectionData> componentDataFromEntity, List<InjectionData> bufferFromEntity)
         {
             var isReadOnly = field.GetCustomAttributes(typeof(ReadOnlyAttribute), true).Length != 0;
 
@@ -39,10 +39,10 @@ namespace Unity.Entities
                 componentDataFromEntity.Add(injection);
             }
             else if (field.FieldType.IsGenericType &&
-                     field.FieldType.GetGenericTypeDefinition() == typeof(BufferDataFromEntity<>))
+                     field.FieldType.GetGenericTypeDefinition() == typeof(BufferFromEntity<>))
             {
                 var injection = new InjectionData(field, field.FieldType.GetGenericArguments()[0], isReadOnly);
-                bufferDataFromEntity.Add(injection);
+                bufferFromEntity.Add(injection);
             }
             else
             {
@@ -61,13 +61,13 @@ namespace Unity.Entities
                     pinnedSystemPtr + m_InjectComponentDataFromEntity[i].FieldOffset);
             }
 
-            for (var i = 0; i != m_InjectBufferDataFromEntity.Length; i++)
+            for (var i = 0; i != m_InjectBufferFromEntity.Length; i++)
             {
-                var array = entityManager.GetBufferDataFromEntity<ProxyBufferElementData>(
-                    m_InjectBufferDataFromEntity[i].ComponentType.TypeIndex,
-                    m_InjectBufferDataFromEntity[i].IsReadOnly);
+                var array = entityManager.GetBufferFromEntity<ProxyBufferElementData>(
+                    m_InjectBufferFromEntity[i].ComponentType.TypeIndex,
+                    m_InjectBufferFromEntity[i].IsReadOnly);
                 UnsafeUtility.CopyStructureToPtr(ref array,
-                    pinnedSystemPtr + m_InjectBufferDataFromEntity[i].FieldOffset);
+                    pinnedSystemPtr + m_InjectBufferFromEntity[i].FieldOffset);
             }
         }
 
@@ -77,8 +77,8 @@ namespace Unity.Entities
                 foreach (var injection in m_InjectComponentDataFromEntity)
                     system.AddReaderWriter(injection.ComponentType);
 
-            if (m_InjectBufferDataFromEntity != null)
-                foreach (var injection in m_InjectBufferDataFromEntity)
+            if (m_InjectBufferFromEntity != null)
+                foreach (var injection in m_InjectBufferFromEntity)
                     system.AddReaderWriter(injection.ComponentType);
         }
     }

@@ -19,15 +19,6 @@ namespace Unity.Transforms
     }
 
     /// <summary>
-    /// Frozen is added by system when Static is resolved.
-    /// Signals that LocalToWorld will no longer be updated.
-    /// Read-only from other systems.
-    /// </summary>
-    public struct Frozen : ISystemStateComponentData
-    {
-    }
-    
-    /// <summary>
     /// PendingFrozen is internal to the system and defines the pipeline stage
     /// between Static and Frozen. It allows for LocalToWorld to be updated once
     /// before it is Frozen.
@@ -48,16 +39,6 @@ namespace Unity.Transforms
     }
 
     /// <summary>
-    /// LocalToWorld is added by system if Rotation +/- Position +/- Scale exist.
-    /// Updated by system.
-    /// Read-only from external systems.
-    /// </summary>
-    public struct LocalToWorld : ISystemStateComponentData
-    {
-        public float4x4 Value;
-    }
-
-    /// <summary>
     /// LocalToParent is added by system when Attached is resolved for all children.
     /// Updated by system from Rotation +/- Position +/- Scale.
     /// Read-only from external systems.
@@ -72,12 +53,11 @@ namespace Unity.Transforms
     /// </summary>
     [UnityEngine.ExecuteInEditMode]
     [UpdateBefore(typeof(EndFrameBarrier))]
-    public class EndFrameTransformSystem : TransformSystem<EndFrameBarrier>
+    public class EndFrameTransformSystem : TransformSystem
     {
     }
         
-    public class TransformSystem<T> : JobComponentSystem
-    where T: ComponentSystemBase
+    public abstract class TransformSystem : JobComponentSystem
     {
         uint LastSystemVersion = 0;
         
@@ -88,10 +68,8 @@ namespace Unity.Transforms
         EntityArchetypeQuery NewRootQuery;
         EntityArchetypeQuery AttachQuery;
         EntityArchetypeQuery DetachQuery;
-        EntityArchetypeQuery RemovedQuery;
         EntityArchetypeQuery PendingFrozenQuery;
         EntityArchetypeQuery FrozenQuery;
-        EntityArchetypeQuery ThawQuery;
         EntityArchetypeQuery RootLocalToWorldQuery;
         EntityArchetypeQuery InnerTreeLocalToParentQuery;
         EntityArchetypeQuery LeafLocalToParentQuery;
@@ -102,10 +80,8 @@ namespace Unity.Transforms
         NativeArray<ArchetypeChunk> NewRootChunks;
         NativeArray<ArchetypeChunk> AttachChunks;
         NativeArray<ArchetypeChunk> DetachChunks;
-        NativeArray<ArchetypeChunk> RemovedChunks;
         NativeArray<ArchetypeChunk> PendingFrozenChunks;
         NativeArray<ArchetypeChunk> FrozenChunks;
-        NativeArray<ArchetypeChunk> ThawChunks;
         NativeArray<ArchetypeChunk> RootLocalToWorldChunks;
         NativeArray<ArchetypeChunk> InnerTreeLocalToParentChunks;
         NativeArray<ArchetypeChunk> LeafLocalToParentChunks;
@@ -299,32 +275,6 @@ namespace Unity.Transforms
             return true;
         }
 
-        void UpdateRemoved(EntityCommandBuffer entityCommandBuffer)
-        {
-            if (RemovedChunks.Length == 0)
-            {
-                RemovedChunks.Dispose();
-                return;
-            }
-
-            for (int chunkIndex = 0; chunkIndex < RemovedChunks.Length; chunkIndex++)
-            {
-                var chunk = RemovedChunks[chunkIndex];
-                var parentCount = chunk.Count;
-
-                var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
-
-                for (int i = 0; i < parentCount; i++)
-                {
-                    var entity = chunkEntities[i];
-
-                    entityCommandBuffer.RemoveComponent<LocalToWorld>(entity);
-                }
-            }
-
-            RemovedChunks.Dispose();
-        }
-
         void UpdatePendingFrozen()
         {
             if (PendingFrozenChunks.Length == 0)
@@ -389,63 +339,8 @@ namespace Unity.Transforms
             entityCommandBuffer.Dispose();
         }
         
-        void UpdateThaw()
-        {
-            if (ThawChunks.Length == 0)
-            {
-                ThawChunks.Dispose();
-                return;
-            }
-            
-            EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
-
-            for (int chunkIndex = 0; chunkIndex < ThawChunks.Length; chunkIndex++)
-            {
-                var chunk = ThawChunks[chunkIndex];
-                var parentCount = chunk.Count;
-
-                var chunkEntities = chunk.GetNativeArray(EntityTypeRO);
-                var chunkFrozens = chunk.GetNativeArray(FrozenTypeRO);
-                var chunkPendingFrozens = chunk.GetNativeArray(PendingFrozenTypeRO);
-                var hasFrozen = chunkFrozens.Length > 0;
-                var hasPendingFrozen = chunkPendingFrozens.Length > 0;
-
-                if (hasFrozen && (!hasPendingFrozen))
-                {
-                    for (int i = 0; i < parentCount; i++)
-                    {
-                        var entity = chunkEntities[i];
-                        entityCommandBuffer.RemoveComponent<Frozen>(entity);
-                    }
-                }
-                else if (hasFrozen && hasPendingFrozen)
-                {
-                    for (int i = 0; i < parentCount; i++)
-                    {
-                        var entity = chunkEntities[i];
-                        entityCommandBuffer.RemoveComponent<Frozen>(entity);
-                        entityCommandBuffer.RemoveComponent<PendingFrozen>(entity);
-                    }
-                }
-                else if ((!hasFrozen) && hasPendingFrozen)
-                {
-                    for (int i = 0; i < parentCount; i++)
-                    {
-                        var entity = chunkEntities[i];
-                        entityCommandBuffer.RemoveComponent<PendingFrozen>(entity);
-                    }
-                }
-            }
-
-            ThawChunks.Dispose();
-
-            entityCommandBuffer.Playback(EntityManager);
-            entityCommandBuffer.Dispose();
-        }
-
         private static readonly ProfilerMarker k_ProfileUpdateNewRootTransforms = new ProfilerMarker("UpdateNewRootTransforms");
         private static readonly ProfilerMarker k_ProfileUpdateDAGAttachDetach = new ProfilerMarker("UpdateDAG.AttachDetach");
-        private static readonly ProfilerMarker k_ProfileUpdateUpdateRemoved = new ProfilerMarker("UpdateRemoved");
         private static readonly ProfilerMarker k_ProfileUpdateDAGPlayback = new ProfilerMarker("UpdateDAG.Playback");
         bool UpdateDAG()
         {
@@ -460,10 +355,6 @@ namespace Unity.Transforms
             bool changedDetached = UpdateDetach(entityCommandBuffer);
             k_ProfileUpdateDAGAttachDetach.End();
             
-            k_ProfileUpdateUpdateRemoved.Begin();
-            UpdateRemoved(entityCommandBuffer);
-            k_ProfileUpdateUpdateRemoved.End();
-
             k_ProfileUpdateDAGPlayback.Begin();
             entityCommandBuffer.Playback(EntityManager);
             entityCommandBuffer.Dispose();
@@ -511,8 +402,7 @@ namespace Unity.Transforms
                     {
                         chunkLocalToWorlds[i] = new LocalToWorld
                         {
-                            Value = math.mul(float4x4.translate(chunkPositions[i].Value),
-                                float4x4.scale(chunkScales[i].Value))
+                            Value = float4x4.scale(chunkScales[i].Value)
                         };
                     }
                 }
@@ -648,8 +538,7 @@ namespace Unity.Transforms
                     {
                         chunkLocalToParents[i] = new LocalToParent
                         {
-                            Value = math.mul(float4x4.translate(chunkPositions[i].Value),
-                                float4x4.scale(chunkScales[i].Value))
+                            Value = float4x4.scale(chunkScales[i].Value)
                         };
                     }
                 }
@@ -785,8 +674,7 @@ namespace Unity.Transforms
                     {
                         chunkLocalToParents[i] = new LocalToParent
                         {
-                            Value = math.mul(float4x4.translate(chunkPositions[i].Value),
-                                float4x4.scale(chunkScales[i].Value))
+                            Value = float4x4.scale(chunkScales[i].Value)
                         };
                     }
                 }
@@ -884,7 +772,7 @@ namespace Unity.Transforms
         }
 
         [BurstCompile]
-        struct InnerTreeLocalToWorld : IJobParallelFor
+        struct InnerTreeLocalToWorld : IJob
         {
             [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<int> chunkIndices;
 
@@ -897,30 +785,34 @@ namespace Unity.Transforms
             [NativeDisableParallelForRestriction] public ComponentDataFromEntity<LocalToWorld> localToWorldFromEntity;
             public uint lastSystemVersion;
 
-            public void Execute(int i)
+            public void Execute()
             {
-                var chunkIndex = chunkIndices[i];
-                var chunk = chunks[chunkIndex];
-                var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
-
-                var chunkParents = chunk.GetNativeArray(parentType);
-                var chunkEntities = chunk.GetNativeArray(entityType);
-                var previousParentEntity = Entity.Null;
-                var parentLocalToWorldMatrix = new float4x4();
-
-                for (int j = 0; j < chunk.Count; j++)
+                for (int i = 0; i < chunks.Length; i++)
                 {
-                    var parentEntity = chunkParents[j].Value;
-                    if (parentEntity != previousParentEntity)
+                    var chunkIndex = chunkIndices[i];
+                    var chunk = chunks[chunkIndex];
+                    var chunkLocalToParents = chunk.GetNativeArray(localToParentType);
+
+                    var chunkParents = chunk.GetNativeArray(parentType);
+                    var chunkEntities = chunk.GetNativeArray(entityType);
+                    var previousParentEntity = Entity.Null;
+                    var parentLocalToWorldMatrix = new float4x4();
+
+                    for (int j = 0; j < chunk.Count; j++)
                     {
-                        parentLocalToWorldMatrix = localToWorldFromEntity[parentEntity].Value;
-                        previousParentEntity = parentEntity;
+                        var parentEntity = chunkParents[j].Value;
+                        if (parentEntity != previousParentEntity)
+                        {
+                            parentLocalToWorldMatrix = localToWorldFromEntity[parentEntity].Value;
+                            previousParentEntity = parentEntity;
+                        }
+
+                        var entity = chunkEntities[j];
+                        localToWorldFromEntity[entity] = new LocalToWorld
+                        {
+                            Value = math.mul(parentLocalToWorldMatrix, chunkLocalToParents[j].Value)
+                        };
                     }
-                    var entity = chunkEntities[j];
-                    localToWorldFromEntity[entity] = new LocalToWorld
-                    {
-                        Value = math.mul(parentLocalToWorldMatrix, chunkLocalToParents[j].Value)
-                    };
                 }
             }
         }
@@ -944,7 +836,7 @@ namespace Unity.Transforms
                 // Slow and dirty sort inner tree by depth
                 var chunkIndex = 0;
                 
-                for (int depth = -1; depth < maxDepth; depth++)
+                for (int depth = -1; depth <= maxDepth; depth++)
                 {
                     for (int i = 0; i < chunks.Length; i++)
                     {
@@ -1020,7 +912,8 @@ namespace Unity.Transforms
                 localToWorldFromEntity = LocalToWorldFromEntityRW,
                 lastSystemVersion = LastSystemVersion
             };
-            var innerTreeLocalToWorldJobHandle = innerTreeLocalToWorldJob.Schedule(InnerTreeLocalToWorldChunks.Length, 4, sortDepthsJobHandle);
+            var innerTreeLocalToWorldJobHandle = innerTreeLocalToWorldJob.Schedule(sortDepthsJobHandle);
+            
             return innerTreeLocalToWorldJobHandle;
         }
 
@@ -1150,12 +1043,6 @@ namespace Unity.Transforms
                 None = new ComponentType[] {typeof(Attached)},
                 All = new ComponentType[] {typeof(Parent)},
             };
-            RemovedQuery = new EntityArchetypeQuery
-            {
-                Any = Array.Empty<ComponentType>(),
-                None = new ComponentType[] {typeof(Rotation), typeof(Position), typeof(Scale)},
-                All = new ComponentType[] {typeof(LocalToWorld)},
-            };
             PendingFrozenQuery = new EntityArchetypeQuery
             {
                 Any = Array.Empty<ComponentType>(),
@@ -1167,12 +1054,6 @@ namespace Unity.Transforms
                 Any = Array.Empty<ComponentType>(),
                 None = new ComponentType[] {typeof(PendingFrozen), typeof(Frozen)},
                 All = new ComponentType[] {typeof(LocalToWorld), typeof(Static)},
-            };
-            ThawQuery = new EntityArchetypeQuery
-            {
-                Any = new ComponentType[] {typeof(PendingFrozen), typeof(Frozen)},
-                None = new ComponentType[] {typeof(Static) }, 
-                All = Array.Empty<ComponentType>(),
             };
             RootLocalToWorldQuery = new EntityArchetypeQuery
             {
@@ -1216,7 +1097,6 @@ namespace Unity.Transforms
         {
             PendingFrozenChunks = EntityManager.CreateArchetypeChunkArray(PendingFrozenQuery, Allocator.TempJob);
             FrozenChunks = EntityManager.CreateArchetypeChunkArray(FrozenQuery, Allocator.TempJob);
-            ThawChunks = EntityManager.CreateArchetypeChunkArray(ThawQuery, Allocator.TempJob);
         }
         
         void GatherDAGChunks()
@@ -1224,7 +1104,6 @@ namespace Unity.Transforms
             NewRootChunks = EntityManager.CreateArchetypeChunkArray(NewRootQuery, Allocator.TempJob);
             AttachChunks = EntityManager.CreateArchetypeChunkArray(AttachQuery, Allocator.TempJob);
             DetachChunks = EntityManager.CreateArchetypeChunkArray(DetachQuery, Allocator.TempJob);
-            RemovedChunks = EntityManager.CreateArchetypeChunkArray(RemovedQuery, Allocator.TempJob);
         }
 
         void GatherDepthChunks()
@@ -1314,7 +1193,6 @@ namespace Unity.Transforms
             k_ProfileUpdateFrozen.Begin();
             UpdatePendingFrozen();
             UpdateFrozen();
-            UpdateThaw();
             k_ProfileUpdateFrozen.End();
 
             k_ProfileGatherUpdateChunks.Begin();

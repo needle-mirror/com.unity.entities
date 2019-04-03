@@ -63,6 +63,24 @@ namespace Unity.Entities.Tests
             public Entity referencedEntity;
         }
 
+
+        [Test]
+        public void SerializeIntoExistingWorldThrows()
+        {
+            m_Manager.CreateEntity(typeof(EcsTestData));
+            
+            var writer = new TestBinaryWriter();
+            int[] sharedData;
+            SerializeUtility.SerializeWorld(m_Manager, writer, out sharedData);
+            
+            var reader = new TestBinaryReader(writer);
+
+            Assert.Throws<ArgumentException>(()=>
+                SerializeUtility.DeserializeWorld(m_Manager.BeginExclusiveEntityTransaction(), reader)
+            );
+            reader.Dispose();
+        }
+
         [Test]
         public unsafe void SerializeEntities()
         {
@@ -89,7 +107,6 @@ namespace Unity.Entities.Tests
             ebuf.Add(new EcsComplexEntityRefElement { Entity = e3, Dummy = 3 });
 
             m_Manager.DestroyEntity(dummyEntity);
-
             var writer = new TestBinaryWriter();
 
             int[] sharedData;

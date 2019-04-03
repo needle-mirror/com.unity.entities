@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs.LowLevel;
@@ -17,13 +18,15 @@ namespace Unity.Entities
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
 	    internal AtomicSafetyHandle m_Safety;
+	    internal AtomicSafetyHandle m_ArrayInvalidationSafety;
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal DynamicBuffer(BufferHeader* header, AtomicSafetyHandle safety)
+        internal DynamicBuffer(BufferHeader* header, AtomicSafetyHandle safety, AtomicSafetyHandle arrayInvalidationSafety)
         {
             m_Buffer = header;
             m_Safety = safety;
+            m_ArrayInvalidationSafety = arrayInvalidationSafety;
         }
 #else
         internal DynamicBuffer(BufferHeader* header)
@@ -85,8 +88,16 @@ namespace Unity.Entities
 
         public void ResizeUninitialized(int length)
         {
+            InvalidateArrayAliases();
             BufferHeader.EnsureCapacity(m_Buffer, length, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData);
             m_Buffer->Length = length;
+        }
+
+        private void InvalidateArrayAliases()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndBumpSecondaryVersion(m_ArrayInvalidationSafety);
+#endif
         }
 
         public void Clear()
@@ -164,32 +175,36 @@ namespace Unity.Entities
                 throw new InvalidOperationException($"Types {typeof(U)} and {typeof(T)} are of different sizes; cannot reinterpret");
 #endif
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new DynamicBuffer<U>(m_Buffer, m_Safety);
+            return new DynamicBuffer<U>(m_Buffer, m_Safety, m_ArrayInvalidationSafety);
 #else
             return new DynamicBuffer<U>(m_Buffer);
 #endif
         }
 
-        public void CopyFrom(T[] v)
+        /// <summary>
+        /// Return a native array that aliases the buffer contents. The array is only legal to access as long as the buffer is not reallocated.
+        /// </summary>
+        public NativeArray<T> ToNativeArray()
         {
-            ResizeUninitialized(v.Length);
-
             var shadow = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(GetBasePointer(), Length, Allocator.Invalid);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref shadow, m_Safety);
+            var handle = m_ArrayInvalidationSafety;
+            AtomicSafetyHandle.UseSecondaryVersion(ref handle);
+            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref shadow, handle);
 #endif
-            shadow.CopyFrom(v);
+            return shadow;
         }
 
         public void CopyFrom(NativeArray<T> v)
         {
             ResizeUninitialized(v.Length);
+            ToNativeArray().CopyFrom(v);
+        }
 
-            var shadow = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(GetBasePointer(), Length, Allocator.Invalid);
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref shadow, m_Safety);
-#endif
-            shadow.CopyFrom(v);
+        public void CopyFrom(T[] v)
+        {
+            ResizeUninitialized(v.Length);
+            ToNativeArray().CopyFrom(v);
         }
     }
 }

@@ -54,10 +54,10 @@ namespace Unity.Rendering
             if (ActiveCamera != null)
             {
                 var hlodJob = new HLODGroupJob { LODParams = LODGroupExtensions.CalculateLODParams(ActiveCamera)};
-                dependency = hlodJob.Schedule(this, 64, dependency);
+                dependency = hlodJob.Schedule(this, dependency);
                 
                 var lodJob = new LODGroupJob { LODParams = LODGroupExtensions.CalculateLODParams(ActiveCamera), HLODActiveMask = m_ActiveLODGroupMask };
-                dependency = lodJob.Schedule(this, 64, dependency);
+                dependency = lodJob.Schedule(this, dependency);
             }
 
             return dependency;

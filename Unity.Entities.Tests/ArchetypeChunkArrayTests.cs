@@ -338,5 +338,35 @@ namespace Unity.Entities.Tests
 
             chunks.Dispose();
         }
+
+        [Test]
+        public void ACS_ChunkArchetypeTypesMatch()
+        {
+            var entityTypes = new ComponentType[] {typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsIntElement)};
+            
+            CreateEntities(128);
+            
+            var query = new EntityArchetypeQuery
+            {
+                Any = new ComponentType[0], // any
+                None = new ComponentType[0], // none
+                All = entityTypes, // all
+            };
+            
+            using (var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob))
+            {
+                foreach (var chunk in chunks)
+                {
+                    var archetype = chunk.Archetype;
+                    var chunkTypes = archetype.ComponentTypes;
+                    foreach (var type in entityTypes)
+                    {
+                        Assert.Contains(type, chunkTypes);
+                    }
+
+                    Assert.Contains(new ComponentType(typeof(Entity)), chunkTypes);
+                }
+            }
+        }
     }
 }

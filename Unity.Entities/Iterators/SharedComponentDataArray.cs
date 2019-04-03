@@ -43,7 +43,7 @@ namespace Unity.Entities
 #endif
 
                 if (index < m_Cache.CachedBeginIndex || index >= m_Cache.CachedEndIndex)
-                    m_Iterator.UpdateCache(index, out m_Cache, false);
+                    m_Iterator.MoveToEntityIndexAndUpdateCache(index, out m_Cache, false);
 
                 var sharedComponent = m_Iterator.GetSharedComponentFromCurrentChunk(m_sharedComponentIndex);
                 return m_sharedComponentDataManager.GetSharedComponentData<T>(sharedComponent);

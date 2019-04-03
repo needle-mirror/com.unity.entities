@@ -18,8 +18,14 @@ namespace Unity.Entities
 
             ValidateNoStaticInjectDependencies(componentSystemType);
 
-            var fields =
-                componentSystemType.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            InjectFields(componentSystem, world, entityManager, out outInjectGroups, out outInjectFromEntityData);
+        }
+
+        static void InjectFields(ComponentSystemBase componentSystem, World world, EntityManager entityManager,
+            out InjectComponentGroupData[] outInjectGroups, out InjectFromEntityData outInjectFromEntityData)
+        {
+            var componentSystemType = componentSystem.GetType();
+            var fields = componentSystemType.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             var injectGroups = new List<InjectComponentGroupData>();
 
             var injectFromEntity = new List<InjectionData>();
@@ -46,10 +52,10 @@ namespace Unity.Entities
                 }
             }
 
+
             outInjectGroups = injectGroups.ToArray();
 
-            outInjectFromEntityData =
-                new InjectFromEntityData(injectFromEntity.ToArray(), injectFromFixedArray.ToArray());
+            outInjectFromEntityData = new InjectFromEntityData(injectFromEntity.ToArray(), injectFromFixedArray.ToArray());
         }
 
         private static void ValidateNoStaticInjectDependencies(Type type)

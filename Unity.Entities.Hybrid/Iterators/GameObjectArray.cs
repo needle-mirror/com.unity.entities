@@ -47,7 +47,7 @@ namespace Unity.Entities
 					FailOutOfRangeError(index);
 
                 if (index < m_Cache.CachedBeginIndex || index >= m_Cache.CachedEndIndex)
-	                m_Iterator.UpdateCache(index, out m_Cache, true);
+	                m_Iterator.MoveToEntityIndexAndUpdateCache(index, out m_Cache, true);
 
 			    var transform = (Transform) m_Iterator.GetManagedObject(m_ArchetypeManager, m_Cache.CachedBeginIndex, index);
 
@@ -61,7 +61,7 @@ namespace Unity.Entities
 			var i = 0;
 			while (i < m_Length)
 			{
-				m_Iterator.UpdateCache(i, out m_Cache, true);
+				m_Iterator.MoveToEntityIndexAndUpdateCache(i, out m_Cache, true);
 				int start, length;
 				var objs = m_Iterator.GetManagedObjectRange(m_ArchetypeManager, m_Cache.CachedBeginIndex, i, out start, out length);
 				for (var obj = 0; obj < length; ++obj)

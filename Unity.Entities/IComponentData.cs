@@ -35,4 +35,8 @@ namespace Unity.Entities
     public struct Disabled : IComponentData
     {
     }
+    
+    public struct Prefab : IComponentData
+    {
+    }
 }

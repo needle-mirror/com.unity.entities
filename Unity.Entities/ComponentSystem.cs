@@ -86,12 +86,8 @@ namespace Unity.Entities
         void InjectNestedIJobProcessComponentDataJobs()
         {
             // Create ComponentGroup for all nested IJobProcessComponentData jobs
-            foreach (var nestedType in GetType().GetNestedTypes(BindingFlags.FlattenHierarchy | BindingFlags.NonPublic))
-            {
-                var componentTypes = IJobProcessComponentDataUtility.GetComponentTypes(nestedType);
-                if (componentTypes != null)
-                    GetComponentGroup(componentTypes);
-            }
+            foreach (var nestedType in GetType().GetNestedTypes(BindingFlags.FlattenHierarchy | BindingFlags.NonPublic | BindingFlags.Public))
+                JobProcessComponentDataExtensions.GetComponentGroupForIJobProcessComponentData(this, nestedType);
         }
 
         protected sealed override void OnAfterDestroyManagerInternal()
@@ -282,7 +278,7 @@ namespace Unity.Entities
 
         internal void CompleteDependencyInternal()
         {
-            m_SafetyManager.CompleteDependencies(m_JobDependencyForReadingManagersPtr, m_JobDependencyForReadingManagersLength, m_JobDependencyForWritingManagersPtr, m_JobDependencyForWritingManagersLength);
+            m_SafetyManager.CompleteDependenciesNoChecks(m_JobDependencyForReadingManagersPtr, m_JobDependencyForReadingManagersLength, m_JobDependencyForWritingManagersPtr, m_JobDependencyForWritingManagersLength);
         }
     }
 
@@ -471,10 +467,10 @@ namespace Unity.Entities
             m_PreviousFrameDependency.Complete();
         }
 
-        public BufferDataFromEntity<T> GetBufferArrayFromEntity<T>(bool isReadOnly = false) where T : struct, IBufferElementData
+        public BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : struct, IBufferElementData
         {
             AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.Create<T>());
-            return EntityManager.GetBufferDataFromEntity<T>(isReadOnly);
+            return EntityManager.GetBufferFromEntity<T>(isReadOnly);
         }
 
         protected virtual JobHandle OnUpdate(JobHandle inputDeps)

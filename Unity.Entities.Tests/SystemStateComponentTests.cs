@@ -1,13 +1,33 @@
 ﻿using NUnit.Framework;
 using Unity.Collections;
 using System;
-using NUnit.Framework.Interfaces;
 
 namespace Unity.Entities.Tests
 {
     [TestFixture]
     public class SystemStateComponentTests : ECSTestsFixture
     {
+        void VerifyComponentCount<T>(int expectedCount)
+            where T : IComponentData
+        {
+            var query = new EntityArchetypeQuery
+            {
+                Any = Array.Empty<ComponentType>(),
+                None = Array.Empty<ComponentType>(),
+                All = new ComponentType[] {typeof(T)}
+            };
+            var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+            Assert.AreEqual(expectedCount, ArchetypeChunkArray.CalculateEntityCount(chunks));
+            chunks.Dispose();
+        }
+
+        void VerifyQueryCount(EntityArchetypeQuery query, int expectedCount)
+        {
+            var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+            Assert.AreEqual(expectedCount, ArchetypeChunkArray.CalculateEntityCount(chunks));
+            chunks.Dispose();
+        }
+
         [Test]
         public void SSC_DeleteWhenEmpty()
         {
@@ -21,57 +41,16 @@ namespace Unity.Entities.Tests
             m_Manager.SetComponentData(entity, new EcsState1(2));
             m_Manager.SetSharedComponentData(entity, new EcsTestSharedComp(3));
 
-            {
-                var query = new EntityArchetypeQuery
-                {
-                    Any = Array.Empty<ComponentType>(),
-                    None = Array.Empty<ComponentType>(),
-                    All = new ComponentType[] {typeof(EcsTestData)}
-                };
-                var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-                Assert.AreEqual(1, ArchetypeChunkArray.CalculateEntityCount(chunks));
-                chunks.Dispose();
-            }
+            VerifyComponentCount<EcsTestData>(1);
 
             m_Manager.DestroyEntity(entity);
-
-            {
-                var query = new EntityArchetypeQuery
-                {
-                    Any = Array.Empty<ComponentType>(), // any
-                    None = Array.Empty<ComponentType>(), // none
-                    All = new ComponentType[] {typeof(EcsTestData)}, // all
-                };
-                var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-                Assert.AreEqual(0, ArchetypeChunkArray.CalculateEntityCount(chunks));
-                chunks.Dispose();
-            }
-
-            {
-                var query = new EntityArchetypeQuery
-                {
-                    Any = Array.Empty<ComponentType>(), // any
-                    None = Array.Empty<ComponentType>(), // none
-                    All = new ComponentType[] {typeof(EcsState1)}, // all
-                };
-                var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-                Assert.AreEqual(1, ArchetypeChunkArray.CalculateEntityCount(chunks));
-                chunks.Dispose();
-            }
+            
+            VerifyComponentCount<EcsTestData>(0);
+            VerifyComponentCount<EcsState1>(1);
 
             m_Manager.RemoveComponent<EcsState1>(entity);
-
-            {
-                var query = new EntityArchetypeQuery
-                {
-                    Any = Array.Empty<ComponentType>(), // any
-                    None = Array.Empty<ComponentType>(), // none
-                    All = new ComponentType[] {typeof(EcsState1)}, // all
-                };
-                var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-                Assert.AreEqual(0, ArchetypeChunkArray.CalculateEntityCount(chunks));
-                chunks.Dispose();
-            }
+            
+            VerifyComponentCount<EcsState1>(0);
 
             Assert.IsFalse(m_Manager.Exists(entity));
         }
@@ -95,65 +74,30 @@ namespace Unity.Entities.Tests
                 m_Manager.SetSharedComponentData(entity, new EcsTestSharedComp(i % 7));
             }
 
-            {
-                var query = new EntityArchetypeQuery
-                {
-                    Any = Array.Empty<ComponentType>(), // any
-                    None = Array.Empty<ComponentType>(), // none
-                    All = new ComponentType[] {typeof(EcsTestData)}, // all
-                };
-                var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-                Assert.AreEqual(512, ArchetypeChunkArray.CalculateEntityCount(chunks));
-                chunks.Dispose();
-            }
-
+            VerifyComponentCount<EcsTestData>(512);
+            
             for (var i = 0; i < 512; i += 2)
             {
                 var entity = entities[i];
                 m_Manager.DestroyEntity(entity);
             }
 
+            VerifyComponentCount<EcsTestData>(256);
+            VerifyComponentCount<EcsState1>(512);
+            VerifyQueryCount(new EntityArchetypeQuery
             {
-                var query = new EntityArchetypeQuery
-                {
-                    Any = Array.Empty<ComponentType>(), // any
-                    None = Array.Empty<ComponentType>(), // none
-                    All = new ComponentType[] {typeof(EcsTestData)}, // all
-                };
-                var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-                Assert.AreEqual(256, ArchetypeChunkArray.CalculateEntityCount(chunks));
-                chunks.Dispose();
-            }
-
-            {
-                var query = new EntityArchetypeQuery
-                {
-                    Any = Array.Empty<ComponentType>(), // any
-                    None = new ComponentType[] {typeof(EcsTestData)}, // none
-                    All = new ComponentType[] {typeof(EcsState1)}, // all
-                };
-                var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-                Assert.AreEqual(256, ArchetypeChunkArray.CalculateEntityCount(chunks));
-                chunks.Dispose();
-            }
-
+                Any = Array.Empty<ComponentType>(), // any
+                None = new ComponentType[] {typeof(EcsTestData)}, // none
+                All = new ComponentType[] {typeof(EcsState1)}, // all
+            }, 256);
+            
             for (var i = 0; i < 512; i += 2)
             {
                 var entity = entities[i];
                 m_Manager.RemoveComponent<EcsState1>(entity);
             }
-
-            {
-                var query = new EntityArchetypeQuery
-                {
-                    Any = Array.Empty<ComponentType>(), 
-                    None = Array.Empty<ComponentType>(),
-                    All = new ComponentType[] {typeof(EcsState1)}
-                };
-                var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-                Assert.AreEqual(256, ArchetypeChunkArray.CalculateEntityCount(chunks));
-                chunks.Dispose();
-            }
+            
+            VerifyComponentCount<EcsState1>(256);
 
             for (var i = 0; i < 512; i += 2)
             {
@@ -187,47 +131,22 @@ namespace Unity.Entities.Tests
                 m_Manager.SetSharedComponentData(entity, new EcsTestSharedComp(i % 7));
             }
 
-            {
-                var query = new EntityArchetypeQuery
-                {
-                    Any = Array.Empty<ComponentType>(), // any
-                    None = Array.Empty<ComponentType>(), // none
-                    All = new ComponentType[] {typeof(EcsTestData)}, // all
-                };
-                var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-                Assert.AreEqual(512, ArchetypeChunkArray.CalculateEntityCount(chunks));
-                chunks.Dispose();
-            }
-
+            VerifyComponentCount<EcsTestData>(512);
+            
             for (var i = 0; i < 256; i++)
             {
                 var entity = entities[i];
                 m_Manager.DestroyEntity(entity);
             }
-
+            
+            VerifyComponentCount<EcsTestData>(256);
+            VerifyComponentCount<EcsState1>(512);
+            VerifyQueryCount(new EntityArchetypeQuery
             {
-                var query = new EntityArchetypeQuery
-                {
-                    Any = Array.Empty<ComponentType>(), // any
-                    None = Array.Empty<ComponentType>(), // none
-                    All = new ComponentType[] {typeof(EcsTestData)}, // all
-                };
-                var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-                Assert.AreEqual(256, ArchetypeChunkArray.CalculateEntityCount(chunks));
-                chunks.Dispose();
-            }
-
-            {
-                var query = new EntityArchetypeQuery
-                {
-                    Any = Array.Empty<ComponentType>(), // any
-                    None = new ComponentType[] {typeof(EcsTestData)}, // none
-                    All = new ComponentType[] {typeof(EcsState1)}, // all
-                };
-                var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-                Assert.AreEqual(256, ArchetypeChunkArray.CalculateEntityCount(chunks));
-                chunks.Dispose();
-            }
+                Any = Array.Empty<ComponentType>(), // any
+                None = new ComponentType[] {typeof(EcsTestData)}, // none
+                All = new ComponentType[] {typeof(EcsState1)}, // all
+            }, 256);
 
             for (var i = 0; i < 256; i++)
             {
@@ -235,17 +154,7 @@ namespace Unity.Entities.Tests
                 m_Manager.RemoveComponent<EcsState1>(entity);
             }
 
-            {
-                var query = new EntityArchetypeQuery
-                {
-                    Any = Array.Empty<ComponentType>(), // none
-                    None = Array.Empty<ComponentType>(), // none
-                    All = new ComponentType[] {typeof(EcsState1)}, // all
-                };
-                var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-                Assert.AreEqual(256, ArchetypeChunkArray.CalculateEntityCount(chunks));
-                chunks.Dispose();
-            }
+            VerifyComponentCount<EcsState1>(256);
 
             for (var i = 0; i < 256; i++)
             {
@@ -258,6 +167,20 @@ namespace Unity.Entities.Tests
                 var entity = entities[i];
                 Assert.IsTrue(m_Manager.Exists(entity));
             }
+        }
+
+        [Test]
+        public void SSC_DoNotInstantiateSystemState()
+        {
+            var entity0 = m_Manager.CreateEntity(
+                typeof(EcsTestData),
+                typeof(EcsTestSharedComp),
+                typeof(EcsState1)
+            );
+
+            var entity1 = m_Manager.Instantiate(entity0);
+            
+            VerifyComponentCount<EcsState1>(1);
         }
     }
 }

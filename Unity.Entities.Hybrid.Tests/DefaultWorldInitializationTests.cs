@@ -10,7 +10,6 @@ namespace Unity.Entities.Tests
     public class DefaultWorldInitializationTests
     {
         private World m_PreviousWorld;
-        private World m_World;
 
         [SetUp]
         public void Setup()

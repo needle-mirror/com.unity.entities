@@ -20,7 +20,7 @@ namespace Unity.Entities
         }
 
         public const int MaximumTypesCount = 1024 * 10;
-        private static ComponentType[] s_Types;
+        private static TypeInfo[] s_Types;
         private static volatile int s_Count;
         private static SpinLock s_CreateTypeLock;
         public static int ObjectOffset;
@@ -35,10 +35,17 @@ namespace Unity.Entities
         {
             public int Offset;
         }
-
-        public struct ComponentType
+        
+        // https://stackoverflow.com/a/27851610
+        static bool IsZeroSizeStruct(Type t)
         {
-            public ComponentType(Type type, int size, TypeCategory category, FastEquality.TypeInfo typeInfo, EntityOffsetInfo[] entityOffsets, UInt64 memoryOrdering, int bufferCapacity, int elementSize)
+            return t.IsValueType && !t.IsPrimitive && 
+                   t.GetFields((BindingFlags)0x34).All(fi => IsZeroSizeStruct(fi.FieldType));
+        }
+
+        public struct TypeInfo
+        {
+            public TypeInfo(Type type, int size, TypeCategory category, FastEquality.TypeInfo typeInfo, EntityOffsetInfo[] entityOffsets, UInt64 memoryOrdering, int bufferCapacity, int elementSize)
             {
                 Type = type;
                 SizeInChunk = size;
@@ -48,6 +55,8 @@ namespace Unity.Entities
                 MemoryOrdering = memoryOrdering;
                 BufferCapacity = bufferCapacity;
                 ElementSize = elementSize;
+                IsSystemStateSharedComponent = typeof(ISystemStateSharedComponentData).IsAssignableFrom(type);
+                IsSystemStateComponent = typeof(ISystemStateComponentData).IsAssignableFrom(type);
             }
 
             public readonly Type Type;
@@ -60,6 +69,9 @@ namespace Unity.Entities
             public readonly TypeCategory Category;
             public readonly EntityOffsetInfo[] EntityOffsets;
             public readonly UInt64 MemoryOrdering;
+            public readonly bool IsSystemStateSharedComponent;
+            public readonly bool IsSystemStateComponent;
+            public bool IsZeroSized => SizeInChunk == 0;
         }
 
         // TODO: this creates a dependency on UnityEngine, but makes splitting code in separate assemblies easier. We need to remove it during the biggere refactor.
@@ -78,12 +90,12 @@ namespace Unity.Entities
 
             ObjectOffset = UnsafeUtility.SizeOf<ObjectOffsetType>();
             s_CreateTypeLock = new SpinLock();
-            s_Types = new ComponentType[MaximumTypesCount];
+            s_Types = new TypeInfo[MaximumTypesCount];
             s_Count = 0;
 
-            s_Types[s_Count++] = new ComponentType(null, 0, TypeCategory.ComponentData, FastEquality.TypeInfo.Null, null, 0, -1, 0);
+            s_Types[s_Count++] = new TypeInfo(null, 0, TypeCategory.ComponentData, FastEquality.TypeInfo.Null, null, 0, -1, 0);
             // This must always be first so that Entity is always index 0 in the archetype
-            s_Types[s_Count++] = new ComponentType(typeof(Entity), sizeof(Entity), TypeCategory.EntityData,
+            s_Types[s_Count++] = new TypeInfo(typeof(Entity), sizeof(Entity), TypeCategory.EntityData,
             FastEquality.CreateTypeInfo(typeof(Entity)), EntityRemapUtility.CalculateEntityOffsets(typeof(Entity)), 0, -1, sizeof(Entity));
         }
 
@@ -120,7 +132,7 @@ namespace Unity.Entities
 #if UNITY_EDITOR
         public static int TypesCount => s_Count;
 
-        public static IEnumerable<ComponentType> AllTypes()
+        public static IEnumerable<TypeInfo> AllTypes()
         {
             return Enumerable.Take(s_Types, s_Count);
         }
@@ -179,7 +191,7 @@ namespace Unity.Entities
         };
 #endif
 
-        public static ComponentType BuildComponentType(Type type)
+        public static TypeInfo BuildComponentType(Type type)
         {
             var componentSize = 0;
             TypeCategory category;
@@ -191,7 +203,7 @@ namespace Unity.Entities
             if (typeof(IComponentData).IsAssignableFrom(type))
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (type.IsClass)
+                if (!type.IsValueType)
                     throw new ArgumentException($"{type} is an IComponentData, and thus must be a struct.");
                 if (!UnsafeUtility.IsBlittable(type))
                     throw new ArgumentException(
@@ -199,14 +211,18 @@ namespace Unity.Entities
 #endif
 
                 category = TypeCategory.ComponentData;
-                componentSize = UnsafeUtility.SizeOf(type);
+                if (TypeManager.IsZeroSizeStruct(type))
+                    componentSize = 0;
+                else
+                    componentSize = UnsafeUtility.SizeOf(type);
+                
                 typeInfo = FastEquality.CreateTypeInfo(type);
                 entityOffsets = EntityRemapUtility.CalculateEntityOffsets(type);
             }
             else if (typeof(IBufferElementData).IsAssignableFrom(type))
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (type.IsClass)
+                if (!type.IsValueType)
                     throw new ArgumentException($"{type} is an IBufferElementData, and thus must be a struct.");
                 if (!UnsafeUtility.IsBlittable(type))
                     throw new ArgumentException(
@@ -229,7 +245,7 @@ namespace Unity.Entities
             else if (typeof(ISharedComponentData).IsAssignableFrom(type))
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (type.IsClass)
+                if (!type.IsValueType)
                     throw new ArgumentException($"{type} is an ISharedComponentData, and thus must be a struct.");
 #endif
 
@@ -263,15 +279,15 @@ namespace Unity.Entities
                     throw new ArgumentException($"Component {type} can only implement one of IComponentData, ISharedComponentData and IBufferElementData");
             }
 #endif
-            return new ComponentType(type, componentSize, category, typeInfo, entityOffsets, memoryOrdering, bufferCapacity, elementSize > 0 ? elementSize : componentSize);
+            return new TypeInfo(type, componentSize, category, typeInfo, entityOffsets, memoryOrdering, bufferCapacity, elementSize > 0 ? elementSize : componentSize);
         }
 
-        public static ComponentType GetComponentType(int typeIndex)
+        public static TypeInfo GetTypeInfo(int typeIndex)
         {
             return s_Types[typeIndex];
         }
 
-        public static ComponentType GetComponentType<T>()
+        public static TypeInfo GetTypeInfo<T>()
         {
             return s_Types[GetTypeIndex<T>()];
         }
@@ -285,5 +301,9 @@ namespace Unity.Entities
         {
             return s_Count;
         }
+
+        public static bool IsSystemStateComponent(int typeIndex) => GetTypeInfo(typeIndex).IsSystemStateComponent;
+        public static bool IsSystemStateSharedComponent(int typeIndex) => GetTypeInfo(typeIndex).IsSystemStateSharedComponent;
+        public static bool IsSharedComponent(int typeIndex) => TypeCategory.ISharedComponentData == GetTypeInfo(typeIndex).Category;
     }
 }
