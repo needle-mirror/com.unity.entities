@@ -27,7 +27,7 @@ namespace Unity.Entities
     {
         public ComponentType[] Any = Array.Empty<ComponentType>();
         public ComponentType[] None = Array.Empty<ComponentType>();
-        public ComponentType[] All = Array.Empty<ComponentType>();        
+        public ComponentType[] All = Array.Empty<ComponentType>();
     }
 
     //@TODO: Rename to ComponentQuery
@@ -56,6 +56,7 @@ namespace Unity.Entities
         }
 
         internal EntityDataManager* EntityDataManager { get; }
+        internal ComponentJobSafetyManager SafetyManager => m_SafetyManager;
 
         /// <summary>
         ///      Ignore this ComponentGroup if it has no entities in any of its archetypes.
@@ -65,9 +66,12 @@ namespace Unity.Entities
         {
             get
             {
-                for (var match = m_GroupData->FirstMatchingArchetype; match != null; match = match->Next)
+                for (var m = m_GroupData->MatchingArchetypes.Count - 1; m >= 0; --m)
+                {
+                    var match = m_GroupData->MatchingArchetypes.p[m];
                     if (match->Archetype->EntityCount > 0)
                         return false;
+                }
 
                 return true;
             }
@@ -209,7 +213,7 @@ namespace Unity.Entities
         /// <returns>Number of entities</returns>
         public int CalculateLength()
         {
-            return ComponentChunkIterator.CalculateLength(m_GroupData->FirstMatchingArchetype, ref m_Filter);
+            return ComponentChunkIterator.CalculateLength(m_GroupData->MatchingArchetypes, ref m_Filter);
         }
 
         /// <summary>
@@ -218,7 +222,7 @@ namespace Unity.Entities
         /// <returns>ComponentChunkIterator for this ComponentGroup</returns>
         internal ComponentChunkIterator GetComponentChunkIterator()
         {
-            return new ComponentChunkIterator(m_GroupData->FirstMatchingArchetype, m_EntityDataManager->GlobalSystemVersion, ref m_Filter);
+            return new ComponentChunkIterator(m_GroupData->MatchingArchetypes, m_EntityDataManager->GlobalSystemVersion, ref m_Filter);
         }
 
         /// <summary>
@@ -349,7 +353,7 @@ namespace Unity.Entities
         /// <returns>NativeArray of all the chunks in this ComponentChunkIterator.</returns>
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator, out JobHandle jobhandle)
         {
-            return ComponentChunkIterator.CreateArchetypeChunkArray(m_GroupData->FirstMatchingArchetype, allocator, out jobhandle);
+            return ComponentChunkIterator.CreateArchetypeChunkArray(m_GroupData->MatchingArchetypes, allocator, out jobhandle);
         }
 
         /// <summary>
@@ -361,7 +365,7 @@ namespace Unity.Entities
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator)
         {
             JobHandle job;
-            var res = ComponentChunkIterator.CreateArchetypeChunkArray(m_GroupData->FirstMatchingArchetype, allocator, out job);
+            var res = ComponentChunkIterator.CreateArchetypeChunkArray(m_GroupData->MatchingArchetypes, allocator, out job);
             job.Complete();
             return res;
         }
@@ -374,8 +378,8 @@ namespace Unity.Entities
 #else
             var entityType = new ArchetypeChunkEntityType();
 #endif
-            
-            return ComponentChunkIterator.CreateEntityArray(m_GroupData->FirstMatchingArchetype, allocator, entityType,  this, ref m_Filter, out jobhandle, GetDependency());
+
+            return ComponentChunkIterator.CreateEntityArray(m_GroupData->MatchingArchetypes, allocator, entityType,  this, ref m_Filter, out jobhandle, GetDependency());
         }
 
         public NativeArray<Entity> ToEntityArray(Allocator allocator)
@@ -384,9 +388,9 @@ namespace Unity.Entities
             var entityType = new ArchetypeChunkEntityType(m_SafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<Entity>(), true));
 #else
             var entityType = new ArchetypeChunkEntityType();
-#endif    
+#endif
             JobHandle job;
-            var res = ComponentChunkIterator.CreateEntityArray(m_GroupData->FirstMatchingArchetype, allocator, entityType, this, ref m_Filter, out job, GetDependency());
+            var res = ComponentChunkIterator.CreateEntityArray(m_GroupData->MatchingArchetypes, allocator, entityType, this, ref m_Filter, out job, GetDependency());
             job.Complete();
             return res;
         }
@@ -399,7 +403,7 @@ namespace Unity.Entities
 #else
             var componentType = new ArchetypeChunkComponentType<T>(true, EntityDataManager->GlobalSystemVersion);
 #endif
-            return ComponentChunkIterator.CreateComponentDataArray(m_GroupData->FirstMatchingArchetype, allocator, componentType, this, ref m_Filter, out jobhandle, GetDependency());
+            return ComponentChunkIterator.CreateComponentDataArray(m_GroupData->MatchingArchetypes, allocator, componentType, this, ref m_Filter, out jobhandle, GetDependency());
         }
 
         public NativeArray<T> ToComponentDataArray<T>(Allocator allocator)
@@ -411,9 +415,48 @@ namespace Unity.Entities
             var componentType = new ArchetypeChunkComponentType<T>(true, EntityDataManager->GlobalSystemVersion);
 #endif
             JobHandle job;
-            var res = ComponentChunkIterator.CreateComponentDataArray(m_GroupData->FirstMatchingArchetype, allocator, componentType, this, ref m_Filter, out job, GetDependency());
+            var res = ComponentChunkIterator.CreateComponentDataArray(m_GroupData->MatchingArchetypes, allocator, componentType, this, ref m_Filter, out job, GetDependency());
             job.Complete();
             return res;
+        }
+
+        public void CopyFromComponentDataArray<T>(NativeArray<T> componentDataArray)
+        where T : struct,IComponentData
+        {
+            // throw if non equal size
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var groupLength = CalculateLength();
+            if(groupLength != componentDataArray.Length)
+                throw new ArgumentException($"Length of input array ({componentDataArray.Length}) does not match length of ComponentGroup ({groupLength})");
+#endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, EntityDataManager->GlobalSystemVersion);
+#else
+            var componentType = new ArchetypeChunkComponentType<T>(false, EntityDataManager->GlobalSystemVersion);
+#endif
+
+            ComponentChunkIterator.CopyFromComponentDataArray(m_GroupData->MatchingArchetypes, componentDataArray, componentType, this, ref m_Filter, out var job, GetDependency());
+            job.Complete();
+        }
+
+        public void CopyFromComponentDataArray<T>(NativeArray<T> componentDataArray, out JobHandle jobhandle)
+            where T : struct,IComponentData
+        {
+            // throw if non equal size
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var groupLength = CalculateLength();
+            if(groupLength != componentDataArray.Length)
+                throw new ArgumentException($"Length of input array ({componentDataArray.Length}) does not match length of ComponentGroup ({groupLength})");
+#endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, EntityDataManager->GlobalSystemVersion);
+#else
+            var componentType = new ArchetypeChunkComponentType<T>(false, EntityDataManager->GlobalSystemVersion);
+#endif
+
+            ComponentChunkIterator.CopyFromComponentDataArray(m_GroupData->MatchingArchetypes, componentDataArray, componentType, this, ref m_Filter, out jobhandle, GetDependency());
         }
 
         /// <summary>
@@ -428,11 +471,58 @@ namespace Unity.Entities
             EntityArray output;
             iterator.IndexInComponentGroup = 0;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
+
+            if (m_GroupData->RequiredComponentsCount == 0)
+                throw new InvalidOperationException( $"GetEntityArray() is currently not supported from a ComponentGroup created with EntityArchetypeQuery.");
+
             output = new EntityArray(iterator, length, m_SafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<Entity>(), true));
 #else
 			output = new EntityArray(iterator, length);
 #endif
             return output;
+        }
+
+        public T GetSingleton<T>()
+            where T : struct, IComponentData
+        {
+            #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if(GetIndexInComponentGroup(TypeManager.GetTypeIndex<T>()) != 1)
+                throw new System.InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that {typeof(T)} is the only component type in its archetype.");
+
+            var groupLength = CalculateLength();
+            if (groupLength != 1)
+                throw new System.InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exists but there are {groupLength}.");
+            #endif
+
+            CompleteDependency();
+
+            var iterator = GetComponentChunkIterator();
+            iterator.MoveToChunkWithoutFiltering(0);
+
+            var array = iterator.GetCurrentChunkComponentDataPtr(false, 1);
+            UnsafeUtility.CopyPtrToStructure(array, out T value);
+            return value;
+        }
+
+        public void SetSingleton<T>(T value)
+            where T : struct, IComponentData
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if(GetIndexInComponentGroup(TypeManager.GetTypeIndex<T>()) != 1)
+                throw new System.InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that {typeof(T)} is the only component type in its archetype.");
+
+            var groupLength = CalculateLength();
+            if (groupLength != 1)
+                throw new System.InvalidOperationException($"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exists but there are {groupLength}.");
+#endif
+
+            CompleteDependency();
+
+            var iterator = GetComponentChunkIterator();
+            iterator.MoveToChunkWithoutFiltering(0);
+
+            var array = iterator.GetCurrentChunkComponentDataPtr(true, 1);
+            UnsafeUtility.CopyStructureToPtr(ref value, array);
         }
 
         internal bool CompareComponents(ComponentType* componentTypes, int count)
@@ -490,7 +580,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        ///     Creates a new SharedComponent filter on a given ISharedComponentData type for this ComponentGroup. 
+        ///     Creates a new SharedComponent filter on a given ISharedComponentData type for this ComponentGroup.
         /// </summary>
         /// <param name="sharedComponent1">A struct that implements ISharedComponentData</param>
         public void SetFilter<SharedComponent1>(SharedComponent1 sharedComponent1)
@@ -612,12 +702,12 @@ namespace Unity.Entities
         /// <returns>Number of chunks in this ComponentGroup.</returns>
         internal int CalculateNumberOfChunksWithoutFiltering()
         {
-            return ComponentChunkIterator.CalculateNumberOfChunksWithoutFiltering(m_GroupData->FirstMatchingArchetype);
+            return ComponentChunkIterator.CalculateNumberOfChunksWithoutFiltering(m_GroupData->MatchingArchetypes);
         }
 
 
 		//TODO: Remove this once CreateArchetypeChunkArray supports filtering shared components
-        internal NativeArray<ArchetypeChunk> GetAllMatchingChunks(Allocator allocator)
+        public NativeArray<ArchetypeChunk> GetAllMatchingChunks(Allocator allocator)
         {
             if (((m_Filter.Type & FilterType.SharedComponent) != 0) && (m_Filter.Shared.Count == 1))
             {
@@ -655,8 +745,9 @@ namespace Unity.Entities
             else
             {
                 var chunks = new NativeList<ArchetypeChunk>(allocator);
-                for (var match = m_GroupData->FirstMatchingArchetype; match != null; match = match->Next)
+                for(var m = m_GroupData->MatchingArchetypes.Count - 1; m >= 0; --m)
                 {
+                    var match = m_GroupData->MatchingArchetypes.p[m];
                     var archeType = match->Archetype;
                     for (var i = 0; i < archeType->Chunks.Count; ++i)
                     {
@@ -700,8 +791,9 @@ namespace Unity.Entities
         {
             var searchElements = new NativeList<ArchetypeChunkSearchElement>(100, Allocator.TempJob);
             totalChunkCount = 0;
-            for (var match = m_GroupData->FirstMatchingArchetype; match != null; match = match->Next)
+            for(var m = m_GroupData->MatchingArchetypes.Count - 1; m >= 0; --m)
             {
+                var match = m_GroupData->MatchingArchetypes.p[m];
                 var chunkCount = match->Archetype->Chunks.Count;
                 searchElements.Add(new ArchetypeChunkSearchElement
                 {
@@ -717,7 +809,7 @@ namespace Unity.Entities
 
         struct ArchetypeChunkSearchElement
         {
-            public MatchingArchetypes* matchingArchetype;
+            public MatchingArchetype* matchingArchetype;
             public int filteredCount;
             public int indexStart;
         }
@@ -739,15 +831,18 @@ namespace Unity.Entities
                 var match = element.matchingArchetype;
                 var archetype = match->Archetype;
                 var componentIndexInArchetype = match->IndexInArchetype[indexInComponentGroup];
-                var componentIndexInChunk = archetype->SharedComponentOffset[componentIndexInArchetype];
+                var componentIndexInChunk = componentIndexInArchetype - archetype->FirstSharedComponent;
                 var writeIndex = element.indexStart;
                 int filteredCount = 0;
-                for (var i = 0; i < archetype->Chunks.Count; ++i)
+                int chunkCount = archetype->Chunks.Count;
+
+                var sharedComponents = archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk);
+                var archetypeChunks = archetype->Chunks.p;
+
+                for (var i = 0; i < chunkCount; ++i)
                 {
-                    var chunk = archetype->Chunks.p[i];
-                    var sharedComponentsInChunk = chunk->SharedComponentValueArray;
-                    if (sharedComponentsInChunk[componentIndexInChunk] == sharedComponentIndex)
-                        chunks[writeIndex + filteredCount++] = new ArchetypeChunk { m_Chunk = chunk };
+                    if(sharedComponents[i] == sharedComponentIndex)
+                        chunks[writeIndex + filteredCount++] = new ArchetypeChunk { m_Chunk = archetypeChunks[i] };
                 }
 
                 element.filteredCount = filteredCount;

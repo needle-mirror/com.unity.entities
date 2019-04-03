@@ -10,20 +10,16 @@ namespace Unity.Entities.Tests
         void VerifyComponentCount<T>(int expectedCount)
             where T : IComponentData
         {
-            var query = new EntityArchetypeQuery
-            {
-                Any = Array.Empty<ComponentType>(),
-                None = Array.Empty<ComponentType>(),
-                All = new ComponentType[] {typeof(T)}
-            };
-            var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+            var group = m_Manager.CreateComponentGroup(ComponentType.Create<T>());
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
             Assert.AreEqual(expectedCount, ArchetypeChunkArray.CalculateEntityCount(chunks));
             chunks.Dispose();
         }
 
-        void VerifyQueryCount(EntityArchetypeQuery query, int expectedCount)
+        void VerifyQueryCount(ComponentGroup group, int expectedCount)
         {
-            var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             Assert.AreEqual(expectedCount, ArchetypeChunkArray.CalculateEntityCount(chunks));
             chunks.Dispose();
         }
@@ -44,12 +40,12 @@ namespace Unity.Entities.Tests
             VerifyComponentCount<EcsTestData>(1);
 
             m_Manager.DestroyEntity(entity);
-            
+
             VerifyComponentCount<EcsTestData>(0);
             VerifyComponentCount<EcsState1>(1);
 
             m_Manager.RemoveComponent<EcsState1>(entity);
-            
+
             VerifyComponentCount<EcsState1>(0);
 
             Assert.IsFalse(m_Manager.Exists(entity));
@@ -75,7 +71,7 @@ namespace Unity.Entities.Tests
             }
 
             VerifyComponentCount<EcsTestData>(512);
-            
+
             for (var i = 0; i < 512; i += 2)
             {
                 var entity = entities[i];
@@ -84,19 +80,16 @@ namespace Unity.Entities.Tests
 
             VerifyComponentCount<EcsTestData>(256);
             VerifyComponentCount<EcsState1>(512);
-            VerifyQueryCount(new EntityArchetypeQuery
-            {
-                Any = Array.Empty<ComponentType>(), // any
-                None = new ComponentType[] {typeof(EcsTestData)}, // none
-                All = new ComponentType[] {typeof(EcsState1)}, // all
-            }, 256);
-            
+            VerifyQueryCount(m_Manager.CreateComponentGroup(
+                ComponentType.Subtractive<EcsTestData>(),
+                ComponentType.Create<EcsState1>()), 256);
+
             for (var i = 0; i < 512; i += 2)
             {
                 var entity = entities[i];
                 m_Manager.RemoveComponent<EcsState1>(entity);
             }
-            
+
             VerifyComponentCount<EcsState1>(256);
 
             for (var i = 0; i < 512; i += 2)
@@ -111,7 +104,7 @@ namespace Unity.Entities.Tests
                 Assert.IsTrue(m_Manager.Exists(entity));
             }
         }
-        
+
         [Test]
         public void SSC_DeleteWhenEmptyArray2()
         {
@@ -132,21 +125,18 @@ namespace Unity.Entities.Tests
             }
 
             VerifyComponentCount<EcsTestData>(512);
-            
+
             for (var i = 0; i < 256; i++)
             {
                 var entity = entities[i];
                 m_Manager.DestroyEntity(entity);
             }
-            
+
             VerifyComponentCount<EcsTestData>(256);
             VerifyComponentCount<EcsState1>(512);
-            VerifyQueryCount(new EntityArchetypeQuery
-            {
-                Any = Array.Empty<ComponentType>(), // any
-                None = new ComponentType[] {typeof(EcsTestData)}, // none
-                All = new ComponentType[] {typeof(EcsState1)}, // all
-            }, 256);
+            VerifyQueryCount(m_Manager.CreateComponentGroup(
+                ComponentType.Subtractive<EcsTestData>(),
+                ComponentType.Create<EcsState1>()), 256);
 
             for (var i = 0; i < 256; i++)
             {
@@ -179,8 +169,20 @@ namespace Unity.Entities.Tests
             );
 
             m_Manager.Instantiate(entity0);
-            
+
             VerifyComponentCount<EcsState1>(1);
+        }
+        
+        [Test]
+        public void SSC_InstantiateResidueEntityThrows()
+        {
+            var entity0 = m_Manager.CreateEntity(
+                typeof(EcsTestData),
+                typeof(EcsState1)
+            );
+
+            m_Manager.DestroyEntity(entity0);
+            Assert.Throws<ArgumentException>(() => m_Manager.Instantiate(entity0));
         }
     }
 }

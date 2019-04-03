@@ -1,4 +1,6 @@
-﻿using NUnit.Framework;
+﻿using System;
+using NUnit.Framework;
+using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -135,5 +137,104 @@ namespace Unity.Entities.Tests
 	    public void TwoJobsAccessingEntityArrayCanRunInParallel()
 	    {
 	    }
+
+        struct EntityOnlyDependencyJob : IJobChunk
+        {
+            [ReadOnly] public ArchetypeChunkEntityType entityType;
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+            }
+        }
+
+        struct NoDependenciesJob : IJobChunk
+        {
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+            }
+        }
+
+        [DisableAutoCreation]
+        class EntityOnlyDependencySystem : JobComponentSystem
+        {
+            public JobHandle JobHandle;
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                EntityManager.CreateEntity(typeof(EcsTestData));
+                var group = GetComponentGroup(new ComponentType[]{});
+                var job = new EntityOnlyDependencyJob
+                {
+                    entityType = m_EntityManager.GetArchetypeChunkEntityType()
+                };
+                JobHandle = job.Schedule(group, inputDeps);
+                return JobHandle;
+            }
+        }
+
+        [DisableAutoCreation]
+        class NoComponentDependenciesSystem : JobComponentSystem
+        {
+            public JobHandle JobHandle;
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                EntityManager.CreateEntity(typeof(EcsTestData));
+                var group = GetComponentGroup(new ComponentType[]{});
+                var job = new NoDependenciesJob{};
+
+                JobHandle = job.Schedule(group, inputDeps);
+                return JobHandle;
+            }
+        }
+
+        [DisableAutoCreation]
+        class DestroyAllEntitiesSystem : JobComponentSystem
+        {
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                var allEntities = EntityManager.GetAllEntities();
+                EntityManager.DestroyEntity(allEntities);
+                allEntities.Dispose();
+                return inputDeps;
+            }
+        }
+
+        [Test]
+        public void StructuralChangeCompletesEntityOnlyDependencyJob()
+        {
+            var system = World.GetOrCreateManager<EntityOnlyDependencySystem>();
+            system.Update();
+            World.GetOrCreateManager<DestroyAllEntitiesSystem>().Update();
+            Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(system.JobHandle, new JobHandle()));
+        }
+
+        [Test]
+        public void StructuralChangeCompletesNoComponentDependenciesJob()
+        {
+            var system = World.GetOrCreateManager<NoComponentDependenciesSystem>();
+            system.Update();
+            World.GetOrCreateManager<DestroyAllEntitiesSystem>().Update();
+            Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(system.JobHandle, new JobHandle()));
+        }
+
+        [Test]
+        public void StructuralChangeAfterSchedulingNoDependenciesJobThrows()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var entity = m_Manager.CreateEntity(archetype);
+            var group = EmptySystem.GetComponentGroup(typeof(EcsTestData));
+            var handle = new NoDependenciesJob().Schedule(group);
+            Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(entity));
+            handle.Complete();
+        }
+
+        [Test]
+        public void StructuralChangeAfterSchedulingEntityOnlyDependencyJobThrows()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var entity = m_Manager.CreateEntity(archetype);
+            var group = EmptySystem.GetComponentGroup(typeof(EcsTestData));
+            var handle = new EntityOnlyDependencyJob{entityType = m_Manager.GetArchetypeChunkEntityType()}.Schedule(group);
+            Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(entity));
+            handle.Complete();
+        }
     }
 }

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Collections;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
@@ -9,15 +8,15 @@ using UnityEngine;
 namespace Unity.Entities.Editor
 {
     
-    public delegate void SetChunkFilter(ChunkFilter filter);
+    internal delegate void SetChunkFilter(ChunkFilter filter);
 
-    public class ChunkFilter
+    internal class ChunkFilter
     {
         public int firstIndex;
         public int lastIndex;
     }
     
-    public class ChunkInfoListView : TreeView, IDisposable
+    internal class ChunkInfoListView : TreeView, IDisposable
     {
 
         private static readonly float kHistogramHeight = 60f;

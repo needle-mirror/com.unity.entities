@@ -307,7 +307,7 @@ namespace Unity.Entities.Tests
         public void AddRotationComponent_DefaultValueIsNormalized()
         {
             var rotationComponent =
-                new GameObject(TestContext.CurrentContext.Test.Name, typeof(RotationComponent)).GetComponent<RotationComponent>();
+                new GameObject(TestContext.CurrentContext.Test.Name, typeof(RotationProxy)).GetComponent<RotationProxy>();
             try
             {
                 Assert.That(math.length(rotationComponent.Value.Value), Is.EqualTo(1f).Within(k_Tolerance));

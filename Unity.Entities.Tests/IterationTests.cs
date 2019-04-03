@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿using System;
+using NUnit.Framework;
 using Unity.Collections;
 using System.Collections.Generic;
 
@@ -253,6 +254,43 @@ namespace Unity.Entities.Tests
             copied.Dispose();
             entities.Dispose();
         }
+
+        [Test]
+        public void GroupCopyFromNativeArray()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var entities = new NativeArray<Entity>(10, Allocator.Persistent);
+            m_Manager.CreateEntity(archetype, entities);
+            
+            var dataToCopyA = new NativeArray<EcsTestData>(10, Allocator.Persistent);
+            var dataToCopyB = new NativeArray<EcsTestData>(5, Allocator.Persistent);
+
+            for (int i = 0; i < dataToCopyA.Length; ++i)
+            {
+                dataToCopyA[i] = new EcsTestData{value = 2};
+            }
+            
+            for (int i = 0; i < dataToCopyB.Length; ++i)
+            {
+                dataToCopyA[i] = new EcsTestData{value = 3};
+
+            }
+            
+            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            group.CopyFromComponentDataArray(dataToCopyA);
+
+            for (int i = 0; i < dataToCopyA.Length; ++i)
+            {
+                Assert.AreEqual(m_Manager.GetComponentData<EcsTestData>(entities[i]).value, dataToCopyA[i].value);
+            }
+            
+            Assert.Throws<ArgumentException>(() => { group.CopyFromComponentDataArray(dataToCopyB); });
+            
+            group.Dispose();           
+            entities.Dispose();
+            dataToCopyA.Dispose();
+            dataToCopyB.Dispose();
+        }
         
         [Test]
         public void ComponentGroupFilteredEntityIndexWithMultipleArchetypes()
@@ -278,6 +316,59 @@ namespace Unity.Entities.Tests
             iterator.GetCurrentChunkRange(out var begin, out var end );
 
             Assert.AreEqual(1, begin); // 1 is index of entity in filtered ComponentGroup
+
+            group.Dispose();
+        }
+        
+        [Test]
+        public void ComponentGroupFilteredChunkCount()
+        {
+            var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
+
+            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            for (int i = 0; i < archetypeA.ChunkCapacity * 2; ++i)
+            {
+                var entityA = m_Manager.CreateEntity(archetypeA);
+                m_Manager.SetSharedComponentData(entityA, new EcsTestSharedComp{ value = 1});
+            }
+
+            var entityB  = m_Manager.CreateEntity(archetypeA);
+            m_Manager.SetSharedComponentData(entityB, new EcsTestSharedComp{ value = 2});
+            
+            group.SetFilter(new EcsTestSharedComp{value = 1});
+            {
+                var iterator = group.GetComponentChunkIterator();
+
+                int begin, end;
+                iterator.MoveToChunkWithoutFiltering(0);
+                iterator.GetCurrentChunkRange(out begin, out end);
+                Assert.AreEqual(0, begin);
+
+                iterator.MoveToChunkWithoutFiltering(1);
+                iterator.GetCurrentChunkRange(out begin, out end);
+                Assert.AreEqual(archetypeA.ChunkCapacity, begin);
+
+                iterator.MoveToChunkWithoutFiltering(2);
+                Assert.Throws<InvalidOperationException>(() => { iterator.GetCurrentChunkRange(out begin, out end); });
+
+            }
+
+            group.SetFilter(new EcsTestSharedComp{value = 2});
+            {
+                var iterator = group.GetComponentChunkIterator();
+
+                int begin, end;
+                iterator.MoveToChunkWithoutFiltering(0);
+                Assert.Throws<InvalidOperationException>(() => { iterator.GetCurrentChunkRange(out begin, out end); });
+
+                iterator.MoveToChunkWithoutFiltering(1);
+                Assert.Throws<InvalidOperationException>(() => { iterator.GetCurrentChunkRange(out begin, out end); });
+
+                iterator.MoveToChunkWithoutFiltering(2);
+                iterator.GetCurrentChunkRange(out begin, out end);
+                Assert.AreEqual(0, begin);
+            }
 
             group.Dispose();
         }

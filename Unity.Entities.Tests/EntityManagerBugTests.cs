@@ -16,7 +16,7 @@ namespace Unity.Entities.Tests
         public int a;
         public int b;
     }
-    
+
     class Bug149 : ECSTestsFixture
     {
         EntityArchetype m_Archetype;
@@ -94,18 +94,19 @@ namespace Unity.Entities.Tests
         private static readonly ComponentType[] s_OurTypes = new ComponentType[] {
             typeof(Issue149Data)
         };
-        
+
         // Walk all accessible entity data and check that the versions match what we
         // believe the generation numbers should be.
         private void SanityCheckVersions()
         {
-            var query = new EntityArchetypeQuery
+            var group = m_Manager.CreateComponentGroup(new EntityArchetypeQuery
             {
-                Any = Array.Empty<ComponentType>(), 
+                Any = Array.Empty<ComponentType>(),
                 None = Array.Empty<ComponentType>(),
                 All = s_OurTypes,
-            };
-            var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+            });
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
 
             ArchetypeChunkEntityType entityType = m_Manager.GetArchetypeChunkEntityType();
 
@@ -126,23 +127,24 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(ourVersion == version);
                 }
             }
-            
+
             chunks.Dispose();
         }
     }
 
     class Bug476 : ECSTestsFixture
-    {              
+    {
         [Test]
         public void EntityArchetypeQueryMembersHaveSensibleDefaults()
-        {           
-            ComponentType[] types = {typeof(Issue476Data)};            
-            var query = new EntityArchetypeQuery { All = types };
-            var temp = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-            temp.Dispose();            
-        }        
+        {
+            ComponentType[] types = {typeof(Issue476Data)};
+            var group = m_Manager.CreateComponentGroup(types);
+            var temp = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
+            temp.Dispose();
+        }
     }
-    
+
     class Bug148
     {
         [Test]
@@ -167,7 +169,7 @@ namespace Unity.Entities.Tests
             foreach (Entity e in remember)
             {
                 em.DestroyEntity(e);
-            }            
+            }
         }
 
         [Test]

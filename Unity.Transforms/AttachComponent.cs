@@ -17,9 +17,4 @@ namespace Unity.Transforms
         public Entity Parent;
         public Entity Child;
     }
-
-    [UnityEngine.DisallowMultipleComponent]
-    public class AttachComponent : ComponentDataWrapper<Attach>
-    {
-    }
 }

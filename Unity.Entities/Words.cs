@@ -1,6 +1,7 @@
 #if !UNITY_ZEROPLAYER
 using System;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -34,7 +35,21 @@ namespace Unity.Entities
     // 2. The stack is hot in the page cache
     // 3. Since memory access is by 64 byte cache line, short strings only access first 64 byte cache line of 512
 
-    internal struct NativeString
+    public enum FormatError 
+    {
+        None,
+        Overflow,
+    }
+
+    public enum ParseError 
+    {
+        None,
+        Syntax,
+        Overflow,
+        Underflow,
+    }
+    
+    internal unsafe struct NativeString
     {
         public static unsafe int CompareTo(char *a, int aa, char* b, int bb)
         {
@@ -57,28 +72,550 @@ namespace Unity.Entities
             if (aa != bb)
                 return false;
             return UnsafeUtility.MemCmp(a, b, aa * sizeof(char)) == 0;
+        }
+
+        public static bool IsDigit(char c)
+        {
+            return c >= '0' && c <= '9';
+        }
+
+        public int Length;
+        public int Capacity;
+        public char* buffer;
+        
+        public ParseError Parse(ref int offset, ref int output)
+        {
+            long value = 0;
+            int sign = 1;
+            int digits = 0;
+            if (offset < Length)
+            {
+                if (buffer[offset] == '+')
+                    ++offset;
+                else if (buffer[offset] == '-')
+                {
+                    sign = -1;
+                    ++offset;
+                }
+            }
+            while (offset < Length && IsDigit(buffer[offset]))
+            {
+                value *= 10;
+                value += buffer[offset] - '0';
+                if(value >> 32 != 0)
+                    return ParseError.Overflow;
+                ++offset;
+                ++digits;
+            }
+            if (digits == 0)
+                return ParseError.Syntax;
+            value = sign * value;
+            if(value > Int32.MaxValue)
+                return ParseError.Overflow;
+            if (value < Int32.MinValue)
+                return ParseError.Overflow;            
+            output = (int)value;
+            return ParseError.None;
+        }
+        
+        [StructLayout(LayoutKind.Explicit)]
+        internal struct UintFloatUnion
+        {
+            [FieldOffset(0)]
+            public uint uintValue;
+            [FieldOffset(0)]
+            public float floatValue;
+        }
+        
+        static ParseError Base10ToBase2(ref float output, ulong mantissa10, int exponent10)
+        {
+            if (mantissa10 == 0)
+            {
+                output = 0.0f;
+                return ParseError.None;
+            }
+            if (exponent10 == 0)
+            {
+                output = mantissa10;
+                return ParseError.None;
+            }
+            var exponent2 = exponent10;
+            var mantissa2 = mantissa10;
+            while (exponent10 > 0)
+            {
+                while ((mantissa2 & 0xe000000000000000U) != 0)
+                {
+                    mantissa2 >>= 1;
+                    ++exponent2;
+                }
+                mantissa2 *= 5;
+                --exponent10;
+            }
+            while(exponent10 < 0)
+            {
+                while ((mantissa2 & 0x8000000000000000U) == 0) 
+                {
+                    mantissa2 <<= 1;
+                    --exponent2;
+                }
+                mantissa2 /= 5;
+                ++exponent10;
+            }
+            // TODO: implement math.ldexpf (which presumably handles denormals (i don't))
+            UintFloatUnion ufu = new UintFloatUnion();
+            ufu.floatValue = mantissa2;
+            var e = (int)((ufu.uintValue >> 23) & 0xFFU) - 127;
+            e += exponent2;
+            if (e > 128)
+                return ParseError.Overflow;
+            if (e < -127)
+                return ParseError.Underflow;
+            ufu.uintValue = (ufu.uintValue & ~(0xFFU<<23)) | ((uint)(e + 127) << 23);
+            output = ufu.floatValue;
+            return ParseError.None;
+        }
+
+        static int tzcnt(uint v)
+        {
+            uint c = 32; // c will be the number of zero bits on the right
+            v &= (uint)-(int)v;
+            if (0 != v) c--;
+            if (0 != (v & 0x0000FFFF)) c -= 16;
+            if (0 != (v & 0x00FF00FF)) c -= 8;
+            if (0 != (v & 0x0F0F0F0F)) c -= 4;
+            if (0 != (v & 0x33333333)) c -= 2;
+            if (0 != (v & 0x55555555)) c -= 1;
+            return (int)c;
         }        
+        
+        public static void Base2ToBase10(ref ulong mantissa10, ref int exponent10, float input)
+        {          
+            UintFloatUnion ufu = new UintFloatUnion();
+            ufu.floatValue = input;
+            if(ufu.uintValue == 0)
+            {
+                mantissa10 = 0;
+                exponent10 = 0;
+                return;
+            }
+            var mantissa2 = (ufu.uintValue & ((1<<23)-1)) | (1 << 23);
+            var exponent2 = (int) (ufu.uintValue >> 23) - 127 - 23;
+//            var tz = tzcnt((uint)mantissa2);
+//            mantissa2 >>= tz;
+//            exponent2 += tz;
+            mantissa10 = mantissa2;
+            exponent10 = exponent2;
+            if (exponent2 > 0)
+            {
+                while (exponent2 > 0)
+                {
+                    // denormalize mantissa10 as much as you can, to minimize loss when doing /5 below.
+                    while (mantissa10 <= UInt64.MaxValue/10)
+                    {
+                        mantissa10 *= 10;
+                        --exponent10;
+                    }
+                    mantissa10 /= 5;
+                    --exponent2;
+                }
+            }
+            if (exponent2 < 0)
+            {
+                while (exponent2 < 0)
+                {
+                    // normalize mantissa10 just as much as you need, in order to make the *5 below not overflow.
+                    while (mantissa10 > UInt64.MaxValue/5)
+                    {
+                        mantissa10 /= 10;
+                        ++exponent10;
+                    }
+                    mantissa10 *= 5;
+                    ++exponent2;
+                }
+            }
+            // normalize mantissa10                
+            while (mantissa10 > 9999999U || mantissa10 % 10 == 0) 
+            {
+                mantissa10 = (mantissa10 + 5) / 10;
+                ++exponent10;
+            }
+        }
+        
+        public FormatError Format(char a)
+        {
+            if (Length >= Capacity)
+                return FormatError.Overflow;
+            buffer[Length++] = a;
+            return FormatError.None;
+        }
+        
+        public FormatError Format(char a, char b)
+        {
+            if (Length >= Capacity)
+                return FormatError.Overflow;
+            buffer[Length++] = a;
+            if (Length >= Capacity)
+                return FormatError.Overflow;
+            buffer[Length++] = b;
+            return FormatError.None;
+        }
+        
+        public FormatError Format(char a, char b, char c)
+        {            
+            if (Length >= Capacity)
+                return FormatError.Overflow;
+            buffer[Length++] = a;
+            if (Length >= Capacity)
+                return FormatError.Overflow;
+            buffer[Length++] = b;
+            if (Length >= Capacity)
+                return FormatError.Overflow;
+            buffer[Length++] = c;
+            return FormatError.None;
+        }
+
+        public FormatError Format(char a, char b, char c, char d, char e, char f, char g, char h)
+        {            
+            if (Length >= Capacity)
+                return FormatError.Overflow;
+            buffer[Length++] = a;
+            if (Length >= Capacity)
+                return FormatError.Overflow;
+            buffer[Length++] = b;
+            if (Length >= Capacity)
+                return FormatError.Overflow;
+            buffer[Length++] = c;
+            if (Length >= Capacity)
+                return FormatError.Overflow;
+            buffer[Length++] = d;
+            if (Length >= Capacity)
+                return FormatError.Overflow;
+            buffer[Length++] = e;
+            if (Length >= Capacity)
+                return FormatError.Overflow;
+            buffer[Length++] = f;
+            if (Length >= Capacity)
+                return FormatError.Overflow;
+            buffer[Length++] = g;
+            if (Length >= Capacity)
+                return FormatError.Overflow;
+            buffer[Length++] = h;
+            return FormatError.None;
+        }
+
+        public FormatError FormatScientific(char *source, int sourceLength, int decimalExponent, char decimalSeparator)
+        {
+            FormatError error;
+            if ((error = Format(source[0])) != FormatError.None)
+                return error;
+            if (sourceLength > 1)
+            {
+                if ((error = Format(decimalSeparator)) != FormatError.None)
+                    return error;
+                for (var i = 1; i < sourceLength; ++i)
+                {
+                    if ((error = Format(source[i])) != FormatError.None)
+                        return error;
+                }
+            }
+            if ((error = Format('E')) != FormatError.None)
+                return error;
+            if (decimalExponent < 0)
+            {
+                if ((error = Format('-')) != FormatError.None)
+                    return error;
+                decimalExponent *= -1;
+            }
+            else
+                if ((error = Format('+')) != FormatError.None)
+                    return error;
+            var ascii = stackalloc char[2];
+            decimalExponent -= sourceLength - 1;
+            const int decimalDigits = 2;
+            for(var i = 0; i < decimalDigits; ++i)
+            {
+                var decimalDigit = decimalExponent % 10;
+                ascii[1 - i] = (char)('0'+decimalDigit);
+                decimalExponent /= 10;                        
+            }
+            for(var i = 0; i < decimalDigits; ++i)
+                if ((error = Format(ascii[i])) != FormatError.None)
+                    return error;            
+            return FormatError.None;                       
+        }
+        
+        public FormatError Format(float input, char decimalSeparator)
+        {
+            UintFloatUnion ufu = new UintFloatUnion();
+            ufu.floatValue = input;
+            if (ufu.uintValue == 4290772992U)
+                return Format('N', 'a', 'N');
+            var sign = ufu.uintValue >> 31;
+            ufu.uintValue &= ~(1 << 31);
+            FormatError error;
+            if (sign != 0 && ufu.uintValue != 0) // C# prints -0 as 0
+                if ((error = Format('-')) != FormatError.None)
+                    return error;
+            if(ufu.uintValue == 2139095040U)
+                return Format( 'I', 'n', 'f', 'i', 'n', 'i', 't', 'y');
+            ulong decimalMantissa = 0;
+            int decimalExponent = 0;
+            Base2ToBase10(ref decimalMantissa, ref decimalExponent, ufu.floatValue);
+            var backwards = stackalloc char[9];
+            int decimalDigits = 0;
+            do
+            {
+                if (decimalDigits >= 9)
+                    return FormatError.Overflow;
+                var decimalDigit = decimalMantissa % 10;
+                backwards[8-decimalDigits++] = (char) ('0' + decimalDigit);
+                decimalMantissa /= 10;
+            } while (decimalMantissa > 0);
+            char *ascii = backwards + 9 - decimalDigits;
+            var leadingZeroes = -decimalExponent - decimalDigits + 1;
+            if (leadingZeroes > 0)
+            {
+                if (leadingZeroes > 4)
+                    return FormatScientific(ascii, decimalDigits, decimalExponent, decimalSeparator);
+                if ((error = Format('0', decimalSeparator)) != FormatError.None)
+                    return error;
+                --leadingZeroes;
+                while (leadingZeroes > 0)
+                {
+                    if ((error = Format( '0')) != FormatError.None)
+                        return error;
+                    --leadingZeroes;
+                }
+                for (var i = 0; i < decimalDigits; ++i)
+                {
+                    if ((error = Format( ascii[i])) != FormatError.None)
+                        return error;
+                }
+                return FormatError.None;
+            }
+            var trailingZeroes = decimalExponent;
+            if (trailingZeroes > 0)
+            {
+                if (trailingZeroes > 4)
+                    return FormatScientific(  ascii, decimalDigits, decimalExponent, decimalSeparator);                
+                for (var i = 0; i < decimalDigits; ++i)
+                {
+                    if ((error = Format( ascii[i])) != FormatError.None)
+                        return error;
+                }
+                while (trailingZeroes > 0)
+                {
+                    if ((error = Format( '0')) != FormatError.None)
+                        return error;
+                    --trailingZeroes;                    
+                }                
+                return FormatError.None;
+            }
+            var indexOfSeparator = decimalDigits + decimalExponent;
+            for (var i = 0; i < decimalDigits; ++i)
+            {
+                if (i == indexOfSeparator)
+                    if ((error = Format(decimalSeparator)) != FormatError.None)
+                        return error;
+                if ((error = Format( ascii[i])) != FormatError.None)
+                    return error;
+            }
+            return FormatError.None;
+        }
+
+        public bool Found(ref int offset, char a, char b, char c)
+        {
+            if(offset + 3 > Length)
+                return false;
+            if((buffer[offset+0]|32) != a) return false;
+            if((buffer[offset+1]|32) != b) return false;
+            if((buffer[offset+2]|32) != c) return false;
+            offset += 3;
+            return true;            
+        }
+
+        public bool Found(ref int offset, char a, char b, char c, char d, char e, char f, char g, char h)
+        {
+            if(offset + 8 > Length)
+                return false;
+            if((buffer[offset+0]|32) != a) return false;
+            if((buffer[offset+1]|32) != b) return false;
+            if((buffer[offset+2]|32) != c) return false;
+            if((buffer[offset+3]|32) != d) return false;
+            if((buffer[offset+4]|32) != e) return false;
+            if((buffer[offset+5]|32) != f) return false;
+            if((buffer[offset+6]|32) != g) return false;
+            if((buffer[offset+7]|32) != h) return false;
+            offset += 8;
+            return true;            
+        }
+        
+        public ParseError Parse(ref int offset, ref float output, char decimalSeparator)
+        {
+            if(Found(ref offset, 'n', 'a', 'n'))
+            {
+                UintFloatUnion ufu = new UintFloatUnion();
+                ufu.uintValue = 4290772992U;
+                output = ufu.floatValue;
+                return ParseError.None;
+            }            
+            int sign = 1;
+            if (offset < Length)
+            {
+                if (buffer[offset] == '+')
+                    ++offset;
+                else if (buffer[offset] == '-')
+                {
+                    sign = -1;
+                    ++offset;
+                }
+            }
+            ulong decimalMantissa = 0;
+            int significantDigits = 0;
+            int digitsAfterDot = 0;
+            int mantissaDigits = 0;
+            if(Found(ref offset, 'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'))
+            {
+                output = (sign == 1) ? Single.PositiveInfinity : Single.NegativeInfinity;
+                return ParseError.None;
+            }
+            while (offset < Length && IsDigit(buffer[offset]))
+            {
+                ++mantissaDigits;
+                if (significantDigits < 9)
+                {
+                    var temp = decimalMantissa * 10 + (ulong)(buffer[offset] - '0');
+                    if (temp > decimalMantissa)
+                        ++significantDigits;
+                    decimalMantissa = temp;
+                }
+                else
+                    --digitsAfterDot;
+                ++offset;
+            }
+            if (offset < Length && buffer[offset] == decimalSeparator)
+            {
+                ++offset;
+                while (offset < Length && IsDigit(buffer[offset]))
+                {
+                    ++mantissaDigits;
+                    if (significantDigits < 9)
+                    {
+                        var temp = decimalMantissa * 10 + (ulong) (buffer[offset] - '0');
+                        if (temp > decimalMantissa)
+                            ++significantDigits;
+                        decimalMantissa = temp;
+                        ++digitsAfterDot;
+                    }
+                    ++offset;
+                }
+            }
+            if (mantissaDigits == 0)
+                return ParseError.Syntax;
+            int decimalExponent = 0;
+            int decimalExponentSign = 1;
+            if (offset < Length && ((buffer[offset]|32) == 'e'))
+            {
+                ++offset;
+                if (offset < Length)
+                {
+                    if (buffer[offset] == '+')
+                        ++offset;
+                    else if (buffer[offset] == '-')
+                    {
+                        decimalExponentSign = -1;
+                        ++offset;
+                    }
+                }
+                int exponentDigits = 0;
+                while (offset < Length && IsDigit(buffer[offset]))
+                {
+                    ++exponentDigits;
+                    decimalExponent = decimalExponent * 10 + (buffer[offset] - '0');
+                    if (decimalExponent > 38)
+                        if(decimalExponentSign == 1)
+                            return ParseError.Overflow;
+                        else
+                            return ParseError.Underflow;
+                    ++offset;
+                }
+                if (exponentDigits == 0)
+                    return ParseError.Syntax;
+            }
+            decimalExponent = decimalExponent * decimalExponentSign - digitsAfterDot;            
+            var error = Base10ToBase2(ref output, decimalMantissa, decimalExponent);
+            if (error != ParseError.None)
+                return error;
+            output *= sign;
+            return ParseError.None;
+        }
     }
     
     public struct NativeString64 : IComparable<NativeString64>, IEquatable<NativeString64>
     {
         public const int MaxLength = (64 - sizeof(int)) / sizeof(char);
         public int Length;
-        unsafe fixed char buffer[MaxLength];
+        private unsafe fixed uint buffer[MaxLength/2];
 
-        public unsafe char* GetUnsafePtr()
+        public ParseError Parse(ref int offset, ref int output)
         {
-            fixed(char *b = buffer)
-                return b;
+            unsafe
+            {
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
+                    NativeString temp = new NativeString{buffer = c, Length = Length, Capacity = MaxLength};
+                    return temp.Parse(ref offset, ref output);                    
+                }
+            }
         }
-        
+        public ParseError Parse(ref int offset, ref float output, char decimalSeparator = '.')
+        {
+            unsafe
+            {
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
+                    NativeString temp = new NativeString {buffer = c, Length = Length, Capacity = MaxLength};
+                    return temp.Parse(ref offset, ref output, decimalSeparator);
+                }
+            }
+        }
+
+        public FormatError Format(float input, char decimalSeparator = '.')
+        {
+            unsafe
+            {
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
+                    NativeString temp = new NativeString {buffer = c, Length = Length, Capacity = MaxLength};
+                    var error = temp.Format(input, decimalSeparator);
+                    Length = temp.Length;
+                    return error;
+                }
+            }
+        }
+
         unsafe void CopyFrom(char* s, int length)
         {
             Assert.IsTrue(length <= MaxLength);
             Length = length;
-            fixed (char* d = buffer)
+            fixed (uint* b = buffer)
+            {
+                var d = (char*) b;
                 UnsafeUtility.MemCpy(d, s, length * sizeof(char));
+            }
         }
+        public unsafe void CopyTo(char* d, int maxLength)
+        {
+            Assert.IsTrue(Length <= maxLength);
+            fixed (uint* b = buffer)
+            {
+                var s = (char*) b;
+                UnsafeUtility.MemCpy(d, s, Length * sizeof(char));
+            }
+        }        
         
         public NativeString64(String source)
         {
@@ -92,19 +629,27 @@ namespace Unity.Entities
         
         public NativeString64(ref NativeString512 source)
         {
-            Length = 0;
+            Length = source.Length;
             unsafe
             {
-                CopyFrom(source.GetUnsafePtr(), source.Length);
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
+                    source.CopyTo(c, MaxLength);
+                }
             }
         }
 
         public NativeString64(ref NativeString4096 source)
         {
-            Length = 0;
+            Length = source.Length;
             unsafe
             {
-                CopyFrom(source.GetUnsafePtr(), source.Length);
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
+                    source.CopyTo(c, MaxLength);
+                }
             }
         }
         
@@ -115,8 +660,11 @@ namespace Unity.Entities
                 Assert.IsTrue(index >= 0 && index < Length);
                 unsafe
                 {
-                    fixed (char* c = buffer)
+                    fixed (uint* b = buffer)
+                    {
+                        var c = (char*) b;
                         return c[index];
+                    }
                 }
             }
             set
@@ -124,8 +672,11 @@ namespace Unity.Entities
                 Assert.IsTrue(index >= 0 && index < Length);
                 unsafe
                 {
-                    fixed (char* c = buffer)
+                    fixed (uint* b = buffer)
+                    {
+                        var c = (char*) b;
                         c[index] = value;
+                    }
                 }
             }
         }
@@ -133,11 +684,9 @@ namespace Unity.Entities
         {
             unsafe
             {
-                fixed (char* c = buffer)
+                fixed (uint* b = buffer)
                 {
-                    char[] temp = new char[Length];
-                    for (var i = 0; i < Length; ++i)
-                        temp[i] = c[i];
+                    var c = (char*) b;
                     return new String(c, 0, Length);
                 }
             }
@@ -146,8 +695,11 @@ namespace Unity.Entities
         {
             unsafe
             {
-                fixed (char* c = buffer)
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
                     return (int) math.hash(c, Length * sizeof(char));
+                }
             }
         }
 
@@ -156,8 +708,11 @@ namespace Unity.Entities
         {
             unsafe
             {
-                fixed(char *c = buffer)
-                    return NativeString.CompareTo(c, Length, other.buffer, other.Length);
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
+                    return NativeString.CompareTo(c, Length, (char*)other.buffer, other.Length);
+                }
             }
         }
 
@@ -165,8 +720,11 @@ namespace Unity.Entities
         {
             unsafe
             {
-                fixed (char* c = buffer)
-                    return NativeString.Equals(c, Length, other.buffer, other.Length);
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
+                    return NativeString.Equals(c, Length, (char*)other.buffer, other.Length);
+                }
             }
         }
 
@@ -181,20 +739,26 @@ namespace Unity.Entities
     {
         public const int MaxLength = (512 - sizeof(int)) / 2;
         public int Length;
-        unsafe fixed char buffer[MaxLength];
-
-        public unsafe char* GetUnsafePtr()
-        {
-            fixed(char *b = buffer)
-                return b;
-        }
+        private unsafe fixed uint buffer[MaxLength/2];
         
         unsafe void CopyFrom(char* s, int length)
         {
             Assert.IsTrue(length <= MaxLength);
             Length = length;
-            fixed (char* d = buffer)
+            fixed (uint *b = buffer)
+            {
+                var d = (char*) b;
                 UnsafeUtility.MemCpy(d, s, length * sizeof(char));
+            }
+        }
+        public unsafe void CopyTo(char* d, int maxLength)
+        {
+            Assert.IsTrue(Length <= maxLength);
+            fixed (uint* b = buffer)
+            {
+                var s = (char*) b;
+                UnsafeUtility.MemCpy(d, s, Length * sizeof(char));
+            }
         }
         
         public NativeString512(String source)
@@ -209,19 +773,27 @@ namespace Unity.Entities
         
         public NativeString512(ref NativeString64 source)
         {
-            Length = 0;
+            Length = source.Length;
             unsafe
             {
-                CopyFrom(source.GetUnsafePtr(), source.Length);
+                fixed (uint* b = buffer)
+                {
+                    var d = (char*) b;
+                    source.CopyTo(d, MaxLength);
+                }
             }
         }
 
         public NativeString512(ref NativeString4096 source)
         {
-            Length = 0;
+            Length = source.Length;
             unsafe
             {
-                CopyFrom(source.GetUnsafePtr(), source.Length);
+                fixed (uint* b = buffer)
+                {
+                    var d = (char*) b;
+                    source.CopyTo(d, MaxLength);
+                }
             }
         }
         
@@ -232,8 +804,11 @@ namespace Unity.Entities
                 Assert.IsTrue(index >= 0 && index < Length);
                 unsafe
                 {
-                    fixed (char* c = buffer)
+                    fixed (uint* b = buffer)
+                    {
+                        var c = (char*) b;
                         return c[index];
+                    }
                 }
             }
             set
@@ -241,8 +816,11 @@ namespace Unity.Entities
                 Assert.IsTrue(index >= 0 && index < Length);
                 unsafe
                 {
-                    fixed (char* c = buffer)
+                    fixed (uint* b = buffer)
+                    {
+                        var c = (char*) b;
                         c[index] = value;
+                    }
                 }
             }
         }
@@ -250,16 +828,22 @@ namespace Unity.Entities
         {
             unsafe
             {
-                fixed (char* c = buffer)
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
                     return new String(c, 0, Length);
+                }
             }
         }
         public override int GetHashCode()
         {
             unsafe
             {
-                fixed (char* c = buffer)
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
                     return (int) math.hash(c, Length * sizeof(char));
+                }
             }
         }
        
@@ -267,8 +851,11 @@ namespace Unity.Entities
         {
             unsafe
             {
-                fixed(char* b = buffer)
-                    return NativeString.CompareTo(b, Length, other.buffer, other.Length);
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
+                    return NativeString.CompareTo(c, Length, (char*)other.buffer, other.Length);
+                }
             }
         }
 
@@ -276,8 +863,11 @@ namespace Unity.Entities
         {
             unsafe
             {
-                fixed (char* c = buffer)
-                    return NativeString.Equals(c, Length, other.buffer, other.Length);
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
+                    return NativeString.Equals(c, Length, (char*)other.buffer, other.Length);
+                }
             }
         }
 
@@ -292,20 +882,26 @@ namespace Unity.Entities
     {
         public const int MaxLength = (4096 - sizeof(int)) / 2;
         public int Length;
-        unsafe fixed char buffer[MaxLength];
-
-        public unsafe char* GetUnsafePtr()
-        {
-            fixed(char *b = buffer)
-                return b;
-        }
+        private unsafe fixed uint buffer[MaxLength/2];
         
         unsafe void CopyFrom(char* s, int length)
         {
             Assert.IsTrue(length <= MaxLength);
             Length = length;
-            fixed (char* d = buffer)
-                UnsafeUtility.MemCpy(d, s, length * sizeof(char));
+            fixed (uint* b = buffer)
+            {
+                var d = (char*) b;
+                UnsafeUtility.MemCpy(d, s, length * sizeof(char));                
+            }
+        }
+        public unsafe void CopyTo(char* d, int maxLength)
+        {
+            Assert.IsTrue(Length <= maxLength);
+            fixed (uint* b = buffer)
+            {
+                var s = (char*) b;
+                UnsafeUtility.MemCpy(d, s, Length * sizeof(char));
+            }
         }
         
         public NativeString4096(String source)
@@ -320,19 +916,27 @@ namespace Unity.Entities
         
         public NativeString4096(ref NativeString64 source)
         {
-            Length = 0;
+            Length = source.Length;
             unsafe
             {
-                CopyFrom(source.GetUnsafePtr(), source.Length);
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
+                    source.CopyTo(c, MaxLength);
+                }
             }
         }
 
         public NativeString4096(ref NativeString512 source)
         {
-            Length = 0;
+            Length = source.Length;
             unsafe
             {
-                CopyFrom(source.GetUnsafePtr(), source.Length);
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
+                    source.CopyTo(c, MaxLength);
+                }
             }
         }
         
@@ -343,8 +947,11 @@ namespace Unity.Entities
                 Assert.IsTrue(index >= 0 && index < Length);
                 unsafe
                 {
-                    fixed (char* c = buffer)
+                    fixed (uint* b = buffer)
+                    {
+                        var c = (char*) b;
                         return c[index];
+                    }
                 }
             }
             set
@@ -352,8 +959,11 @@ namespace Unity.Entities
                 Assert.IsTrue(index >= 0 && index < Length);
                 unsafe
                 {
-                    fixed (char* c = buffer)
+                    fixed (uint* b = buffer)
+                    {
+                        var c = (char*) b;
                         c[index] = value;
+                    }
                 }
             }
         }
@@ -361,16 +971,22 @@ namespace Unity.Entities
         {
             unsafe
             {
-                fixed (char* c = buffer)
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
                     return new String(c, 0, Length);
+                }
             }
         }
         public override int GetHashCode()
         {
             unsafe
             {
-                fixed (char* c = buffer)
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
                     return (int) math.hash(c, Length * sizeof(char));
+                }
             }
         }
         
@@ -378,8 +994,11 @@ namespace Unity.Entities
         {
             unsafe
             {
-                fixed(char* b = buffer)
-                    return NativeString.CompareTo(b, Length, other.buffer, other.Length);
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
+                    return NativeString.CompareTo(c, Length, (char*)other.buffer, other.Length);
+                }
             }
         }
 
@@ -387,8 +1006,11 @@ namespace Unity.Entities
         {
             unsafe
             {
-                fixed (char* c = buffer)
-                    return NativeString.Equals(c, Length, other.buffer, other.Length);
+                fixed (uint* b = buffer)
+                {
+                    var c = (char*) b;
+                    return NativeString.Equals(c, Length, (char*)other.buffer, other.Length);
+                }
             }
         }
 

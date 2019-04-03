@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Unity.Collections.LowLevel.Unsafe;
 
 using Unity.Properties;
@@ -79,7 +80,8 @@ namespace Unity.Entities.Properties
 
         public override void Accept(ref StructProxy container, IPropertyVisitor visitor)
         {
-            var listContext = new VisitContext<StructProxy> { Property = this, Index = -1 };
+            var listContext = default(VisitContext<IList<StructProxy>>);
+            listContext.Property = this;
 
             if (visitor.BeginCollection(ref container, listContext))
             {

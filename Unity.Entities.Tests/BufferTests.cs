@@ -28,8 +28,9 @@ namespace Unity.Entities.Tests
 		public void BufferComponentTypeCreationWorks()
 		{
             var bt = ComponentType.Create<EcsIntElement>();
+            var typeInfo = TypeManager.GetTypeInfo(bt.TypeIndex);
             Assert.AreEqual(ComponentType.AccessMode.ReadWrite, bt.AccessModeType);
-            Assert.AreEqual(8, bt.BufferCapacity);
+            Assert.AreEqual(8, typeInfo.BufferCapacity);
 		}
 
 		[Test]

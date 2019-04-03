@@ -152,7 +152,7 @@ namespace Unity.Entities.Tests
                 // a system ran, the version should match the global
                 var chunk0 = m_Manager.Entities->GetComponentChunk(entity0);
                 var td2index0 = ChunkDataUtility.GetIndexInTypeArray(chunk0->Archetype, TypeManager.GetTypeIndex<EcsTestData2>());
-                Assert.AreEqual(m_Manager.GlobalSystemVersion, chunk0->ChangeVersion[td2index0]);
+                Assert.AreEqual(m_Manager.GlobalSystemVersion, chunk0->GetChangeVersion(td2index0));
             }
         }
 
@@ -175,7 +175,7 @@ namespace Unity.Entities.Tests
                 // a system ran, the version should match the global
                 var chunk0 = m_Manager.Entities->GetComponentChunk(entity0);
                 var td2index0 = ChunkDataUtility.GetIndexInTypeArray(chunk0->Archetype, TypeManager.GetTypeIndex<EcsTestData2>());
-                Assert.AreEqual(m_Manager.GlobalSystemVersion, chunk0->ChangeVersion[td2index0]);
+                Assert.AreEqual(m_Manager.GlobalSystemVersion, chunk0->GetChangeVersion(td2index0));
             }
         }
 

@@ -1,10 +1,8 @@
 ﻿
-using System.Linq;
-
 namespace Unity.Entities.Editor
 {
     
-    public class EntityListQuery
+    internal class EntityListQuery
     {
 
         public ComponentGroup Group { get; }

@@ -7,7 +7,7 @@ namespace Unity.Entities
 {
     public static class EntityManagerExtensions
     {
-        static readonly List<ComponentDataWrapperBase> s_ReusableComponentList = new List<ComponentDataWrapperBase>(32);
+        static readonly List<ComponentDataProxyBase> s_ReusableComponentList = new List<ComponentDataProxyBase>(32);
 
         public static unsafe Entity Instantiate(this EntityManager entityManager, GameObject srcGameObject)
         {

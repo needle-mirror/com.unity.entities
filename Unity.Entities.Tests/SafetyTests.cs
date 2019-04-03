@@ -1,7 +1,7 @@
 ﻿using NUnit.Framework;
 using System;
 
-//@TODO: We should really design systems / jobs / exceptions / errors 
+//@TODO: We should really design systems / jobs / exceptions / errors
 //       so that an error in one system does not affect the next system.
 //       Right now failure to set dependencies correctly in one system affects other code,
 //       this makes the error messages significantly less useful...
@@ -36,8 +36,8 @@ namespace Unity.Entities.Tests
 	        Assert.Throws<IndexOutOfRangeException>(() => { testData.GetChunkArray(5, 6); });
 	        Assert.Throws<IndexOutOfRangeException>(() => { testData.GetChunkArray(10, 1); });
 	    }
-	    
-	    
+
+
         [Test]
         public void ReadOnlyComponentDataArray()
         {
@@ -45,13 +45,13 @@ namespace Unity.Entities.Tests
 
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            
+
             // EcsTestData is read only
             var arr = group.GetComponentDataArray<EcsTestData>();
             Assert.AreEqual(1, arr.Length);
             Assert.AreEqual(42, arr[0].value);
             Assert.Throws<System.InvalidOperationException>(() => { arr[0] = new EcsTestData(0); });
-           
+
             // EcsTestData2 can be written to
             var arr2 = group.GetComponentDataArray<EcsTestData2>();
             Assert.AreEqual(1, arr2.Length);
@@ -125,6 +125,15 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void AddChunkComponentTwiceOnEntityThrows()
+        {
+            var entity = m_Manager.CreateEntity();
+
+            m_Manager.AddChunkComponentData<EcsTestData>(entity);
+            Assert.Throws<System.ArgumentException>(() => { m_Manager.AddChunkComponentData<EcsTestData>(entity); });
+        }
+
+        [Test]
         public void AddRemoveComponentOnDestroyedEntityThrows()
         {
             var destroyedEntity = m_Manager.CreateEntity();
@@ -135,10 +144,17 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void RemoveComponentOnEntityWithoutComponent()
+        public void RemoveComponentOnEntityWithoutComponentThrows()
         {
             var entity = m_Manager.CreateEntity();
             Assert.Throws<System.ArgumentException>(() => { m_Manager.RemoveComponent<EcsTestData>(entity); });
+        }
+
+        [Test]
+        public void RemoveChunkComponentOnEntityWithoutChunkComponentTrows()
+        {
+            var entity = m_Manager.CreateEntity();
+            Assert.Throws<System.ArgumentException>(() => { m_Manager.RemoveChunkComponent<EcsTestData>(entity); });
         }
 
         [Test]
@@ -149,13 +165,21 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
             Assert.IsFalse(m_Manager.Exists(entity));
         }
+
+	    [Test]
+	    public void NotYetCreatedEntityWithSameVersionThrows()
+	    {
+	        var notYetCreatedEntitySameVersion = new Entity() {Index = 0, Version = 1};
+	        Assert.IsFalse(m_Manager.Exists(notYetCreatedEntitySameVersion));
+	        Assert.Throws<ArgumentException>(() => m_Manager.AddComponentData(notYetCreatedEntitySameVersion , new EcsTestData()));
+	    }
 	    
 	    [Test]
 	    public void CreateEntityWithNullTypeThrows()
 	    {
 	        Assert.Throws<System.NullReferenceException>(() => m_Manager.CreateEntity(null));
 	    }
-	    
+
 	    [Test]
 	    public void CreateEntityWithOneNullTypeThrows()
 	    {

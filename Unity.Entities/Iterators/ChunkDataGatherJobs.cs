@@ -34,12 +34,8 @@ namespace Unity.Entities
 
         public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
         {
-            var destinationPtr = (byte*)NativeArrayUnsafeUtility.GetUnsafePtr(Entities) +
-                                 sizeof(Entity) * entityOffset;
-    
-            var chunkEntityArray = chunk.GetNativeArray(EntityType);
-            var sourcePtr = (byte*)NativeArrayUnsafeUtility.GetUnsafeReadOnlyPtr(chunkEntityArray);
-
+            var destinationPtr = (Entity*)Entities.GetUnsafePtr() + entityOffset;
+            var sourcePtr = chunk.GetNativeArray(EntityType).GetUnsafeReadOnlyPtr();
             var copySizeInBytes = sizeof(Entity) * chunk.Count;
 
             UnsafeUtility.MemCpy(destinationPtr, sourcePtr, copySizeInBytes);
@@ -53,19 +49,31 @@ namespace Unity.Entities
         public NativeArray<T> ComponentData;
         [ReadOnly]public ArchetypeChunkComponentType<T> ComponentType;
         
-        public unsafe void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
+        public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
         {
-            var srcComponentData = chunk.GetNativeArray(ComponentType);
-        
-            var sourcePtr = (byte*)NativeArrayUnsafeUtility.GetUnsafeReadOnlyPtr(srcComponentData);
-        
-            var sizeOfComponentType = UnsafeUtility.SizeOf<T>();
-            var destinationPtr = (byte*) NativeArrayUnsafeUtility.GetUnsafePtr(ComponentData) +
-                                 sizeOfComponentType * entityOffset;          
-            
+            var sourcePtr = chunk.GetNativeArray(ComponentType).GetUnsafeReadOnlyPtr();
+            var destinationPtr = (byte*) ComponentData.GetUnsafePtr() + UnsafeUtility.SizeOf<T>() * entityOffset;          
             var copySizeInBytes = UnsafeUtility.SizeOf<T>() * chunk.Count;
-        
+            
             UnsafeUtility.MemCpy(destinationPtr, sourcePtr, copySizeInBytes);
+        }
+    }
+    
+    [BurstCompile]
+    unsafe struct CopyComponentArrayToChunks<T> : IJobChunk
+        where T : struct,IComponentData
+    {
+        [ReadOnly]
+        public NativeArray<T> ComponentData;
+        public ArchetypeChunkComponentType<T> ComponentType;
+        
+        public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
+        {
+            var destinationPtr = chunk.GetNativeArray(ComponentType).GetUnsafePtr();
+            var srcPtr = (byte*) ComponentData.GetUnsafeReadOnlyPtr() + UnsafeUtility.SizeOf<T>() * entityOffset;          
+            var copySizeInBytes = UnsafeUtility.SizeOf<T>() * chunk.Count;
+            
+            UnsafeUtility.MemCpy(destinationPtr, srcPtr, copySizeInBytes);
         }
     }
     

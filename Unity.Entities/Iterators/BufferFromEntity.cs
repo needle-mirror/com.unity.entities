@@ -34,7 +34,7 @@ namespace Unity.Entities
             m_TypeLookupCache = 0;
             m_GlobalSystemVersion = entityData->GlobalSystemVersion;
 
-            if (TypeManager.GetTypeInfo(m_TypeIndex).Category != TypeManager.TypeCategory.BufferData)
+            if (!TypeManager.IsBuffer(m_TypeIndex))
                 throw new ArgumentException(
                     $"GetComponentBufferArray<{typeof(T)}> must be IBufferElementData");
         }

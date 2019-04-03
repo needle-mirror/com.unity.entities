@@ -44,10 +44,12 @@ namespace Unity.Entities.Tests
             m_Manager = World.GetOrCreateManager<EntityManager>();
             m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
 
+#if !UNITY_2019_2_OR_NEWER 
+            // Not raising exceptions can easily bring unity down with massive logging when tests fail.
+            // From Unity 2019.2 on this field is always implicitly true and therefore removed.
 
-            // not raising exceptions can easily bring unity down with massive logging,
-            // when tests fail.
             UnityEngine.Assertions.Assert.raiseExceptions = true;
+#endif
         }
 
         [TearDown]

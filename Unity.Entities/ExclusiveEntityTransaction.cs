@@ -36,8 +36,8 @@ namespace Unity.Entities
             }
         }
 
-        
-        
+
+
         internal ExclusiveEntityTransaction(ArchetypeManager archetypes, EntityGroupManager entityGroupManager,
             SharedComponentDataManager sharedComponentDataManager, EntityDataManager* data)
         {
@@ -136,10 +136,6 @@ namespace Unity.Entities
         private void InstantiateInternal(Entity srcEntity, Entity* outputEntities, int count)
         {
             CheckAccess();
-
-            if (!m_Entities->Exists(srcEntity))
-                throw new ArgumentException("srcEntity is not a valid entity");
-
             m_Entities->InstantiateEntities(ArchetypeManager, SharedComponentDataManager, srcEntity, outputEntities, count);
         }
 
@@ -252,7 +248,7 @@ namespace Unity.Entities
             m_Entities->AssertEntityHasComponent(entity, typeIndex);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (TypeManager.GetTypeInfo<T>().Category != TypeManager.TypeCategory.BufferData)
+            if (!TypeManager.IsBuffer(typeIndex))
                 throw new ArgumentException(
                     $"GetBuffer<{typeof(T)}> may not be IComponentData or ISharedComponentData; currently {TypeManager.GetTypeInfo<T>().Category}");
 #endif
@@ -272,17 +268,18 @@ namespace Unity.Entities
         }
 
 
-        internal void AddExistingChunk(Chunk* chunk)
+        internal void AddExistingChunk(Chunk* chunk, int* sharedComponentIndices)
         {
-            ArchetypeManager.AddExistingChunk(chunk);
+            ArchetypeManager.AddExistingChunk(chunk, sharedComponentIndices);
             m_Entities->AddExistingChunk(chunk);
         }
-        
-        
+
+
         public void SwapComponents(ArchetypeChunk leftChunk, int leftIndex, ArchetypeChunk rightChunk, int rightIndex)
         {
             CheckAccess();
-            ChunkDataUtility.SwapComponents(leftChunk.m_Chunk,leftIndex,rightChunk.m_Chunk,rightIndex,1);
+            var globalVersion = m_Entities->GlobalSystemVersion;
+            ChunkDataUtility.SwapComponents(leftChunk.m_Chunk,leftIndex,rightChunk.m_Chunk,rightIndex,1, globalVersion, globalVersion);
         }
     }
 }

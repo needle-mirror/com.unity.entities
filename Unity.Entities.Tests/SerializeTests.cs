@@ -146,20 +146,10 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(1, group3.CalculateLength());
                 Assert.AreEqual(1, group4.CalculateLength());
 
-                var query = new EntityArchetypeQuery
-                {
-                    All = Array.Empty<ComponentType>(),
-                    Any = Array.Empty<ComponentType>(),
-                    None = Array.Empty<ComponentType>()
-                };
-
-                var archetypes = new NativeList<EntityArchetype>(Allocator.TempJob);
-                entityManager.AddMatchingArchetypes(query, archetypes);
-                Assert.AreEqual(4, archetypes.Length);
-
-                var chunks = entityManager.CreateArchetypeChunkArray(archetypes, Allocator.TempJob);
+                var everythingGroup = entityManager.CreateComponentGroup(Array.Empty<ComponentType>());
+                var chunks = everythingGroup.CreateArchetypeChunkArray(Allocator.TempJob);
                 Assert.AreEqual(4, chunks.Length);
-                archetypes.Dispose();
+                everythingGroup.Dispose();
 
                 var entityType = entityManager.GetArchetypeChunkEntityType();
                 Assert.AreEqual(1, chunks[0].GetNativeArray(entityType).Length);
@@ -352,10 +342,12 @@ namespace Unity.Entities.Tests
 
             var e1 = m_Manager.CreateEntity();
             m_Manager.AddComponentData(e1, new EcsTestData(1));
-            m_Manager.AddChunkComponentData(m_Manager.GetChunk(e1), new EcsTestData3(42));
+            m_Manager.AddChunkComponentData<EcsTestData3>(e1);
+            m_Manager.SetChunkComponentData(m_Manager.GetChunk(e1), new EcsTestData3(42));
             var e2 = m_Manager.CreateEntity();
             m_Manager.AddComponentData(e2, new EcsTestData2(2));
-            m_Manager.AddChunkComponentData(m_Manager.GetChunk(e2), new EcsTestData3(57));
+            m_Manager.AddChunkComponentData<EcsTestData3>(e2);
+            m_Manager.SetChunkComponentData(m_Manager.GetChunk(e2), new EcsTestData3(57));
 
             m_Manager.DestroyEntity(dummyEntity);
             var writer = new TestBinaryWriter();

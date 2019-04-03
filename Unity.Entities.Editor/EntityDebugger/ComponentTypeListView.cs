@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Unity.Entities.Editor
 {
     
-    public class ComponentTypeListView : TreeView
+    internal class ComponentTypeListView : TreeView
     {
         private List<ComponentType> types;
         private List<bool> typeSelections;

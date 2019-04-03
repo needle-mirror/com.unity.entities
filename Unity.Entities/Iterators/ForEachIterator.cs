@@ -56,5 +56,44 @@ namespace Unity.Entities
             return GetComponentGroup(new EntityArchetypeQuery { All = types });
 #endif
         }
+        
+        
+        protected delegate void F_E(Entity entity);
+
+        unsafe protected void ForEach(F_E operate, ComponentGroup group = null)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            EntityManager.m_InsideForEach++;
+            try
+#endif
+            {
+                if (group == null)
+                {
+                    group = GetCachedComponentGroup_Delegate(operate);
+                    if (group == null)
+                        group = CreateCachedComponentGroup_Delegate(operate);
+                }
+                
+                var entityType = GetArchetypeChunkEntityType();
+
+                using (var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob))
+                {
+                    foreach (var chunk in chunks)
+                    {
+                        var length = chunk.Count;
+
+                        var entityArray = chunk.GetNativeArray(entityType);
+                        for (int i = 0; i < length; ++i)
+                            operate(entityArray[i]);
+                    }
+                }
+            }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            finally
+            {
+                EntityManager.m_InsideForEach--;
+            }
+#endif
+        }      
     }
 }

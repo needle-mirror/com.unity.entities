@@ -13,17 +13,17 @@ namespace Unity.Entities.Tests
 			var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(Prefab));
 
 		    var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
-		    
+
 			var entity0 = m_Manager.CreateEntity(archetype0);
 			var entity1 = m_Manager.CreateEntity(archetype1);
-		    
+
 			var arr = group.GetComponentDataArray<EcsTestData>();
 			Assert.AreEqual(1, arr.Length);
 
 			m_Manager.DestroyEntity(entity0);
 			m_Manager.DestroyEntity(entity1);
 		}
-	    
+
 	    [Test]
 	    public void PFB_DontFindPrefabInChunkIterator()
 	    {
@@ -32,14 +32,10 @@ namespace Unity.Entities.Tests
 
 	        var entity0 = m_Manager.CreateEntity(archetype0);
 	        var entity1 = m_Manager.CreateEntity(archetype1);
-	        
-	        var query = new EntityArchetypeQuery
-	        {
-	            Any = Array.Empty<ComponentType>(),
-	            None = Array.Empty<ComponentType>(),
-	            All = new ComponentType[] {typeof(EcsTestData)}
-	        };
-	        var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+
+            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsTestData>());
+	        var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
 	        var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
 	        chunks.Dispose();
 
@@ -48,7 +44,7 @@ namespace Unity.Entities.Tests
 	        m_Manager.DestroyEntity(entity0);
 	        m_Manager.DestroyEntity(entity1);
 	    }
-	    
+
 		[Test]
 		public void PFB_FindPrefabIfRequestedInComponentGroup()
 		{
@@ -56,11 +52,11 @@ namespace Unity.Entities.Tests
 			var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(Prefab));
 
 		    var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(Prefab));
-		    
+
 			var entity0 = m_Manager.CreateEntity(archetype0);
 			var entity1 = m_Manager.CreateEntity(archetype1);
 			var entity2 = m_Manager.CreateEntity(archetype1);
-		    
+
 			var arr = group.GetComponentDataArray<EcsTestData>();
 			Assert.AreEqual(2, arr.Length);
 
@@ -68,7 +64,7 @@ namespace Unity.Entities.Tests
 			m_Manager.DestroyEntity(entity1);
 			m_Manager.DestroyEntity(entity2);
 		}
-	    
+
 	    [Test]
 	    public void PFB_FindPrefabIfRequestedInChunkIterator()
 	    {
@@ -78,14 +74,11 @@ namespace Unity.Entities.Tests
 	        var entity0 = m_Manager.CreateEntity(archetype0);
 	        var entity1 = m_Manager.CreateEntity(archetype1);
 	        var entity2 = m_Manager.CreateEntity(archetype1);
-	        
-	        var query = new EntityArchetypeQuery
-	        {
-	            Any = Array.Empty<ComponentType>(),
-	            None = Array.Empty<ComponentType>(),
-	            All = new ComponentType[] {typeof(EcsTestData), typeof(Prefab)}
-	        };
-	        var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+
+            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsTestData>(),
+                ComponentType.Create<Prefab>());
+	        var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
 	        var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
 	        chunks.Dispose();
 
@@ -95,7 +88,7 @@ namespace Unity.Entities.Tests
 	        m_Manager.DestroyEntity(entity1);
 	        m_Manager.DestroyEntity(entity2);
 	    }
-	    
+
 	    [Test]
 	    public void PFB_GetAllIncludesPrefab()
 	    {
@@ -109,12 +102,12 @@ namespace Unity.Entities.Tests
 	        var entities = m_Manager.GetAllEntities();
 	        Assert.AreEqual(3,entities.Length);
 	        entities.Dispose();
-	        
+
 	        m_Manager.DestroyEntity(entity0);
 	        m_Manager.DestroyEntity(entity1);
 	        m_Manager.DestroyEntity(entity2);
 	    }
-	    
+
 	    [Test]
 	    public void PFB_InstantiatedWithoutPrefab()
 	    {
@@ -125,19 +118,15 @@ namespace Unity.Entities.Tests
 
 	        Assert.AreEqual(true, m_Manager.HasComponent<Prefab>(entity0));
 	        Assert.AreEqual(false, m_Manager.HasComponent<Prefab>(entity1));
-	        
-	        var query = new EntityArchetypeQuery
-	        {
-	            Any = Array.Empty<ComponentType>(),
-	            None = Array.Empty<ComponentType>(),
-	            All = new ComponentType[] {typeof(EcsTestData)}
-	        };
-	        var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+
+            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsTestData>());
+	        var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
 	        var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
 	        chunks.Dispose();
 
 	        Assert.AreEqual(1, count);
-	        
+
 	        m_Manager.DestroyEntity(entity0);
 	        m_Manager.DestroyEntity(entity1);
 	    }

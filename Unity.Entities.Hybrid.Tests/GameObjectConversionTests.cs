@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿using System.Text.RegularExpressions;
+using NUnit.Framework;
 using Unity.Entities;
 using Unity.Entities.Tests;
 using Unity.Mathematics;
@@ -10,6 +11,15 @@ namespace UnityEngine.Entities.Tests
 {
     class GameObjectConversionTests : ECSTestsFixture
     {
+        public static void ConvertSceneAndApplyDiff(Scene scene, World previousStateShadowWorld, World dstEntityWorld)
+        {
+            using (var cleanConvertedEntityWorld = new World("Clean Entity Conversion World"))
+            {
+                GameObjectConversionUtility.ConvertScene(scene, cleanConvertedEntityWorld, true);
+                WorldDiffer.DiffAndApply(cleanConvertedEntityWorld, previousStateShadowWorld, dstEntityWorld);
+            }
+        }
+        
         [Test]
         public void ConvertGameObject_HasOnlyTransform_ProducesEntityWithPositionAndRotation([Values]bool useDiffing)
         {
@@ -24,7 +34,7 @@ namespace UnityEngine.Entities.Tests
             if (useDiffing)
             {
                 var shadowWorld = new World("Shadow");
-                GameObjectConversionUtility.ConvertSceneAndApplyDiff(scene, shadowWorld, m_Manager.World);
+                ConvertSceneAndApplyDiff(scene, shadowWorld, m_Manager.World);
                 shadowWorld.Dispose();
             }
             else
@@ -48,6 +58,16 @@ namespace UnityEngine.Entities.Tests
             
             // Unload
             EditorSceneManager.UnloadSceneAsync(scene);
+        }
+        
+        [Test]
+        public void ConversionIgnoresMissingMonoBehaviour()
+        {
+            TestTools.LogAssert.Expect(LogType.Warning, new Regex("missing"));
+            var scene = EditorSceneManager.OpenScene("Packages/com.unity.entities/Unity.Entities.Hybrid.Tests/MissingMonoBehaviour.unity");
+            var world = new World("Temp");
+            GameObjectConversionUtility.ConvertScene(scene, world);
+            world.Dispose();
         }
         
         //@TODO: Test Prefabs

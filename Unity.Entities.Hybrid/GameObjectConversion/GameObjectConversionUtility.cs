@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -12,42 +13,50 @@ using UnityEngine.SceneManagement;
 
 public static class GameObjectConversionUtility
 {
-    public static void ConvertScene(Scene scene, World dstEntityWorld)
+    static ProfilerMarker m_ConvertScene = new ProfilerMarker("GameObjectConversionUtility.ConvertScene");
+    static ProfilerMarker m_CreateConversionWorld = new ProfilerMarker("Create World & Systems");
+    static ProfilerMarker m_DestroyConversionWorld = new ProfilerMarker("DestroyWorld");
+    static ProfilerMarker m_CreateEntitiesForGameObjects = new ProfilerMarker("CreateEntitiesForGameObjects");
+    static ProfilerMarker m_UpdateSystems = new ProfilerMarker("UpdateConversionSystems");
+    static ProfilerMarker m_AddPrefabComponentDataTag = new ProfilerMarker("AddPrefabComponentDataTag");
+
+    unsafe public static EntityGuid GetEntityGuid(GameObject gameObject, int index)
     {
-        ConvertInternal(scene, dstEntityWorld, false);
+        return GameObjectConversionMappingSystem.GetEntityGuid(gameObject, index);
     }
 
-    public static void ConvertSceneAndApplyDiff(Scene scene, World previousStateShadowWorld, World dstEntityWorld)
-    {
-        using (var cleanConvertedEntityWorld = new World("Clean Entity Conversion World"))
-        {
-            ConvertInternal(scene, cleanConvertedEntityWorld, true);
-
-            using (var diff = WorldDiffer.UpdateDiff(cleanConvertedEntityWorld, previousStateShadowWorld, Allocator.TempJob))
-            {
-                WorldDiffer.ApplyDiff(dstEntityWorld, diff);
-            }
-        }
-    }
-
-    static void ConvertInternal(Scene scene, World dstEntityWorld, bool addEntityGUID)
-    {        
+    public static void ConvertScene(Scene scene, World dstEntityWorld, bool addEntityGUID = false)
+    {    
+        m_ConvertScene.Begin();
+        m_CreateConversionWorld.Begin();
         using (var gameObjectWorld = new World("GameObject World"))
-        {
+        {            
             var mappingSystem = gameObjectWorld.CreateManager<GameObjectConversionMappingSystem>(dstEntityWorld);
             mappingSystem.AddEntityGUID = addEntityGUID;
             AddConversionSystems(gameObjectWorld);
-    
+
+            m_CreateConversionWorld.End();
+
             // Create Entities from game objects
+            m_CreateEntitiesForGameObjects.Begin();
             GameObjectConversionMappingSystem.CreateEntitiesForGameObjects(scene, gameObjectWorld);
-            
+            m_CreateEntitiesForGameObjects.End();
+
+            m_UpdateSystems.Begin();
             // Convert all the data into dstEntityWorld
             var managers = gameObjectWorld.BehaviourManagers;
             foreach (var manager in managers)
                 manager.Update();
+            m_UpdateSystems.End();
     
+            m_AddPrefabComponentDataTag.Begin();
             mappingSystem.AddPrefabComponentDataTag();
+            m_AddPrefabComponentDataTag.End();
+            
+            m_DestroyConversionWorld.Begin();
         }
+        m_DestroyConversionWorld.End();
+        m_ConvertScene.End();
     }
     
     static void AddConversionSystems(World gameObjectWorld)
@@ -55,7 +64,7 @@ public static class GameObjectConversionUtility
         // Ensure the following systems run first in this order...
         gameObjectWorld.GetOrCreateManager<ConvertGameObjectToEntitySystemDeclarePrefabs>();
         gameObjectWorld.GetOrCreateManager<ConvertGameObjectToEntitySystem>();
-        gameObjectWorld.GetOrCreateManager<ComponentDataWrapperToEntitySystem>();
+        gameObjectWorld.GetOrCreateManager<ComponentDataProxyToEntitySystem>();
 
         foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
         {

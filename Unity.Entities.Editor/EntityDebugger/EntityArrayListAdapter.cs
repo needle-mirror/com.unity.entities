@@ -8,6 +8,15 @@ namespace Unity.Entities.Editor
 {
     internal class EntityArrayListAdapter : IList<TreeViewItem>
     {
+
+        internal static int IndexToItemId(int index)
+        {
+            return -1 - index;
+        }
+        internal static int ItemIdToIndex(int id)
+        {
+            return -id - 1;
+        }
         
         private readonly TreeViewItem currentItem = new TreeViewItem();
 
@@ -42,8 +51,8 @@ namespace Unity.Entities.Editor
 
         class Enumerator : IEnumerator<TreeViewItem>
         {
-            private int linearIndex;
-            private int indexInChunk;
+            private int currentLinearIndex;
+            private int currentIndexInChunk;
             private int currentChunk;
 
             private readonly EntityArrayListAdapter adapter;
@@ -56,39 +65,39 @@ namespace Unity.Entities.Editor
             
             private void UpdateIndexInChunk()
             {
-                while (adapter.chunkArray[currentChunk].Count <= indexInChunk)
-                    indexInChunk -= adapter.chunkArray[currentChunk++].Count;
+                while (adapter.chunkArray[currentChunk].Count <= currentIndexInChunk)
+                    currentIndexInChunk -= adapter.chunkArray[currentChunk++].Count;
             }
 
-            internal void MoveToIndex(int index)
+            internal void MoveToIndex(int newLinearIndex)
             {
-                if (index >= linearIndex)
+                if (newLinearIndex >= currentLinearIndex)
                 {
-                    indexInChunk += index - linearIndex;
-                    linearIndex = index;
+                    currentIndexInChunk += newLinearIndex - currentLinearIndex;
+                    currentLinearIndex = newLinearIndex;
                     UpdateIndexInChunk();
                 }
                 else
                 {
-                    Reset(index);
+                    Reset(newLinearIndex);
                 }
             }
             
             public bool MoveNext()
             {
-                ++indexInChunk;
-                ++linearIndex;
+                ++currentIndexInChunk;
+                ++currentLinearIndex;
                 
-                if (linearIndex >= adapter.Count)
+                if (currentLinearIndex >= adapter.Count)
                     return false;
 
                 UpdateIndexInChunk();
                 return true;
             }
 
-            private void SetLinearIndex(int index)
+            private void SetLinearIndex(int newLinearIndex)
             {
-                linearIndex = indexInChunk = index;
+                currentLinearIndex = currentIndexInChunk = newLinearIndex;
                 currentChunk = 0;
                 if (adapter.chunkFilter != null && currentChunk < adapter.chunkFilter.firstIndex)
                     currentChunk = adapter.chunkFilter.firstIndex;
@@ -96,7 +105,7 @@ namespace Unity.Entities.Editor
 
             public void Reset()
             {
-                SetLinearIndex(0);
+                SetLinearIndex(-1);
             }
 
             private void Reset(int index)
@@ -110,9 +119,9 @@ namespace Unity.Entities.Editor
                 get
                 {
                     var entityArray = adapter.chunkArray[currentChunk].GetNativeArray(adapter.entityManager.GetArchetypeChunkEntityType());
-                    var entity = entityArray[indexInChunk];
+                    var entity = entityArray[currentIndexInChunk];
             
-                    adapter.currentItem.id = entity.Index;
+                    adapter.currentItem.id = IndexToItemId(entity.Index);
                     var name = adapter.entityManager.GetName(entity);
                     if (string.IsNullOrEmpty(name))
                         name = $"Entity {entity.Index}";
@@ -126,11 +135,11 @@ namespace Unity.Entities.Editor
             public void Dispose() {}
         }
 
-        public TreeViewItem this[int index]
+        public TreeViewItem this[int linearIndex]
         {
             get
             {
-                indexIterator.MoveToIndex(index);
+                indexIterator.MoveToIndex(linearIndex);
                 return indexIterator.Current;
             }
             set { throw new System.NotImplementedException(); }
@@ -140,12 +149,13 @@ namespace Unity.Entities.Editor
 
         public bool GetById(int id, out Entity foundEntity)
         {
+            var index = ItemIdToIndex(id);
             foreach (var chunk in chunkArray)
             {
                 var array = chunk.GetNativeArray(entityManager.GetArchetypeChunkEntityType());
                 foreach (var entity in array)
                 {
-                    if (entity.Index == id)
+                    if (entity.Index == index)
                     {
                         foundEntity = entity;
                         return true;

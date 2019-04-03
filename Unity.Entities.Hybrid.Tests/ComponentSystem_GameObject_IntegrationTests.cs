@@ -105,7 +105,7 @@ namespace UnityEngine.Entities.Tests
         [Test]
         public void GetComponentGroup_WhenObjectWithMatchingComponentAndECSDataExists_ComponentArraysArePopulated()
         {
-            var goe = m_GameObject.AddComponent<EcsTestComponent>().GetComponent<GameObjectEntity>();
+            var goe = m_GameObject.AddComponent<EcsTestProxy>().GetComponent<GameObjectEntity>();
             var expectedTestData = new EcsTestData(5);
             m_Manager.SetComponentData(goe.Entity, expectedTestData);
 

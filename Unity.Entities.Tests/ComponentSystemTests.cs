@@ -234,6 +234,14 @@ namespace Unity.Entities.Tests
             
             Assert.AreEqual(2, EmptySystem.ComponentGroups.Length);
         }
+        
+        [Test]
+        public void UpdateDestroyedSystemThrows()
+        {
+            var system = EmptySystem;
+            World.DestroyManager(system);
+            Assert.Throws<InvalidOperationException>(system.Update);
+        }
     }
 
     class Issue101 : ECSTestsFixture

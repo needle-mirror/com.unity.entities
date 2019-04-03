@@ -257,6 +257,52 @@ namespace Unity.Entities.Tests
 	        
 	        actualTotalTypes.Dispose();
 	    }
+        
+        [Test]
+        public void GetAllEntitiesCorrectCount()
+        {
+            var archetype0 = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var entity = m_Manager.CreateEntity(archetype0);
+
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+            var moreEntities = new NativeArray<Entity>(1024,Allocator.Temp);
+            m_Manager.CreateEntity(archetype1, moreEntities);
+
+            var foundEntities = m_Manager.GetAllEntities();
+            Assert.AreEqual(1024+1,foundEntities.Length);
+            
+            foundEntities.Dispose();
+            moreEntities.Dispose();
+        }
+        
+        [Test]
+        public void GetAllEntitiesCorrectValues()
+        {
+            var archetype0 = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var entity = m_Manager.CreateEntity(archetype0);
+            m_Manager.SetComponentData(entity,new EcsTestData { value = 0});
+
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+            var moreEntities = new NativeArray<Entity>(1024,Allocator.Temp);
+            m_Manager.CreateEntity(archetype1, moreEntities);
+            for (int i = 0; i < 1024; i++)
+            {
+                m_Manager.SetComponentData(moreEntities[i],new EcsTestData { value = i+1});
+            }
+
+            var foundEntities = m_Manager.GetAllEntities();
+            var sum = 0;
+            var expectedSum = 524800;
+            for (int i = 0; i < 1024; i++)
+            {
+                sum += m_Manager.GetComponentData<EcsTestData>(foundEntities[i]).value;
+            }
+
+            Assert.AreEqual(expectedSum, sum);
+            
+            foundEntities.Dispose();
+            moreEntities.Dispose();
+        }
 
 	    [Test]
 	    public void AddComponentsWithTypeIndicesWorks()

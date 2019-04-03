@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.Tests
 {
@@ -180,6 +182,125 @@ namespace Unity.Entities.Tests
 
             entityRemapping.Dispose();
             entities.Dispose();
+            creationWorld.Dispose();
+        }
+
+        [Test]
+        public void MoveEntitiesWithComponentGroupMovesChunkComponents()
+        {
+            var creationWorld = new World("CreationWorld");
+            var creationManager = creationWorld.GetOrCreateManager<EntityManager>();
+            var archetype = creationManager.CreateArchetype(typeof(EcsTestData), ComponentType.ChunkComponent<EcsTestData2>(), typeof(SharedData1));
+
+            var entities = new NativeArray<Entity>(10000, Allocator.Temp);
+            creationManager.CreateEntity(archetype, entities);
+            for (int i = 0; i != entities.Length; i++)
+            {
+                creationManager.SetComponentData(entities[i], new EcsTestData(i));
+                creationManager.SetSharedComponentData(entities[i], new SharedData1(i % 5));
+            }
+
+            var srcGroup = creationManager.CreateComponentGroup(typeof(EcsTestData), ComponentType.ChunkComponent<EcsTestData2>(), typeof(SharedData1));
+
+            var chunksPerValue = new int[5];
+            var chunks = srcGroup.CreateArchetypeChunkArray(Allocator.TempJob);
+
+            var sharedData1Type = creationManager.GetArchetypeChunkSharedComponentType<SharedData1>();
+            var ecsTestData2Type = creationManager.GetArchetypeChunkComponentType<EcsTestData2>(false);
+
+            foreach(var chunk in chunks)
+            {
+                int sharedIndex = chunk.GetSharedComponentIndex(sharedData1Type);
+                var shared = creationManager.GetSharedComponentData<SharedData1>(sharedIndex);
+                chunk.SetChunkComponentData(ecsTestData2Type, new EcsTestData2{value0 = shared.value, value1 = 47*shared.value});
+                chunksPerValue[shared.value]++;
+            }
+            chunks.Dispose();
+
+            m_Manager.Debug.CheckInternalConsistency();
+            creationManager.Debug.CheckInternalConsistency();
+
+            var filteredComponentGroup = creationManager.CreateComponentGroup(typeof(EcsTestData), typeof(SharedData1));
+            filteredComponentGroup.SetFilter(new SharedData1(2));
+
+            var entityRemapping = creationManager.CreateEntityRemapArray(Allocator.TempJob);
+            m_Manager.MoveEntitiesFrom(creationManager, filteredComponentGroup, entityRemapping);
+
+            filteredComponentGroup.Dispose();
+
+
+            m_Manager.Debug.CheckInternalConsistency();
+            creationManager.Debug.CheckInternalConsistency();
+
+            var dstGroup = m_Manager.CreateComponentGroup(typeof(EcsTestData), ComponentType.ChunkComponent<EcsTestData2>(), typeof(SharedData1));
+            Assert.AreEqual(2000, dstGroup.CalculateLength());
+            Assert.AreEqual(8000, creationManager.CreateComponentGroup(typeof(EcsTestData)).CalculateLength());
+
+            int expectedMovedChunkCount = chunksPerValue[2];
+            int expectedRemainingChunkCount = chunksPerValue.Sum() - expectedMovedChunkCount;
+
+            var movedChunkHeaderGroup = m_Manager.CreateComponentGroup(typeof(EcsTestData2), typeof(ChunkHeader));
+            var remainingChunkHeaderGroup = creationManager.CreateComponentGroup(typeof(EcsTestData2), typeof(ChunkHeader));
+            Assert.AreEqual(expectedMovedChunkCount, movedChunkHeaderGroup.CalculateLength());
+            Assert.AreEqual(expectedRemainingChunkCount, remainingChunkHeaderGroup.CalculateLength());
+
+
+            var dstEntityArray = dstGroup.ToEntityArray(Allocator.TempJob);
+            for (int i = 0; i != dstEntityArray.Length; i++)
+            {
+                var chunkComponent = m_Manager.GetChunkComponentData<EcsTestData2>(dstEntityArray[i]);
+                int expectedValue = m_Manager.GetComponentData<EcsTestData>(dstEntityArray[i]).value % 5;
+                Assert.AreEqual(2, expectedValue);
+                Assert.AreEqual(expectedValue, m_Manager.GetSharedComponentData<SharedData1>(dstEntityArray[i]).value);
+                Assert.AreEqual(expectedValue, chunkComponent.value0);
+                Assert.AreEqual(expectedValue*47, chunkComponent.value1);
+            }
+
+            var srcEntityArray = srcGroup.ToEntityArray(Allocator.TempJob);
+            for (int i = 0; i != srcEntityArray.Length; i++)
+            {
+                var chunkComponent = creationManager.GetChunkComponentData<EcsTestData2>(srcEntityArray[i]);
+                int expectedValue = creationManager.GetComponentData<EcsTestData>(srcEntityArray[i]).value % 5;
+                Assert.AreNotEqual(2, expectedValue);
+                Assert.AreEqual(expectedValue, creationManager.GetSharedComponentData<SharedData1>(srcEntityArray[i]).value);
+                Assert.AreEqual(expectedValue, chunkComponent.value0);
+                Assert.AreEqual(expectedValue*47, chunkComponent.value1);
+            }
+
+            dstGroup.Dispose();
+            srcGroup.Dispose();
+            movedChunkHeaderGroup.Dispose();
+            remainingChunkHeaderGroup.Dispose();
+            dstEntityArray.Dispose();
+            srcEntityArray.Dispose();
+            entityRemapping.Dispose();
+            entities.Dispose();
+            creationWorld.Dispose();
+        }
+
+        [Test]
+        public void MoveEntitiesWithChunkHeaderChunksThrows()
+        {
+            var creationWorld = new World("CreationWorld");
+            var creationManager = creationWorld.GetOrCreateManager<EntityManager>();
+
+            var archetype = creationManager.CreateArchetype(typeof(EcsTestData), ComponentType.ChunkComponent<EcsTestData2>());
+
+            var entities = new NativeArray<Entity>(10000, Allocator.Temp);
+            creationManager.CreateEntity(archetype, entities);
+            entities.Dispose();
+
+            m_Manager.Debug.CheckInternalConsistency();
+            creationManager.Debug.CheckInternalConsistency();
+
+            var componentGroupToMove = creationManager.CreateComponentGroup(typeof(EcsTestData2), typeof(ChunkHeader));
+            var entityRemapping = creationManager.CreateEntityRemapArray(Allocator.TempJob);
+
+            Assert.Throws<ArgumentException>(() => m_Manager.MoveEntitiesFrom(creationManager, componentGroupToMove, entityRemapping));
+            Assert.Throws<ArgumentException>(() => m_Manager.MoveEntitiesFrom(out var output, creationManager, componentGroupToMove, entityRemapping));
+
+            entityRemapping.Dispose();
+            componentGroupToMove.Dispose();
             creationWorld.Dispose();
         }
 

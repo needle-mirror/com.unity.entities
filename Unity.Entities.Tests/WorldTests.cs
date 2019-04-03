@@ -1,4 +1,7 @@
-﻿using NUnit.Framework;
+﻿using System;
+using System.Linq;
+using System.Reflection;
+using NUnit.Framework;
 
 namespace Unity.Entities.Tests
 {
@@ -45,7 +48,7 @@ namespace Unity.Entities.Tests
         }
 
         [DisableAutoCreation]
-        private class TestManager : ComponentSystem
+        class TestManager : ComponentSystem
         {
             protected override void OnUpdate() {}
         }
@@ -71,5 +74,88 @@ namespace Unity.Entities.Tests
             
             world.Dispose();
         }
+        
+        [Test]
+        public void UsingDisposedWorldThrows()
+        {
+            var world = new World("WorldX");
+            world.Dispose();
+
+            Assert.Throws<ArgumentException>(() => world.GetExistingManager<TestManager>());
+        }
+        
+        [DisableAutoCreation]
+        class AddWorldDuringConstructorThrowsSystem : ComponentSystem
+        {
+            public AddWorldDuringConstructorThrowsSystem()
+            {
+                Assert.AreEqual(null, World);
+                World.Active.AddManager(this);
+            }
+
+            protected override void OnUpdate() { }
+        }
+        [Test]
+        public void AddWorldDuringConstructorThrows ()
+        {
+            var world = new World("WorldX");
+            World.Active = world;
+            // Adding a manager during construction is not allowed
+            Assert.Throws<TargetInvocationException>(() => world.CreateManager<AddWorldDuringConstructorThrowsSystem>());
+            // The manager will not be added to the list of managers if throws
+            Assert.AreEqual(0, world.BehaviourManagers.Count());
+            
+            world.Dispose();
+        }
+        
+        
+        [DisableAutoCreation]
+        class SystemThrowingInOnCreateManagerIsRemovedSystem : ComponentSystem
+        {
+            protected override void OnCreateManager()
+            {
+                throw new AssertionException("");
+            }
+
+            protected override void OnUpdate() { }
+        }
+        [Test]
+        public void SystemThrowingInOnCreateManagerIsRemoved()
+        {
+            var world = new World("WorldX");
+            world.GetOrCreateManager<EntityManager>();
+            Assert.AreEqual(1, world.BehaviourManagers.Count());
+
+            Assert.Throws<AssertionException>(() => world.GetOrCreateManager<SystemThrowingInOnCreateManagerIsRemovedSystem>());
+
+            // throwing during OnCreateManager does not add the manager to the behaviour manager list
+            Assert.AreEqual(1, world.BehaviourManagers.Count());
+            
+            world.Dispose();
+        }
+
+        [DisableAutoCreation]
+        class SystemIsAccessibleDuringOnCreateManagerSystem : ComponentSystem
+        {
+            protected override void OnCreateManager()
+            {
+                Assert.AreEqual(this, World.GetOrCreateManager<SystemIsAccessibleDuringOnCreateManagerSystem>());
+            }
+            
+            protected override void OnUpdate() { }
+        }
+        [Test]
+        public void SystemIsAccessibleDuringOnCreateManager ()
+        {
+            var world = new World("WorldX");
+            world.GetOrCreateManager<EntityManager>();
+            Assert.AreEqual(1, world.BehaviourManagers.Count());
+            world.CreateManager<SystemIsAccessibleDuringOnCreateManagerSystem>();
+            Assert.AreEqual(2, world.BehaviourManagers.Count());
+            
+            world.Dispose();
+        }
+        
+        //@TODO: Test for adding a manager from one world to another. 
     }
 }

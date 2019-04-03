@@ -60,18 +60,17 @@ namespace Unity.Entities
             components = gameObject.GetComponents<Component>();
 
             var componentCount = 0;
-            if (includeGameObjectComponents)
+            for (var i = 0; i != components.Length; i++)
             {
-                var gameObjectEntityComponent = gameObject.GetComponent<GameObjectEntity>();
-                componentCount = gameObjectEntityComponent == null ? components.Length : components.Length - 1;
-            }
-            else
-            {
-                for (var i = 0; i != components.Length; i++)
-                {
-                    if (components[i] is ComponentDataWrapperBase)
-                        componentCount++;
-                }
+                var com = components[i];
+                var componentData = com as ComponentDataProxyBase;
+
+                if (com == null)
+                    UnityEngine.Debug.LogWarning($"The referenced script is missing on {gameObject.name}", gameObject);
+                else if (componentData != null)
+                    componentCount++;
+                else if (includeGameObjectComponents && !(com is GameObjectEntity))
+                    componentCount++;
             }
 
             types = new ComponentType[componentCount];
@@ -80,11 +79,11 @@ namespace Unity.Entities
             for (var i = 0; i != components.Length; i++)
             {
                 var com = components[i];
-                var componentData = com as ComponentDataWrapperBase;
+                var componentData = com as ComponentDataProxyBase;
 
                 if (componentData != null)
                     types[t++] = componentData.GetComponentType();
-                else if (includeGameObjectComponents && !(com is GameObjectEntity))
+                else if (includeGameObjectComponents && !(com is GameObjectEntity) && com != null)
                     types[t++] = com.GetType();
             }
         }
@@ -96,14 +95,14 @@ namespace Unity.Entities
             for (var i = 0; i != components.Count; i++)
             {
                 var com = components[i];
-                var componentDataWrapper = com as ComponentDataWrapperBase;
+                var componentDataProxy = com as ComponentDataProxyBase;
 
-                if (componentDataWrapper != null)
+                if (componentDataProxy != null)
                 {
-                    componentDataWrapper.UpdateComponentData(entityManager, entity);
+                    componentDataProxy.UpdateComponentData(entityManager, entity);
                     t++;
                 }
-                else if (!(com is GameObjectEntity))
+                else if (!(com is GameObjectEntity) && com != null)
                 {
                     entityManager.SetComponentObject(entity, types[t], com);
                     t++;
@@ -112,47 +111,19 @@ namespace Unity.Entities
             return entity;
         }
 
+        void Initialize()
+        {
+            DefaultWorldInitialization.DefaultLazyEditModeInitialize();
+            if (World.Active != null)
+            {
+                m_EntityManager = World.Active.GetOrCreateManager<EntityManager>();
+                m_Entity = AddToEntityManager(m_EntityManager, gameObject);
+            }
+        }
+
         protected virtual void OnEnable()
         {
             Initialize();
-        }
-
-        void Initialize()
-        {
-            #if UNITY_EDITOR
-            if (World.Active == null)
-            {
-                // * OnDisable (Serialize monobehaviours in temporary backup)
-                // * unload domain
-                // * load new domain
-                // * OnEnable (Deserialize monobehaviours in temporary backup)
-                // * mark entered playmode / load scene
-                // * OnDisable / OnDestroy
-                // * OnEnable (Loading object from scene...)
-                if (EditorApplication.isPlayingOrWillChangePlaymode)
-                {
-                    // We are just gonna ignore this enter playmode reload.
-                    // Can't see a situation where it would be useful to create something inbetween.
-                    // But we really need to solve this at the root. The execution order is kind if crazy.
-                    if (!EditorApplication.isPlaying)
-                        return;
-                    
-                    Debug.LogError("Loading GameObjectEntity in Playmode but there is no active World");
-                    return;
-                }
-                else
-                {
-#if UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP
-                    return;
-#else
-                    DefaultWorldInitialization.Initialize("Editor World", true);
-#endif
-                }
-            }
-            #endif
-
-            m_EntityManager = World.Active.GetOrCreateManager<EntityManager>();
-            m_Entity = AddToEntityManager(m_EntityManager, gameObject);
         }
 
         protected virtual void OnDisable()
@@ -166,12 +137,12 @@ namespace Unity.Entities
 
         public static void CopyAllComponentsToEntity(GameObject gameObject, EntityManager entityManager, Entity entity)
         {
-            foreach (var wrapper in gameObject.GetComponents<ComponentDataWrapperBase>())
+            foreach (var proxy in gameObject.GetComponents<ComponentDataProxyBase>())
             {
                 // TODO: handle shared components and tag components
-                var type = wrapper.GetComponentType();
+                var type = proxy.GetComponentType();
                 entityManager.AddComponent(entity, type);
-                wrapper.UpdateComponentData(entityManager, entity);
+                proxy.UpdateComponentData(entityManager, entity);
             }
         }
     }

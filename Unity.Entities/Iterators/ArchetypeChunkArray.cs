@@ -106,12 +106,17 @@ namespace Unity.Entities
             return ChangeVersionUtility.DidChange(GetComponentVersion(chunkBufferType), version);
         }
 
+        public bool DidChange<T>(ArchetypeChunkSharedComponentType<T> chunkSharedComponentData, uint version) where T : struct, ISharedComponentData
+        {
+            return ChangeVersionUtility.DidChange(GetComponentVersion(chunkSharedComponentData), version);
+        }
+
         public uint GetComponentVersion<T>(ArchetypeChunkComponentType<T> chunkComponentType)
             where T : struct, IComponentData
         {
             var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentType.m_TypeIndex);
             if (typeIndexInArchetype == -1) return 0;
-            return m_Chunk->ChangeVersion[typeIndexInArchetype];
+            return m_Chunk->GetChangeVersion(typeIndexInArchetype);
         }
 
         public uint GetComponentVersion<T>(ArchetypeChunkBufferType<T> chunkBufferType)
@@ -119,7 +124,15 @@ namespace Unity.Entities
         {
             var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkBufferType.m_TypeIndex);
             if (typeIndexInArchetype == -1) return 0;
-            return m_Chunk->ChangeVersion[typeIndexInArchetype];
+            return m_Chunk->GetChangeVersion(typeIndexInArchetype);
+        }
+
+        public uint GetComponentVersion<T>(ArchetypeChunkSharedComponentType<T> chunkSharedComponentData)
+            where T : struct, ISharedComponentData
+        {
+            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkSharedComponentData.m_TypeIndex);
+            if (typeIndexInArchetype == -1) return 0;
+            return m_Chunk->GetChangeVersion(typeIndexInArchetype);
         }
 
         public T GetChunkComponentData<T>(ArchetypeChunkComponentType<T> chunkComponentType)
@@ -153,8 +166,8 @@ namespace Unity.Entities
             var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(archetype, chunkSharedComponentData.m_TypeIndex);
             if (typeIndexInArchetype == -1) return -1;
 
-            var chunkSharedComponentIndex = archetype->SharedComponentOffset[typeIndexInArchetype];
-            var sharedComponentIndex = m_Chunk->SharedComponentValueArray[chunkSharedComponentIndex];
+            var chunkSharedComponentIndex = typeIndexInArchetype - archetype->FirstSharedComponent;
+            var sharedComponentIndex = m_Chunk->GetSharedComponentValue(chunkSharedComponentIndex);
             return sharedComponentIndex;
         }
 
@@ -168,6 +181,16 @@ namespace Unity.Entities
             where T : struct, IComponentData
         {
             var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentType.m_TypeIndex);
+            return (typeIndexInArchetype != -1);
+        }
+
+        public bool HasChunkComponent<T>(ArchetypeChunkComponentType<T> chunkComponentType)
+            where T : struct, IComponentData
+        {
+            var metaChunkArchetype = m_Chunk->Archetype->MetaChunkArchetype;
+            if (metaChunkArchetype == null)
+                return false;
+            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype->MetaChunkArchetype, chunkComponentType.m_TypeIndex);
             return (typeIndexInArchetype != -1);
         }
 
@@ -214,7 +237,7 @@ namespace Unity.Entities
             NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref result, chunkComponentType.m_Safety);
 #endif
             if (!chunkComponentType.IsReadOnly)
-                m_Chunk->ChangeVersion[typeIndexInArchetype] = chunkComponentType.GlobalSystemVersion;
+                m_Chunk->SetChangeVersion(typeIndexInArchetype, chunkComponentType.GlobalSystemVersion);
             return result;
         }
 
@@ -255,7 +278,7 @@ namespace Unity.Entities
             }
 
             if (!bufferComponentType.IsReadOnly)
-                m_Chunk->ChangeVersion[typeIndexInArchetype] = bufferComponentType.GlobalSystemVersion;
+                m_Chunk->SetChangeVersion(typeIndexInArchetype, bufferComponentType.GlobalSystemVersion);
 
             var buffer = m_Chunk->Buffer;
             var length = m_Chunk->Count;

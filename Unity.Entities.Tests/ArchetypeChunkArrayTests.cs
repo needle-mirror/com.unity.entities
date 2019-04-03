@@ -197,13 +197,14 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            var query = new EntityArchetypeQuery
+            var group = m_Manager.CreateComponentGroup(new EntityArchetypeQuery
             {
                 Any = new ComponentType[] {typeof(EcsTestData2), typeof(EcsTestData)}, // any
                 None = Array.Empty<ComponentType>(), // none
                 All = new ComponentType[] {typeof(EcsTestSharedComp)}, // all
-            };
-            var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+            });
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
 
             Assert.AreEqual(14,chunks.Length);
 
@@ -283,13 +284,9 @@ namespace Unity.Entities.Tests
         {
             CreateEntities(128);
 
-            var query = new EntityArchetypeQuery
-            {
-                Any = new ComponentType[] {}, // any
-                None = Array.Empty<ComponentType>(), // none
-                All = new ComponentType[] {typeof(EcsIntElement)}, // all
-            };
-            var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsIntElement>());
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
 
             var intElements = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(false);
 
@@ -364,13 +361,9 @@ namespace Unity.Entities.Tests
         {
             CreateEntities(128);
 
-            var query = new EntityArchetypeQuery
-            {
-                Any = new ComponentType[] {}, // any
-                None = Array.Empty<ComponentType>(), // none
-                All = new ComponentType[] {typeof(EcsIntElement)}, // all
-            };
-            var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsIntElement>());
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
 
             var intElements = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(false);
             var missingElements = m_Manager.GetArchetypeChunkBufferType<EcsComplexEntityRefElement>(false);
@@ -394,13 +387,9 @@ namespace Unity.Entities.Tests
         {
             CreateEntities(128);
 
-            var query = new EntityArchetypeQuery
-            {
-                Any = new ComponentType[] {}, // any
-                None = Array.Empty<ComponentType>(), // none
-                All = new ComponentType[] {typeof(EcsIntElement)}, // all
-            };
-            var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsIntElement>());
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
 
             var intElements = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(false);
             uint[] chunkBufferVersions = new uint[chunks.Length];
@@ -440,13 +429,9 @@ namespace Unity.Entities.Tests
         {
             CreateEntities(128);
 
-            var query = new EntityArchetypeQuery
-            {
-                Any = new ComponentType[] {}, // any
-                None = Array.Empty<ComponentType>(), // none
-                All = new ComponentType[] {typeof(EcsIntElement)}, // all
-            };
-            var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+            var group = m_Manager.CreateComponentGroup(ComponentType.Create<EcsIntElement>());
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
             var intElements = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(true);
 
             var chunk = chunks[0];
@@ -465,14 +450,8 @@ namespace Unity.Entities.Tests
 
             CreateEntities(128);
 
-            var query = new EntityArchetypeQuery
-            {
-                Any = new ComponentType[0], // any
-                None = new ComponentType[0], // none
-                All = entityTypes, // all
-            };
-
-            using (var chunks = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob))
+            var group = m_Manager.CreateComponentGroup(entityTypes);
+            using (var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob))
             {
                 foreach (var chunk in chunks)
                 {
@@ -486,6 +465,8 @@ namespace Unity.Entities.Tests
                     Assert.Contains(new ComponentType(typeof(Entity)), chunkTypes);
                 }
             }
+
+            group.Dispose();
         }
     }
 }

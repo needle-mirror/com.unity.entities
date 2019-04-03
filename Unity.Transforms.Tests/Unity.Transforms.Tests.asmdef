@@ -2,6 +2,7 @@
     "name": "Unity.Transforms.Tests",
     "references": [
         "Unity.Transforms",
+        "Unity.Transforms.Hybrid",
         "Unity.Entities",
         "Unity.Entities.Hybrid",
         "Unity.Entities.Tests",

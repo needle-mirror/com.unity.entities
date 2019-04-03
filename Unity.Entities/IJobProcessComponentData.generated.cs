@@ -268,29 +268,29 @@ namespace Unity.Entities
             {
                 var typeT = typeof(T);             
                 if (typeof(IBaseJobProcessComponentData_D).IsAssignableFrom(typeT))
-                    return ScheduleInternal_D(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Batched);             
+                    return ScheduleInternal_D(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Batched);             
                 if (typeof(IBaseJobProcessComponentData_ED).IsAssignableFrom(typeT))
-                    return ScheduleInternal_ED(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Batched);             
+                    return ScheduleInternal_ED(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Batched);             
                 if (typeof(IBaseJobProcessComponentData_DD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_DD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Batched);             
+                    return ScheduleInternal_DD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Batched);             
                 if (typeof(IBaseJobProcessComponentData_EDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_EDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Batched);             
+                    return ScheduleInternal_EDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Batched);             
                 if (typeof(IBaseJobProcessComponentData_DDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_DDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Batched);             
+                    return ScheduleInternal_DDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Batched);             
                 if (typeof(IBaseJobProcessComponentData_EDDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_EDDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Batched);             
+                    return ScheduleInternal_EDDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Batched);             
                 if (typeof(IBaseJobProcessComponentData_DDDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_DDDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Batched);             
+                    return ScheduleInternal_DDDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Batched);             
                 if (typeof(IBaseJobProcessComponentData_EDDDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_EDDDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Batched);             
+                    return ScheduleInternal_EDDDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Batched);             
                 if (typeof(IBaseJobProcessComponentData_DDDDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_DDDDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Batched);             
+                    return ScheduleInternal_DDDDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Batched);             
                 if (typeof(IBaseJobProcessComponentData_EDDDDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_EDDDDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Batched);             
+                    return ScheduleInternal_EDDDDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Batched);             
                 if (typeof(IBaseJobProcessComponentData_DDDDDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_DDDDDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Batched);             
+                    return ScheduleInternal_DDDDDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Batched);             
                 if (typeof(IBaseJobProcessComponentData_EDDDDDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_EDDDDDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Batched);             
+                    return ScheduleInternal_EDDDDDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Batched);             
                 throw new System.ArgumentException("Not supported");
             }
             
@@ -299,29 +299,29 @@ namespace Unity.Entities
             {
                 var typeT = typeof(T);             
                 if (typeof(IBaseJobProcessComponentData_D).IsAssignableFrom(typeT))
-                    return ScheduleInternal_D(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Run);             
+                    return ScheduleInternal_D(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Run);             
                 if (typeof(IBaseJobProcessComponentData_ED).IsAssignableFrom(typeT))
-                    return ScheduleInternal_ED(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Run);             
+                    return ScheduleInternal_ED(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Run);             
                 if (typeof(IBaseJobProcessComponentData_DD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_DD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Run);             
+                    return ScheduleInternal_DD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Run);             
                 if (typeof(IBaseJobProcessComponentData_EDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_EDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Run);             
+                    return ScheduleInternal_EDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Run);             
                 if (typeof(IBaseJobProcessComponentData_DDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_DDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Run);             
+                    return ScheduleInternal_DDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Run);             
                 if (typeof(IBaseJobProcessComponentData_EDDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_EDDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Run);             
+                    return ScheduleInternal_EDDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Run);             
                 if (typeof(IBaseJobProcessComponentData_DDDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_DDDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Run);             
+                    return ScheduleInternal_DDDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Run);             
                 if (typeof(IBaseJobProcessComponentData_EDDDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_EDDDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Run);             
+                    return ScheduleInternal_EDDDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Run);             
                 if (typeof(IBaseJobProcessComponentData_DDDDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_DDDDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Run);             
+                    return ScheduleInternal_DDDDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Run);             
                 if (typeof(IBaseJobProcessComponentData_EDDDDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_EDDDDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Run);             
+                    return ScheduleInternal_EDDDDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Run);             
                 if (typeof(IBaseJobProcessComponentData_DDDDDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_DDDDDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Run);             
+                    return ScheduleInternal_DDDDDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Run);             
                 if (typeof(IBaseJobProcessComponentData_EDDDDDD).IsAssignableFrom(typeT))
-                    return ScheduleInternal_EDDDDDD(ref jobData, null, componentGroup, 1, dependsOn, ScheduleMode.Run);             
+                    return ScheduleInternal_EDDDDDD(ref jobData, null, componentGroup, -1, dependsOn, ScheduleMode.Run);             
                 throw new System.ArgumentException("Not supported");
             }
             

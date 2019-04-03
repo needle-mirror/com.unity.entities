@@ -49,28 +49,15 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(chunk0, chunk1);
 
+            Assert.IsFalse(m_Manager.HasChunkComponent<EcsTestData2>(entity0));
             m_Manager.AddChunkComponentData<EcsTestData2>(entity0);
+            Assert.IsTrue(m_Manager.HasChunkComponent<EcsTestData2>(entity0));
             chunk0 = m_Manager.GetChunk(entity0);
 
             Assert.AreNotEqual(chunk0, chunk1);
 
             Assert.IsTrue(m_Manager.HasComponent(entity0, ComponentType.ChunkComponent<EcsTestData2>()));
             Assert.IsFalse(m_Manager.HasComponent(entity1, ComponentType.ChunkComponent<EcsTestData2>()));
-        }
-
-        [Test]
-        public void AddRemoveChunkComponentOnChunk()
-        {
-            var entity = m_Manager.CreateEntity(ComponentType.Create<EcsTestData>());
-            var chunk = m_Manager.GetChunk(entity);
-            m_Manager.AddChunkComponentData(chunk, new EcsTestData2(7));
-
-            Assert.IsTrue(m_Manager.HasComponent(entity, ComponentType.ChunkComponent<EcsTestData2>()));
-            var val = m_Manager.GetChunkComponentData<EcsTestData2>(entity).value0;
-            Assert.AreEqual(7, val);
-
-            m_Manager.RemoveChunkComponentData<EcsTestData2>(chunk);
-            Assert.IsFalse(m_Manager.HasComponent(entity, ComponentType.ChunkComponent<EcsTestData2>()));
         }
 
         [Test]

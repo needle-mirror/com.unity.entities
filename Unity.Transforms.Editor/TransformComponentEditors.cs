@@ -4,21 +4,21 @@ using UnityEngine;
 
 namespace Unity.Transforms.Editor
 {
-    abstract class BaseTransformComponentEditor : ComponentDataWrapperBaseEditor
+    abstract class BaseTransformComponentEditor : ComponentDataProxyBaseEditor
     {
         string m_DrivenMessage;
         string m_InitializedMessage;
-        CopyTransformFromGameObjectComponent m_Driver;
-        CopyInitialTransformFromGameObjectComponent m_Initializer;
+        CopyTransformFromGameObjectProxy m_Driver;
+        CopyInitialTransformFromGameObjectProxy m_Initializer;
 
         protected override void OnEnable()
         {
-            m_Driver = (target as Component).GetComponent<CopyTransformFromGameObjectComponent>();
+            m_Driver = (target as Component).GetComponent<CopyTransformFromGameObjectProxy>();
             m_DrivenMessage = string.Format(
                 L10n.Tr("Value is driven by {0}"),
                 ObjectNames.NicifyVariableName(typeof(CopyTransformFromGameObject).Name)
             );
-            m_Initializer = (target as Component).GetComponent<CopyInitialTransformFromGameObjectComponent>();
+            m_Initializer = (target as Component).GetComponent<CopyInitialTransformFromGameObjectProxy>();
             m_InitializedMessage = string.Format(
                 L10n.Tr("Initial value will be determined by {0}"),
                 ObjectNames.NicifyVariableName(typeof(CopyInitialTransformFromGameObject).Name)
@@ -38,13 +38,13 @@ namespace Unity.Transforms.Editor
         }
     }
 
-    [CustomEditor(typeof(PositionComponent), true), CanEditMultipleObjects]
+    [CustomEditor(typeof(PositionProxy), true), CanEditMultipleObjects]
     class PositionComponentEditor : BaseTransformComponentEditor
     {
 
     }
 
-    [CustomEditor(typeof(RotationComponent), true), CanEditMultipleObjects]
+    [CustomEditor(typeof(RotationProxy), true), CanEditMultipleObjects]
     class RotationComponentEditor : BaseTransformComponentEditor
     {
 

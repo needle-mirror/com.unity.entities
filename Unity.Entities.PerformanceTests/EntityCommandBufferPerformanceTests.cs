@@ -35,8 +35,8 @@ namespace Unity.Entities.PerformanceTests
         {
             for (int i = repeat; i != 0; --i)
             {
-                cmds.CreateEntity();
-                cmds.AddComponent(new EcsTestData {value = i});
+                var e = cmds.CreateEntity();
+                cmds.AddComponent(e, new EcsTestData {value = i});
             }
         }
 
@@ -87,8 +87,8 @@ namespace Unity.Entities.PerformanceTests
         {
             for (int i = repeat; i != 0; --i)
             {
-                cmds.CreateEntity();
-                cmds.AddComponent(new EcsTestDataWithEntity {value = i});
+                var e = cmds.CreateEntity();
+                cmds.AddComponent(e, new EcsTestDataWithEntity {value = i});
             }
         }
 
@@ -158,7 +158,7 @@ namespace Unity.Entities.PerformanceTests
                     })
                 .Definition("Playback")
                 .Run();
-
+            cmds.Dispose();
         }
     }
 }

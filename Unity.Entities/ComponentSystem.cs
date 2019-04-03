@@ -5,9 +5,21 @@ using Unity.Jobs;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs.LowLevel.Unsafe;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 
 namespace Unity.Entities
 {
+
+    [DebuggerTypeProxy(typeof(IntListDebugView))]
+    internal unsafe struct IntList
+    {
+        public int* p;
+        public int Count;
+        public int Capacity;
+    }
+
+
     public unsafe abstract class ComponentSystemBase : ScriptBehaviourManager
     {
 #if !UNITY_ZEROPLAYER
@@ -20,14 +32,8 @@ namespace Unity.Entities
         ComponentGroup[] 				    m_ComponentGroups;
         ComponentGroup[]  				    m_RequiredComponentGroups;
 
-        NativeList<int>                     m_JobDependencyForReadingManagers;
-        NativeList<int>                     m_JobDependencyForWritingManagers;
-
-        internal int*                       m_JobDependencyForReadingManagersPtr;
-        internal int                        m_JobDependencyForReadingManagersLength;
-
-        internal int*                       m_JobDependencyForWritingManagersPtr;
-        internal int                        m_JobDependencyForWritingManagersLength;
+        internal IntList                    m_JobDependencyForReadingManagers;
+        internal IntList                    m_JobDependencyForWritingManagers;
 
         uint                                m_LastSystemVersion;
 
@@ -63,10 +69,21 @@ namespace Unity.Entities
         }
 #endif
 
+        ref UnsafeList JobDependencyForReadingManagersUnsafeList => ref *(UnsafeList*)UnsafeUtility.AddressOf(ref m_JobDependencyForReadingManagers);
+        ref UnsafeList JobDependencyForWritingManagersUnsafeList => ref *(UnsafeList*)UnsafeUtility.AddressOf(ref m_JobDependencyForWritingManagers);
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        internal void CheckExists()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (World == null || !World.IsCreated)
+                throw new InvalidOperationException($"{GetType()} has already been destroyed. It may not be used anymore.");
+#endif
+        }
+
         public bool ShouldRunSystem()
         {
-            if (!m_World.IsCreated)
-                return false;
+            CheckExists();
 
             if (m_AlwaysUpdateSystem)
                 return true;
@@ -117,8 +134,11 @@ namespace Unity.Entities
 #else
             m_AlwaysUpdateSystem = true;
 #endif
-            m_JobDependencyForReadingManagers = new NativeList<int>(10, Allocator.Persistent);
-            m_JobDependencyForWritingManagers = new NativeList<int>(10, Allocator.Persistent);
+            // All systems default to having a read dependency on the Entity type. This is to ensure that systems without
+            // any other dependencies will still get a valid input job handle.
+            // If any other dependency is added the Entity type dependency is removed to avoid the overhead of having all jobs
+            // depend on this.
+            JobDependencyForReadingManagersUnsafeList.Add(TypeManager.GetTypeIndex<Entity>());
 
 #if !UNITY_ZEROPLAYER
             ComponentSystemInjection.Inject(this, world, m_EntityManager, out m_InjectedComponentGroups, out m_InjectFromEntityData);
@@ -148,6 +168,9 @@ namespace Unity.Entities
                 group.Dispose();
             }
             m_ComponentGroups = null;
+            m_EntityManager = null;
+            m_World = null;
+            m_SafetyManager = null;
 #if !UNITY_ZEROPLAYER
             m_InjectedComponentGroups = null;
 #endif
@@ -155,10 +178,8 @@ namespace Unity.Entities
             m_CachedComponentGroupArrays = null;
 #endif
 
-            if (m_JobDependencyForReadingManagers.IsCreated)
-                m_JobDependencyForReadingManagers.Dispose();
-            if (m_JobDependencyForWritingManagers.IsCreated)
-                m_JobDependencyForWritingManagers.Dispose();
+            JobDependencyForReadingManagersUnsafeList.Dispose<int>();
+            JobDependencyForWritingManagersUnsafeList.Dispose<int>();
         }
 
         internal override void InternalUpdate()
@@ -200,7 +221,7 @@ namespace Unity.Entities
         }
 
         protected EntityManager EntityManager => m_EntityManager;
-        protected World World => m_World;
+        protected internal World World => m_World;
 
         // TODO: this should be made part of UnityEngine?
         static void ArrayUtilityAdd<T>(ref T[] array, T item)
@@ -257,19 +278,21 @@ namespace Unity.Entities
             RequireForUpdate(group);
         }
 
+        public bool HasSingleton<T>()
+            where T : struct, IComponentData
+        {
+            var type = ComponentType.Create<T>();
+            var group = GetComponentGroupInternal(&type, 1);
+            return !group.IsEmptyIgnoreFilter;
+        }
+
         public T GetSingleton<T>()
             where T : struct, IComponentData
         {
             var type = ComponentType.Create<T>();
             var group = GetComponentGroupInternal(&type, 1);
-            var array = group.GetComponentDataArray<T>();
-            #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (array.Length != 1)
-                throw new System.InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exists but there are {array.Length}.");
-            #endif
 
-            group.CompleteDependency();
-            return array[0];
+            return group.GetSingleton<T>();
         }
 
         public void SetSingleton<T>(T value)
@@ -277,25 +300,13 @@ namespace Unity.Entities
         {
             var type = ComponentType.Create<T>();
             var group = GetComponentGroupInternal(&type, 1);
-            var array = group.GetComponentDataArray<T>();
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (array.Length != 1)
-                throw new System.InvalidOperationException($"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exists but there are {array.Length}.");
-#endif
-
-            group.CompleteDependency();
-            array[0] = value;
+            group.SetSingleton(value);
         }
 
         internal void AddReaderWriter(ComponentType componentType)
         {
-            if (CalculateReaderWriterDependency.Add(componentType, m_JobDependencyForReadingManagers, m_JobDependencyForWritingManagers))
+            if (CalculateReaderWriterDependency.Add(componentType, ref JobDependencyForReadingManagersUnsafeList, ref JobDependencyForWritingManagersUnsafeList))
             {
-                m_JobDependencyForReadingManagersPtr = (int*)m_JobDependencyForReadingManagers.GetUnsafePtr();
-                m_JobDependencyForWritingManagersPtr = (int*)m_JobDependencyForWritingManagers.GetUnsafePtr();
-
-                m_JobDependencyForReadingManagersLength = m_JobDependencyForReadingManagers.Length;
-                m_JobDependencyForWritingManagersLength = m_JobDependencyForWritingManagers.Length;
                 CompleteDependencyInternal();
             }
         }
@@ -400,7 +411,7 @@ namespace Unity.Entities
 
         internal void CompleteDependencyInternal()
         {
-            m_SafetyManager.CompleteDependenciesNoChecks(m_JobDependencyForReadingManagersPtr, m_JobDependencyForReadingManagersLength, m_JobDependencyForWritingManagersPtr, m_JobDependencyForWritingManagersLength);
+            m_SafetyManager.CompleteDependenciesNoChecks(m_JobDependencyForReadingManagers.p, m_JobDependencyForReadingManagers.Count, m_JobDependencyForWritingManagers.p, m_JobDependencyForWritingManagers.Count);
         }
     }
 
@@ -416,7 +427,7 @@ namespace Unity.Entities
             CompleteDependencyInternal();
             UpdateInjectedComponentGroups();
 
-            m_DeferredEntities = new EntityCommandBuffer(Allocator.TempJob);
+            m_DeferredEntities = new EntityCommandBuffer(Allocator.TempJob, -1);
         }
 
         void AfterOnUpdate()
@@ -544,15 +555,15 @@ namespace Unity.Entities
             //       Which seems like debug code might have side-effects
 
             string dependencyError = null;
-            for (var index = 0; index < m_JobDependencyForReadingManagersLength && dependencyError == null; index++)
+            for (var index = 0; index < m_JobDependencyForReadingManagers.Count && dependencyError == null; index++)
             {
-                var type = m_JobDependencyForReadingManagersPtr[index];
+                var type = m_JobDependencyForReadingManagers.p[index];
                 dependencyError = CheckJobDependencies(type);
             }
 
-            for (var index = 0; index < m_JobDependencyForWritingManagersLength && dependencyError == null; index++)
+            for (var index = 0; index < m_JobDependencyForWritingManagers.Count && dependencyError == null; index++)
             {
-                var type = m_JobDependencyForWritingManagersPtr[index];
+                var type = m_JobDependencyForWritingManagers.p[index];
                 dependencyError = CheckJobDependencies(type);
             }
 
@@ -651,15 +662,15 @@ namespace Unity.Entities
 
         unsafe void EmergencySyncAllJobs()
         {
-            for (int i = 0;i != m_JobDependencyForReadingManagersLength;i++)
+            for (int i = 0;i != m_JobDependencyForReadingManagers.Count;i++)
             {
-                int type = m_JobDependencyForReadingManagersPtr[i];
+                int type = m_JobDependencyForReadingManagers.p[i];
                 AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_SafetyManager.GetSafetyHandle(type, true));
             }
 
-            for (int i = 0;i != m_JobDependencyForWritingManagersLength;i++)
+            for (int i = 0;i != m_JobDependencyForWritingManagers.Count;i++)
             {
-                int type = m_JobDependencyForWritingManagersPtr[i];
+                int type = m_JobDependencyForWritingManagers.p[i];
                 AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_SafetyManager.GetSafetyHandle(type, true));
             }
         }
@@ -667,12 +678,12 @@ namespace Unity.Entities
 
         unsafe JobHandle GetDependency ()
         {
-            return m_SafetyManager.GetDependency(m_JobDependencyForReadingManagersPtr, m_JobDependencyForReadingManagersLength, m_JobDependencyForWritingManagersPtr, m_JobDependencyForWritingManagersLength);
+            return m_SafetyManager.GetDependency(m_JobDependencyForReadingManagers.p, m_JobDependencyForReadingManagers.Count, m_JobDependencyForWritingManagers.p, m_JobDependencyForWritingManagers.Count);
         }
 
         unsafe void AddDependencyInternal(JobHandle dependency)
         {
-            m_PreviousFrameDependency = m_SafetyManager.AddDependency(m_JobDependencyForReadingManagersPtr, m_JobDependencyForReadingManagersLength, m_JobDependencyForWritingManagersPtr, m_JobDependencyForWritingManagersLength, dependency);
+            m_PreviousFrameDependency = m_SafetyManager.AddDependency(m_JobDependencyForReadingManagers.p, m_JobDependencyForReadingManagers.Count, m_JobDependencyForWritingManagers.p, m_JobDependencyForWritingManagers.Count, dependency);
         }
     }
 
@@ -695,7 +706,7 @@ namespace Unity.Entities
         /// <returns></returns>
         public EntityCommandBuffer CreateCommandBuffer()
         {
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, -1);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             cmds.SystemID = ms_ExecutingSystem != null ? ms_ExecutingSystem.m_SystemID : 0;
 #endif
@@ -767,7 +778,7 @@ namespace Unity.Entities
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            Exception exception = null;
+            List<string> playbackErrorLog = null;
 #endif
             for (int i = 0; i < length; ++i)
             {
@@ -781,24 +792,56 @@ namespace Unity.Entities
                     }
                     catch (Exception e)
                     {
-
                         var system = GetSystemFromSystemID(World, buffer.SystemID);
                         var systemType = system != null ? system.GetType().ToString() : "Unknown";
-
                         var error = $"{e.Message}\nEntityCommandBuffer was recorded in {systemType} and played back in {GetType()}.\n" + e.StackTrace;
-                        exception = new System.ArgumentException(error);
+                        if (playbackErrorLog == null)
+                        {
+                            playbackErrorLog = new List<string>();
+                        }
+                        playbackErrorLog.Add(error);
                     }
 #else
                     buffer.Playback(EntityManager);
 #endif
                 }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                try
+                {
+                    buffer.Dispose();
+                }
+                catch (Exception e)
+                {
+                    var system = GetSystemFromSystemID(World, buffer.SystemID);
+                    var systemType = system != null ? system.GetType().ToString() : "Unknown";
+                    var error = $"{e.Message}\nEntityCommandBuffer was recorded in {systemType} and disposed in {GetType()}.\n" + e.StackTrace;
+                    if (playbackErrorLog == null)
+                    {
+                        playbackErrorLog = new List<string>();
+                    }
+                    playbackErrorLog.Add(error);
+                }
+#else
                 buffer.Dispose();
+#endif
             }
             m_PendingBuffers.Clear();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (exception != null)
+            if (playbackErrorLog != null)
+            {
+#if !UNITY_CSHARP_TINY
+                string exceptionMessage = playbackErrorLog.Aggregate((str1, str2) => str1 + "\n" + str2);
+#else
+                foreach (var err in playbackErrorLog)
+                {
+                    Console.WriteLine(err);
+                }
+                string exceptionMessage = "Errors occurred during ECB playback; see stdout";
+#endif
+                Exception exception = new System.ArgumentException(exceptionMessage);
                 throw exception;
+            }
 #endif
         }
     }

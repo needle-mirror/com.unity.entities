@@ -32,7 +32,7 @@ namespace Unity.Entities.Tests
 
             var entity = m_Manager.CreateEntity (typeof(EcsTestData));
 
-            var go = new GameObject("Test", typeof(EcsTestComponent));
+            var go = new GameObject("Test", typeof(EcsTestProxy));
 
             // Ensure entities without the subtractive components are present
             subtractiveSystem.Update ();

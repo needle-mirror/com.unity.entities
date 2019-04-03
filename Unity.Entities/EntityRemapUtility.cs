@@ -210,7 +210,7 @@ namespace Unity.Entities
                     {
                         Entity* entityPtr = (Entity*) elemsBase;
                         *entityPtr = RemapEntity(ref remapping, *entityPtr);
-                        elemsBase += bufferPatches[i].ElementStride;
+                        elemsBase += bufferPatches[p].ElementStride;
                     }
 
                     bufferData += bufferPatches[p].BufferStride;

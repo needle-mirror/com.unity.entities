@@ -5,9 +5,9 @@ using Object = UnityEngine.Object;
 
 namespace Unity.Entities.Tests
 {
-    //@TODO: Test for prevent adding Wrapper component to type system...
+    //@TODO: Test for prevent adding proxy component to type system...
 
-	class GameObjectEntityTests : ECSTestsFixture
+    class GameObjectEntityTests : ECSTestsFixture
     {
         [Test]
         [Ignore("not implemented")]
@@ -73,6 +73,32 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, iterations);
 
             Object.DestroyImmediate(go);
+        }
+                
+        [Test]
+        public void AddRemoveGetComponentObject()
+        {
+            var go = new GameObject("test", typeof(Rigidbody));
+            var rb = go.GetComponent<Rigidbody>();
+            
+            var entity = m_Manager.CreateEntity();
+
+            m_Manager.AddComponentObject(entity, go.GetComponent<Rigidbody>());
+            
+            Assert.AreEqual(rb, m_Manager.GetComponentObject<Rigidbody>(entity));;
+
+            m_Manager.RemoveComponent<Rigidbody>(entity);
+            
+            Assert.Throws<ArgumentException>(()=> m_Manager.GetComponentObject<Rigidbody>(entity));
+            
+            Object.DestroyImmediate(go);
+        }
+        
+        [Test]
+        public void AddNullObjectThrows()
+        {
+            var entity = m_Manager.CreateEntity();
+            Assert.Throws<ArgumentNullException>(()=> m_Manager.AddComponentObject(entity, null));
         }
     }
 }

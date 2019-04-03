@@ -2,6 +2,7 @@
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.SceneManagement;
@@ -35,29 +36,47 @@ class GameObjectConversionMappingSystem : ComponentSystem
 
         return list;
     }
-
-    unsafe Entity CreateEntity(GameObject go, int index)
+   
+    unsafe public static EntityGuid GetEntityGuid(GameObject go, int index)
     {
-        var entity = m_DstManager.CreateEntity();
-        #if UNITY_EDITOR
-        m_DstManager.SetName(entity, go.name);
-        #endif
+#if false
+        var id = GlobalObjectId.GetGlobalObjectId(go);
+        // For the time being use InstanceID until we support GlobalObjectID API
+        //Debug.Log(id);
+        var hash = Hash128.Compute($"{id}:{index}");
+        
+        EntityGuid entityGuid;
+        Assert.AreEqual(sizeof(EntityGuid), sizeof(Hash128));
+        UnsafeUtility.MemCpy(&entityGuid, &hash, sizeof(Hash128));
+        return entityGuid;
+#else
+        EntityGuid entityGuid;
+        entityGuid.a = (ulong)go.GetInstanceID();
+        entityGuid.b = (ulong)index;
+    
+        return entityGuid;
+#endif
+    }
+
+    Entity CreateEntity(GameObject go, int index)
+    {
+        Entity entity;
 
         if (m_AddEntityGUID)
         {
-            // var id = GlobalObjectID.GetGlobalObjectID(go);
-            // For the time being use InstanceID until we support GlobalObjectID API
-            var id = go.GetInstanceID();
-        
-            //Debug.Log(id);
-            var hash = Hash128.Compute($"{id}:{index}");
-        
-            EntityGuid entityGuid;
-            Assert.AreEqual(sizeof(EntityGuid), sizeof(Hash128));
-            UnsafeUtility.MemCpy(&entityGuid, &hash, sizeof(Hash128));
-            m_DstManager.AddComponentData(entity, entityGuid);
-
+            entity = m_DstManager.CreateEntity(ComponentType.Create<EntityGuid>());
+            var entityGuid = GetEntityGuid(go, index);
+            m_DstManager.SetComponentData(entity, entityGuid);
         }
+        else
+        {
+            entity = m_DstManager.CreateEntity();
+        }
+
+#if UNITY_EDITOR
+        m_DstManager.SetName(entity, go.name);
+#endif
+
         return entity;
     }
 

@@ -6,9 +6,9 @@ using UnityEngine;
 namespace Unity.Entities.Editor
 {
 
-    public delegate void CallbackAction();
+    internal delegate void CallbackAction();
 
-    public class ComponentTypeChooser : EditorWindow
+    internal class ComponentTypeChooser : EditorWindow
     {
 
         private static List<ComponentType> types;

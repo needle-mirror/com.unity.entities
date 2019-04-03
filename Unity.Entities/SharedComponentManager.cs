@@ -348,24 +348,22 @@ namespace Unity.Entities
 
         public unsafe bool AllSharedComponentReferencesAreFromChunks(ArchetypeManager archetypeManager)
         {
-            var chunkCount = new NativeArray<int>(m_SharedComponentRefCount.Length, Allocator.Temp);
-
+            var refCounts = new NativeArray<int>(m_SharedComponentRefCount.Length, Allocator.Temp);
             for(var i = archetypeManager.m_Archetypes.Count - 1; i >= 0; --i)
             {
                 var archetype = archetypeManager.m_Archetypes.p[i];
-                for (var ci = 0; ci < archetype->Chunks.Count; ++ci)
+                var chunkCount = archetype->Chunks.Count;
+                for (int j = 0; j < archetype->NumSharedComponents; ++j)
                 {
-                    var chunk = archetype->Chunks.p[ci];
-                    for (int j = 0; j < archetype->NumSharedComponents; ++j)
-                    {
-                        chunkCount[chunk->SharedComponentValueArray[j]] += 1;
-                    }
+                    var values = archetype->Chunks.GetSharedComponentValueArrayForType(j);
+                    for (var ci = 0; ci < chunkCount; ++ci)
+                        refCounts[values[ci]] += 1;
                 }
             }
 
-            chunkCount[0] = 1;
-            int cmp = UnsafeUtility.MemCmp(m_SharedComponentRefCount.GetUnsafePtr(), chunkCount.GetUnsafeReadOnlyPtr(), sizeof(int) * chunkCount.Length);
-            chunkCount.Dispose();
+            refCounts[0] = 1;
+            int cmp = UnsafeUtility.MemCmp(m_SharedComponentRefCount.GetUnsafePtr(), refCounts.GetUnsafeReadOnlyPtr(), sizeof(int) * refCounts.Length);
+            refCounts.Dispose();
 
             return cmp == 0;
         }
@@ -407,7 +405,7 @@ namespace Unity.Entities
         unsafe static object CloneAndPatch(object src, in TypeManager.TypeInfo typeInfo, ref NativeArray<EntityRemapUtility.EntityRemapInfo> remapInfos)
         {
             var clone = Activator.CreateInstance(typeInfo.Type);
-            
+
             ulong srcHandle, dstHandle;
             void* srcData= PinGCObjectAndGetAddress(src, out srcHandle);
             void* dstData  = PinGCObjectAndGetAddress(clone, out dstHandle);
@@ -469,9 +467,10 @@ namespace Unity.Entities
             {
                 var chunk = chunks[i].m_Chunk;
                 var archetype = chunk->Archetype;
+                var sharedComponentValues = chunk->SharedComponentValues;
                 for (int sharedComponentIndex = 0; sharedComponentIndex < archetype->NumSharedComponents; ++sharedComponentIndex)
                 {
-                    remap[chunk->SharedComponentValueArray[sharedComponentIndex]]++;
+                    remap[sharedComponentValues[sharedComponentIndex]]++;
                 }
             }
 
@@ -485,7 +484,7 @@ namespace Unity.Entities
                 var srcData = srcSharedComponents.m_SharedComponentData[srcIndex];
                 var typeIndex = srcSharedComponents.m_SharedComponentType[srcIndex];
                 var typeInfo = TypeManager.GetTypeInfo(typeIndex);
-                
+
                 #if !UNITY_CSHARP_TINY
                     if (typeInfo.EntityOffsets != null)
                         srcData = CloneAndPatch(srcData, typeInfo, ref remapInfos);

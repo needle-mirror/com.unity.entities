@@ -107,7 +107,11 @@ namespace Unity.Entities.Tests
         [Test]
         public void GetChunkVersions_ReflectsChange()
         {
+            m_Manager.Debug.SetGlobalSystemVersion(1);
+
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+
+            m_Manager.Debug.SetGlobalSystemVersion(2);
 
             var version = m_Manager.GetChunkVersionHash(entity);
 

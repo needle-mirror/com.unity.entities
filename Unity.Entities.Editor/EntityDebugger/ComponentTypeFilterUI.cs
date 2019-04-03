@@ -3,9 +3,9 @@ using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
-    public delegate void SetFilterAction(EntityListQuery entityQuery);
+    internal delegate void SetFilterAction(EntityListQuery entityQuery);
 
-    public class ComponentTypeFilterUI
+    internal class ComponentTypeFilterUI
     {
         private readonly WorldSelectionGetter getWorldSelection;
         private readonly SetFilterAction setFilter;

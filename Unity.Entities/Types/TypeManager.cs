@@ -5,10 +5,33 @@ using System.Reflection;
 using System.Threading;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Entities.StaticTypeRegistry;
 
 namespace Unity.Entities
 {
+    /// <summary>
+    /// [WriteGroup] Can exclude components which are unknown at the time of creating the query that have been declared
+    /// to write to the same component.
+    ///
+    /// This allows for extending systems of components safely without editing the previously existing systems.
+    /// 
+    /// The goal is to have a way for systems that expect to transform data from one set of components (inputs) to
+    /// another (output[s]) be able to declare that explicit transform, and they exclusively know about one set of
+    /// inputs. If there are other inputs that want to write to the same output, the query shouldn't match because it's
+    /// a nonsensical/unhandled setup. It's both a way to guard against nonsensical components (having two systems write
+    /// to the same output value), and a way to "turn off" existing systems/queries by putting a component with the same
+    /// write lock on an entity, letting another system handle it.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Struct, AllowMultiple = true)]
+    public class WriteGroupAttribute : Attribute
+    {
+        public WriteGroupAttribute(Type targetType)
+        {
+            TargetType = targetType;
+        }
+
+        public Type TargetType;
+    }
+    
     public static unsafe class TypeManager
     {
         [AttributeUsage(AttributeTargets.Struct)]
@@ -42,18 +65,30 @@ namespace Unity.Entities
             Class
         }
 
-        public const int ChunkComponentTypeFlag = 1<<30;
+        public const int HasNoEntityReferencesFlag = 1 << 25; // this flag is inverted to ensure the type id of Entity can still be 1
+        public const int BufferComponentTypeFlag = 1 << 26;
+        public const int SystemStateTypeFlag = 1 << 27;
+        public const int SharedComponentTypeFlag = 1 << 28;
+        public const int ChunkComponentTypeFlag = 1<<29;
+        public const int ZeroSizeTypeFlag = 1<<30;
+
+        public const int ClearFlagsMask = 0x00FFFFFF;
+        public const int SystemStateSharedComponentTypeFlag = SystemStateTypeFlag | SharedComponentTypeFlag;
+
+
         public const int MaximumTypesCount = 1024 * 10;
         private static volatile int s_Count;
+#if !UNITY_CSHARP_TINY
         private static SpinLock s_CreateTypeLock;
+#endif
         public static int ObjectOffset;
 
 #if !UNITY_CSHARP_TINY
-        internal static IEnumerable<TypeInfo> AllTypes { get { return Enumerable.Take(s_Types, s_Count); } }
+        public static IEnumerable<TypeInfo> AllTypes { get { return Enumerable.Take(s_Types, s_Count); } }
         private static Dictionary<ulong, int> s_StableTypeHashToTypeIndex;
 #endif
         static TypeInfo[] s_Types;
-
+        
 #if !UNITY_ZEROPLAYER
         internal static Type UnityEngineComponentType;
 
@@ -96,9 +131,10 @@ namespace Unity.Entities
         public readonly struct TypeInfo
         {
 #if !UNITY_CSHARP_TINY
-            public TypeInfo(Type type, int size, TypeCategory category, FastEquality.TypeInfo typeInfo, EntityOffsetInfo[] entityOffsets, ulong memoryOrdering, int bufferCapacity, int elementSize, int alignmentInBytes, ulong stableTypeHash)
+            public TypeInfo(Type type, int typeIndex, int size, TypeCategory category, FastEquality.TypeInfo typeInfo, EntityOffsetInfo[] entityOffsets, ulong memoryOrdering, int bufferCapacity, int elementSize, int alignmentInBytes, ulong stableTypeHash, int* writeGroups, int writeGroupCount)
             {
                 Type = type;
+                TypeIndex = typeIndex;
                 SizeInChunk = size;
                 Category = category;
                 FastEqualityTypeInfo = typeInfo;
@@ -108,12 +144,38 @@ namespace Unity.Entities
                 BufferCapacity = bufferCapacity;
                 ElementSize = elementSize;
                 AlignmentInBytes = alignmentInBytes;
-                IsSystemStateSharedComponent = typeof(ISystemStateSharedComponentData).IsAssignableFrom(type);
-                IsSystemStateComponent = typeof(ISystemStateComponentData).IsAssignableFrom(type);
                 StableTypeHash = stableTypeHash;
+                WriteGroups = writeGroups;
+                WriteGroupCount = writeGroupCount;
+
+                // System state shared components are also considered system state components
+                bool isSystemStateSharedComponent = typeof(ISystemStateSharedComponentData).IsAssignableFrom(type);
+                bool isSystemStateComponent = isSystemStateSharedComponent || typeof(ISystemStateComponentData).IsAssignableFrom(type);
+
+                if (typeIndex != 0)
+                {
+                    if (SizeInChunk == 0)
+                        TypeIndex |= ZeroSizeTypeFlag;
+
+                    if(Category == TypeCategory.ISharedComponentData)
+                        TypeIndex |= SharedComponentTypeFlag;
+
+                    if (isSystemStateComponent)
+                        TypeIndex |= SystemStateTypeFlag;
+
+                    if (isSystemStateSharedComponent)
+                        TypeIndex |= SystemStateSharedComponentTypeFlag;
+
+                    if (BufferCapacity >= 0)
+                        TypeIndex |= BufferComponentTypeFlag;
+
+                    if (EntityOffsetCount == 0)
+                        TypeIndex |= HasNoEntityReferencesFlag;
+                }
             }
 
                 public readonly Type Type;
+                public readonly int TypeIndex;
                 // Note that this includes internal capacity and header overhead for buffers.
                 public readonly int SizeInChunk;
                 // Normally the same as SizeInChunk (for components), but for buffers means size of an individual element.
@@ -128,10 +190,11 @@ namespace Unity.Entities
                 public readonly EntityOffsetInfo[] EntityOffsets;
                 public readonly ulong MemoryOrdering;
                 public readonly ulong StableTypeHash;
-                public readonly bool IsSystemStateSharedComponent;
-                public readonly bool IsSystemStateComponent;
+                public readonly int* WriteGroups;
+                public readonly int WriteGroupCount;
 
                 public bool IsZeroSized => SizeInChunk == 0;
+                public bool HasWriteGroups => WriteGroupCount > 0;
 #else
             public TypeInfo(int typeIndex, TypeCategory category, int entityOffsetCount, int entityOffsetStartIndex, ulong memoryOrdering, ulong stableTypeHash, int bufferCapacity, int typeSize, int elementSize, int alignmentInBytes, bool isSystemStateComponent, bool isSystemStateSharedComponent)
             {
@@ -145,8 +208,28 @@ namespace Unity.Entities
                 SizeInChunk = typeSize;
                 AlignmentInBytes = alignmentInBytes;
                 ElementSize = elementSize;
-                IsSystemStateComponent = isSystemStateComponent;
-                IsSystemStateSharedComponent = isSystemStateSharedComponent;
+
+                if (typeIndex != 0)
+                {
+                    if (SizeInChunk == 0)
+                        TypeIndex |= ZeroSizeTypeFlag;
+
+                    if(Category == TypeCategory.ISharedComponentData)
+                        TypeIndex |= SharedComponentTypeFlag;
+
+                    //System state shared components are also considered system state components
+                    if (isSystemStateComponent || isSystemStateSharedComponent)
+                        TypeIndex |= SystemStateTypeFlag;
+
+                    if (isSystemStateSharedComponent)
+                        TypeIndex |= SystemStateSharedComponentTypeFlag;
+
+                    if (Category == TypeCategory.BufferData)
+                        TypeIndex |= BufferComponentTypeFlag;
+
+                    if (EntityOffsetCount == 0)
+                        TypeIndex |= HasNoEntityReferencesFlag;
+                }
             }
 
             public readonly int TypeIndex;
@@ -162,8 +245,6 @@ namespace Unity.Entities
             public readonly ulong StableTypeHash;
             public readonly int EntityOffsetCount;
             public readonly int EntityOffsetStartIndex;
-            public readonly bool IsSystemStateComponent;
-            public readonly bool IsSystemStateSharedComponent;
 
             public bool IsZeroSized => SizeInChunk == 0;
             public EntityOffsetInfo* EntityOffsets => EntityOffsetCount > 0 ? ((EntityOffsetInfo*) UnsafeUtility.AddressOf(ref StaticTypeRegistry.StaticTypeRegistry.EntityOffsets[0])) + EntityOffsetStartIndex : null;
@@ -172,20 +253,20 @@ namespace Unity.Entities
 
         public static unsafe TypeInfo GetTypeInfo(int typeIndex)
         {
-            return s_Types[typeIndex & ~ChunkComponentTypeFlag];
+            return s_Types[typeIndex & ClearFlagsMask];
         }
 
         public static TypeInfo GetTypeInfo<T>() where T : struct
         {
-            return s_Types[GetTypeIndex<T>()];
+            return s_Types[GetTypeIndex<T>() & ClearFlagsMask];
         }
 
         public static Type GetType(int typeIndex)
         {
             #if !UNITY_CSHARP_TINY
-                return s_Types[typeIndex & ~ChunkComponentTypeFlag].Type;
+                return s_Types[typeIndex & ClearFlagsMask].Type;
             #else
-                return StaticTypeRegistry.StaticTypeRegistry.Types[typeIndex & ~ChunkComponentTypeFlag];
+                return StaticTypeRegistry.StaticTypeRegistry.Types[typeIndex & ClearFlagsMask];
             #endif
         }
 
@@ -194,9 +275,14 @@ namespace Unity.Entities
             return s_Count;
         }
 
-        public static bool IsSystemStateComponent(int typeIndex) => GetTypeInfo(typeIndex).IsSystemStateComponent;
-        public static bool IsSystemStateSharedComponent(int typeIndex) => GetTypeInfo(typeIndex).IsSystemStateSharedComponent;
-        public static bool IsSharedComponent(int typeIndex) => TypeCategory.ISharedComponentData == GetTypeInfo(typeIndex).Category;
+        public static bool IsBuffer(int typeIndex) => (typeIndex & TypeManager.BufferComponentTypeFlag) != 0;
+        public static bool IsSystemStateComponent(int typeIndex) => (typeIndex & TypeManager.SystemStateTypeFlag) != 0;
+        public static bool IsSystemStateSharedComponent(int typeIndex) => (typeIndex & TypeManager.SystemStateSharedComponentTypeFlag) == TypeManager.SystemStateSharedComponentTypeFlag;
+        public static bool IsSharedComponent(int typeIndex) => (typeIndex & TypeManager.SharedComponentTypeFlag) != 0;
+        public static bool IsZeroSized(int typeIndex) => (typeIndex & TypeManager.ZeroSizeTypeFlag) != 0;
+        public static bool IsChunkComponent(int typeIndex) => (typeIndex & TypeManager.ChunkComponentTypeFlag) != 0;
+        public static bool HasEntityReferences(int typeIndex) => (typeIndex & TypeManager.HasNoEntityReferencesFlag) == 0;
+
 
         // TODO: this creates a dependency on UnityEngine, but makes splitting code in separate assemblies easier. We need to remove it during the biggere refactor.
         private struct ObjectOffsetType
@@ -208,9 +294,8 @@ namespace Unity.Entities
 #if !UNITY_CSHARP_TINY
         private static void AddTypeInfoToTables(TypeInfo typeInfo)
         {
-
-            s_Types[s_Count] = typeInfo;
-            s_StableTypeHashToTypeIndex.Add(typeInfo.StableTypeHash, s_Count);
+            s_Types[typeInfo.TypeIndex & ClearFlagsMask] = typeInfo;
+            s_StableTypeHashToTypeIndex.Add(typeInfo.StableTypeHash, typeInfo.TypeIndex);
             ++s_Count;
         }
 #endif
@@ -221,7 +306,10 @@ namespace Unity.Entities
                 return;
 
             ObjectOffset = UnsafeUtility.SizeOf<ObjectOffsetType>();
+
+#if !UNITY_CSHARP_TINY
             s_CreateTypeLock = new SpinLock();
+#endif
             s_Types = new TypeInfo[MaximumTypesCount];
 
             #if !UNITY_CSHARP_TINY
@@ -231,13 +319,13 @@ namespace Unity.Entities
             s_Count = 0;
 
             #if !UNITY_CSHARP_TINY
-                AddTypeInfoToTables(new TypeInfo(null, 0, TypeCategory.ComponentData, FastEquality.TypeInfo.Null, null, 0, -1, 0, 1, 0));
+                AddTypeInfoToTables(new TypeInfo(null, 0, 0, TypeCategory.ComponentData, FastEquality.TypeInfo.Null, null, 0, -1, 0, 1, 0, null, 0));
 
                 // This must always be first so that Entity is always index 0 in the archetype
-                AddTypeInfoToTables(new TypeInfo(typeof(Entity), sizeof(Entity), TypeCategory.EntityData,
-                    FastEquality.CreateTypeInfo<Entity>(), EntityRemapUtility.CalculateEntityOffsets<Entity>(), 0, -1, sizeof(Entity), UnsafeUtility.AlignOf<Entity>(), CalculateStableTypeHash(typeof(Entity))));
+                AddTypeInfoToTables(new TypeInfo(typeof(Entity), 1, sizeof(Entity), TypeCategory.EntityData,
+                    FastEquality.CreateTypeInfo<Entity>(), EntityRemapUtility.CalculateEntityOffsets<Entity>(), 0, -1, sizeof(Entity), UnsafeUtility.AlignOf<Entity>(), CalculateStableTypeHash(typeof(Entity)), null, 0));
 
-                InitializeAllIComponentDataTypes();
+                InitializeAllComponentTypes();
             #else
                 StaticTypeRegistry.StaticTypeRegistry.RegisterStaticTypes();
             #endif
@@ -259,8 +347,11 @@ namespace Unity.Entities
 #endif
 
 #if !UNITY_CSHARP_TINY
-        static void InitializeAllIComponentDataTypes()
+        
+        static void InitializeAllComponentTypes()
         {
+            var componentTypeSet = new HashSet<Type>();
+            
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 if (!IsAssemblyReferencingEntities(assembly))
@@ -268,10 +359,102 @@ namespace Unity.Entities
 
                 foreach (var type in assembly.GetTypes())
                 {
-                    if (typeof(IComponentData).IsAssignableFrom(type) && !type.IsAbstract && UnsafeUtility.IsBlittable(type) && type.IsValueType)
+                    if (type.IsAbstract || !type.IsValueType || !UnsafeUtility.IsBlittable(type))
+                        continue;
+
+                    if (typeof(IComponentData).IsAssignableFrom(type) ||
+                        typeof(ISharedComponentData).IsAssignableFrom(type) ||
+                        typeof(IBufferElementData).IsAssignableFrom(type))
                     {
-                        GetTypeIndex(type);
+                        componentTypeSet.Add(type);
                     }
+                }
+            }
+            
+            var lockTaken = false;
+            try
+            {
+                s_CreateTypeLock.Enter(ref lockTaken);
+
+                var componentTypeCount = componentTypeSet.Count;
+                var componentTypes = new Type[componentTypeCount];
+                componentTypeSet.CopyTo(componentTypes);
+
+                var typeIndexByType = new Dictionary<Type, int>();
+                var writeGroupByType = new Dictionary<int, HashSet<int>>();
+                var startTypeIndex = s_Count;
+
+                for (int i = 0; i < componentTypes.Length; i++)
+                    typeIndexByType[componentTypes[i]] = startTypeIndex + i;
+                
+                GatherWriteGroups(componentTypes, startTypeIndex, typeIndexByType, writeGroupByType);
+                AddAllComponentTypes(componentTypes, startTypeIndex, writeGroupByType);
+            }
+            finally
+            {
+                if (lockTaken)
+                {
+                    s_CreateTypeLock.Exit(true);
+                }
+            }
+        }
+
+        private static void AddAllComponentTypes(Type[] componentTypes, int startTypeIndex, Dictionary<int, HashSet<int>> writeGroupByType)
+        {
+            for (int i = 0; i < componentTypes.Length; i++)
+            {
+                var type = componentTypes[i];
+                var expectedTypeIndex = startTypeIndex + i;
+                var index = FindTypeIndex(type);
+                if (index != -1)
+                    throw new InvalidOperationException("ComponentType cannot be initialized more than once.");
+
+                TypeInfo typeInfo;
+                if (writeGroupByType.ContainsKey(expectedTypeIndex))
+                {
+                    var writeGroupSet = writeGroupByType[expectedTypeIndex];
+                    var writeGroupCount = writeGroupSet.Count;
+                    var writeGroupArray = new int[writeGroupCount];
+                    writeGroupSet.CopyTo(writeGroupArray);
+
+                    fixed (int* writeGroups = writeGroupArray)
+                    {
+                        typeInfo = BuildComponentType(type, writeGroups, writeGroupCount);
+                    }
+                }
+                else
+                {
+                    typeInfo = BuildComponentType(type);
+                }
+
+                var typeIndex = typeInfo.TypeIndex & TypeManager.ClearFlagsMask;
+                if (expectedTypeIndex != typeIndex)
+                    throw new InvalidOperationException("ComponentType.TypeIndex does not match precalculated index.");
+                
+                AddTypeInfoToTables(typeInfo); //c
+            }
+        }
+
+        private static void GatherWriteGroups(Type[] componentTypes, int startTypeIndex, Dictionary<Type, int> typeIndexByType,
+            Dictionary<int, HashSet<int>> writeGroupByType)
+        {
+            for (int i = 0; i < componentTypes.Length; i++)
+            {
+                var type = componentTypes[i];
+                var typeIndex = startTypeIndex + i;
+
+                foreach (var attribute in type.GetCustomAttributes(typeof(WriteGroupAttribute)))
+                {
+                    var attr = (WriteGroupAttribute) attribute;
+                    int targetTypeIndex = typeIndexByType[attr.TargetType];
+
+                    if (!writeGroupByType.ContainsKey(targetTypeIndex))
+                    {
+                        var targetList = new HashSet<int>();
+                        writeGroupByType.Add(targetTypeIndex, targetList);
+                    }
+
+                    writeGroupByType[targetTypeIndex].Add(typeIndex);
                 }
             }
         }
@@ -282,7 +465,7 @@ namespace Unity.Entities
             {
                 var c = s_Types[i];
                 if (c.Type == type)
-                    return i;
+                    return c.TypeIndex;
             }
 
             return -1;
@@ -293,8 +476,8 @@ namespace Unity.Entities
             for (var i = 0; i != s_Count; i++)
             {
                 var c = s_Types[i];
-                if (StaticTypeRegistry.StaticTypeRegistry.Types[c.TypeIndex] == type)
-                    return i;
+                if (StaticTypeRegistry.StaticTypeRegistry.Types[c.TypeIndex & ClearFlagsMask] == type)
+                    return c.TypeIndex;
             }
 
             throw new InvalidOperationException("Tried to GetTypeIndex for type that has not been set up by the static type registry.");
@@ -308,6 +491,7 @@ namespace Unity.Entities
                 return typeIndex;
 
             typeIndex = GetTypeIndex(typeof(T));
+
             StaticTypeLookup<T>.typeIndex = typeIndex;
             return typeIndex;
         }
@@ -334,7 +518,7 @@ namespace Unity.Entities
                 var typeInfo = TypeManager.GetTypeInfo(typeIndex).FastEqualityTypeInfo;
                 return FastEquality.Equals(left, right, typeInfo);
             #else
-                return StaticTypeRegistry.StaticTypeRegistry.Equals(left, right, typeIndex);
+                return StaticTypeRegistry.StaticTypeRegistry.Equals(left, right, typeIndex & ClearFlagsMask);
             #endif
         }
 
@@ -354,7 +538,7 @@ namespace Unity.Entities
                 var typeInfo = TypeManager.GetTypeInfo(typeIndex).FastEqualityTypeInfo;
                 return FastEquality.GetHashCode(val, typeInfo);
             #else
-                return StaticTypeRegistry.StaticTypeRegistry.GetHashCode(val, typeIndex);
+                return StaticTypeRegistry.StaticTypeRegistry.GetHashCode(val, typeIndex & ClearFlagsMask);
             #endif
         }
 
@@ -406,6 +590,22 @@ namespace Unity.Entities
                 throw new ArgumentException($"Component {type} can only implement one of IComponentData, ISharedComponentData and IBufferElementData");
         }
 #endif
+        
+        public static NativeArray<int> GetWriteGroupTypes(int typeIndex)
+        {
+#if UNITY_CSHARP_TINY
+            var arr = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<int>(null, 0, Allocator.None);
+#else
+            var type = GetTypeInfo(typeIndex);
+            var writeGroups = type.WriteGroups;
+            var writeGroupCount = type.WriteGroupCount;
+            var arr = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<int>(writeGroups, writeGroupCount, Allocator.None);
+#endif
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref arr, AtomicSafetyHandle.Create());
+#endif
+            return arr;
+        }
 
 #if !UNITY_CSHARP_TINY
         //
@@ -426,7 +626,7 @@ namespace Unity.Entities
             result = result != 0 ? result : 1;
             return result;
         }
-
+        
         private static int CreateTypeIndexThreadSafe(Type type)
         {
             var lockTaken = false;
@@ -442,15 +642,15 @@ namespace Unity.Entities
 
                 var componentType = BuildComponentType(type);
 
-                index = s_Count;
                 AddTypeInfoToTables(componentType);
-
-                return index;
+                return componentType.TypeIndex;
             }
             finally
             {
                 if (lockTaken)
+                {
                     s_CreateTypeLock.Exit(true);
+                }
             }
         }
 
@@ -477,6 +677,11 @@ namespace Unity.Entities
 
         internal static TypeInfo BuildComponentType(Type type)
         {
+            return BuildComponentType(type, null, 0);
+        }
+
+        internal static TypeInfo BuildComponentType(Type type, int* writeGroups, int writeGroupCount)
+        {
             var componentSize = 0;
             TypeCategory category;
             var typeInfo = FastEquality.TypeInfo.Null;
@@ -484,6 +689,7 @@ namespace Unity.Entities
             int bufferCapacity = -1;
             var memoryOrdering = CalculateMemoryOrdering(type);
             var stableTypeHash = CalculateStableTypeHash(type);
+            
             int elementSize = 0;
             int alignmentInBytes = 0;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -576,7 +782,8 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             CheckComponentType(type);
 #endif
-            return new TypeInfo(type, componentSize, category, typeInfo, entityOffsets, memoryOrdering, bufferCapacity, elementSize > 0 ? elementSize : componentSize, alignmentInBytes, stableTypeHash);
+            int typeIndex = s_Count;
+            return new TypeInfo(type, typeIndex, componentSize, category, typeInfo, entityOffsets, memoryOrdering, bufferCapacity, elementSize > 0 ? elementSize : componentSize, alignmentInBytes, stableTypeHash, writeGroups, writeGroupCount);
         }
 
         public static int CreateTypeIndexForComponent<T>() where T : struct, IComponentData
@@ -593,7 +800,6 @@ namespace Unity.Entities
         {
             return GetTypeIndex(typeof(T));
         }
-
 #else
         private static int CreateTypeIndexThreadSafe(Type type)
         {

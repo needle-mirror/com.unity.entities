@@ -34,7 +34,7 @@ namespace Unity.Entities.Tests
 	    {
 	    }
 	    [DisallowMultipleComponent]
-	    public class TransformAccessArrayTestTagComponent : ComponentDataWrapper<TransformAccessArrayTestTag> { }
+	    public class TransformAccessArrayTestTagProxy : ComponentDataProxy<TransformAccessArrayTestTag> { }
 
 	    [Test]
 		public void EmptyTransformAccessArrayWorks()
@@ -47,7 +47,7 @@ namespace Unity.Entities.Tests
 	    public void SingleItemTransformAccessArrayWorks()
 	    {
 	        var go = new GameObject();
-	        go.AddComponent<TransformAccessArrayTestTagComponent>();
+	        go.AddComponent<TransformAccessArrayTestTagProxy>();
 	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(1, ta.length);
@@ -58,13 +58,13 @@ namespace Unity.Entities.Tests
 	    public void AddAndGetNewTransformAccessArrayUpdatesContent()
 	    {
 	        var go = new GameObject();
-	        go.AddComponent<TransformAccessArrayTestTagComponent>();
+	        go.AddComponent<TransformAccessArrayTestTagProxy>();
 	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(1, ta.length);
 
 	        var go2 = new GameObject();
-	        go2.AddComponent<TransformAccessArrayTestTagComponent>();
+	        go2.AddComponent<TransformAccessArrayTestTagProxy>();
 	        ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(2, ta.length);
 
@@ -76,13 +76,13 @@ namespace Unity.Entities.Tests
 	    public void AddAndUseOldTransformAccessArrayDoesNotUpdateContent()
 	    {
 	        var go = new GameObject();
-	        go.AddComponent<TransformAccessArrayTestTagComponent>();
+	        go.AddComponent<TransformAccessArrayTestTagProxy>();
 	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(1, ta.length);
 
 	        var go2 = new GameObject();
-	        go2.AddComponent<TransformAccessArrayTestTagComponent>();
+	        go2.AddComponent<TransformAccessArrayTestTagProxy>();
 	        Assert.AreEqual(1, ta.length);
 
 	        Object.DestroyImmediate(go);
@@ -92,9 +92,9 @@ namespace Unity.Entities.Tests
 	    public void DestroyAndGetNewTransformAccessArrayUpdatesContent()
 	    {
 	        var go = new GameObject();
-	        go.AddComponent<TransformAccessArrayTestTagComponent>();
+	        go.AddComponent<TransformAccessArrayTestTagProxy>();
 	        var go2 = new GameObject();
-	        go2.AddComponent<TransformAccessArrayTestTagComponent>();
+	        go2.AddComponent<TransformAccessArrayTestTagProxy>();
 
 	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
@@ -112,9 +112,9 @@ namespace Unity.Entities.Tests
 	    public void DestroyAndUseOldTransformAccessArrayDoesNotUpdateContent()
 	    {
 	        var go = new GameObject();
-	        go.AddComponent<TransformAccessArrayTestTagComponent>();
+	        go.AddComponent<TransformAccessArrayTestTagProxy>();
 	        var go2 = new GameObject();
-	        go2.AddComponent<TransformAccessArrayTestTagComponent>();
+	        go2.AddComponent<TransformAccessArrayTestTagProxy>();
 
 	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();

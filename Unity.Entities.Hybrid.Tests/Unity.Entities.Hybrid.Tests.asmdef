@@ -8,6 +8,7 @@
         "Unity.Collections",
         "Unity.Jobs",
         "Unity.Transforms",
+        "Unity.Transforms.Hybrid",
         "Unity.Mathematics"
     ],
     "optionalUnityReferences": [

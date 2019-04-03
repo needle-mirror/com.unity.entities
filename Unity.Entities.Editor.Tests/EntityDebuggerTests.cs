@@ -57,7 +57,7 @@ namespace Unity.Entities.Editor.Tests
             World2.GetOrCreateManager<EntityManager>();
             World2.GetOrCreateManager<EmptySystem>();
             
-            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(World.Active);
+            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(World.Active, World2);
 
             m_ComponentGroup = m_System.ComponentGroups[0];
 
@@ -67,9 +67,12 @@ namespace Unity.Entities.Editor.Tests
         public override void TearDown()
         {
             CloseAllDebuggers();
-            
-            World2.Dispose();
-            World2 = null;
+
+            if (World2 != null)
+            {
+                World2.Dispose();
+                World2 = null;
+            }
             
             base.TearDown();
             
@@ -95,6 +98,26 @@ namespace Unity.Entities.Editor.Tests
             Assert.AreEqual(World.Active, m_Window.SystemSelectionWorld);
             
             Assert.Throws<ArgumentNullException>(() => m_Window.SetSystemSelection(m_Manager, null, true, true));
+        }
+
+        [Test]
+        public void EntityDebugger_DestroyWorld()
+        {
+            m_Window.SetWorldSelection(World2, true);
+            Assert.IsFalse(m_Window.systemListView.NeedsReload);
+            World2.Dispose();
+            World2 = null;
+            Assert.IsTrue(m_Window.systemListView.NeedsReload);
+        }
+
+        [Test]
+        public void EntityDebugger_DestroySystem()
+        {
+            m_Window.SetWorldSelection(World2, true);
+            Assert.IsFalse(m_Window.systemListView.NeedsReload);
+            var emptySystem = World2.GetExistingManager<EmptySystem>();
+            World2.DestroyManager(emptySystem);
+            Assert.IsTrue(m_Window.systemListView.NeedsReload);
         }
 
         [Test]

@@ -1,9 +1,38 @@
 using System;
+using System.Globalization;
+using System.Threading;
 using NUnit.Framework;
+using Unity.Collections;
 
 namespace Unity.Entities.Tests
-{       
-	public class WordsTests	
+{
+    struct EcsStringData : IComponentData
+    {
+        public NativeString64 value;
+    }
+    class NativeStringECSTests : ECSTestsFixture
+    {       
+        [Test]
+        public void NativeString64CanBeComponent()
+        {            
+            var archetype = m_Manager.CreateArchetype(new ComponentType[]{typeof(EcsStringData)});
+            const int entityCount = 1000;
+            NativeArray<Entity> entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
+            m_Manager.CreateEntity(archetype, entities);
+            for(var i = 0; i < entityCount; ++i)
+            {
+                m_Manager.SetComponentData(entities[i], new EcsStringData {value = new NativeString64(i.ToString())});
+            }
+            for (var i = 0; i < entityCount; ++i)
+            {
+                var ecsStringData = m_Manager.GetComponentData<EcsStringData>(entities[i]);
+                Assert.AreEqual(ecsStringData.value.ToString(), i.ToString());
+            }
+            entities.Dispose();
+        }
+    }
+    
+    public class WordsTests	
 	{
 	    [SetUp]
 	    public virtual void Setup()
@@ -15,7 +44,146 @@ namespace Unity.Entities.Tests
 	    public virtual void TearDown()
 	    {
 	    }
+        
+        [TestCase("red", 0, 0, ParseError.Syntax)]
+        [TestCase("0", 1, 0, ParseError.None)]
+        [TestCase("-1", 2, -1, ParseError.None)]
+        [TestCase("-0", 2, 0, ParseError.None)]
+        [TestCase("100", 3, 100, ParseError.None)]
+        [TestCase("-100", 4, -100, ParseError.None)]
+        [TestCase("100.50", 3, 100, ParseError.None)]
+        [TestCase("-100ab", 4, -100, ParseError.None)]
+        [TestCase("2147483647", 10, 2147483647, ParseError.None)]
+        [TestCase("-2147483648", 11, -2147483648, ParseError.None)]
+        [TestCase("2147483648", 10, 0, ParseError.Overflow)]
+        [TestCase("-2147483649", 11, 0, ParseError.Overflow)]
+        public void NativeString64ParseIntWorks(String a, int expectedOffset, int expectedOutput, ParseError expectedResult)
+        {
+            NativeString64 aa = new NativeString64(a);
+            int offset = 0;
+            int output = 0;
+            var result = aa.Parse(ref offset, ref output);
+            Assert.AreEqual(expectedResult, result);
+            Assert.AreEqual(expectedOffset, offset);
+            if (result == ParseError.None)
+            {
+                Assert.AreEqual(expectedOutput, output);
+            }
+        }
+        
+        [TestCase("red", 0, ParseError.Syntax)]
+        [TestCase("0", 1,  ParseError.None)]
+        [TestCase("-1", 2, ParseError.None)]
+        [TestCase("-0", 2, ParseError.None)]
+        [TestCase("100", 3, ParseError.None)]
+        [TestCase("-100", 4, ParseError.None)]
+        [TestCase("100.50", 6, ParseError.None)]
+        [TestCase("2147483648", 10, ParseError.None)]
+        [TestCase("-2147483649", 11, ParseError.None)]
+        [TestCase("-10E10", 6, ParseError.None)]
+        [TestCase("-10E-10", 7, ParseError.None)]
+        [TestCase("-10E+10", 7, ParseError.None)]
+        [TestCase("10E-40", 5, ParseError.Underflow)]
+        [TestCase("10E+40", 5, ParseError.Overflow)]
+        [TestCase("-Infinity", 9, ParseError.None)]
+        [TestCase("Infinity", 8, ParseError.None)]
+        [TestCase("1000001",       7, ParseError.None)]
+        [TestCase("10000001",      8, ParseError.None)]
+        [TestCase("100000001",     9, ParseError.None)]
+        [TestCase("1000000001",   10, ParseError.None)]
+        [TestCase("10000000001",  11, ParseError.None)]
+        [TestCase("100000000001", 12, ParseError.None)]
+        public void NativeString64ParseFloat(String unlocalizedString, int expectedOffset, ParseError expectedResult)
+        {
+            var localizedDecimalSeparator = Convert.ToChar(Thread.CurrentThread.CurrentCulture.NumberFormat.NumberDecimalSeparator);            
+            var localizedString = unlocalizedString.Replace('.', localizedDecimalSeparator);
+            float expectedOutput = 0;
+            try { expectedOutput = Single.Parse(localizedString); } catch {}
+            NativeString64 nativeLocalizedString = new NativeString64(localizedString);
+            int offset = 0;
+            float output = 0;
+            var result = nativeLocalizedString.Parse(ref offset, ref output);
+            Assert.AreEqual(expectedResult, result);
+            Assert.AreEqual(expectedOffset, offset);
+            if (result == ParseError.None)
+            {
+                Assert.AreEqual(expectedOutput, output);
+            }
+        }
 
+        [TestCase(Single.NaN, FormatError.None)]
+        [TestCase(Single.PositiveInfinity, FormatError.None)]
+        [TestCase(Single.NegativeInfinity, FormatError.None)]
+        [TestCase(0.0f, FormatError.None)]
+        [TestCase(-1.0f, FormatError.None)]
+        [TestCase(100.0f, FormatError.None)]
+        [TestCase(-100.0f, FormatError.None)]
+        [TestCase(100.5f, FormatError.None)]
+        [TestCase(0.001005f, FormatError.None)]
+        [TestCase(0.0001f, FormatError.None)]
+        [TestCase(0.00001f, FormatError.None)]
+        [TestCase(0.000001f, FormatError.None)]
+        [TestCase(-1E10f, FormatError.None)]
+        [TestCase(-1E-10f, FormatError.None)]
+        public void NativeString64FormatFloat(float input, FormatError expectedResult)
+        {         
+            var localizedDecimalSeparator = Convert.ToChar(Thread.CurrentThread.CurrentCulture.NumberFormat.NumberDecimalSeparator);
+            var expectedOutput = input.ToString();
+            NativeString64 aa = new NativeString64();
+            var result = aa.Format(input, localizedDecimalSeparator);
+            Assert.AreEqual(expectedResult, result);
+            if (result == FormatError.None)
+            {
+                var actualOutput = aa.ToString();
+                Assert.AreEqual(expectedOutput, actualOutput);
+            }
+        }
+
+        [Test]
+        public void NativeString64FormatNegativeZero()
+        {
+            float input = -0.0f;
+            var expectedOutput = input.ToString();
+            NativeString64 aa = new NativeString64();
+            var result = aa.Format(input);
+            Assert.AreEqual(FormatError.None, result);
+            var actualOutput = aa.ToString();
+            Assert.AreEqual(expectedOutput, actualOutput);
+        }
+        
+        [TestCase("en-US")]
+        [TestCase("da-DK")]
+        public void NativeString64ParseFloatLocale(String locale)
+        {         
+            var original = CultureInfo.CurrentCulture;
+            try
+            {
+                Thread.CurrentThread.CurrentCulture = new CultureInfo(locale);
+                var localizedDecimalSeparator = Convert.ToChar(Thread.CurrentThread.CurrentCulture.NumberFormat.NumberDecimalSeparator);                    
+                float value = 1.5f;
+                NativeString64 native = new NativeString64();
+                native.Format(value, localizedDecimalSeparator);
+                var nativeResult = native.ToString();
+                var managedResult = value.ToString();
+                Assert.AreEqual(managedResult, nativeResult);
+            }
+            finally
+            {
+                Thread.CurrentThread.CurrentCulture = original;
+            }
+        }
+        
+        [Test]
+        public void NativeString64ParseFloatNan()
+        {         
+            NativeString64 aa = new NativeString64("NaN");
+            int offset = 0;
+            float output = 0;
+            var result = aa.Parse(ref offset, ref output);
+            Assert.AreEqual(ParseError.None, result);
+            Assert.IsTrue(Single.IsNaN(output));
+        }
+        
         [TestCase("red")]
         [TestCase("orange")]
         [TestCase("yellow")]

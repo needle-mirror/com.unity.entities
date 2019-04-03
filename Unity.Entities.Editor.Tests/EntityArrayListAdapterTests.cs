@@ -25,8 +25,9 @@ namespace Unity.Entities.Editor.Tests
                 All = new ComponentType[0],
                 None = new ComponentType[0]
             };
-            
-            m_ChunkArray = m_Manager.CreateArchetypeChunkArray(query, Allocator.TempJob);
+
+            var group = m_Manager.CreateComponentGroup(query);
+            m_ChunkArray = group.CreateArchetypeChunkArray(Allocator.TempJob);
         }
 
         public override void TearDown()
@@ -63,14 +64,14 @@ namespace Unity.Entities.Editor.Tests
                 var ids = new int[5];
                 for (var i = 0; i < ids.Length; ++i)
                 {
-                    ids[i] = iterator.Current.id;
                     Assert.IsTrue(iterator.MoveNext());
+                    ids[i] = iterator.Current.id;
                 }
                 iterator.Reset();
                 for (var i = 0; i < ids.Length; ++i)
                 {
-                    Assert.AreEqual(ids[i], iterator.Current.id);
                     Assert.IsTrue(iterator.MoveNext());
+                    Assert.AreEqual(ids[i], iterator.Current.id);
                 }
             }
         }

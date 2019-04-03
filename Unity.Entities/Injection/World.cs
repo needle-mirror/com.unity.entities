@@ -48,7 +48,7 @@ namespace Unity.Entities
         public void Dispose()
         {
             if (!IsCreated)
-                throw new ArgumentException("World is already disposed");
+                throw new ArgumentException("The World has already been Disposed.");
             // Debug.LogError("Dispose World "+ Name + " - " + GetHashCode());
 
             if (allWorlds.Contains(this))
@@ -94,12 +94,9 @@ namespace Unity.Entities
                 allWorlds[0].Dispose();
         }
 
-        private ScriptBehaviourManager CreateManagerInternal(Type type, object[] constructorArguments)
+        ScriptBehaviourManager CreateManagerInternal(Type type, object[] constructorArguments)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (!m_AllowGetManager)
-                throw new ArgumentException(
-                    "During destruction of a system you are not allowed to create more systems.");
 
             if (constructorArguments != null && constructorArguments.Length != 0)
             {
@@ -110,34 +107,32 @@ namespace Unity.Entities
                         $"Constructing {type} failed because the constructor was private, it must be public.");
             }
 
-            m_AllowGetManager = true;
+            m_AllowGetManager = false;
 #endif
             ScriptBehaviourManager manager;
             try
             {
                 manager = Activator.CreateInstance(type, constructorArguments) as ScriptBehaviourManager;
             }
-            catch
+            catch (MissingMethodException)
+            {
+                Debug.LogError($"System/Manager {type} must be mentioned in a link.xml file, or annotated " +
+                                "with a [Preserve] attribute to prevent its constructor from being stripped.  " +
+                                "See https://docs.unity3d.com/Manual/ManagedCodeStripping.html for more information.");
+                throw;
+            }
+            finally
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                m_AllowGetManager = false;
+                m_AllowGetManager = true;
 #endif
-                throw;
             }
 
             return AddManager(manager);
         }
 
-        private ScriptBehaviourManager GetExistingManagerInternal(Type type)
+        ScriptBehaviourManager GetExistingManagerInternal(Type type)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (!IsCreated)
-                throw new ArgumentException("During destruction ");
-            if (!m_AllowGetManager)
-                throw new ArgumentException(
-                    "During destruction of a system you are not allowed to get or create more systems.");
-#endif
-
             ScriptBehaviourManager manager;
             if (m_BehaviourManagerLookup.TryGetValue(type, out manager))
                 return manager;
@@ -145,14 +140,14 @@ namespace Unity.Entities
             return null;
         }
 
-        private ScriptBehaviourManager GetOrCreateManagerInternal(Type type)
+        ScriptBehaviourManager GetOrCreateManagerInternal(Type type)
         {
             var manager = GetExistingManagerInternal(type);
 
             return manager ?? CreateManagerInternal(type, null);
         }
 
-        private void AddTypeLookup(Type type, ScriptBehaviourManager manager)
+        void AddTypeLookup(Type type, ScriptBehaviourManager manager)
         {
             while (type != typeof(ScriptBehaviourManager))
             {
@@ -163,7 +158,7 @@ namespace Unity.Entities
             }
         }
 
-        private void RemoveManagerInteral(ScriptBehaviourManager manager)
+        void RemoveManagerInternal(ScriptBehaviourManager manager)
         {
             if (!m_BehaviourManagers.Remove(manager))
                 throw new ArgumentException($"manager does not exist in the world");
@@ -185,28 +180,57 @@ namespace Unity.Entities
             }
         }
 
+        void CheckGetOrCreateManager()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (!IsCreated)
+                throw new ArgumentException("The World has already been Disposed.");
+            if (!m_AllowGetManager)
+                throw new ArgumentException(
+                    "During destruction and constructor of a system you are not allowed to get or create more systems.");
+#endif
+        }
+
+        void CheckCreated()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (!IsCreated)
+                throw new ArgumentException("The World has already been Disposed.");
+#endif
+        }
+
         public ScriptBehaviourManager CreateManager(Type type, params object[] constructorArgumnents)
         {
+            CheckGetOrCreateManager();
+
             return CreateManagerInternal(type, constructorArgumnents);
         }
 
         public T CreateManager<T>(params object[] constructorArgumnents) where T : ScriptBehaviourManager
         {
+            CheckGetOrCreateManager();
+
             return (T) CreateManagerInternal(typeof(T), constructorArgumnents);
         }
 
         public T GetOrCreateManager<T>() where T : ScriptBehaviourManager
         {
+            CheckGetOrCreateManager();
+
             return (T) GetOrCreateManagerInternal(typeof(T));
         }
 
         public ScriptBehaviourManager GetOrCreateManager(Type type)
         {
+            CheckGetOrCreateManager();
+
             return GetOrCreateManagerInternal(type);
         }
 
         public T AddManager<T>(T manager) where T : ScriptBehaviourManager
         {
+            CheckGetOrCreateManager();
+
             m_BehaviourManagers.Add(manager);
             AddTypeLookup(manager.GetType(), manager);
 
@@ -216,7 +240,7 @@ namespace Unity.Entities
             }
             catch
             {
-                RemoveManagerInteral(manager);
+                RemoveManagerInternal(manager);
                 throw;
             }
             ++Version;
@@ -225,17 +249,23 @@ namespace Unity.Entities
 
         public T GetExistingManager<T>() where T : ScriptBehaviourManager
         {
+            CheckGetOrCreateManager();
+
             return (T) GetExistingManagerInternal(typeof(T));
         }
 
         public ScriptBehaviourManager GetExistingManager(Type type)
         {
+            CheckGetOrCreateManager();
+
             return GetExistingManagerInternal(type);
         }
 
         public void DestroyManager(ScriptBehaviourManager manager)
         {
-            RemoveManagerInteral(manager);
+            CheckGetOrCreateManager();
+
+            RemoveManagerInternal(manager);
             manager.DestroyInstance();
         }
 
@@ -407,7 +437,7 @@ namespace Unity.Entities
             return manager ?? CreateManagerInternal<T>();
         }
 
-        private void RemoveManagerInteral(ScriptBehaviourManager manager)
+        private void RemoveManagerInternal(ScriptBehaviourManager manager)
         {
             if (!m_BehaviourManagers.Remove(manager))
                 throw new ArgumentException($"manager does not exist in the world");
@@ -433,7 +463,7 @@ namespace Unity.Entities
             }
             catch
             {
-                RemoveManagerInteral(manager);
+                RemoveManagerInternal(manager);
                 throw;
             }
 
@@ -453,8 +483,14 @@ namespace Unity.Entities
 
         public void DestroyManager(ScriptBehaviourManager manager)
         {
-            RemoveManagerInteral(manager);
+            RemoveManagerInternal(manager);
             manager.DestroyInstance();
+        }
+
+        static int ms_SystemIDAllocator = 0;
+        internal static int AllocateSystemID()
+        {
+            return ++ms_SystemIDAllocator;
         }
     }
 #endif

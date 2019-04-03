@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
-    public static class EntityDebuggerStyles
+    internal static class EntityDebuggerStyles
     {
 
         public static GUIStyle ComponentRequired => StyleAsset.styles[0];

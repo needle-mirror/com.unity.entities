@@ -72,7 +72,7 @@ namespace Unity.Entities
             var offset = archetype->Offsets[indexInTypeArray];
             var sizeOf = archetype->SizeOfs[indexInTypeArray];
 
-            chunk->ChangeVersion[indexInTypeArray] = globalSystemVersion;
+            chunk->SetChangeVersion(indexInTypeArray, globalSystemVersion);
 
             return chunk->Buffer + (offset + sizeOf * index);
         }
@@ -94,7 +94,7 @@ namespace Unity.Entities
             var offset = chunk->Archetype->Offsets[indexInTypeArray];
             var sizeOf = chunk->Archetype->SizeOfs[indexInTypeArray];
 
-            chunk->ChangeVersion[indexInTypeArray] = globalSystemVersion;
+            chunk->SetChangeVersion(indexInTypeArray, globalSystemVersion);
 
             return chunk->Buffer + (offset + sizeOf * index);
         }
@@ -112,7 +112,7 @@ namespace Unity.Entities
             var offset = chunk->Archetype->Offsets[indexInTypeArray];
             var sizeOf = chunk->Archetype->SizeOfs[indexInTypeArray];
 
-            chunk->ChangeVersion[indexInTypeArray] = globalSystemVersion;
+            chunk->SetChangeVersion(indexInTypeArray, globalSystemVersion);
 
             return chunk->Buffer + (offset + sizeOf * index);
         }
@@ -135,22 +135,37 @@ namespace Unity.Entities
                 var src = srcBuffer + (offset + sizeOf * srcIndex);
                 var dst = dstBuffer + (offset + sizeOf * dstIndex);
 
-                dstChunk->ChangeVersion[t] = srcChunk->ChangeVersion[t];
                 UnsafeUtility.MemCpy(dst, src, sizeOf * count);
             }
         }
-        
-        public static void SwapComponents(Chunk* srcChunk, int srcIndex, Chunk* dstChunk, int dstIndex, int count)
-        {
-            Assert.IsTrue(srcChunk->Archetype == dstChunk->Archetype);
 
-            var arch = srcChunk->Archetype;
+        public static void SwapComponents(Chunk* srcChunk, int srcIndex, Chunk* dstChunk, int dstIndex, int count, uint srcGlobalSystemVersion, uint dstGlobalSystemVersion)
+        {
+            var srcArch = srcChunk->Archetype;
+            var typesCount = srcArch->TypesCount;
+
+
+#if UNITY_ASSERTIONS
+            // This function is used to swap data between different world so assert that the layout is identical if
+            // the archetypes dont match
+            var dstArch = dstChunk->Archetype;
+            if (srcArch != dstArch)
+            {
+                Assert.AreEqual(typesCount, dstChunk->Archetype->TypesCount);
+                for (int i = 0; i < typesCount; ++i)
+                {
+                    Assert.AreEqual(srcArch->Types[i], dstArch->Types[i]);
+                    Assert.AreEqual(srcArch->Offsets[i], dstArch->Offsets[i]);
+                    Assert.AreEqual(srcArch->SizeOfs[i], dstArch->SizeOfs[i]);
+                }
+            }
+#endif
+
             var srcBuffer = srcChunk->Buffer;
             var dstBuffer = dstChunk->Buffer;
-            var offsets = arch->Offsets;
-            var sizeOfs = arch->SizeOfs;
-            var typesCount = arch->TypesCount;
-            
+            var offsets = srcArch->Offsets;
+            var sizeOfs = srcArch->SizeOfs;
+
             for (var t = 1; t < typesCount; t++) // Only swap component data, not Entity
             {
                 var offset = offsets[t];
@@ -159,7 +174,9 @@ namespace Unity.Entities
                 var dst = dstBuffer + (offset + sizeOf * dstIndex);
                 Byte* buffer = stackalloc Byte[sizeOf * count];
 
-                dstChunk->ChangeVersion[t] = srcChunk->ChangeVersion[t];
+                dstChunk->SetChangeVersion(t, dstGlobalSystemVersion);
+                srcChunk->SetChangeVersion(t, srcGlobalSystemVersion);
+
                 UnsafeUtility.MemCpy(buffer, src, sizeOf * count);
                 UnsafeUtility.MemCpy(src, dst, sizeOf * count);
                 UnsafeUtility.MemCpy(dst, buffer, sizeOf * count);
@@ -172,6 +189,7 @@ namespace Unity.Entities
 
             var offsets = arch->Offsets;
             var sizeOfs = arch->SizeOfs;
+            var bufferCapacities = arch->BufferCapacities;
             var dstBuffer = dstChunk->Buffer;
             var typesCount = arch->TypesCount;
             var types = arch->Types;
@@ -186,7 +204,7 @@ namespace Unity.Entities
                 {
                     for (var i = 0; i < count; ++i)
                     {
-                        BufferHeader.Initialize((BufferHeader*)dst, types[t].BufferCapacity);
+                        BufferHeader.Initialize((BufferHeader*)dst, bufferCapacities[t]);
                         dst += sizeOf;
                     }
                 }
@@ -199,27 +217,28 @@ namespace Unity.Entities
 
         public static void ReplicateComponents(Chunk* srcChunk, int srcIndex, Chunk* dstChunk, int dstBaseIndex, int count)
         {
-            var srcArchetype  = srcChunk->Archetype;
-            var srcBuffer     = srcChunk->Buffer;
-            var dstBuffer     = dstChunk->Buffer;
-            var dstArchetype  = dstChunk->Archetype;
-            var srcOffsets    = srcArchetype->Offsets;
-            var srcSizeOfs    = srcArchetype->SizeOfs;
-            var srcTypesCount = srcArchetype->TypesCount;
-            var srcTypes      = srcArchetype->Types;
-            var dstTypes      = dstArchetype->Types;
-            var dstOffsets    = dstArchetype->Offsets;
-            var dstTypeIndex  = 1;
+            var srcArchetype        = srcChunk->Archetype;
+            var srcBuffer           = srcChunk->Buffer;
+            var dstBuffer           = dstChunk->Buffer;
+            var dstArchetype        = dstChunk->Archetype;
+            var srcOffsets          = srcArchetype->Offsets;
+            var srcSizeOfs          = srcArchetype->SizeOfs;
+            var srcBufferCapacities = srcArchetype->BufferCapacities;
+            var srcTypesCount       = srcArchetype->TypesCount;
+            var srcTypes            = srcArchetype->Types;
+            var dstTypes            = dstArchetype->Types;
+            var dstOffsets          = dstArchetype->Offsets;
+            var dstTypeIndex        = 1;
             // type[0] is always Entity, and will be patched up later, so just skip
             for (var srcTypeIndex = 1; srcTypeIndex != srcTypesCount; srcTypeIndex++)
             {
                 var srcType   = srcTypes[srcTypeIndex];
                 var dstType   = dstTypes[dstTypeIndex];
-                
+
                 // Type does not exist in destination. Skip it.
                 if (srcType.TypeIndex != dstType.TypeIndex)
                     continue;
-                
+
                 var srcOffset = srcOffsets[srcTypeIndex];
                 var srcSizeOf = srcSizeOfs[srcTypeIndex];
 
@@ -234,13 +253,14 @@ namespace Unity.Entities
                 }
                 else
                 {
+                    var srcBufferCapacity = srcBufferCapacities[srcTypeIndex];
                     var alignment = 8; // TODO: Need a way to compute proper alignment for arbitrary non-generic types in TypeManager
                     var elementSize = TypeManager.GetTypeInfo(srcType.TypeIndex).ElementSize;
                     for (int i = 0; i < count; ++i)
                     {
                         BufferHeader* srcHdr = (BufferHeader*) src;
                         BufferHeader* dstHdr = (BufferHeader*) dst;
-                        BufferHeader.Initialize(dstHdr, srcType.BufferCapacity);
+                        BufferHeader.Initialize(dstHdr, srcBufferCapacity);
                         BufferHeader.Assign(dstHdr, BufferHeader.GetElementPointer(srcHdr), srcHdr->Length, elementSize, alignment);
 
                         dst += srcSizeOf;
@@ -288,14 +308,14 @@ namespace Unity.Entities
 
                     if (dstArch->Types[dstI].IsBuffer)
                     {
-                        var bufferCapacity = dstArch->Types[dstI].BufferCapacity;
+                        var bufferCapacity = dstArch->BufferCapacities[dstI];
                         var dstPtr = dst;
                         for(int i = 0; i < count; i++)
                         {
                             BufferHeader.Initialize((BufferHeader*)dstPtr, bufferCapacity);
                             dstPtr += dstStride;
                         }
-                        
+
                     }
                     else
                     {
@@ -311,7 +331,7 @@ namespace Unity.Entities
                     // Poison source buffer to make sure there is no aliasing.
                     if (srcArch->Types[srcI].IsBuffer)
                     {
-                        var bufferCapacity = srcArch->Types[srcI].BufferCapacity;
+                        var bufferCapacity = srcArch->BufferCapacities[srcI];
                         var srcPtr = src;
                         for(int i = 0; i < count; i++)
                         {
@@ -348,7 +368,7 @@ namespace Unity.Entities
                 var dst = dstChunk->Buffer + dstArch->Offsets[dstI] + dstIndex * dstStride;
                 if (dstArch->Types[dstI].IsBuffer)
                 {
-                    var bufferCapacity = dstArch->Types[dstI].BufferCapacity;
+                    var bufferCapacity = dstArch->BufferCapacities[dstI];
                     var dstPtr = dst;
                     for (int i = 0; i < count; i++)
                     {
@@ -393,7 +413,7 @@ namespace Unity.Entities
 
                     if (dstArch->Types[dstI].IsBuffer)
                     {
-                        BufferHeader.Initialize((BufferHeader*)dst, dstArch->Types[dstI].BufferCapacity);
+                        BufferHeader.Initialize((BufferHeader*)dst, dstArch->BufferCapacities[dstI]);
                     }
                     else
                     {
@@ -409,7 +429,7 @@ namespace Unity.Entities
                     // Poison source buffer to make sure there is no aliasing.
                     if (srcArch->Types[srcI].IsBuffer)
                     {
-                        BufferHeader.Initialize((BufferHeader*)src, srcArch->Types[srcI].BufferCapacity);
+                        BufferHeader.Initialize((BufferHeader*)src, srcArch->BufferCapacities[srcI]);
                     }
 
                     ++srcI;
@@ -433,7 +453,7 @@ namespace Unity.Entities
                 var dst = dstChunk->Buffer + dstArch->Offsets[dstI] + dstIndex * dstArch->SizeOfs[dstI];
                 if (dstArch->Types[dstI].IsBuffer)
                 {
-                    BufferHeader.Initialize((BufferHeader*)dst, dstArch->Types[dstI].BufferCapacity);
+                    BufferHeader.Initialize((BufferHeader*)dst, dstArch->BufferCapacities[dstI]);
                 }
                 else
                 {

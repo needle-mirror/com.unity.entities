@@ -7,12 +7,12 @@ using UnityEngine;
 namespace Unity.Entities.Editor
 {
     
-    public delegate void EntitySelectionCallback(Entity selection);
-    public delegate World WorldSelectionGetter();
-    public delegate ScriptBehaviourManager SystemSelectionGetter();
-    public delegate void ChunkArrayAssignmentCallback(NativeArray<ArchetypeChunk> chunkArray);
+    internal delegate void EntitySelectionCallback(Entity selection);
+    internal delegate World WorldSelectionGetter();
+    internal delegate ScriptBehaviourManager SystemSelectionGetter();
+    internal delegate void ChunkArrayAssignmentCallback(NativeArray<ArchetypeChunk> chunkArray);
     
-    public class EntityListView : TreeView, IDisposable {
+    internal class EntityListView : TreeView, IDisposable {
 
         public EntityListQuery SelectedEntityQuery
         {
@@ -76,17 +76,10 @@ namespace Unity.Entities.Editor
 
         protected override TreeViewItem BuildRoot()
         {
-            var root  = new TreeViewItem { id = -1, depth = -1, displayName = "Root" };
+            var root  = new TreeViewItem { id = 0, depth = -1, displayName = "Root" };
             
             return root;
         }
-
-        private readonly EntityArchetypeQuery allQuery = new EntityArchetypeQuery()
-        {
-            All = new ComponentType[0],
-            Any = new ComponentType[0],
-            None = new ComponentType[0]
-        };
         
         protected override IList<TreeViewItem> BuildRows(TreeViewItem root)
         {
@@ -100,15 +93,20 @@ namespace Unity.Entities.Editor
             
             entityManager.CompleteAllJobs();
 
-            if (SelectedEntityQuery == null || SelectedEntityQuery.Group == null)
+            var group = SelectedEntityQuery?.Group;
+            
+            if (group == null)
             {
-                var query = SelectedEntityQuery?.Query ?? allQuery;
-                chunkArray = entityManager.CreateArchetypeChunkArray(query, Allocator.Persistent);
+                var query = SelectedEntityQuery?.Query;
+                if (query == null)
+                    group = entityManager.UniversalGroup;
+                else
+                {
+                    group = entityManager.CreateComponentGroup(query);
+                }
             }
-            else
-            {
-                chunkArray = SelectedEntityQuery.Group.CreateArchetypeChunkArray(Allocator.Persistent);
-            }
+            
+            chunkArray = group.CreateArchetypeChunkArray(Allocator.Persistent);
 
             rows.SetSource(chunkArray, entityManager, chunkFilter);
             setChunkArray(chunkArray);
@@ -120,7 +118,7 @@ namespace Unity.Entities.Editor
 
         protected override IList<int> GetAncestors(int id)
         {
-            return id == -1 ? new List<int>() : new List<int>() {-1};
+            return id == 0 ? new List<int>() : new List<int>() {0};
         }
 
         protected override IList<int> GetDescendantsThatHaveChildren(int id)
@@ -158,6 +156,27 @@ namespace Unity.Entities.Editor
             return false;
         }
 
+        protected override bool CanRename(TreeViewItem item)
+        {
+            return true;
+        }
+
+        protected override void RenameEnded(RenameEndedArgs args)
+        {
+            if (args.acceptedRename)
+            {
+                var manager = getWorldSelection()?.GetExistingManager<EntityManager>();
+                if (manager != null)
+                {
+                    Entity entity;
+                    if (rows.GetById(args.itemID, out entity))
+                    {
+                        manager.SetName(entity, args.newName);
+                    }
+                }
+            }
+        }
+
         public void SelectNothing()
         {
             SetSelection(new List<int>());
@@ -166,7 +185,7 @@ namespace Unity.Entities.Editor
         public void SetEntitySelection(Entity entitySelection)
         {
             if (entitySelection != Entity.Null && getWorldSelection().GetExistingManager<EntityManager>().Exists(entitySelection))
-                SetSelection(new List<int>{entitySelection.Index});
+                SetSelection(new List<int>{EntityArrayListAdapter.IndexToItemId(entitySelection.Index)});
         }
 
         public void TouchSelection()

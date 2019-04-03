@@ -21,17 +21,17 @@ public abstract class GameObjectConversionSystem : ComponentSystem
     
     public Entity GetPrimaryEntity(Component component)
     {
-        return GetPrimaryEntity(component?.gameObject);
+        return m_MappingSystem.GetPrimaryEntity(component != null ? component.gameObject : null);
     }
     
     public Entity CreateAdditionalEntity(Component component)
     {
-        return CreateAdditionalEntity(component?.gameObject);
+        return m_MappingSystem.CreateAdditionalEntity(component != null ? component.gameObject : null);
     }
     
     public IEnumerable<Entity> GetEntities(Component component)
     {
-        return GetEntities(component?.gameObject);
+        return m_MappingSystem.GetEntities(component != null ? component.gameObject : null);
     }
     
     public Entity GetPrimaryEntity(GameObject gameObject)

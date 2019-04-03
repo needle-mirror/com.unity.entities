@@ -13,9 +13,4 @@ namespace Unity.Transforms
     {
         public float3 Value;
     }
-
-    [UnityEngine.DisallowMultipleComponent]
-    public class PositionComponent : ComponentDataWrapper<Position>
-    {
-    }
 }

@@ -647,9 +647,7 @@ namespace Unity.Entities.Tests
            // Ensure that no change is generated in this case...
         }
         
-        //@TODO:
         [Test]
-        [Ignore("For the time being disabled")]
         public void NewEntityIsReplicatedIntoExistingPrefabInstances([Values(1, 10)]int instanceCount)
         {
             var rootGUID = GenerateEntityGuid(1);

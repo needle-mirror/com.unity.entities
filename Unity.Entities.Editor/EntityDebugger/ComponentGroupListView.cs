@@ -7,13 +7,12 @@ using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
-    
-    public delegate void SetEntityListSelection(EntityListQuery query);
-    
-    public class ComponentGroupListView : TreeView {
+    internal delegate void SetEntityListSelection(EntityListQuery query);
+
+    internal class ComponentGroupListView : TreeView {
         private static Dictionary<ComponentSystemBase, List<EntityArchetypeQuery>> queriesBySystem = new Dictionary<ComponentSystemBase, List<EntityArchetypeQuery>>();
         private static readonly Dictionary<ComponentGroup, EntityArchetypeQuery> queriesByGroup = new Dictionary<ComponentGroup, EntityArchetypeQuery>();
-        
+
         private static EntityArchetypeQuery GetQueryForGroup(ComponentGroup group)
         {
             if (!queriesByGroup.ContainsKey(group))
@@ -29,7 +28,7 @@ namespace Unity.Entities.Editor
 
             return queriesByGroup[group];
         }
-        
+
         private readonly Dictionary<int, ComponentGroup> componentGroupsById = new Dictionary<int, ComponentGroup>();
         private readonly Dictionary<int, EntityArchetypeQuery> queriesById = new Dictionary<int, EntityArchetypeQuery>();
         private readonly Dictionary<int, ComponentGroupGUIControl> controlsById = new Dictionary<int, ComponentGroupGUIControl>();
@@ -55,13 +54,13 @@ namespace Unity.Entities.Editor
         {
             if (system == null)
                 return new TreeViewState();
-            
+
             var currentSystemName = system.GetType().FullName;
 
             var stateForCurrentSystem = states.Where((t, i) => stateNames[i] == currentSystemName).FirstOrDefault();
             if (stateForCurrentSystem != null)
                 return stateForCurrentSystem;
-            
+
             stateForCurrentSystem = new TreeViewState();
             if (system.ComponentGroups != null && system.ComponentGroups.Length > 0)
                 stateForCurrentSystem.expandedIDs = new List<int> {1};
@@ -99,7 +98,7 @@ namespace Unity.Entities.Editor
             List<EntityArchetypeQuery> queries;
             if (queriesBySystem.TryGetValue(system, out queries))
                 return queries;
-            
+
             queries = new List<EntityArchetypeQuery>();
 
             var currentType = system.GetType();
@@ -136,12 +135,16 @@ namespace Unity.Entities.Editor
             else
             {
                 var queries = GetQueriesForSystem(SelectedSystem);
+                var entityManager = getWorldSelection().GetExistingManager<EntityManager>();
 
                 foreach (var query in queries)
                 {
+                    var group = entityManager.CreateComponentGroup(query);
                     queriesById.Add(currentId, query);
-                    var queryItem = new TreeViewItem { id = currentId++ };
-                    root.AddChild(queryItem);
+                    componentGroupsById.Add(currentId, group);
+
+                    var groupItem = new TreeViewItem { id = currentId++ };
+                    root.AddChild(groupItem);
                 }
                 if (SelectedSystem.ComponentGroups != null)
                 {
@@ -153,26 +156,18 @@ namespace Unity.Entities.Editor
                         root.AddChild(groupItem);
                     }
                 }
-                if (queriesById.Count == 0 && componentGroupsById.Count == 0)
+                if (componentGroupsById.Count == 0)
                 {
                     root.AddChild(new TreeViewItem { id = currentId, displayName = "No Component Groups or Queries in Manager"});
                 }
                 else
                 {
                     SetupDepthsFromParentsAndChildren(root);
-                    
+
                     foreach (var idGroupPair in componentGroupsById)
                     {
                         var newControl = new ComponentGroupGUIControl(idGroupPair.Value.GetQueryTypes(), idGroupPair.Value.GetReadAndWriteTypes(), true);
                         controlsById.Add(idGroupPair.Key, newControl);
-                    }
-                    foreach (var idQueryPair in queriesById)
-                    {
-                        var types = idQueryPair.Value.All.Concat(idQueryPair.Value.Any);
-                        types = types.Concat(idQueryPair.Value.None.Select(x => ComponentType.Subtractive(x.GetManagedType())));
-                
-                        var newControl = new ComponentGroupGUIControl(types, true);
-                        controlsById.Add(idQueryPair.Key, newControl);
                     }
                 }
             }
@@ -218,18 +213,6 @@ namespace Unity.Entities.Editor
                 var countString = componentGroup.CalculateLength().ToString();
                 DefaultGUI.LabelRightAligned(args.rowRect, countString, args.selected, args.focused);
             }
-            else
-            {
-                EntityArchetypeQuery query;
-                if (queriesById.TryGetValue(args.item.id, out query))
-                {
-                    var entityManager = getWorldSelection().GetExistingManager<EntityManager>();
-                    var chunkArray = entityManager.CreateArchetypeChunkArray(query, Allocator.TempJob);
-                    var count = chunkArray.Sum(x => x.Count);
-                    chunkArray.Dispose();
-                    DefaultGUI.LabelRightAligned(args.rowRect, count.ToString(), args.selected, args.focused);
-                }
-            }
         }
 
         protected override void RowGUI(RowGUIArgs args)
@@ -254,12 +237,6 @@ namespace Unity.Entities.Editor
                 ComponentGroup componentGroup;
                 if (componentGroupsById.TryGetValue(selectedIds[0], out componentGroup))
                     entityListSelectionCallback(new EntityListQuery(componentGroup));
-                else
-                {
-                    EntityArchetypeQuery query;
-                    if (queriesById.TryGetValue(selectedIds[0], out query))
-                        entityListSelectionCallback(new EntityListQuery(query));
-                }
             }
             else
             {
@@ -313,7 +290,7 @@ namespace Unity.Entities.Editor
         {
             SetSelection(GetSelection(), TreeViewSelectionOptions.FireSelectionChanged);
         }
-        
+
         public bool NeedsReload
         {
             get
@@ -321,7 +298,7 @@ namespace Unity.Entities.Editor
                 var expectedGroupCount = SelectedSystem?.ComponentGroups?.Length ?? 0;
                 return expectedGroupCount != componentGroupsById.Count;
             }
-            
+
         }
 
         public void ReloadIfNecessary()

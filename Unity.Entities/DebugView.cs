@@ -23,6 +23,26 @@ namespace Unity.Entities
             }
         }
     }
+
+    sealed class IntListDebugView
+    {
+        private IntList m_IntList;
+        public IntListDebugView(IntList intList)
+        {
+            m_IntList = intList;
+        }
+        public unsafe int[] Items
+        {
+            get
+            {
+                var result = new int[m_IntList.Count];
+                for (var i = 0; i < result.Length; ++i)
+                    result[i] = m_IntList.p[i];
+                return result;
+            }
+        }
+    }
+
     sealed class ChunkListDebugView
     {
         private ChunkList m_ChunkList;
@@ -40,7 +60,27 @@ namespace Unity.Entities
                 return result;
             }
         }
-    }   
+    }
+
+    sealed class ArchetypeChunkDataDebugView
+    {
+        private ArchetypeChunkData m_ChunkData;
+        public ArchetypeChunkDataDebugView(ArchetypeChunkData chunkData)
+        {
+            m_ChunkData = chunkData;
+        }
+        public unsafe ArchetypeChunk[] Items
+        {
+            get
+            {
+                var result = new ArchetypeChunk[m_ChunkData.Count];
+                for (var i = 0; i < result.Length; ++i)
+                    result[i] = *(ArchetypeChunk*)&m_ChunkData.p[i];
+                return result;
+            }
+        }
+    }
+
     sealed class ArchetypeListDebugView
     {
         private ArchetypeList m_ArchetypeList;
@@ -60,6 +100,44 @@ namespace Unity.Entities
         }
     }
 
+    sealed class MatchingArchetypeListDebugView
+    {
+        private MatchingArchetypeList m_MatchingArchetypeList;
+        public MatchingArchetypeListDebugView(MatchingArchetypeList MatchingArchetypeList)
+        {
+            m_MatchingArchetypeList = MatchingArchetypeList;
+        }
+        public unsafe MatchingArchetype*[] Items
+        {
+            get
+            {
+                var result = new MatchingArchetype*[m_MatchingArchetypeList.Count];
+                for (var i = 0; i < result.Length; ++i)
+                    result[i] = m_MatchingArchetypeList.p[i];
+                return result;
+            }
+        }
+    }
+
+    sealed class EntityGroupDataListDebugView
+    {
+        private EntityGroupDataList m_EntityGroupDataList;
+        public EntityGroupDataListDebugView(EntityGroupDataList EntityGroupDataList)
+        {
+            m_EntityGroupDataList = EntityGroupDataList;
+        }
+        public unsafe EntityGroupData*[] Items
+        {
+            get
+            {
+                var result = new EntityGroupData*[m_EntityGroupDataList.Count];
+                for (var i = 0; i < result.Length; ++i)
+                    result[i] = m_EntityGroupDataList.p[i];
+                return result;
+            }
+        }
+    }
+
 #if !UNITY_CSHARP_TINY
     sealed class ArchetypeChunkDebugView
     {
@@ -74,7 +152,7 @@ namespace Unity.Entities
             if (typeof(IBufferElementData).IsAssignableFrom(type))
             {
                 var listType = typeof(List<>);
-                var constructedListType = listType.MakeGenericType(type);                    
+                var constructedListType = listType.MakeGenericType(type);
                 var instance = (IList)Activator.CreateInstance(constructedListType);
                 var size = Marshal.SizeOf(type);
                 BufferHeader* header = (BufferHeader*) pointer;
@@ -86,13 +164,14 @@ namespace Unity.Entities
                 }
                 return instance;
             }
-            else
+            if(typeof(IComponentData).IsAssignableFrom(type))
             {
-                return Marshal.PtrToStructure((IntPtr) pointer, type);                   
+                return Marshal.PtrToStructure((IntPtr) pointer, type);
             }
+            return null;
         }
-        
-        public unsafe IList[] Components 
+
+        public unsafe IList[] Components
         {
             get
             {
@@ -105,7 +184,11 @@ namespace Unity.Entities
                 var result = new IList[types];
                 for (var i = 0; i < types; ++i)
                 {
-                    var type = TypeManager.GetTypeInfo(chunk->Archetype->Types[i].TypeIndex).Type;
+                    var componentType = chunk->Archetype->Types[i];
+                    if (componentType.IsSharedComponent)
+                        continue;
+                    var typeInfo = TypeManager.GetTypeInfo(componentType.TypeIndex);
+                    var type = typeInfo.Type;
                     var offset = archetype->Offsets[i];
                     var size = archetype->SizeOfs[i];
                     var listType = typeof(List<>);
@@ -117,7 +200,7 @@ namespace Unity.Entities
                     {
                        var pointer = chunk->Buffer + (offset + size * j);
                        instance.Add(GetObject(pointer, type));
-                    }                                                
+                    }
                     result[i] = instance;
                 }
 
@@ -141,7 +224,11 @@ namespace Unity.Entities
                     var instance = new List<object>();
                     for (var i = 0; i < types; ++i)
                     {
-                        var type = TypeManager.GetTypeInfo(chunk->Archetype->Types[i].TypeIndex).Type;
+                        var componentType = chunk->Archetype->Types[i];
+                        if (componentType.IsSharedComponent)
+                            continue;
+                        var typeInfo = TypeManager.GetTypeInfo(componentType.TypeIndex);
+                        var type = typeInfo.Type;
                         var offset = archetype->Offsets[i];
                         var size = archetype->SizeOfs[i];
                         var pointer = chunk->Buffer + (offset + size * j);
@@ -150,7 +237,7 @@ namespace Unity.Entities
                     result[j] = instance;
                 }
 
-                return result;                
+                return result;
             }
         }
 
@@ -164,7 +251,7 @@ namespace Unity.Entities
                 var archetype = chunk->Archetype;
                 int[] result = new int[archetype->NumSharedComponents];
                 for (var i = 0; i < archetype->NumSharedComponents; ++i)
-                    result[i] = chunk->SharedComponentValueArray[i];
+                    result[i] = chunk->SharedComponentValues[i];
                 return result;
             }
         }
@@ -179,11 +266,11 @@ namespace Unity.Entities
                 var archetype = chunk->Archetype;
                 uint[] result = new uint[archetype->TypesCount];
                 for (var i = 0; i < archetype->TypesCount; ++i)
-                    result[i] = chunk->ChangeVersion[i];
-                return result;                
+                    result[i] = chunk->GetChangeVersion(i);
+                return result;
             }
         }
-        
+
     }
 #else
     sealed class ArchetypeChunkDebugView
@@ -199,8 +286,8 @@ namespace Unity.Entities
         {
             m_EntityArchetype = entityArchetype;
         }
-       
-        public unsafe Type[] Types 
+
+        public unsafe Type[] Types
         {
             get
             {
@@ -216,9 +303,9 @@ namespace Unity.Entities
                 }
                 return result;
             }
-        }        
+        }
 
-        public unsafe int[] Offsets 
+        public unsafe int[] Offsets
         {
             get
             {
@@ -227,7 +314,7 @@ namespace Unity.Entities
                     return new int[0];
                 int[] result = new int[archetype->TypesCount];
                 Marshal.Copy((IntPtr)archetype->Offsets, result, 0, archetype->TypesCount);
-                return result;                
+                return result;
             }
         }
 
@@ -240,14 +327,14 @@ namespace Unity.Entities
                     return new int[0];
                 int[] result = new int[archetype->TypesCount];
                 Marshal.Copy((IntPtr)archetype->SizeOfs, result, 0, archetype->TypesCount);
-                return result;                
+                return result;
             }
         }
 
         public unsafe int[] TypeMemoryOrder
         {
             get
-            {                
+            {
                 var archetype = m_EntityArchetype.Archetype;
                 if (archetype == null)
                     return new int[0];
@@ -257,7 +344,7 @@ namespace Unity.Entities
             }
         }
 
-        public unsafe int[] ManagedArrayOffset 
+        public unsafe int[] ManagedArrayOffset
         {
             get
             {
@@ -269,19 +356,6 @@ namespace Unity.Entities
                 return result;
             }
         }
-
-        public unsafe int[] SharedComponentOffset
-        {
-            get
-            {
-                var archetype = m_EntityArchetype.Archetype;
-                if (archetype == null || archetype->SharedComponentOffset == null)
-                    return new int[0];
-                int[] result = new int[archetype->NumSharedComponents];
-                Marshal.Copy((IntPtr)archetype->SharedComponentOffset, result, 0, archetype->NumSharedComponents);
-                return result;                
-            }
-        }               
     }
 #else
     sealed class EntityArchetypeDebugView

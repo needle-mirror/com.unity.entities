@@ -299,36 +299,28 @@ namespace Unity.Entities.Tests
             var archetype0 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
             var archetype1 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData), typeof(SharedData2));
 
-            var query0 = new EntityArchetypeQuery
-            {
-                All = new ComponentType[] {typeof(SharedData1)},
-                Any = Array.Empty<ComponentType>(),
-                None = Array.Empty<ComponentType>()
-            };
-            var query1 = new EntityArchetypeQuery
-            {
-                All = new ComponentType[] {typeof(SharedData2)},
-                Any = Array.Empty<ComponentType>(),
-                None = Array.Empty<ComponentType>()
-            };
+            var group0 = m_Manager.CreateComponentGroup(ComponentType.Create<SharedData1>());
+            var group1 = m_Manager.CreateComponentGroup(ComponentType.Create<SharedData2>());
 
             m_Manager.CreateEntity(archetype0);
             var entity1 = m_Manager.CreateEntity(archetype1);
 
-            var preChunks0 = m_Manager.CreateArchetypeChunkArray(query0, Allocator.TempJob);
-            var preChunks1 = m_Manager.CreateArchetypeChunkArray(query1, Allocator.TempJob);
+            var preChunks0 = group0.CreateArchetypeChunkArray(Allocator.TempJob);
+            var preChunks1 = group1.CreateArchetypeChunkArray(Allocator.TempJob);
 
             Assert.AreEqual(2, ArchetypeChunkArray.CalculateEntityCount(preChunks0));
             Assert.AreEqual(1, ArchetypeChunkArray.CalculateEntityCount(preChunks1));
 
             m_Manager.RemoveComponent<SharedData2>(entity1);
 
-            var postChunks0 = m_Manager.CreateArchetypeChunkArray(query0, Allocator.TempJob);
-            var postChunks1 = m_Manager.CreateArchetypeChunkArray(query1, Allocator.TempJob);
+            var postChunks0 = group0.CreateArchetypeChunkArray(Allocator.TempJob);
+            var postChunks1 = group1.CreateArchetypeChunkArray(Allocator.TempJob);
 
             Assert.AreEqual(2, ArchetypeChunkArray.CalculateEntityCount(postChunks0));
             Assert.AreEqual(0, ArchetypeChunkArray.CalculateEntityCount(postChunks1));
 
+            group0.Dispose();
+            group1.Dispose();
             preChunks0.Dispose();
             preChunks1.Dispose();
             postChunks0.Dispose();

@@ -1,6 +1,5 @@
 using System;
 using NUnit.Framework;
-using NUnit.Framework.Constraints;
 using Unity.Collections.LowLevel.Unsafe;
 #pragma warning disable 649
 
@@ -103,26 +102,26 @@ namespace Unity.Entities.Tests
         {
         }
 
-        [TestCase(typeof(InterfaceComponentData), "Unity.Entities.Tests.TypeManagerTests+InterfaceComponentData is an interface.")]
-        [TestCase(typeof(ClassComponentData), "Unity.Entities.Tests.TypeManagerTests+ClassComponentData is an IComponentData, and thus must be a struct.")]
-        [TestCase(typeof(NonBlittableComponentData), "Unity.Entities.Tests.TypeManagerTests+NonBlittableComponentData is an IComponentData, and thus must be blittable")]
+        [TestCase(typeof(InterfaceComponentData), @"\binterface\b", TestName = "Interface implementing IComponentData")]
+        [TestCase(typeof(ClassComponentData), @"\b(struct|class)\b", TestName = "Class implementing IComponentData")]
+        [TestCase(typeof(NonBlittableComponentData), @"\b(not )?blittable\b", TestName = "Non-blittable component data")]
 
-        [TestCase(typeof(ClassBuffer), "Unity.Entities.Tests.TypeManagerTests+ClassBuffer is an IBufferElementData, and thus must be a struct.")]
-        [TestCase(typeof(NonBlittableBuffer), "Unity.Entities.Tests.TypeManagerTests+NonBlittableBuffer is an IBufferElementData, and thus must be blittable")]
-        [TestCase(typeof(InterfaceBuffer), "Unity.Entities.Tests.TypeManagerTests+InterfaceBuffer is an interface.")]
+        [TestCase(typeof(InterfaceBuffer), @"\binterface\b", TestName = "Interface implementing IBufferElementData")]
+        [TestCase(typeof(ClassBuffer), @"\b(struct|class)\b", TestName = "Class implementing IBufferElementData")]
+        [TestCase(typeof(NonBlittableBuffer), @"\b(not )?blittable\b", TestName = "Non-blittable IBufferElementData")]
 
-        [TestCase(typeof(ClassShared), "Unity.Entities.Tests.TypeManagerTests+ClassShared is an ISharedComponentData, and thus must be a struct.")]
-        [TestCase(typeof(InterfaceShared), "Unity.Entities.Tests.TypeManagerTests+InterfaceShared is an interface.")]
+        [TestCase(typeof(InterfaceShared), @"\binterface\b", TestName = "Interface implementing ISharedComponentData")]
+        [TestCase(typeof(ClassShared), @"\b(struct|class)\b", TestName = "Class implementing ISharedComponentData")]
 
-        [TestCase(typeof(GameObjectEntity), "GameObjectEntity cannot be used from EntityManager.")]
+        [TestCase(typeof(GameObjectEntity), nameof(GameObjectEntity), TestName = "GameObjectEntity type")]
 
-        [TestCase(typeof(float), "System.Single is not a valid component.")]
-        public void BuildComponentType_ThrowsArgumentException_WithExpectedFailures(
-            Type type, string messageStartsWith
-            )
+        [TestCase(typeof(float), @"\b(not .*|in)valid\b", TestName = "Not valid component type")]
+        public void BuildComponentType_ThrowsArgumentException_WithExpectedFailures(Type type, string keywordPattern)
         {
-            var e = Assert.Throws<ArgumentException>(() => TypeManager.BuildComponentType(type));
-            Assert.That(e.Message, new StartsWithConstraint(messageStartsWith));
+            Assert.That(
+                () => TypeManager.BuildComponentType(type),
+                Throws.ArgumentException.With.Message.Matches(keywordPattern)
+            );
         }
 
         [TestCase(typeof(UnityEngine.Transform))]
@@ -133,8 +132,10 @@ namespace Unity.Entities.Tests
             TypeManager.UnityEngineComponentType = null;
             try
             {
-                var e = Assert.Throws<ArgumentException>(() => TypeManager.BuildComponentType(type));
-                Assert.That(e.Message, new StartsWithConstraint($"{type} cannot be used from EntityManager. If it inherits UnityEngine.Component"));
+                Assert.That(
+                    () => TypeManager.BuildComponentType(type),
+                    Throws.ArgumentException.With.Message.Matches($"\\bregister\\b.*\\b{nameof(TypeManager.UnityEngineComponentType)}\\b")
+                );
             }
             finally
             {
@@ -150,8 +151,10 @@ namespace Unity.Entities.Tests
             try
             {
                 var type = typeof(TypeManagerTests);
-                var e = Assert.Throws<ArgumentException>(() => TypeManager.BuildComponentType(type));
-                Assert.That(e.Message, new StartsWithConstraint($"{type} must inherit {typeof(UnityEngine.Component)}"));
+                Assert.That(
+                    () => TypeManager.BuildComponentType(type),
+                    Throws.ArgumentException.With.Message.Matches($"\\bmust inherit {typeof(UnityEngine.Component)}\\b")
+                );
             }
             finally
             {
@@ -160,7 +163,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void BuildComponentType_WithComponent_WhenUnityEngineComponentTypeIsCorrect_Works()
+        public void BuildComponentType_WithComponent_WhenUnityEngineComponentTypeIsCorrect_DoesNotThrowException()
         {
             var componentType = TypeManager.UnityEngineComponentType;
             TypeManager.UnityEngineComponentType = typeof(UnityEngine.Component);
@@ -189,7 +192,7 @@ namespace Unity.Entities.Tests
         {
             Assert.IsFalse(TypeManager.IsAssemblyReferencingEntities(typeof(UnityEngine.GameObject).Assembly));
             Assert.IsFalse(TypeManager.IsAssemblyReferencingEntities(typeof(System.Collections.Generic.List<>).Assembly));
-            Assert.IsFalse(TypeManager.IsAssemblyReferencingEntities(typeof(Unity.Collections.NativeList<>).Assembly));
+            Assert.IsFalse(TypeManager.IsAssemblyReferencingEntities(typeof(Collections.NativeList<>).Assembly));
 
             Assert.IsTrue(TypeManager.IsAssemblyReferencingEntities(typeof(IComponentData).Assembly));
             Assert.IsTrue(TypeManager.IsAssemblyReferencingEntities(typeof(EcsTestData).Assembly));

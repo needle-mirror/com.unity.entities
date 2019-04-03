@@ -6,7 +6,7 @@ using UnityEditor.IMGUI.Controls;
 
 namespace Unity.Entities.Editor
 {
-    public class EntityDebugger : EditorWindow
+    internal class EntityDebugger : EditorWindow
     {
         private const float kSystemListWidth = 350f;
         private const float kChunkInfoViewWidth = 250f;
@@ -144,7 +144,7 @@ namespace Unity.Entities.Editor
         
         [SerializeField] private List<TreeViewState> systemListStates = new List<TreeViewState>();
         [SerializeField] private List<string> systemListStateNames = new List<string>();
-        private SystemListView systemListView;
+        internal SystemListView systemListView;
 
         [SerializeField] private TreeViewState entityListState = new TreeViewState();
         private EntityListView entityListView;

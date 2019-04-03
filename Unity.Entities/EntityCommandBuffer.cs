@@ -280,6 +280,23 @@ namespace Unity.Entities
             }
         }
 
+        private void ResetCreateCommandBatching(EntityCommandBufferChain* chain)
+        {
+            chain->m_PrevCreateCommand = null;
+        }
+
+        private void ResetEntityCommandBatching(EntityCommandBufferChain* chain)
+        {
+            chain->m_PrevEntityCommand = null;
+        }
+
+        private void ResetCommandBatching(EntityCommandBufferChain* chain)
+        {
+            ResetCreateCommandBatching(chain);
+            ResetEntityCommandBatching(chain);
+
+        }
+
         internal void AddCreateCommand(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, int index, EntityArchetype archetype, bool batchable)
         {
             if (batchable &&
@@ -290,6 +307,7 @@ namespace Unity.Entities
             }
             else
             {
+                ResetEntityCommandBatching(chain);
                 var cmd = (CreateCommand*) Reserve(chain, jobIndex, sizeof(CreateCommand));
 
                 cmd->Header.CommandType = (int) op;
@@ -313,6 +331,7 @@ namespace Unity.Entities
             }
             else
             {
+                ResetCreateCommandBatching(chain);
                 var cmd = (EntityCommand*) Reserve(chain, jobIndex, sizeof(EntityCommand));
 
                 cmd->Header.CommandType = (int) op;
@@ -327,39 +346,21 @@ namespace Unity.Entities
 
         internal bool RequiresEntityFixUp(byte* data, int typeIndex)
         {
+            if (!TypeManager.HasEntityReferences(typeIndex))
+                return false;
+
             var componentInfo = TypeManager.GetTypeInfo(typeIndex);
-            bool bRequiresFixUp = false;
-
-            #if !UNITY_CSHARP_TINY
-                if (componentInfo.EntityOffsets == null)
-                {
-                    return bRequiresFixUp;
-                }
-
-                ulong handle = ~0UL;
-                var offsets = (TypeManager.EntityOffsetInfo*) UnsafeUtility.PinGCArrayAndGetDataAddress(componentInfo.EntityOffsets, out handle);
-                var offsetCount = componentInfo.EntityOffsetCount;
-            #else
-                var offsets = componentInfo.EntityOffsets;
-                var offsetCount = componentInfo.EntityOffsetCount;
-
-                if (offsets == null) return bRequiresFixUp;
-            #endif
+            var offsets = componentInfo.EntityOffsets;
+            var offsetCount = componentInfo.EntityOffsetCount;
 
             for (int i = 0; i < offsetCount; i++)
             {
                 if (((Entity*) (data + offsets[i].Offset))->Index < 0)
                 {
-                    bRequiresFixUp = true;
-                    break;
+                    return true;
                 }
             }
-
-            #if !UNITY_CSHARP_TINY
-                UnsafeUtility.ReleaseGCObject(handle);
-            #endif
-
-            return bRequiresFixUp;
+            return false;
         }
 
         internal void AddEntityComponentCommand<T>(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, Entity e, T component) where T : struct
@@ -370,6 +371,7 @@ namespace Unity.Entities
             var typeSize = UnsafeUtility.SizeOf<T>();
             var sizeNeeded = Align(sizeof(EntityComponentCommand) + typeSize, 8);
 
+            ResetCommandBatching(chain);
             var cmd = (EntityComponentCommand*)Reserve(chain, jobIndex, sizeNeeded);
 
             cmd->Header.Header.CommandType = (int)op;
@@ -381,6 +383,7 @@ namespace Unity.Entities
 
             byte* data = (byte*) (cmd + 1);
             UnsafeUtility.CopyStructureToPtr(ref component, data);
+
             if (RequiresEntityFixUp(data, typeIndex))
             {
                 if (op == ECBCommand.AddComponent)
@@ -396,6 +399,7 @@ namespace Unity.Entities
             var type = TypeManager.GetTypeInfo<T>();
             var sizeNeeded = Align(sizeof(EntityBufferCommand) + type.SizeInChunk, 8);
 
+            ResetCommandBatching(chain);
             var data = (EntityBufferCommand*)Reserve(chain, jobIndex, sizeNeeded);
 
             data->Header.Header.CommandType = (int)op;
@@ -419,6 +423,7 @@ namespace Unity.Entities
         {
             var sizeNeeded = Align(sizeof(EntityComponentCommand), 8);
 
+            ResetCommandBatching(chain);
             var data = (EntityComponentCommand*)Reserve(chain, jobIndex, sizeNeeded);
 
             data->Header.Header.CommandType = (int)op;
@@ -433,12 +438,13 @@ namespace Unity.Entities
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
             var sizeNeeded = Align(sizeof(EntitySharedComponentCommand), 8);
-            
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (TypeManager.GetTypeInfo<T>().EntityOffsets != null)
                 throw new System.ArgumentException("EntityCommandBuffer.AddSharedComponentData does not support shared componenents with Entity fields.");
 #endif
-            
+
+            ResetCommandBatching(chain);
             var data = (EntitySharedComponentCommand*)Reserve(chain, jobIndex, sizeNeeded);
 
             data->Header.Header.CommandType = (int)op;
@@ -589,9 +595,22 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="label">Memory allocator to use for chunks and data</param>
         public EntityCommandBuffer(Allocator label)
+            : this(label, 1)
         {
-            m_Data = (EntityCommandBufferData*)UnsafeUtility.Malloc(sizeof(EntityCommandBufferData),
-                UnsafeUtility.AlignOf<EntityCommandBufferData>(), label);
+        }
+
+        /// <summary>
+        ///  Creates a new command buffer.
+        /// </summary>
+        /// <param name="label">Memory allocator to use for chunks and data</param>
+        /// <param name="disposeSentinelStackDepth">
+        /// Specify how many stack frames to skip when reporting memory leaks.
+        /// -1 will disable leak detection
+        /// 0 or positive values
+        /// </param>
+        internal EntityCommandBuffer(Allocator label, int disposeSentinelStackDepth)
+        {
+            m_Data = (EntityCommandBufferData*)UnsafeUtility.Malloc(sizeof(EntityCommandBufferData), UnsafeUtility.AlignOf<EntityCommandBufferData>(), label);
             m_Data->m_Allocator = label;
             m_Data->m_MinimumChunkSize = kDefaultMinimumChunkSize;
             m_Data->m_ShouldPlayback = true;
@@ -608,7 +627,16 @@ namespace Unity.Entities
             m_Data->m_RecordedChainCount = 0;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            DisposeSentinel.Create(out m_Safety0, out m_DisposeSentinel, 8, label);
+            if (disposeSentinelStackDepth >= 0)
+            {
+                DisposeSentinel.Create(out m_Safety0, out m_DisposeSentinel, disposeSentinelStackDepth, label);
+            }
+            else
+            {
+                m_DisposeSentinel = null;
+                m_Safety0 = AtomicSafetyHandle.Create();
+            }
+
             // Used for all buffers returned from the API, so we can invalidate them once Playback() has been called.
             m_BufferSafety = AtomicSafetyHandle.Create();
             // Used to invalidate array aliases to buffers
@@ -620,6 +648,8 @@ namespace Unity.Entities
 #endif
             m_Data->m_Entity = new Entity();
         }
+
+        public bool IsCreated   { get { return m_Data != null; } }
 
         public void Dispose()
         {
@@ -706,6 +736,7 @@ namespace Unity.Entities
             m_Data->AddEntityCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.DestroyEntity, 0, e, false);
         }
 
+        [Obsolete("This function now requires an Entity parameter.")]
         public DynamicBuffer<T> AddBuffer<T>() where T : struct, IBufferElementData
         {
             return AddBuffer<T>(m_Data->m_Entity);
@@ -721,6 +752,7 @@ namespace Unity.Entities
 #endif
         }
 
+        [Obsolete("This function now requires an Entity parameter.")]
         public DynamicBuffer<T> SetBuffer<T>() where T : struct, IBufferElementData
         {
             return SetBuffer<T>(m_Data->m_Entity);
@@ -742,11 +774,13 @@ namespace Unity.Entities
             m_Data->AddEntityComponentCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.AddComponent, e, component);
         }
 
+        [Obsolete("This function now requires an Entity parameter.")]
         public void AddComponent<T>(T component) where T : struct, IComponentData
         {
             AddComponent(m_Data->m_Entity, component);
         }
 
+        [Obsolete("This function now requires an Entity parameter.")]
         public void SetComponent<T>(T component) where T : struct, IComponentData
         {
             SetComponent(m_Data->m_Entity, component);
@@ -772,10 +806,10 @@ namespace Unity.Entities
 
         private static bool IsDefaultObject<T>(ref T component, out int hashCode) where T : struct, ISharedComponentData
         {
-            var typeIndex = TypeManager.GetTypeIndex<T>();
             var defaultValue = default(T);
 
             #if !UNITY_CSHARP_TINY
+                var typeIndex = TypeManager.GetTypeIndex<T>();
                 var typeInfo = TypeManager.GetTypeInfo(typeIndex).FastEqualityTypeInfo;
                 hashCode = FastEquality.GetHashCode(ref component, typeInfo);
                 return FastEquality.Equals(ref defaultValue, ref component, typeInfo);
@@ -785,6 +819,7 @@ namespace Unity.Entities
             #endif
         }
 
+        [Obsolete("This function now requires an Entity parameter.")]
         public void AddSharedComponent<T>(T component) where T : struct, ISharedComponentData
         {
             AddSharedComponent(m_Data->m_Entity, component);
@@ -800,6 +835,7 @@ namespace Unity.Entities
                 m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.AddSharedComponentData, e, hashCode, component);
         }
 
+        [Obsolete("This function now requires an Entity parameter.")]
         public void SetSharedComponent<T>(T component) where T : struct, ISharedComponentData
         {
             SetSharedComponent(m_Data->m_Entity, component);
@@ -944,14 +980,8 @@ namespace Unity.Entities
             var componentTypeInfo = TypeManager.GetTypeInfo(typeIndex);
             Assert.IsTrue(componentTypeInfo.EntityOffsets != null);
 
-            #if !UNITY_CSHARP_TINY
-                ulong handle = ~0UL;
-                var offsets = (TypeManager.EntityOffsetInfo*) UnsafeUtility.PinGCArrayAndGetDataAddress(componentTypeInfo.EntityOffsets, out handle);
-                var offsetCount = componentTypeInfo.EntityOffsetCount;
-            #else
-                var offsets = componentTypeInfo.EntityOffsets;
-                var offsetCount = componentTypeInfo.EntityOffsetCount;
-            #endif
+            var offsets = componentTypeInfo.EntityOffsets;
+            var offsetCount = componentTypeInfo.EntityOffsetCount;
 
             for (int i=0; i < offsetCount; i++)
             {
@@ -964,10 +994,6 @@ namespace Unity.Entities
                     *e = real;
                 }
             }
-
-            #if !UNITY_CSHARP_TINY
-                UnsafeUtility.ReleaseGCObject(handle);
-            #endif
         }
 
         private static unsafe void SetCommandDataWithFixup(

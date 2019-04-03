@@ -8,6 +8,19 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         class ForEachSystem : ComponentSystem
         {
+            void ForEachAll(int expectedCount)
+            {
+                int counter;
+
+                counter = 0;
+                ForEach((Entity entity) =>
+                {
+                    Assert.IsTrue(EntityManager.Exists(entity));
+                    counter++;
+                });
+                Assert.AreEqual(expectedCount, counter);
+            }
+            
             void ComponentData(int expectedCount)
             {
                 int counter;
@@ -61,6 +74,7 @@ namespace Unity.Entities.Tests
             
             protected override void OnUpdate()
             {
+                ForEachAll(3);
                 ComponentData(1);
                 SharedComponentData(1);
                 DynamicBuffer(1);

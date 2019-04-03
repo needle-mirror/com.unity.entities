@@ -4,9 +4,9 @@ using UnityEngine;
 namespace Unity.Entities.Tests
 {
     [DisallowMultipleComponent]
-    public class EcsFooTestComponent : ComponentDataWrapper<EcsFooTest> { }
+    public class EcsFooTestProxy : ComponentDataProxy<EcsFooTest> { }
     [DisallowMultipleComponent]
-    public class EcsTestComponent : ComponentDataWrapper<EcsTestData> { }
+    public class EcsTestProxy : ComponentDataProxy<EcsTestData> { }
 
     class EntityManagerTests : ECSTestsFixture
     {
@@ -14,7 +14,7 @@ namespace Unity.Entities.Tests
         public void GetComponentObjectReturnsTheCorrectType()
         {
             var go = new GameObject();
-            go.AddComponent<EcsTestComponent>();
+            go.AddComponent<EcsTestProxy>();
 
             var component = m_Manager.GetComponentObject<Transform>(go.GetComponent<GameObjectEntity>().Entity);
 
@@ -27,7 +27,7 @@ namespace Unity.Entities.Tests
         public void GetComponentObjectThrowsIfComponentDoesNotExist()
         {
             var go = new GameObject();
-            go.AddComponent<EcsTestComponent>();
+            go.AddComponent<EcsTestProxy>();
 
             Assert.Throws<System.ArgumentException>(() => m_Manager.GetComponentObject<Rigidbody>(go.GetComponent<GameObjectEntity>().Entity));
         }

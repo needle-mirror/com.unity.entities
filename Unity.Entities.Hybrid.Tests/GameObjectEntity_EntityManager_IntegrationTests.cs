@@ -19,7 +19,7 @@ namespace Unity.Entities.Tests
             var parent = new GameObject($"{TestContext.CurrentContext.Test.Name}-PARENT");
             m_TestObjects[ActivateTestObject.Parent] = parent;
             m_GameObjectEntity =
-                new GameObject(TestContext.CurrentContext.Test.Name, typeof(GameObjectEntity), typeof(MockDataComponent)).GetComponent<GameObjectEntity>();
+                new GameObject(TestContext.CurrentContext.Test.Name, typeof(GameObjectEntity), typeof(MockDataProxy)).GetComponent<GameObjectEntity>();
             m_GameObjectEntity.gameObject.transform.SetParent(parent.transform);
             m_TestObjects[ActivateTestObject.Child] = m_GameObjectEntity.gameObject;
 

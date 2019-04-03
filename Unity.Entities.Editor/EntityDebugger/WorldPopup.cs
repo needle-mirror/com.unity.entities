@@ -5,9 +5,9 @@ using UnityEngine;
 namespace Unity.Entities.Editor
 {
     
-    public delegate void WorldSelectionSetter(World world);
+    internal delegate void WorldSelectionSetter(World world);
 
-    public delegate bool ShowInactiveSystemsGetter();
+    internal delegate bool ShowInactiveSystemsGetter();
     
     internal class WorldPopup
     {

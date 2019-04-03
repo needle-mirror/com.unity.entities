@@ -9,13 +9,7 @@ namespace Unity.Transforms
     /// Read-only from other systems.
     /// User responsible for removing.
     /// </summary>
-    [Serializable]
     public struct Frozen : IComponentData
-    {
-    }
-
-    [UnityEngine.DisallowMultipleComponent]
-    public class FrozenComponent : ComponentDataWrapper<Frozen>
     {
     }
 }

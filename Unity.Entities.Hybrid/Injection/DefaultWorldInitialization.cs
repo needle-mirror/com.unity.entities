@@ -62,6 +62,37 @@ namespace Unity.Entities
             
             ScriptBehaviourUpdateOrder.UpdatePlayerLoop(world);
         }
+        
+        public static void DefaultLazyEditModeInitialize()
+        {
+#if UNITY_EDITOR
+            if (World.Active == null)
+            {
+                // * OnDisable (Serialize monobehaviours in temporary backup)
+                // * unload domain
+                // * load new domain
+                // * OnEnable (Deserialize monobehaviours in temporary backup)
+                // * mark entered playmode / load scene
+                // * OnDisable / OnDestroy
+                // * OnEnable (Loading object from scene...)
+                if (UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode)
+                {
+                    // We are just gonna ignore this enter playmode reload.
+                    // Can't see a situation where it would be useful to create something inbetween.
+                    // But we really need to solve this at the root. The execution order is kind if crazy.
+                    if (UnityEditor.EditorApplication.isPlaying)
+                        Debug.LogError("Loading GameObjectEntity in Playmode but there is no active World");
+                }
+                else
+                {
+#if !UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP
+                    Initialize("Editor World", true);
+#endif
+                }
+            }
+#endif
+        }
+
 
         static void CreateBehaviourManagersForMatchingTypes(bool editorWorld, IEnumerable<Type> allTypes, World world)
         {

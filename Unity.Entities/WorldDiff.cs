@@ -1,15 +1,33 @@
 //#define LOG_DIFF_ALL
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using Unity.Assertions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Profiling;
 
 namespace Unity.Entities
 {
+    public static class HashMapUtility
+    {
+        public static bool TryRemove<K, V>(this NativeMultiHashMap<K, V> h, K k, V v) where K : struct, IEquatable<K> where V : struct, IEquatable<V>
+        {
+            if (!h.TryGetFirstValue(k, out var candidate, out var iterator))
+                return false;
+            do
+            {
+                if (candidate.Equals(v))
+                {
+                    h.Remove(iterator);
+                    return true;
+                }
+            } while (h.TryGetNextValue(out candidate, ref iterator));
+            return false;
+        }
+    }
+
     public struct ComponentDiff
     {
         public int EntityIndex;
@@ -23,7 +41,7 @@ namespace Unity.Entities
         public ulong b;
 
         public static readonly EntityGuid Null = new EntityGuid();
-        
+
         public bool Equals(EntityGuid other)
         {
             return a == other.a && b == other.b;
@@ -67,6 +85,18 @@ namespace Unity.Entities
         }
     }
 
+    public struct LinkedEntityGroupAddition
+    {
+        public EntityGuid RootGuid;
+        public EntityGuid ChildGuid;
+    }
+
+    public struct LinkedEntityGroupRemoval
+    {
+        public EntityGuid RootGuid;
+        public EntityGuid ChildGuid;
+    }
+
     public struct DiffEntityPatch
     {
         public int EntityIndex;
@@ -108,7 +138,7 @@ namespace Unity.Entities
             for (int i = 0; i < schunks.Length; ++i)
             {
                 Chunk* sourceChunk = schunks[i].m_Chunk;
-                CreateEntityToGuidLookup(sourceChunk, allEntities);                
+                CreateEntityToGuidLookup(sourceChunk, allEntities);
             }
             schunks.Dispose();
             return allEntities;
@@ -138,20 +168,18 @@ namespace Unity.Entities
 
             return manager.CreateComponentGroup(guidQuery);
         }
-
-
         public static NativeArray<ArchetypeChunk> GetAllChunks(EntityManager manager)
         {
             var group = CreateAllChunksGroup(manager);
-            
+
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
-            
+
             group.Dispose();
-            
+
             return chunks;
         }
     }
-    
+
     public struct WorldDiff : IDisposable
     {
         public NativeArray<ulong> TypeHashes;
@@ -168,6 +196,9 @@ namespace Unity.Entities
         public NativeArray<DiffEntityPatch> EntityPatches;
         public SetSharedComponentDiff[] SharedSetCommands;
 
+        public NativeArray<LinkedEntityGroupAddition> LinkedEntityGroupAdditions;
+        public NativeArray<LinkedEntityGroupRemoval> LinkedEntityGroupRemovals;
+
         public void Dispose()
         {
             TypeHashes.Dispose();
@@ -177,12 +208,19 @@ namespace Unity.Entities
             RemoveComponents.Dispose();
             SetCommands.Dispose();
             EntityPatches.Dispose();
+            LinkedEntityGroupAdditions.Dispose();
+            LinkedEntityGroupRemovals.Dispose();
         }
 
-        
+
         public bool HasChanges
         {
-            get { return NewEntityCount != 0 || DeletedEntityCount != 0 || AddComponents.Length != 0 || RemoveComponents.Length != 0 || SetCommands.Length != 0 || EntityPatches.Length != 0 || SharedSetCommands.Length != 0; }
+            get
+            {
+                return NewEntityCount != 0 || DeletedEntityCount != 0 || AddComponents.Length != 0 || RemoveComponents.Length != 0
+                       || SetCommands.Length != 0 || EntityPatches.Length != 0 || SharedSetCommands.Length != 0 || LinkedEntityGroupAdditions.Length != 0
+                       || LinkedEntityGroupRemovals.Length != 0;
+            }
         }
     }
 
@@ -210,6 +248,22 @@ namespace Unity.Entities
 
     public static unsafe class WorldDiffer
     {
+        static ProfilerMarker m_Diff = new ProfilerMarker("Diff");
+        static ProfilerMarker m_ApplyDiff = new ProfilerMarker("ApplyDiff");
+
+        public static void DiffAndApply(World newState, World previousStateShadowWorld, World dstEntityWorld)
+        {
+            m_Diff.Begin();
+            using (var diff = WorldDiffer.UpdateDiff(newState, previousStateShadowWorld, Allocator.TempJob))
+            {
+                m_Diff.End();
+                    
+                m_ApplyDiff.Begin();
+                ApplyDiff(dstEntityWorld, diff);
+                m_ApplyDiff.End();
+            }
+        }
+        
         public static WorldDiff UpdateDiff(World Source, World ShadowWorld, Allocator resultAllocator)
         {
             if (Source == null)
@@ -237,7 +291,7 @@ namespace Unity.Entities
             // afterState == schunk == Source
             var afterState = new NativeHashMap<EntityGuid, DiffEntityData>(4096, Allocator.TempJob);
 
-            var allEntities = new NativeHashMap<Entity, EntityGuid>(4096, Allocator.TempJob);
+            var SrcWorldEntityToGuid = new NativeHashMap<Entity, EntityGuid>(4096, Allocator.TempJob);
 
             for (int i = 0; i < schunks.Length; ++i)
             {
@@ -247,7 +301,7 @@ namespace Unity.Entities
                 bool b = visited.TryAdd(sourceChunk->SequenceNumber, 1);
                 UnityEngine.Assertions.Assert.IsTrue(b);
 
-                CreateEntityToGuidLookup(sourceChunk, allEntities);
+                CreateEntityToGuidLookup(sourceChunk, SrcWorldEntityToGuid);
 
                 if (destChunk == null)
                 {
@@ -293,69 +347,103 @@ namespace Unity.Entities
             var byteDiffs = new NativeList<byte>(1, Allocator.TempJob);
             var sharedDiffs = new List<SetSharedComponentDiff>();
             var entityPatches = new NativeList<DiffEntityPatch>(1, Allocator.TempJob);
-
-            BuildAddComponents(createdEntities, typeHashes, typeHashLookup, addComponents, dataDiffs, byteDiffs, entityList, entityLookup, sharedDiffs, smgr.m_SharedComponentManager, entityPatches, allEntities);
-
-            BuildComponentDiff(modifiedEntities, typeHashes, typeHashLookup, removeComponents, addComponents, dataDiffs, sharedDiffs, byteDiffs, entityList, entityLookup, smgr.m_SharedComponentManager, dmgr.m_SharedComponentManager, entityPatches, allEntities);
-
-            // Add removed entities to back of entity list
-            entityList.AddRange(removedEntities);
-
-            // Build output data
-            WorldDiff result;
-            result.TypeHashes = typeHashes.ToArray(resultAllocator);
-            result.Entities = entityList.ToArray(resultAllocator);
-            result.NewEntityCount = createdEntities.Length;
-            result.DeletedEntityCount = removedEntities.Length;
-            result.AddComponents = addComponents.ToArray(resultAllocator);
-            result.RemoveComponents = removeComponents.ToArray(resultAllocator);
-            result.SetCommands = dataDiffs.ToArray(resultAllocator);
-            result.EntityPatches = entityPatches.ToArray(resultAllocator);
-            result.ComponentPayload = byteDiffs.ToArray(resultAllocator);
-            result.SharedSetCommands = sharedDiffs.ToArray();
-
-            // Drop all unused and modified chunks
-            for (int i = 0; i < dropList.Length; ++i)
+            using(var linkedEntityGroupAdds = new NativeList<LinkedEntityGroupAddition>(1, Allocator.TempJob))
+            using(var linkedEntityGroupRemoves = new NativeList<LinkedEntityGroupRemoval>(1, Allocator.TempJob))
             {
-                dmgr.ArchetypeManager.DestroyChunkForDiffing((Chunk*)dropList[i], dmgr.Entities);
+
+                BuildAddComponents(createdEntities, typeHashes, typeHashLookup, addComponents, dataDiffs, byteDiffs,
+                    entityList, entityLookup, sharedDiffs, smgr.m_SharedComponentManager, entityPatches,
+                    SrcWorldEntityToGuid, linkedEntityGroupAdds);
+
+                BuildComponentDiff(modifiedEntities, typeHashes, typeHashLookup, removeComponents, addComponents,
+                    linkedEntityGroupAdds, linkedEntityGroupRemoves, dataDiffs, sharedDiffs, byteDiffs, entityList,
+                    entityLookup, smgr.m_SharedComponentManager, dmgr.m_SharedComponentManager, entityPatches,
+                    SrcWorldEntityToGuid);
+
+                // Add removed entities to back of entity list
+                entityList.AddRange(removedEntities);
+
+                // Build output data
+                WorldDiff result;
+                result.TypeHashes = typeHashes.ToArray(resultAllocator);
+                result.Entities = entityList.ToArray(resultAllocator);
+                result.NewEntityCount = createdEntities.Length;
+                result.DeletedEntityCount = removedEntities.Length;
+                result.AddComponents = addComponents.ToArray(resultAllocator);
+                result.RemoveComponents = removeComponents.ToArray(resultAllocator);
+                result.SetCommands = dataDiffs.ToArray(resultAllocator);
+                result.EntityPatches = entityPatches.ToArray(resultAllocator);
+                result.ComponentPayload = byteDiffs.ToArray(resultAllocator);
+                result.SharedSetCommands = sharedDiffs.ToArray();
+                result.LinkedEntityGroupAdditions = linkedEntityGroupAdds.ToArray(resultAllocator);
+                result.LinkedEntityGroupRemovals = linkedEntityGroupRemoves.ToArray(resultAllocator);
+
+                // Drop all unused and modified chunks
+                for (int i = 0; i < dropList.Length; ++i)
+                {
+                    dmgr.ArchetypeManager.DestroyChunkForDiffing((Chunk*) dropList[i], dmgr.Entities);
+                }
+
+                // Clone all new and modified chunks
+                for (int i = 0; i < cloneList.Length; ++i)
+                {
+                    dmgr.ArchetypeManager.CloneChunkForDiffing((Chunk*) cloneList[i], dmgr.Entities, dmgr.GroupManager,
+                        smgr.m_SharedComponentManager);
+                }
+
+                entityPatches.Dispose();
+                SrcWorldEntityToGuid.Dispose();
+                entityLookup.Dispose();
+                entityList.Dispose();
+                byteDiffs.Dispose();
+                dataDiffs.Dispose();
+                addComponents.Dispose();
+                removeComponents.Dispose();
+                typeHashLookup.Dispose();
+                typeHashes.Dispose();
+                modifiedEntities.Dispose();
+                createdEntities.Dispose();
+                removedEntities.Dispose();
+                afterState.Dispose();
+                beforeState.Dispose();
+                visited.Dispose();
+                dropList.Dispose();
+                cloneList.Dispose();
+                dchunks.Dispose();
+                schunks.Dispose();
+
+                return result;
             }
+        }
 
-            // Clone all new and modified chunks
-            for (int i = 0; i < cloneList.Length; ++i)
-            {
-                dmgr.ArchetypeManager.CloneChunkForDiffing((Chunk*)cloneList[i], dmgr.Entities, dmgr.GroupManager, smgr.m_SharedComponentManager);
-            }
-
-            entityPatches.Dispose();
-            allEntities.Dispose();
-            entityLookup.Dispose();
-            entityList.Dispose();
-            byteDiffs.Dispose();
-            dataDiffs.Dispose();
-            addComponents.Dispose();
-            removeComponents.Dispose();
-            typeHashLookup.Dispose();
-            typeHashes.Dispose();
-            modifiedEntities.Dispose();
-            createdEntities.Dispose();
-            removedEntities.Dispose();
-            afterState.Dispose();
-            beforeState.Dispose();
-            visited.Dispose();
-            dropList.Dispose();
-            cloneList.Dispose();
-            dchunks.Dispose();
-            schunks.Dispose();
-
+        public static UInt64 Ordinal(Entity e)
+        {
+            UInt64 result = 0;
+            result |= (UInt32)e.Version;
+            result <<= 32;
+            result |= (UInt32)e.Index;
             return result;
         }
 
+        struct EntitySorter : IComparer<Entity>
+        {
+            public int Compare(Entity x, Entity y)
+            {
+                if(Ordinal(x) < Ordinal(y))
+                    return -1;
+                if(Ordinal(x) > Ordinal(y))
+                    return 1;
+                return 0;
+            }
+        }
 
         static void BuildComponentDiff(NativeList<DiffModificationData> modifiedEntities,
             NativeList<ulong> typeHashes,
             NativeHashMap<int, int> typeHashLookup,
             NativeList<ComponentDiff> removeComponents,
             NativeList<ComponentDiff> addComponents,
+            NativeList<LinkedEntityGroupAddition> linkedEntityGroupAdds,
+            NativeList<LinkedEntityGroupRemoval> linkedEntityGroupRemoves,
             NativeList<DataDiff> dataDiffs,
             List<SetSharedComponentDiff> sharedComponentDiffs,
             NativeList<byte> byteDiffs,
@@ -363,8 +451,9 @@ namespace Unity.Entities
             NativeHashMap<EntityGuid, int> guidToIndex,
             SharedComponentDataManager ssharedComponentDataManager,
             SharedComponentDataManager dsharedComponentDataManager,
-            NativeList<DiffEntityPatch> entityPatches, NativeHashMap<Entity, EntityGuid> allEntities)
+            NativeList<DiffEntityPatch> entityPatches, NativeHashMap<Entity, EntityGuid> SrcWorldEntityToGuid)
         {
+            var LinkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
             for (int i = 0; i < modifiedEntities.Length; ++i)
             {
                 var mod = modifiedEntities[i];
@@ -372,7 +461,7 @@ namespace Unity.Entities
                 var beforeArch = mod.BeforeChunk->Archetype;
                 var afterArch = mod.AfterChunk->Archetype;
 
-                
+
                 var entityIndex = GetExternalIndex(mod.Guid, guidList, guidToIndex);
 
                 for (int afterType = 1; afterType < afterArch->TypesCount; ++afterType)
@@ -404,16 +493,32 @@ namespace Unity.Entities
                             var afterElements = afterHeader->Length;
                             var bytesPerElement = TypeManager.GetTypeInfo(at.TypeIndex).ElementSize;
                             var afterBytes = bytesPerElement * afterElements;
-                            dataDiffs.Add(new DataDiff
-                            {
-                                EntityIndex = entityIndex,
-                                Offset = 0,
-                                SizeBytes = afterBytes,
-                                TypeHashIndex = typeHashIndex
-                            });                            
                             var afterElementPointer = BufferHeader.GetElementPointer(afterHeader);
-                            byteDiffs.AddRange(afterElementPointer, afterBytes);
-                            ExtractGuidPatches(entityPatches, allEntities, at, afterElementPointer, afterElements, entityIndex, typeHashIndex);                            
+                            if (at.TypeIndex == LinkedEntityGroupTypeIndex)
+                            {
+                                // magic in addcomponent already put a self-reference at the top of the buffer, so there's no need for us to add it.
+                                // the rest of the elements should be interpreted as LinkedEntityGroupAdditions.
+                                for(var a = 1; a < afterElements; ++a)
+                                {
+                                    var childEntity = ((Entity*)afterElementPointer)[a];
+                                    var childEntityHasGuid = SrcWorldEntityToGuid.TryGetValue(childEntity, out var childEntityGuid);
+                                    // if the child entity doesn't have a guid, there's no way for us to communicate its identity to the destination world.
+                                    Assert.IsTrue(childEntityHasGuid);
+                                    linkedEntityGroupAdds.Add(new LinkedEntityGroupAddition{RootGuid = mod.Guid, ChildGuid = childEntityGuid});
+                                }
+                            }
+                            else
+                            {
+                                dataDiffs.Add(new DataDiff
+                                {
+                                    EntityIndex = entityIndex,
+                                    Offset = 0,
+                                    SizeBytes = afterBytes,
+                                    TypeHashIndex = typeHashIndex
+                                });
+                                byteDiffs.AddRange(afterElementPointer, afterBytes);
+                                ExtractGuidPatches(entityPatches, SrcWorldEntityToGuid, at, afterElementPointer, afterElements, entityIndex, typeHashIndex);
+                            }
                         }
                         else
                         {
@@ -424,21 +529,21 @@ namespace Unity.Entities
                                 Offset = 0,
                                 SizeBytes = afterArch->SizeOfs[afterType],
                                 TypeHashIndex = typeHashIndex
-                            });                            
-                            byte* afterAddress = mod.AfterChunk->Buffer + afterArch->Offsets[afterType] + afterArch->SizeOfs[afterType] * mod.AfterIndex;                            
+                            });
+                            byte* afterAddress = mod.AfterChunk->Buffer + afterArch->Offsets[afterType] + afterArch->SizeOfs[afterType] * mod.AfterIndex;
                             byteDiffs.AddRange(afterAddress, afterArch->SizeOfs[afterType]);
 
-                            ExtractGuidPatches(entityPatches, allEntities, at, afterAddress, 1, entityIndex, typeHashIndex);
+                            ExtractGuidPatches(entityPatches, SrcWorldEntityToGuid, at, afterAddress, 1, entityIndex, typeHashIndex);
                         }
 
                         // Also check value
                         continue;
                     }
 
-                    if (!at.IsSharedComponent && !at.IsBuffer && !at.IsZeroSized && !at.IsSystemStateComponent && !at.IsSystemStateSharedComponent)
+                    if (!at.IsSharedComponent && !at.IsBuffer && !at.IsZeroSized && !at.IsSystemStateComponent)
                     {
                         Assert.AreEqual(beforeArch->SizeOfs[beforeType], afterArch->SizeOfs[afterType]);
-                        
+
                         byte* beforeAddress = mod.BeforeChunk->Buffer + beforeArch->Offsets[beforeType] + beforeArch->SizeOfs[beforeType] * mod.BeforeIndex;
                         byte* afterAddress = mod.AfterChunk->Buffer + afterArch->Offsets[afterType] + afterArch->SizeOfs[afterType] * mod.AfterIndex;
 
@@ -455,7 +560,7 @@ namespace Unity.Entities
 
                             byteDiffs.AddRange(afterAddress, afterArch->SizeOfs[afterType]);
 
-                            ExtractGuidPatches(entityPatches, allEntities, at, afterAddress, 1, entityIndex, typeHashIndex);
+                            ExtractGuidPatches(entityPatches, SrcWorldEntityToGuid, at, afterAddress, 1, entityIndex, typeHashIndex);
                         }
 
                         continue;
@@ -465,7 +570,7 @@ namespace Unity.Entities
                     {
                         object beforeObject = GetSharedComponentObject(dsharedComponentDataManager, mod.BeforeChunk, beforeType, targetTypeIndex);
                         object afterObject = GetSharedComponentObject(ssharedComponentDataManager, mod.AfterChunk, afterType, targetTypeIndex);
-                        
+
                         if (!SharedComponentDataManager.FastEquality_CompareBoxed(beforeObject, afterObject, targetTypeIndex))
                         {
                             sharedComponentDiffs.Add(new SetSharedComponentDiff
@@ -482,27 +587,79 @@ namespace Unity.Entities
                     if (at.IsBuffer)
                     {
                         Assert.AreEqual(beforeArch->SizeOfs[beforeType], afterArch->SizeOfs[afterType]);
-                        var beforeHeader = (BufferHeader*)(mod.BeforeChunk->Buffer + beforeArch->Offsets[beforeType] + beforeArch->SizeOfs[beforeType] * mod.BeforeIndex);
-                        var afterHeader = (BufferHeader*)(mod.AfterChunk->Buffer + afterArch->Offsets[afterType] + afterArch->SizeOfs[afterType] * mod.AfterIndex);                        
+                        var beforeHeader = (BufferHeader*) (mod.BeforeChunk->Buffer + beforeArch->Offsets[beforeType] + beforeArch->SizeOfs[beforeType] * mod.BeforeIndex);
+                        var afterHeader = (BufferHeader*) (mod.AfterChunk->Buffer + afterArch->Offsets[afterType] + afterArch->SizeOfs[afterType] * mod.AfterIndex);
                         byte* beforeElementPointer = BufferHeader.GetElementPointer(beforeHeader);
                         byte* afterElementPointer = BufferHeader.GetElementPointer(afterHeader);
                         var beforeElements = beforeHeader->Length;
                         var afterElements = afterHeader->Length;
-                        var bytesPerElement = TypeManager.GetTypeInfo(at.TypeIndex).ElementSize;
-                        var afterElementBytes = afterElements * bytesPerElement;
-                        if (beforeElements != afterElements || !SharedComponentDataManager.FastEquality_CompareElements(beforeElementPointer, afterElementPointer, afterElements, at.TypeIndex))
+                        if (at.TypeIndex == LinkedEntityGroupTypeIndex)
                         {
-                            dataDiffs.Add(new DataDiff
+                            using(var befores = new NativeArray<Entity>(beforeElements, Allocator.TempJob))
+                            using (var afters = new NativeArray<Entity>(afterElements, Allocator.TempJob))
                             {
-                                EntityIndex = entityIndex,
-                                Offset = 0,
-                                SizeBytes = afterElementBytes,
-                                TypeHashIndex = typeHashIndex
-                            });
-                            byteDiffs.AddRange(afterElementPointer, afterElementBytes);
-                            ExtractGuidPatches(entityPatches, allEntities, at, afterElementPointer, afterElements, entityIndex, typeHashIndex);                            
+                                UnsafeUtility.MemCpy(befores.GetUnsafePtr(), beforeElementPointer, beforeElements * sizeof(Entity));
+                                UnsafeUtility.MemCpy(afters.GetUnsafePtr(), afterElementPointer,afterElements * sizeof(Entity));
+                                befores.Sort(new EntitySorter());
+                                afters.Sort(new EntitySorter());
+                                int b = 0;
+                                int a = 0;
+                                while (b < befores.Length && a < afters.Length)
+                                {
+                                    if (Ordinal(befores[b]) == Ordinal(afters[a])) // if Entity is in both "before" and "after", it's not added or deleted
+                                    {
+                                        ++a;
+                                        ++b;
+                                    }
+                                    else if (Ordinal(befores[b]) < Ordinal(afters[a])) // if Entity is in "before" but not "after", it's been removed
+                                    {
+                                        var childHasGuid = SrcWorldEntityToGuid.TryGetValue(befores[b++], out var childGuid);
+                                        Assert.IsTrue(childHasGuid);
+                                        linkedEntityGroupRemoves.Add(new LinkedEntityGroupRemoval{RootGuid = mod.Guid, ChildGuid = childGuid});
+                                    }
+                                    else // if Entity is in "after" but not "before", it's been added
+                                    {
+                                        var childHasGuid = SrcWorldEntityToGuid.TryGetValue(afters[a++], out var childGuid);
+                                        Assert.IsTrue(childHasGuid);
+                                        linkedEntityGroupAdds.Add(new LinkedEntityGroupAddition{RootGuid = mod.Guid, ChildGuid = childGuid});
+                                    }
+                                }
+                                while (b < befores.Length) // if Entity is in "before" but not "after", it's been removed
+                                {
+                                    var childHasGuid = SrcWorldEntityToGuid.TryGetValue(befores[b++], out var childGuid);
+                                    Assert.IsTrue(childHasGuid);
+                                    linkedEntityGroupRemoves.Add(new LinkedEntityGroupRemoval{RootGuid = mod.Guid, ChildGuid = childGuid});
+                                }
+                                while (a < afters.Length) // if Entity is in "after" but not "before", it's been added
+                                {
+                                    var childHasGuid = SrcWorldEntityToGuid.TryGetValue(afters[a++], out var childGuid);
+                                    Assert.IsTrue(childHasGuid);
+                                    linkedEntityGroupAdds.Add(new LinkedEntityGroupAddition{RootGuid = mod.Guid, ChildGuid = childGuid});
+                                }
+                            }
                         }
-                        continue;                        
+                        else
+                        {
+                            var bytesPerElement = TypeManager.GetTypeInfo(at.TypeIndex).ElementSize;
+                            var afterElementBytes = afterElements * bytesPerElement;
+                            if (beforeElements != afterElements ||
+                                !SharedComponentDataManager.FastEquality_CompareElements(beforeElementPointer,
+                                    afterElementPointer, afterElements, at.TypeIndex))
+                            {
+                                dataDiffs.Add(new DataDiff
+                                {
+                                    EntityIndex = entityIndex,
+                                    Offset = 0,
+                                    SizeBytes = afterElementBytes,
+                                    TypeHashIndex = typeHashIndex
+                                });
+                                byteDiffs.AddRange(afterElementPointer, afterElementBytes);
+                                ExtractGuidPatches(entityPatches, SrcWorldEntityToGuid, at, afterElementPointer,
+                                    afterElements,
+                                    entityIndex, typeHashIndex);
+                            }
+                        }
+                        continue;
                     }
                 }
 
@@ -519,12 +676,15 @@ namespace Unity.Entities
         }
 
         private static void ExtractGuidPatches(NativeList<DiffEntityPatch> entityPatches, NativeHashMap<Entity, EntityGuid> allEntities, ComponentTypeInArchetype at, byte* afterAddress, int elementCount, int entityIndex, int typeHashIndex)
-        {            
+        {
             var ft = TypeManager.GetTypeInfo(at.TypeIndex);
 
+            if(at.TypeIndex == TypeManager.GetTypeIndex<LinkedEntityGroup>())
+                Debug.LogWarning("We should never attempt to extract guid patches from a LinkedEntityGroup.");
+
             if (ft.EntityOffsets == null)
-                return;            
-            
+                return;
+
             int elementOffset = 0;
             for (var element = 0; element < elementCount; ++element)
             {
@@ -560,9 +720,9 @@ namespace Unity.Entities
 #if !UNITY_CSHARP_TINY
         static object GetSharedComponentObject(SharedComponentDataManager sharedComponentDataManager, Chunk* chunk, int typeIndexInArchetype, int targetTypeIndex)
         {
-            int off = chunk->Archetype->SharedComponentOffset[typeIndexInArchetype];
-            Assert.AreNotEqual(-1, off);
-            int sharedComponentIndex = chunk->SharedComponentValueArray[off];
+            int off = typeIndexInArchetype - chunk->Archetype->FirstSharedComponent;
+            Assert.IsTrue((0 <= off) && (off < chunk->Archetype->NumSharedComponents));
+            int sharedComponentIndex = chunk->GetSharedComponentValue(off);
             return sharedComponentDataManager.GetSharedComponentDataBoxed(sharedComponentIndex, targetTypeIndex);
         }
 #else
@@ -583,8 +743,10 @@ namespace Unity.Entities
             List<SetSharedComponentDiff> sharedDiffs,
             SharedComponentDataManager sharedComponentDataManager,
             NativeList<DiffEntityPatch> entityPatches,
-            NativeHashMap<Entity, EntityGuid> allEntities)
+            NativeHashMap<Entity, EntityGuid> SrcWorldEntityToGuid,
+            NativeList<LinkedEntityGroupAddition> LinkedEntityGroupAdds)
         {
+            var LinkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
             for (int i = 0; i < newEntities.Length; ++i)
             {
                 var ent = newEntities[i];
@@ -596,13 +758,13 @@ namespace Unity.Entities
                 {
                     var at = afterArch->Types[afterType];
 
-                    if (at.IsSystemStateComponent || at.IsSystemStateSharedComponent)
+                    if (at.IsSystemStateComponent)
                         continue;
 
                     int targetTypeIndex = at.TypeIndex;
                     var typeHashIndex = GetTypeHashIndex(targetTypeIndex, typeHashes, typeHashLookup);
                     addComponents.Add(new ComponentDiff {EntityIndex = entityIndex, TypeHashIndex = typeHashIndex});
-                                       
+
                     //@TODO: BuildComponentDiff is copy pasta..
                     if (!at.IsBuffer && !at.IsSharedComponent && !at.IsZeroSized)
                     {
@@ -618,7 +780,7 @@ namespace Unity.Entities
                         byte* src = ent.Chunk->Buffer + afterArch->Offsets[afterType] + ent.Index * afterArch->SizeOfs[afterType];
                         byteDiffs.AddRange(src, afterArch->SizeOfs[afterType]);
 
-                        ExtractGuidPatches(entityPatches, allEntities, at, src, 1, entityIndex, typeHashIndex);
+                        ExtractGuidPatches(entityPatches, SrcWorldEntityToGuid, at, src, 1, entityIndex, typeHashIndex);
                     }
                     else if (at.IsSharedComponent)
                     {
@@ -636,16 +798,33 @@ namespace Unity.Entities
                         var bytesPerElement = TypeManager.GetTypeInfo(at.TypeIndex).ElementSize;
                         var afterElements = afterHeader->Length;
                         var afterElementBytes = bytesPerElement * afterElements;
-                        dataDiffs.Add(new DataDiff
+                        byte* afterElementPointer = BufferHeader.GetElementPointer(afterHeader);
+                        if (at.TypeIndex == LinkedEntityGroupTypeIndex)
                         {
-                            EntityIndex = entityIndex,
-                            Offset = 0,
-                            SizeBytes = afterElementBytes,
-                            TypeHashIndex = typeHashIndex
-                        });
-                        byte* afterElementPointer = BufferHeader.GetElementPointer(afterHeader);                       
-                        byteDiffs.AddRange(afterElementPointer, afterElementBytes);
-                        ExtractGuidPatches(entityPatches, allEntities, at, afterElementPointer, afterElements, entityIndex, typeHashIndex);                        
+                            // magic in addcomponent already put a self-reference at the top of the buffer, so there's no need for us to add it.
+                            // the rest of the elements should be interpreted as LinkedEntityGroupAdditions.
+                            for(var a = 1; a < afterElements; ++a)
+                            {
+                                var childEntity = ((Entity*)afterElementPointer)[a];
+                                var childEntityHasGuid = SrcWorldEntityToGuid.TryGetValue(childEntity, out var childEntityGuid);
+                                // if the child entity doesn't have a guid, there's no way for us to communicate its identity to the destination world.
+                                Assert.IsTrue(childEntityHasGuid);
+                                LinkedEntityGroupAdds.Add(new LinkedEntityGroupAddition{RootGuid = ent.Guid, ChildGuid = childEntityGuid});
+                            }
+                        }
+                        else
+                        {
+                            dataDiffs.Add(new DataDiff
+                            {
+                                EntityIndex = entityIndex,
+                                Offset = 0,
+                                SizeBytes = afterElementBytes,
+                                TypeHashIndex = typeHashIndex
+                            });
+                            byteDiffs.AddRange(afterElementPointer, afterElementBytes);
+                            ExtractGuidPatches(entityPatches, SrcWorldEntityToGuid, at, afterElementPointer,
+                                afterElements, entityIndex, typeHashIndex);
+                        }
                     }
                 }
             }
@@ -815,7 +994,7 @@ namespace Unity.Entities
 
             for (int ti = 0; ti < archCount; ++ti)
             {
-                if (sourceChunk->ChangeVersion[ti] != destChunk->ChangeVersion[ti])
+                if (sourceChunk->GetChangeVersion(ti) != destChunk->GetChangeVersion(ti))
                 {
                     return true;
                 }
@@ -825,141 +1004,244 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        struct MapDiffGUIDsToDiffIndices : IJobParallelFor
+        struct BuildDestWorldGuidLookups : IJobChunk
         {
-            [ReadOnly] public NativeArray<EntityGuid> DiffGuid;
-            public NativeHashMap<EntityGuid, int>.Concurrent DiffGuidToDiffIndex;
+            public NativeMultiHashMap<EntityGuid, Entity>.Concurrent GuidToDestWorldEntity;
+            public NativeHashMap<Entity,EntityGuid>.Concurrent DestWorldEntityToGuid;
 
-            public void Execute(int index)
-            {
-                DiffGuidToDiffIndex.TryAdd(DiffGuid[index], index);
-            }
-        }
-
-        [BurstCompile]
-        struct MapDiffIndicesToWorldEntities : IJobChunk
-        {
-            [ReadOnly] public NativeHashMap<EntityGuid, int> DiffGuidToDiffIndex;
-            public NativeMultiHashMap<int,Entity>.Concurrent DiffIndexToWorldEntity;
-            
             [ReadOnly] public ArchetypeChunkComponentType<EntityGuid> EntityGUID;
             [ReadOnly] public ArchetypeChunkEntityType                Entity;
 
             public void Execute(ArchetypeChunk chunk, int entityIndex, int chunkIndex)
             {
-                var entityGuids = chunk.GetNativeArray(EntityGUID);
-                var entitys = chunk.GetNativeArray(Entity);
-                for (int i = 0; i != entityGuids.Length; i++)
+                var guids = chunk.GetNativeArray(EntityGUID);
+                var entities = chunk.GetNativeArray(Entity);
+                for (int i = 0; i != entities.Length; i++)
                 {
-                    int DiffIndex;
-                    if (DiffGuidToDiffIndex.TryGetValue(entityGuids[i], out DiffIndex))
-                        DiffIndexToWorldEntity.Add(DiffIndex, entitys[i]);
+                    GuidToDestWorldEntity.Add(guids[i], entities[i]);
+                    DestWorldEntityToGuid.TryAdd(entities[i], guids[i]);
+                }
+            }
+        }
+
+        struct BuildEntityToRootEntityLookup : IJobChunk
+        {
+            public NativeHashMap<Entity,Entity>.Concurrent EntityToRootEntity;
+
+            [ReadOnly] public ArchetypeChunkBufferType<LinkedEntityGroup> LinkedEntityGroup;
+            public void Execute(ArchetypeChunk chunk, int entityIndex, int chunkIndex)
+            {
+                var linkedEntityGroups = chunk.GetBufferAccessor(LinkedEntityGroup);
+                for (int i = 0; i != linkedEntityGroups.Length; i++)
+                {
+                    var linkedEntityGroup = linkedEntityGroups[i];
+                    for (int j = 0; j != linkedEntityGroup.Length; ++j)
+                        EntityToRootEntity.TryAdd(linkedEntityGroup[j].Value, linkedEntityGroup[0].Value);
                 }
             }
         }
 
         struct DiffApplier : IDisposable
         {
-            World dest; // World to which we apply the diff
-            WorldDiff diff; // Diff which we apply to World dest
-            EntityManager destManager; // EntityManager for the dest World
-            NativeMultiHashMap<int, Entity> DiffToWorldEntities; // from diff index to multiple dest world entities
-            NativeArray<ComponentType> DiffToWorldTypes; // from diff type index to dest world typeindex
+            // World to which we apply the diff
+            World destWorld;
+
+            // Diff which we apply to World dest
+            WorldDiff diff;
+
+            // EntityManager for the dest World
+            EntityManager DestWorldManager;
+
+            // For each diff entity index, which entities in the dest world have the same guid?
+            NativeMultiHashMap<int, Entity> DiffIndexToDestWorldEntities;
+
+            // For each diff type index, which dest world component type corresponds to it?
+            NativeArray<ComponentType> DiffIndexToDestWorldTypes;
+
+            // For each dest world entity that has a guid, which guid does it have?
+            NativeHashMap<Entity, EntityGuid> DestWorldEntityToGuid;
+
+            // For each guid in the dest world, which entities have that guid (there may be many!)?
+            NativeMultiHashMap<EntityGuid, Entity> GuidToDestWorldEntity;
+
+            // For each dest world entity, what is its root entity?
+            NativeHashMap<Entity, Entity> DestWorldEntityToRootEntity;
+
+            int DestWorldEntitiesWithGuids;
+            int DestWorldEntitiesWithLinkedEntityGroups;
+
+            public void Dispose()
+            {
+                DiffIndexToDestWorldEntities.Dispose();
+                DiffIndexToDestWorldTypes.Dispose();
+                GuidToDestWorldEntity.Dispose();
+                DestWorldEntityToGuid.Dispose();
+                DestWorldEntityToRootEntity.Dispose();
+            }
 
             public DiffApplier(World dest_, WorldDiff diff_)
             {
-                dest = dest_;
+                destWorld = dest_;
                 diff = diff_;
-                destManager = dest.GetOrCreateManager<EntityManager>();
-                destManager.CompleteAllJobs();
-                DiffToWorldTypes = new NativeArray<ComponentType>(diff.TypeHashes.Length, Allocator.Temp);
-                DiffToWorldEntities = default(NativeMultiHashMap<int, Entity>);
+                DestWorldManager = destWorld.GetOrCreateManager<EntityManager>();
+                DestWorldManager.CompleteAllJobs();
+                DiffIndexToDestWorldEntities = default;
+                DiffIndexToDestWorldTypes = default;
+                DestWorldEntityToGuid = default;
+                GuidToDestWorldEntity = default;
+                DestWorldEntityToRootEntity = default;
+                DestWorldEntitiesWithGuids = 0;
+                DestWorldEntitiesWithLinkedEntityGroups = 0;
             }
-            
+
             public void Apply()
             {
-                BuildDiffToWorldEntities();
-                BuildDiffToWorldTypes();               
+                AllocateLookups();
+                BuildDestWorldLookups();
+                BuildDiffToDestWorldLookups();
                 CreateEntities();
                 DestroyEntities();
                 AddComponents();
                 RemoveComponents();
                 SetSharedComponents();
                 SetComponents();
+                BuildDestWorldLookups();
+                ApplyLinkedEntityGroupAdds();
+                ApplyLinkedEntityGroupRemoves();
                 PatchEntities();
             }
 
-            // every diff entity has a GUID, and maybe some world entities have GUIDs too.
-            // in every case where the same GUID appears in the diff and the world,
-            // we need a way to know which world entities the diff entity refers to.
-            // we do not have that information yet. so, we build a table where for each
-            // diff entity index, there is possibly one or more world entities.
-
-            // first, we don't even look at the dest world. we need to build a hashmap from diff->diff before that.
-            // we need something O(1) to go from diff GUID -> diff Entity index. let's build a hashmap now.  
-
-            void BuildDiffToWorldEntities()
+            void AllocateLookups()
             {
-                using(var DiffGuidToDiffIndex = new NativeHashMap<EntityGuid, int>(diff.Entities.Length, Allocator.TempJob))
-                {
-                    var MapDiffGUIDsToDiffEntitiesJob = new MapDiffGUIDsToDiffIndices
-                    {
-                        DiffGuid = diff.Entities,
-                        DiffGuidToDiffIndex = DiffGuidToDiffIndex.ToConcurrent()
-                    };
-                    var dependency = MapDiffGUIDsToDiffEntitiesJob.Schedule(diff.Entities.Length, 64);
-    
-                    // ok, now that we have the hashmap needed, we use it to create the array (top of function)
-                    // that we need for the remainder of the function. but after we build the array,
-                    // we can throw away the hashmap.
+                var factor = 4;
+                DiffIndexToDestWorldEntities = new NativeMultiHashMap<int, Entity>(DestWorldEntitiesWithGuids * factor, Allocator.TempJob);
+                DiffIndexToDestWorldTypes = new NativeArray<ComponentType>(diff.TypeHashes.Length, Allocator.TempJob);
 
-                    // now that we built the diff GUID -> diff Entity hash, we can use it to build a diff Entity -> world Entity array.
-                    // now we are going to look at the dest world for the first time.
-                    // using the above hashmap we just created, we can make an array with one entry for each diff Entity, which
-                    // contains the corresponding world Entity, if any exists.
-
-
-                    using (var group = DiffUtil.CreateAllChunksGroup(destManager))
-                    {
-                        DiffToWorldEntities = new NativeMultiHashMap<int, Entity>(group.CalculateLength(), Allocator.TempJob);
-
-                        //@TODO: Changing this to Allocator.Temp gives a totally crazy job debugger error... 
-                        // Make proper repro test case...
-                        var MapDiffEntitiesToExistingEntitiesJob = new MapDiffIndicesToWorldEntities
-                        {
-                            DiffGuidToDiffIndex = DiffGuidToDiffIndex,
-                            DiffIndexToWorldEntity = DiffToWorldEntities.ToConcurrent(),
-                            Entity = destManager.GetArchetypeChunkEntityType(),
-                            EntityGUID = destManager.GetArchetypeChunkComponentType<EntityGuid>(true)
-                        };
-
-                        dependency = MapDiffEntitiesToExistingEntitiesJob.Schedule(group, dependency);
-                    }
-
-                    dependency.Complete();
-                }                
+                DestWorldEntityToGuid = new NativeHashMap<Entity, EntityGuid>(DestWorldEntitiesWithGuids * factor, Allocator.TempJob);
+                GuidToDestWorldEntity = new NativeMultiHashMap<EntityGuid, Entity>(DestWorldEntitiesWithGuids * factor, Allocator.TempJob);
+                DestWorldEntityToRootEntity = new NativeHashMap<Entity, Entity>(DestWorldEntitiesWithLinkedEntityGroups * factor, Allocator.TempJob);
             }
 
-            void BuildDiffToWorldTypes()
+            // we need O(1) lookup for entity->guid and guid->entity in the dest world,
+            // and for now this insanely expensive lookup table generator is how we get it.
+            // no matter how small the diff is, this thing has a cost proportional to the
+            // number of entities in the dest world that have guids.
+            void BuildDestWorldLookups()
+            {
+                // wow, this is confusing. to get all chunks with guids, we can't just ask for guids.
+                // we need to ask for guids, guids and disabled, guids and prefab, and guids/prefab/disabled.
+                var guidQuery = new[]
+                {
+                    new EntityArchetypeQuery
+                    {
+                        All = new ComponentType[] {typeof(EntityGuid)}
+                    },
+                    new EntityArchetypeQuery
+                    {
+                        All = new ComponentType[] {typeof(EntityGuid), typeof(Disabled)}
+                    },
+                    new EntityArchetypeQuery
+                    {
+                        All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab)}
+                    },
+                    new EntityArchetypeQuery
+                    {
+                        All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab), typeof(Disabled)}
+                    }
+                };
+                // wow, this is confusing. to get all chunks with linkedentitygroups, we can't just ask for linkedentitygroups.
+                // we need to ask for linkedentitygroups, linkedentitygroups and disabled, linkedentitygroups and prefab, and linkedentitygroups/prefab/disabled.
+                var linkedEntityGroupQuery = new[]
+                {
+                    new EntityArchetypeQuery
+                    {
+                        All = new ComponentType[] {typeof(LinkedEntityGroup)}
+                    },
+                    new EntityArchetypeQuery
+                    {
+                        All = new ComponentType[] {typeof(LinkedEntityGroup), typeof(Disabled)}
+                    },
+                    new EntityArchetypeQuery
+                    {
+                        All = new ComponentType[] {typeof(LinkedEntityGroup), typeof(Prefab)}
+                    },
+                    new EntityArchetypeQuery
+                    {
+                        All = new ComponentType[] {typeof(LinkedEntityGroup), typeof(Prefab), typeof(Disabled)}
+                    }
+                };
+                using(ComponentGroup DestChunksWithGuids = DestWorldManager.CreateComponentGroup(guidQuery))
+                using (ComponentGroup DestChunksWithLinkedEntityGroups = DestWorldManager.CreateComponentGroup(linkedEntityGroupQuery))
+                {
+                    DestWorldEntitiesWithGuids = DestChunksWithGuids.CalculateLength();
+                    DestWorldEntitiesWithLinkedEntityGroups = DestChunksWithLinkedEntityGroups.CalculateLength();
+
+                    DestWorldEntityToGuid.Dispose();
+                    GuidToDestWorldEntity.Dispose();
+                    DestWorldEntityToRootEntity.Dispose();
+                    var factor = 4;
+                    DestWorldEntityToGuid =
+                        new NativeHashMap<Entity, EntityGuid>(DestWorldEntitiesWithGuids * factor, Allocator.TempJob);
+                    GuidToDestWorldEntity =
+                        new NativeMultiHashMap<EntityGuid, Entity>(DestWorldEntitiesWithGuids * factor,
+                            Allocator.TempJob);
+                    DestWorldEntityToRootEntity =
+                        new NativeHashMap<Entity, Entity>(DestWorldEntitiesWithLinkedEntityGroups * factor,
+                            Allocator.TempJob);
+                    var buildDestWorldGuidLookups = new BuildDestWorldGuidLookups
+                    {
+                        GuidToDestWorldEntity = GuidToDestWorldEntity.ToConcurrent(),
+                        DestWorldEntityToGuid = DestWorldEntityToGuid.ToConcurrent(),
+                        Entity = DestWorldManager.GetArchetypeChunkEntityType(),
+                        EntityGUID = DestWorldManager.GetArchetypeChunkComponentType<EntityGuid>(true)
+                    };
+                    var handle = buildDestWorldGuidLookups.Schedule(DestChunksWithGuids);
+                    handle.Complete();
+                    var buildEntityToRootEntityLookup = new BuildEntityToRootEntityLookup
+                    {
+                        EntityToRootEntity = DestWorldEntityToRootEntity.ToConcurrent(),
+                        LinkedEntityGroup = DestWorldManager.GetArchetypeChunkBufferType<LinkedEntityGroup>(true)
+                    };
+                    handle = buildEntityToRootEntityLookup.Schedule(DestChunksWithLinkedEntityGroups);
+                    handle.Complete();
+                }
+                DiffIndexToDestWorldEntities.Clear();
+                for(var i = 0; i < diff.Entities.Length; ++i)
+                {
+                    var guid = diff.Entities[i];
+                    if (GuidToDestWorldEntity.TryGetFirstValue(guid, out var destWorldEntity, out var iterator))
+                    {
+                        do
+                        {
+                            DiffIndexToDestWorldEntities.Add(i, destWorldEntity);
+                        } while (GuidToDestWorldEntity.TryGetNextValue(out destWorldEntity, ref iterator));
+                    }
+                }
+            }
+
+            // here we build lookups to go from diff index, to dest world thing.
+            // first, a lookup to go from diff guid index to dest world entities with that guid,
+            // and then a lookup to go from diff type index to dest world componenttype.
+            void BuildDiffToDestWorldLookups()
             {
                 for (var i = 0; i < diff.TypeHashes.Length; ++i)
                 {
                     var memoryOrdering = diff.TypeHashes[i];
                     var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(memoryOrdering);
                     var type = TypeManager.GetType(typeIndex);
-                    DiffToWorldTypes[i] = new ComponentType(type);
-                }                
+                    DiffIndexToDestWorldTypes[i] = new ComponentType(type);
+                }
             }
-            
+
             void CreateEntities()
             {
-                var EntityGuidArchetype = destManager.CreateArchetype();
+                var EntityGuidArchetype = DestWorldManager.CreateArchetype();
                 using (var NewEntities = new NativeArray<Entity>(diff.NewEntityCount, Allocator.Temp))
                 {
-                    destManager.CreateEntity(EntityGuidArchetype, NewEntities);
+                    DestWorldManager.CreateEntity(EntityGuidArchetype, NewEntities);
                     for (var i = 0; i < diff.NewEntityCount; ++i)
                     {
-                        DiffToWorldEntities.Add(i, NewEntities[i]);
+                        DiffIndexToDestWorldEntities.Add(i, NewEntities[i]);
 #if LOG_DIFF_ALL
                         Debug.Log($"CreateEntity({diff.Entities[i]})");
 #endif
@@ -971,40 +1253,54 @@ namespace Unity.Entities
             {
                 for (var i = 0; i < diff.DeletedEntityCount; ++i)
                 {
-                    if (DiffToWorldEntities.TryGetFirstValue(diff.NewEntityCount + i, out var entity, out var iterator))
+                    if (DiffIndexToDestWorldEntities.TryGetFirstValue(diff.NewEntityCount + i, out var entity, out var iterator))
                     {
                         do
                         {
-                            if (destManager.Entities->Exists(entity))
+                            if (DestWorldManager.Entities->Exists(entity))
                             {
 #if LOG_DIFF_ALL
                                 Debug.Log($"DestroyEntity({diff.Entities[diff.NewEntityCount + i]})");
 #endif
-                                destManager.DestroyEntity(entity);
+                                DestWorldManager.DestroyEntity(entity);
                             }
                             else
                             {
                                 Debug.LogWarning($"DestroyEntity({diff.Entities[diff.NewEntityCount + i]}) but it does not exist.");
                             }
-                        } while (DiffToWorldEntities.TryGetNextValue(out entity, ref iterator));
+                        } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref iterator));
                     }
                 }
             }
 
             void AddComponents()
             {
+                var linkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
                 foreach (var addition in diff.AddComponents)
                 {
-                    var componentType = DiffToWorldTypes[addition.TypeHashIndex];
-                    if (DiffToWorldEntities.TryGetFirstValue(addition.EntityIndex, out var entity, out var iterator))
+                    var componentType = DiffIndexToDestWorldTypes[addition.TypeHashIndex];
+                    if (DiffIndexToDestWorldEntities.TryGetFirstValue(addition.EntityIndex, out var entity, out var iterator))
                     {
                         do
                         {
-                            destManager.AddComponent(entity, componentType);
+                            if (!DestWorldManager.Entities->HasComponent(entity, componentType))
+                            {
+                                DestWorldManager.AddComponent(entity, componentType);
+                                // magic is required to force the first entity in the LinkedEntityGroup to be the entity
+                                // that owns the component. this magic doesn't seem to exist at a lower level, so let's
+                                // shim it in here. we'll probably need to move the magic lower someday.
+                                if (componentType.TypeIndex == linkedEntityGroupTypeIndex)                                
+                                {
+                                    var buffer = DestWorldManager.GetBuffer<LinkedEntityGroup>(entity);
+                                    buffer.Add(entity);
+                                }
+                            }
+                            else
+                                Debug.LogWarning($"AddComponent({diff.Entities[addition.EntityIndex]}, {componentType}) but the component already exists.");
 #if LOG_DIFF_ALL
                             Debug.Log($"AddComponent<{componentType}>({diff.Entities[addition.EntityIndex]}, {Manager.Debug.GetComponentBoxed(entity, componentType)})");
 #endif
-                        } while (DiffToWorldEntities.TryGetNextValue(out entity, ref iterator));
+                        } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref iterator));
                     }
                 }
             }
@@ -1013,16 +1309,16 @@ namespace Unity.Entities
             {
                 foreach (var removal in diff.RemoveComponents)
                 {
-                    var componentType = DiffToWorldTypes[removal.TypeHashIndex];
-                    if (DiffToWorldEntities.TryGetFirstValue(removal.EntityIndex, out var entity, out var iterator))
+                    var componentType = DiffIndexToDestWorldTypes[removal.TypeHashIndex];
+                    if (DiffIndexToDestWorldEntities.TryGetFirstValue(removal.EntityIndex, out var entity, out var iterator))
                     {
                         do
                         {
-                            destManager.RemoveComponent(entity, componentType);
+                            DestWorldManager.RemoveComponent(entity, componentType);
 #if LOG_DIFF_ALL
                             Debug.Log($"AddComponent<{componentType}>({diff.Entities[removal.EntityIndex]}).");
 #endif
-                        } while (DiffToWorldEntities.TryGetNextValue(out entity, ref iterator));
+                        } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref iterator));
                     }
                 }
             }
@@ -1031,24 +1327,24 @@ namespace Unity.Entities
             {
                 foreach (var shared in diff.SharedSetCommands)
                 {
-                    var componentType = DiffToWorldTypes[shared.TypeHashIndex];
+                    var componentType = DiffIndexToDestWorldTypes[shared.TypeHashIndex];
                     var componentData = shared.BoxedSharedValue;
-                    if (DiffToWorldEntities.TryGetFirstValue(shared.EntityIndex, out var entity, out var iterator))
+                    if (DiffIndexToDestWorldEntities.TryGetFirstValue(shared.EntityIndex, out var entity, out var iterator))
                     {
                         do
                         {
-                            if (!destManager.Exists(entity))
+                            if (!DestWorldManager.Exists(entity))
                                 Debug.LogWarning($"SetComponent<{componentType}>({diff.Entities[shared.EntityIndex]}) but entity does not exist.");
-                            else if (!destManager.HasComponent(entity, componentType))
+                            else if (!DestWorldManager.HasComponent(entity, componentType))
                                 Debug.LogWarning($"SetComponent<{componentType}>({diff.Entities[shared.EntityIndex]}) but component does not exist.");
                             else
                             {
-                                destManager.SetSharedComponentDataBoxed(entity, componentType.TypeIndex, componentData);
+                                DestWorldManager.SetSharedComponentDataBoxed(entity, componentType.TypeIndex, componentData);
 #if LOG_DIFF_ALL
                                 Debug.Log($"SetComponent<{componentType}>({diff.Entities[shared.EntityIndex]}, {componentData})");
 #endif
                             }
-                        } while (DiffToWorldEntities.TryGetNextValue(out entity, ref iterator));
+                        } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref iterator));
                     }
                 }
             }
@@ -1060,21 +1356,21 @@ namespace Unity.Entities
                 {
                     var data = (byte*) diff.ComponentPayload.GetUnsafePtr() + readOffset;
                     var size = setting.SizeBytes;
-                    var componentType = DiffToWorldTypes[setting.TypeHashIndex];
+                    var componentType = DiffIndexToDestWorldTypes[setting.TypeHashIndex];
                     ComponentTypeInArchetype ctia = new ComponentTypeInArchetype(componentType);
-                    if (DiffToWorldEntities.TryGetFirstValue(setting.EntityIndex, out var entity, out var iterator))
+                    if (DiffIndexToDestWorldEntities.TryGetFirstValue(setting.EntityIndex, out var entity, out var iterator))
                     {
                         do
                         {
-                            if (!destManager.Exists(entity))
+                            if (!DestWorldManager.Exists(entity))
                                 Debug.LogWarning($"SetComponent<{componentType}>({diff.Entities[setting.EntityIndex]}) but entity does not exist.");
-                            else if (!destManager.HasComponent(entity, componentType))
+                            else if (!DestWorldManager.HasComponent(entity, componentType))
                                 Debug.LogWarning($"SetComponent<{componentType}>({diff.Entities[setting.EntityIndex]}) but component does not exist.");
                             else
                             {
                                 if (!ctia.IsBuffer)
                                 {
-                                    var target = (byte*)destManager.GetComponentDataRawRW(entity, componentType.TypeIndex);
+                                    var target = (byte*)DestWorldManager.GetComponentDataRawRW(entity, componentType.TypeIndex);
                                     UnsafeUtility.MemCpy(target + setting.Offset, data, size);
                                 }
                                 else
@@ -1082,14 +1378,14 @@ namespace Unity.Entities
                                     var typeInfo = TypeManager.GetTypeInfo(ctia.TypeIndex);
                                     var elementSize = typeInfo.ElementSize;
                                     var lengthInElements = size / elementSize;
-                                    var header = (BufferHeader*)destManager.GetComponentDataRawRW(entity, componentType.TypeIndex);
+                                    var header = (BufferHeader*)DestWorldManager.GetComponentDataRawRW(entity, componentType.TypeIndex);
                                     BufferHeader.Assign(header, data, lengthInElements, elementSize, 16);
                                 }
 #if LOG_DIFF_ALL
                                 Debug.Log($"SetComponent<{componentType}>({diff.Entities[setting.EntityIndex]}, {Manager.Debug.GetComponentBoxed(entity, componentType)})");
 #endif
                             }
-                        } while (DiffToWorldEntities.TryGetNextValue(out entity, ref iterator));
+                        } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref iterator));
                     }
                     readOffset += size;
                 }
@@ -1097,55 +1393,192 @@ namespace Unity.Entities
 
             void PatchEntities()
             {
-                if (diff.EntityPatches.Length > 0)
+                foreach (var patch in diff.EntityPatches)
                 {
-                    using (var allEntities = DiffUtil.GenerateEntityGuidToEntityHashMap(dest)) // this runs fast, it takes only one line of code
+                    var typeOfComponentToPatch = DiffIndexToDestWorldTypes[patch.TypeHashIndex];
+                    var guidToPatchTo = patch.Guid;
+                    var byteOffsetInComponent = patch.Offset;
+                    Entity entityToPatchTo;
+                    var multipleEntitiesWithGuidToPatchToExistInDest = false;
+                    if (guidToPatchTo.Equals(EntityGuid.Null))
+                        entityToPatchTo = Entity.Null;
+                    else
                     {
-                        foreach (var patch in diff.EntityPatches)
+                        var guidToPatchToExistsInDestWorld = GuidToDestWorldEntity.TryGetFirstValue(guidToPatchTo, out entityToPatchTo, out var patchSourceIterator);
+                        if(!guidToPatchToExistsInDestWorld)
+                            Debug.LogWarning($"PatchEntities<{typeOfComponentToPatch}>({diff.Entities[patch.EntityIndex]}) but entity with guid-to-patch-to does not exist.");
+                        multipleEntitiesWithGuidToPatchToExistInDest = GuidToDestWorldEntity.TryGetNextValue(out _, ref patchSourceIterator);
+                    }
+                    if (DiffIndexToDestWorldEntities.TryGetFirstValue(patch.EntityIndex, out var entityWhereComponentToPatchIs, out var patchDestinationIterator))
+                    {
+                        do
                         {
-                            var componentType = DiffToWorldTypes[patch.TypeHashIndex];
-                            var guid = patch.Guid;
-                            var offset = patch.Offset;
-                            Entity freshEntity;
-                            if (guid.Equals(EntityGuid.Null))
-                                freshEntity = Entity.Null;
+                            if (!DestWorldManager.Exists(entityWhereComponentToPatchIs))
+                                Debug.LogWarning($"PatchEntities<{typeOfComponentToPatch}>({diff.Entities[patch.EntityIndex]}) but entity to patch does not exist.");
+                            else if (!DestWorldManager.HasComponent(entityWhereComponentToPatchIs, typeOfComponentToPatch))
+                                Debug.LogWarning($"PatchEntities<{typeOfComponentToPatch}>({diff.Entities[patch.EntityIndex]}) but component in entity to patch does not exist.");
                             else
-                                allEntities.TryGetValue(guid, out freshEntity);
-                            if (DiffToWorldEntities.TryGetFirstValue(patch.EntityIndex, out var entity, out var iterator))
                             {
-                                do
+                                // if just one entity has the GUID we're patching to, we can just use that entity.
+                                // but if multiple entities have that GUID, we need to patch to the (one) entity that's in the destination entity's "group."
+                                // that group is defined by a LinkedEntityGroup component on the destination entity's "root entity," which contains an array of entity references.
+                                // the destination entity's "root entity" is defined by whatever entity owns the (one) LinkedEntityGroup that refers to the destination entity.
+                                // so, we had to build a lookup table earlier, to take us from "destination entity" to "root entity of my group," so we can find this LinkedEntityGroup
+                                // component, and riffle through it to find the (one) entity with the GUID we're looking for.
+                                if (multipleEntitiesWithGuidToPatchToExistInDest)
                                 {
-                                    if (!destManager.Exists(entity))
-                                        Debug.LogWarning($"SetComponent_EntityPatch<{componentType}>({diff.Entities[patch.EntityIndex]}) but entity does not exist.");
-                                    else if (!destManager.HasComponent(entity, componentType))
-                                        Debug.LogWarning($"SetComponent_EntityPatch<{componentType}>({diff.Entities[patch.EntityIndex]}) but component does not exist.");
-                                    else
-                                    {
-                                        if (componentType.BufferCapacity > 0)
-                                        {
-                                            byte* pointer = (byte*) destManager.GetBufferRawRW(entity, componentType.TypeIndex);
-                                            UnsafeUtility.MemCpy(pointer + offset, &freshEntity, sizeof(Entity));
-                                        }
-                                        else
-                                        {
-                                            byte* pointer = (byte*) destManager.GetComponentDataRawRW(entity, componentType.TypeIndex);
-                                            UnsafeUtility.MemCpy(pointer + offset, &freshEntity, sizeof(Entity));
-                                        }
+                                    var entityWhereComponentToPatchIsHasARoot = DestWorldEntityToRootEntity.TryGetValue(entityWhereComponentToPatchIs, out var rootOfEntityWhereComponentToPatchIs);
+                                    if(!entityWhereComponentToPatchIsHasARoot)
+                                        Debug.LogWarning($"PatchEntities<{typeOfComponentToPatch}>({diff.Entities[patch.EntityIndex]}) but 2+ entities for GUID of entity-to-patch-to, and no root for entity-to-patch is, so we can't disambiguate.");
+                                    var groupOfRootOfEntityWhereComponentToPatchIs = DestWorldManager.GetBuffer<LinkedEntityGroup>(rootOfEntityWhereComponentToPatchIs);
+                                    for (var g = 0; g < groupOfRootOfEntityWhereComponentToPatchIs.Length; ++g)
+                                        if(DestWorldEntityToGuid.TryGetValue(groupOfRootOfEntityWhereComponentToPatchIs[g].Value, out var guidOfEntityInRootGroup))
+                                            if (guidOfEntityInRootGroup.Equals(guidToPatchTo))
+                                            {
+                                                entityToPatchTo = groupOfRootOfEntityWhereComponentToPatchIs[g].Value;
+                                                break;
+                                            }
+                                }
+                                if (typeOfComponentToPatch.IsBuffer)
+                                {
+                                    byte* pointer = (byte*) DestWorldManager.GetBufferRawRW(entityWhereComponentToPatchIs, typeOfComponentToPatch.TypeIndex);
+                                    UnsafeUtility.MemCpy(pointer + byteOffsetInComponent, &entityToPatchTo, sizeof(Entity));
+                                }
+                                else
+                                {
+                                    byte* pointer = (byte*) DestWorldManager.GetComponentDataRawRW(entityWhereComponentToPatchIs, typeOfComponentToPatch.TypeIndex);
+                                    UnsafeUtility.MemCpy(pointer + byteOffsetInComponent, &entityToPatchTo, sizeof(Entity));
+                                }
 #if LOG_DIFF_ALL
-                                        Debug.Log($"SetComponent_EntityPatch<{componentType}>({diff.Entities[patch.EntityIndex]}, {Manager.Debug.GetComponentBoxed(entity, componentType)})");
+                                Debug.Log($"SetComponent_EntityPatch<{componentType}>({diff.Entities[patch.EntityIndex]}, {Manager.Debug.GetComponentBoxed(entity, componentType)})");
 #endif
-                                    }
-                                } while (DiffToWorldEntities.TryGetNextValue(out entity, ref iterator));
                             }
-                        }
+                        } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entityWhereComponentToPatchIs, ref patchDestinationIterator));
                     }
                 }
             }
 
-            public void Dispose()
+            struct Child
             {
-                DiffToWorldEntities.Dispose();
-                DiffToWorldTypes.Dispose();
+                public Entity childEntity;
+                public Entity rootEntity;
+                public EntityGuid rootGuid;
+                public EntityGuid childGuid;
+            }
+
+            void AddInstanceChildToTables(Child addition)
+            {
+                for(var i = 0; i < diff.Entities.Length; ++i)
+                    if (diff.Entities[i].Equals(addition.childGuid))
+                    {
+                        DiffIndexToDestWorldEntities.Add(i, addition.childEntity);
+                        break;
+                    }
+                DestWorldEntityToGuid.TryAdd(addition.childEntity,addition.childGuid);
+                GuidToDestWorldEntity.Add(addition.childGuid, addition.childEntity);
+                DestWorldEntityToRootEntity.TryAdd(addition.childEntity, addition.rootEntity);
+            }
+
+            void AddPrefabChildToTables(Child addition)
+            {
+                DestWorldEntityToRootEntity.TryAdd(addition.childEntity, addition.rootEntity);
+            }
+
+            void RemoveChildFromTables(Child removal)
+            {
+                for(var i = 0; i < diff.Entities.Length; ++i)
+                    if (diff.Entities[i].Equals(removal.childGuid))
+                    {
+                        DiffIndexToDestWorldEntities.TryRemove(i, removal.childEntity);
+                        break;
+                    }
+                DestWorldEntityToGuid.Remove(removal.childEntity);
+                GuidToDestWorldEntity.TryRemove(removal.childGuid, removal.childEntity);
+                DestWorldEntityToRootEntity.Remove(removal.childEntity);
+            }
+
+            void ApplyLinkedEntityGroupAdds()
+            {
+                using (var prefabChildren = new NativeList<Child>(Allocator.TempJob))
+                using (var instanceChildren = new NativeList<Child>(Allocator.TempJob))
+                {
+                    for (var a = 0; a < diff.LinkedEntityGroupAdditions.Length; ++a)
+                    {
+                        var add = diff.LinkedEntityGroupAdditions[a];
+                        if (GuidToDestWorldEntity.TryGetFirstValue(add.ChildGuid, out var entityToInstantiate,
+                            out var childIterator))
+                        {
+                            var multipleInstancesOfGuidAlreadyExistInDest =
+                                GuidToDestWorldEntity.TryGetNextValue(out _, ref childIterator);
+                            // if we're going to instantiate an entity, we need to instantiate a specific entity, and the only information we have
+                            // is the GUID of the entity to instantiate. if multiple entities already exist with this GUID, we have no way to know
+                            // which one to instantiate, and this is a fatal error condition.
+                            Assert.IsFalse(multipleInstancesOfGuidAlreadyExistInDest);
+                            if (GuidToDestWorldEntity.TryGetFirstValue(add.RootGuid, out var rootEntity,
+                                out var iterator))
+                            {
+                                do
+                                {
+                                    if (rootEntity == entityToInstantiate)
+                                        Debug.LogWarning($"Trying to instantiate self as child???");
+                                    if (DestWorldManager.HasComponent<Prefab>(rootEntity))
+                                    {
+                                        prefabChildren.Add(new Child{childEntity = entityToInstantiate, rootEntity = rootEntity, childGuid = add.ChildGuid, rootGuid = add.RootGuid});
+                                        var group = DestWorldManager.GetBuffer<LinkedEntityGroup>(rootEntity);
+                                        group.Add(entityToInstantiate);
+                                    }
+                                    else
+                                    {
+                                        var instantiatedEntity = DestWorldManager.Instantiate(entityToInstantiate);
+                                        instanceChildren.Add(new Child{childEntity = instantiatedEntity, rootEntity = rootEntity, childGuid = add.ChildGuid, rootGuid = add.RootGuid});
+                                        var group = DestWorldManager.GetBuffer<LinkedEntityGroup>(rootEntity);
+                                        group.Add(instantiatedEntity);
+                                    }
+                                } while (GuidToDestWorldEntity.TryGetNextValue(out rootEntity, ref iterator));
+                            }
+                        }
+                    }
+                    for (var a = 0; a < instanceChildren.Length; ++a)
+                        AddInstanceChildToTables(instanceChildren[a]);
+                    for (var a = 0; a < prefabChildren.Length; ++a)
+                        AddPrefabChildToTables(prefabChildren[a]);
+                }
+            }
+
+            void ApplyLinkedEntityGroupRemoves()
+            {
+                using (var pending = new NativeList<Child>(Allocator.TempJob))
+                {
+                    for (var r = 0; r < diff.LinkedEntityGroupRemovals.Length; ++r)
+                    {
+                        var remove = diff.LinkedEntityGroupRemovals[r];
+                        if (GuidToDestWorldEntity.TryGetFirstValue(remove.RootGuid, out var rootEntity,
+                            out var iterator))
+                        {
+                            do
+                            {
+                                var group = DestWorldManager.GetBuffer<LinkedEntityGroup>(rootEntity);
+                                for (var g = 0; g < group.Length; ++g)
+                                {
+                                    var childEntity = group[g].Value;
+                                    if (DestWorldEntityToGuid.TryGetValue(childEntity, out var childGuid) &&
+                                        childGuid.Equals(remove.ChildGuid))
+                                    {
+                                        group.RemoveAt(g);
+                                        pending.Add(new Child {childEntity = childEntity, rootEntity = rootEntity, childGuid = remove.ChildGuid, rootGuid = remove.RootGuid});
+                                        DestWorldManager.DestroyEntity(childEntity);
+                                        break;
+                                    }
+                                }
+
+                                // if we got here without destroying an entity, then maybe the destination world destroyed it before we synced?
+                                // not sure if that is a fatal error, or what.
+                            } while (GuidToDestWorldEntity.TryGetNextValue(out rootEntity, ref iterator));
+                        }
+                    }
+                    for (var a = 0; a < pending.Length; ++a)
+                        RemoveChildFromTables(pending[a]);
+                }
             }
         }
 

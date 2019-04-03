@@ -14,8 +14,21 @@ namespace Unity.Entities
 
     public static class JobChunkExtensions
     {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [NativeContainer]
+        internal struct EntitySafetyHandle
+        {
+            public AtomicSafetyHandle m_Safety;
+        }
+#endif
+
         internal struct JobDataLiveFilter<T> where T : struct
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#pragma warning disable 414
+            [ReadOnly] public EntitySafetyHandle safety;
+#pragma warning restore
+#endif
             public ComponentChunkIterator iterator;
             public T data;
         }
@@ -39,6 +52,11 @@ namespace Unity.Entities
 
             JobDataLiveFilter<T> fullData = new JobDataLiveFilter<T>
             {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                // All IJobChunk jobs have a safety handle for the Entity type to ensure that BeforeStructuralChange throws an error if
+                // jobs without any other safety handles are still running (haven't been synced).
+                safety = new EntitySafetyHandle{m_Safety = group.SafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<Entity>(), true)},
+#endif
                 data = jobData,
                 iterator = iterator,
             };
@@ -81,7 +99,7 @@ namespace Unity.Entities
                     jobData.iterator.MoveToChunkWithoutFiltering(chunkIndex);
                     if (!jobData.iterator.MatchesFilter())
                         continue;
-                    
+
                     jobData.iterator.GetFilteredChunkAndEntityIndices(out var filteredChunkIndex, out var entityOffset);
 
                     var chunk = jobData.iterator.GetCurrentChunk();

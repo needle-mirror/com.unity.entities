@@ -42,5 +42,13 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(typeof(EcsTestData));
             Assert.IsTrue(EmptySystem.ShouldRunSystem());
         }
+
+        [Test]
+        public void HasSingletonWorks()
+        {
+            Assert.IsFalse(EmptySystem.HasSingleton<EcsTestData>());
+            m_Manager.CreateEntity(typeof(EcsTestData));
+            Assert.IsTrue(EmptySystem.HasSingleton<EcsTestData>());
+        }        
     }
 }

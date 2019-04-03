@@ -22,9 +22,21 @@ namespace Unity.Entities
         private const UInt32 kAValidHashCode = 0x00000001;
         private const UInt32 kSkipCode = 0xFFFFFFFF;
 
-        static uint GetHashCode(int* sharedComponentDataIndices, int numSharedComponents)
+        static uint GetHashCode(SharedComponentValues sharedComponentValues, int numSharedComponents)
         {
-            UInt32 result = math.hash(sharedComponentDataIndices, numSharedComponents * sizeof(int));
+            UInt32 result;
+            if (sharedComponentValues.stride == sizeof(int))
+            {
+                result = math.hash(sharedComponentValues.firstIndex, numSharedComponents * sizeof(int));
+            }
+            else
+            {
+                int* indexArray = stackalloc int[numSharedComponents];
+                for (int i = 0; i < numSharedComponents; ++i)
+                    indexArray[i] = sharedComponentValues[i];
+                result = math.hash(indexArray, numSharedComponents * sizeof(int));
+            }
+
             if (result == 0 || result == kSkipCode)
                 result = kAValidHashCode;
             return result;
@@ -107,12 +119,11 @@ namespace Unity.Entities
                 if (hash != 0 && hash != kSkipCode)
                     Add(src.chunks.p[offset]);
             }
-            src.Dispose();
         }
 
-        public Chunk* TryGet(int* sharedComponentDataIndices, int numSharedComponents)
+        public Chunk* TryGet(SharedComponentValues sharedComponentValues, int numSharedComponents)
         {
-            uint desiredHash = GetHashCode(sharedComponentDataIndices, numSharedComponents);
+            uint desiredHash = GetHashCode(sharedComponentValues, numSharedComponents);
             int offset = (int)(desiredHash & (uint)hashMask);
             int attempts = 0;
             while (true)
@@ -123,8 +134,7 @@ namespace Unity.Entities
                 if (hash == desiredHash)
                 {
                     var chunk = chunks.p[offset];
-                    if (0 == UnsafeUtility.MemCmp(chunk->SharedComponentValueArray,
-                            sharedComponentDataIndices, numSharedComponents * sizeof(int)))
+                    if (sharedComponentValues.EqualTo(chunk->SharedComponentValues, numSharedComponents))
                         return chunk;
                 }
                 offset = (offset + 1) & hashMask;
@@ -132,13 +142,6 @@ namespace Unity.Entities
                 if (attempts == Size)
                     return null;
             }
-        }
-
-        public Chunk* Get(int* sharedComponentDataIndices, int numSharedComponents)
-        {
-            var result = TryGet(sharedComponentDataIndices, numSharedComponents);
-            Assert.IsFalse(result == null);
-            return result;
         }
 
         public void Resize(int size)
@@ -168,9 +171,11 @@ namespace Unity.Entities
 
         public void Add(Chunk* chunk)
         {
-            int* sharedComponentDataIndices = chunk->SharedComponentValueArray;
+            Assert.IsTrue(chunk != null);
+            Assert.IsTrue(chunk->Archetype != null);
+            var sharedComponentValues = chunk->SharedComponentValues;
             int numSharedComponents = chunk->Archetype->NumSharedComponents;
-            uint desiredHash = GetHashCode(sharedComponentDataIndices, numSharedComponents);
+            uint desiredHash = GetHashCode(sharedComponentValues, numSharedComponents);
             int offset = (int)(desiredHash & (uint)hashMask);
             int attempts = 0;
             while (true)
@@ -180,6 +185,7 @@ namespace Unity.Entities
                 {
                     hashes.p[offset] = desiredHash;
                     chunks.p[offset] = chunk;
+                    chunk->ListWithEmptySlotsIndex = offset;
                     --emptyNodes;
                     PossiblyGrow();
                     return;
@@ -189,6 +195,7 @@ namespace Unity.Entities
                 {
                     hashes.p[offset] = desiredHash;
                     chunks.p[offset] = chunk;
+                    chunk->ListWithEmptySlotsIndex = offset;
                     --skipNodes;
                     PossiblyGrow();
                     return;
@@ -200,54 +207,31 @@ namespace Unity.Entities
             }
         }
 
-
-        public int IndexOf(Chunk* chunk)
-        {
-            int* sharedComponentDataIndices = chunk->SharedComponentValueArray;
-            int numSharedComponents = chunk->Archetype->NumSharedComponents;
-            uint desiredHash = GetHashCode(sharedComponentDataIndices, numSharedComponents);
-            int offset = (int)(desiredHash & (uint)hashMask);
-            uint attempts = 0;
-            while (true)
-            {
-                var hash = hashes.p[offset];
-                if (hash == 0)
-                    return -1;
-                if (hash == desiredHash)
-                {
-                    var c = chunks.p[offset];
-                    if (c == chunk)
-                        return offset;
-                }
-                offset = (offset + 1) & hashMask;
-                ++attempts;
-                if (attempts == Size)
-                    return -1;
-            }
-        }
-
         public void Remove(Chunk* chunk)
         {
-            int offset = IndexOf(chunk);
+            int offset = chunk->ListWithEmptySlotsIndex;
+            chunk->ListWithEmptySlotsIndex = -1;
             Assert.IsTrue(offset != -1);
+            Assert.IsTrue(chunks.p[offset] == chunk);
             hashes.p[offset] = kSkipCode;
             ++skipNodes;
             PossiblyShrink();
         }
 
-	    public bool Contains(Chunk* chunk)
-	    {
-	        return IndexOf(chunk) != -1;
-	    }
+        public bool Contains(Chunk* chunk)
+        {
+            var offset = chunk->ListWithEmptySlotsIndex;
+            return offset != -1 && chunks.p[offset] == chunk;
+        }
 
-	    public void Dispose()
-	    {
-	        HashesPtrList.Dispose<uint>();
+        public void Dispose()
+        {
+            HashesPtrList.Dispose<uint>();
             ChunksUnsafePtrList.Dispose();
-	        emptyNodes = 0;
-	        skipNodes = 0;
-	    }
-	}
+            emptyNodes = 0;
+            skipNodes = 0;
+        }
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct ArchetypeListMap : IDisposable
@@ -460,18 +444,17 @@ namespace Unity.Entities
             PossiblyShrink();
         }
 
-	    public bool Contains(Archetype* archetype)
-	    {
-	        return IndexOf(archetype) != -1;
-	    }
+        public bool Contains(Archetype* archetype)
+        {
+            return IndexOf(archetype) != -1;
+        }
 
-	    public void Dispose()
-	    {
-	        HashesPtrList.Dispose<uint>();
-	        ArchetypeUnsafePtrList.Dispose();
-	        emptyNodes = 0;
-	        skipNodes = 0;
-	    }
-	}
-
+        public void Dispose()
+        {
+            HashesPtrList.Dispose<uint>();
+            ArchetypeUnsafePtrList.Dispose();
+            emptyNodes = 0;
+            skipNodes = 0;
+        }
+    }
 }

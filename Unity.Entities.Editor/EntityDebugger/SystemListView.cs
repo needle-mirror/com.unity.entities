@@ -8,9 +8,9 @@ using UnityEngine.Profiling;
 namespace Unity.Entities.Editor
 {
 
-    public delegate void SystemSelectionCallback(ScriptBehaviourManager manager, World world);
+    internal delegate void SystemSelectionCallback(ScriptBehaviourManager manager, World world);
 
-    public class SystemListView : TreeView
+    internal class SystemListView : TreeView
     {
         private class AverageRecorder
         {
@@ -421,8 +421,32 @@ namespace Unity.Entities.Editor
             return true;
         }
 
-        public bool NeedsReload => !PlayerLoopsMatch(lastPlayerLoop, ScriptBehaviourUpdateOrder.CurrentPlayerLoop);
+        public bool NeedsReload
+        {
+            get
+            {
+                if (!PlayerLoopsMatch(lastPlayerLoop, ScriptBehaviourUpdateOrder.CurrentPlayerLoop))
+                    return true;
 
+                foreach (var world in worldsById.Values)
+                {
+                    if (!world.IsCreated)
+                        return true;
+                }
+
+                foreach (var manager in managersById.Values)
+                {
+                    if (manager is ComponentSystemBase system)
+                    {
+                        if (system.World == null || !system.World.BehaviourManagers.Contains(manager))
+                            return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+        
         public void ReloadIfNecessary()
         {
             if (NeedsReload)
