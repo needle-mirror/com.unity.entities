@@ -13,7 +13,7 @@ namespace Unity.Entities.Tests
     [StandaloneFixme] // Asserts on JobDebugger in constructor
     class EntityTransactionTests : ECSTestsFixture
     {
-        ComponentGroup m_Group;
+        EntityQuery m_Group;
 
         public EntityTransactionTests()
         {
@@ -25,7 +25,7 @@ namespace Unity.Entities.Tests
         {
             base.Setup();
 
-            m_Group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            m_Group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             // Archetypes can't be created on a job
             m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -84,7 +84,6 @@ namespace Unity.Entities.Tests
 
 
         [Test]
-        [StandaloneFixme]
         public void CommitAfterNotRegisteredTransactionJobLogsError()
         {
             var job = new CreateEntityJob();

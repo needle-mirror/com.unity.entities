@@ -1,4 +1,4 @@
-﻿#if !UNITY_CSHARP_TINY
+﻿#if !NET_DOTS
 using System;
 using System.Collections.Generic;
 using System.Linq;

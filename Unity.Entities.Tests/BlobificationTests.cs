@@ -7,7 +7,6 @@ using Unity.Jobs;
 using Unity.Entities;
 using Unity.Entities.Tests;
 
-[StandaloneFixme]    // Should this work for Tiny?
 public class BlobTests : ECSTestsFixture
 {
 	//@TODO: Test Prevent NativeArray and other containers inside of Blob data
@@ -122,7 +121,7 @@ public class BlobTests : ECSTestsFixture
 	}
 
 
-    struct ValidateBlobInComponentJob : IJobProcessComponentData<ComponentWithBlobData>
+    struct ValidateBlobInComponentJob : IJobForEach<ComponentWithBlobData>
     {
         public bool ExpectException;
 
@@ -156,7 +155,7 @@ public class BlobTests : ECSTestsFixture
 
 	    var jobData = new ValidateBlobInComponentJob();
 
-	    var system = World.Active.GetOrCreateManager<DummySystem>();
+	    var system = World.Active.GetOrCreateSystem<DummySystem>();
 	    var jobHandle = jobData.Schedule(system);
 
 	    ValidateBlobData(ref blob.Value);
@@ -175,7 +174,7 @@ public class BlobTests : ECSTestsFixture
 
         var jobData = new ValidateBlobInComponentJob();
         jobData.ExpectException = true;
-        var system = World.Active.GetOrCreateManager<DummySystem>();
+        var system = World.Active.GetOrCreateSystem<DummySystem>();
         var jobHandle = jobData.Schedule(system);
 
         jobHandle.Complete ();

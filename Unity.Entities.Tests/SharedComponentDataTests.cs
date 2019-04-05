@@ -3,8 +3,6 @@ using NUnit.Framework;
 using System.Collections.Generic;
 using Unity.Collections;
 
-#pragma warning disable 618
-
 namespace Unity.Entities.Tests
 {
     struct SharedData1 : ISharedComponentData
@@ -20,7 +18,7 @@ namespace Unity.Entities.Tests
 
         public SharedData2(int val) { value = val; }
     }
-    [StandaloneFixme] // ISharedComponentData
+
     class SharedComponentDataTests : ECSTestsFixture
     {
         //@TODO: No tests for invalid shared components / destroyed shared component data
@@ -32,13 +30,13 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData), typeof(SharedData2));
 
-            var group1 = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(SharedData1));
-            var group2 = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(SharedData2));
-            var group12 = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(SharedData2), typeof(SharedData1));
+            var group1 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
+            var group2 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData2));
+            var group12 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData2), typeof(SharedData1));
 
-            var group1_filter_0 = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(SharedData1));
+            var group1_filter_0 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
             group1_filter_0.SetFilter(new SharedData1(0));
-            var group1_filter_20 = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(SharedData1));
+            var group1_filter_20 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
             group1_filter_20.SetFilter(new SharedData1(20));
 
             Assert.AreEqual(0, group1.CalculateLength());
@@ -53,65 +51,42 @@ namespace Unity.Entities.Tests
             Entity e2 = m_Manager.CreateEntity(archetype);
             m_Manager.SetComponentData(e2, new EcsTestData(243));
 
+            var group1_filter0_data = group1_filter_0.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+
             Assert.AreEqual(2, group1_filter_0.CalculateLength());
             Assert.AreEqual(0, group1_filter_20.CalculateLength());
-            Assert.AreEqual(117, group1_filter_0.GetComponentDataArray<EcsTestData>()[0].value);
-            Assert.AreEqual(243, group1_filter_0.GetComponentDataArray<EcsTestData>()[1].value);
+            Assert.AreEqual(117, group1_filter0_data[0].value);
+            Assert.AreEqual(243, group1_filter0_data[1].value);
 
             m_Manager.SetSharedComponentData(e1, new SharedData1(20));
+            
+            group1_filter0_data.Dispose();
+            group1_filter0_data = group1_filter_0.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var group1_filter20_data = group1_filter_20.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 
             Assert.AreEqual(1, group1_filter_0.CalculateLength());
             Assert.AreEqual(1, group1_filter_20.CalculateLength());
-            Assert.AreEqual(117, group1_filter_20.GetComponentDataArray<EcsTestData>()[0].value);
-            Assert.AreEqual(243, group1_filter_0.GetComponentDataArray<EcsTestData>()[0].value);
+            Assert.AreEqual(117, group1_filter20_data[0].value);
+            Assert.AreEqual(243, group1_filter0_data[0].value);
 
             m_Manager.SetSharedComponentData(e2, new SharedData1(20));
+            
+            group1_filter20_data.Dispose();
+            group1_filter20_data = group1_filter_20.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 
             Assert.AreEqual(0, group1_filter_0.CalculateLength());
             Assert.AreEqual(2, group1_filter_20.CalculateLength());
-            Assert.AreEqual(117, group1_filter_20.GetComponentDataArray<EcsTestData>()[0].value);
-            Assert.AreEqual(243, group1_filter_20.GetComponentDataArray<EcsTestData>()[1].value);
+            Assert.AreEqual(117, group1_filter20_data[0].value);
+            Assert.AreEqual(243, group1_filter20_data[1].value);
 
             group1.Dispose();
             group2.Dispose();
             group12.Dispose();
             group1_filter_0.Dispose();
             group1_filter_20.Dispose();
-        }
-
-
-        [Test]
-        public void GetComponentArray()
-        {
-            var archetype1 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
-            var archetype2 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData), typeof(SharedData2));
-
-            const int entitiesPerValue = 5000;
-            for (int i = 0; i < entitiesPerValue*8; ++i)
-            {
-                Entity e = m_Manager.CreateEntity((i % 2 == 0) ? archetype1 : archetype2);
-                m_Manager.SetComponentData(e, new EcsTestData(i));
-                m_Manager.SetSharedComponentData(e, new SharedData1(i%8));
-            }
-
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(SharedData1));
-
-            for (int sharedValue = 0; sharedValue < 8; ++sharedValue)
-            {
-                bool[] foundEntities = new bool[entitiesPerValue];
-                group.SetFilter(new SharedData1(sharedValue));
-                var componentArray = group.GetComponentDataArray<EcsTestData>();
-                Assert.AreEqual(entitiesPerValue, componentArray.Length);
-                for (int i = 0; i < entitiesPerValue; ++i)
-                {
-                    int index = componentArray[i].value;
-                    Assert.AreEqual(sharedValue, index % 8);
-                    Assert.IsFalse(foundEntities[index/8]);
-                    foundEntities[index/8] = true;
-                }
-            }
-
-            group.Dispose();
+            
+            group1_filter0_data.Dispose();
+            group1_filter20_data.Dispose();
         }
 
         [Test]
@@ -235,50 +210,13 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void GetSharedComponentArray()
-        {
-            var archetype1 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
-            var archetype2 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData), typeof(SharedData2));
-
-            const int entitiesPerValue = 5000;
-            for (int i = 0; i < entitiesPerValue*8; ++i)
-            {
-                Entity e = m_Manager.CreateEntity((i % 2 == 0) ? archetype1 : archetype2);
-                m_Manager.SetComponentData(e, new EcsTestData(i));
-                m_Manager.SetSharedComponentData(e, new SharedData1(i%8));
-            }
-
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(SharedData1));
-
-            var foundEntities = new bool[8, entitiesPerValue];
-
-
-            var sharedComponentDataArray = group.GetSharedComponentDataArray<SharedData1>();
-            var componentArray = group.GetComponentDataArray<EcsTestData>();
-
-            Assert.AreEqual(entitiesPerValue*8, sharedComponentDataArray.Length);
-            Assert.AreEqual(entitiesPerValue*8, componentArray.Length);
-
-            for (int i = 0; i < entitiesPerValue*8; ++i)
-            {
-                var sharedValue = sharedComponentDataArray[i].value;
-                int index = componentArray[i].value;
-                Assert.AreEqual(sharedValue, index % 8);
-                Assert.IsFalse(foundEntities[sharedValue, index/8]);
-                foundEntities[sharedValue, index/8] = true;
-            }
-
-            group.Dispose();
-        }
-
-        [Test]
-        public void SCG_DoesNotMatchRemovedSharedComponentInComponentGroup()
+        public void SCG_DoesNotMatchRemovedSharedComponentInEntityQuery()
         {
             var archetype0 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
             var archetype1 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData), typeof(SharedData2));
 
-            var group0 = m_Manager.CreateComponentGroup(typeof(SharedData1));
-            var group1 = m_Manager.CreateComponentGroup(typeof(SharedData2));
+            var group0 = m_Manager.CreateEntityQuery(typeof(SharedData1));
+            var group1 = m_Manager.CreateEntityQuery(typeof(SharedData2));
 
             m_Manager.CreateEntity(archetype0);
             var entity1 = m_Manager.CreateEntity(archetype1);
@@ -301,8 +239,8 @@ namespace Unity.Entities.Tests
             var archetype0 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
             var archetype1 = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData), typeof(SharedData2));
 
-            var group0 = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<SharedData1>());
-            var group1 = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<SharedData2>());
+            var group0 = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<SharedData1>());
+            var group1 = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<SharedData2>());
 
             m_Manager.CreateEntity(archetype0);
             var entity1 = m_Manager.CreateEntity(archetype1);
@@ -329,6 +267,7 @@ namespace Unity.Entities.Tests
             postChunks1.Dispose();
         }
 
+#if !NET_DOTS
         [Test]
         public void GetSharedComponentDataWithTypeIndex()
         {
@@ -347,5 +286,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(typeof(SharedData1), sharedComponentValue.GetType());
             Assert.AreEqual(17, ((SharedData1)sharedComponentValue).value);
         }
+#endif
     }
 }

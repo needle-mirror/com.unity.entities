@@ -9,8 +9,8 @@ namespace Unity.Entities.Editor
     [System.Serializable]
     internal class SystemInclusionList
     {
-        private readonly List<Tuple<ScriptBehaviourManager, List<ComponentGroup>>> cachedMatches = new List<Tuple<ScriptBehaviourManager, List<ComponentGroup>>>();
-        private readonly Dictionary<ComponentGroup, ComponentGroupGUIControl> cachedControls = new Dictionary<ComponentGroup, ComponentGroupGUIControl>();
+        private readonly List<Tuple<ComponentSystemBase, List<EntityQuery>>> cachedMatches = new List<Tuple<ComponentSystemBase, List<EntityQuery>>>();
+        private readonly Dictionary<EntityQuery, EntityQueryGUIControl> cachedControls = new Dictionary<EntityQuery, EntityQueryGUIControl>();
         private bool repainted = true;
 
         [SerializeField] private bool showSystems;
@@ -26,14 +26,14 @@ namespace Unity.Entities.Editor
                 if (repainted == true)
                 {
                     cachedMatches.Clear();
-                    WorldDebuggingTools.MatchEntityInComponentGroups(world, entity, cachedMatches);
+                    WorldDebuggingTools.MatchEntityInEntityQueries(world, entity, cachedMatches);
                     foreach (var pair in cachedMatches)
                     {
                         foreach (var componentGroup in pair.Item2)
                         {
                             if (!cachedControls.ContainsKey(componentGroup))
                             {
-                                cachedControls.Add(componentGroup, new ComponentGroupGUIControl(componentGroup.GetQueryTypes(), false));
+                                cachedControls.Add(componentGroup, new EntityQueryGUIControl(componentGroup.GetQueryTypes(), false));
                             }
                         }
                     }

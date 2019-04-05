@@ -21,7 +21,7 @@ namespace Unity.Entities.Tests
             World.Active = m_PreviousWorld;
         }
 
-        
+
         [Test]
         [StandaloneFixme]
         public void ActiveWorldResets()
@@ -30,21 +30,21 @@ namespace Unity.Entities.Tests
             var worldA = new World("WorldA");
             var worldB = new World("WorldB");
 
-            World.Active = worldB; 
-            
+            World.Active = worldB;
+
             Assert.AreEqual(worldB, World.Active);
             Assert.AreEqual(count + 2, World.AllWorlds.Count());
             Assert.AreEqual(worldA, World.AllWorlds[World.AllWorlds.Count()-2]);
             Assert.AreEqual(worldB, World.AllWorlds[World.AllWorlds.Count()-1]);
-            
+
             worldB.Dispose();
-            
+
             Assert.IsFalse(worldB.IsCreated);
             Assert.IsTrue(worldA.IsCreated);
             Assert.AreEqual(null, World.Active);
-            
+
             worldA.Dispose();
-            
+
             Assert.AreEqual(count, World.AllWorlds.Count());
         }
 
@@ -63,20 +63,20 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, world.Version);
 
             var version = world.Version;
-            world.GetOrCreateManager<TestManager>();
+            world.GetOrCreateSystem<TestManager>();
             Assert.AreNotEqual(version, world.Version);
 
             version = world.Version;
-            var manager = world.GetOrCreateManager<TestManager>();
+            var manager = world.GetOrCreateSystem<TestManager>();
             Assert.AreEqual(version, world.Version);
 
             version = world.Version;
-            world.DestroyManager(manager);
+            world.DestroySystem(manager);
             Assert.AreNotEqual(version, world.Version);
-            
+
             world.Dispose();
         }
-        
+
         [Test]
         [StandaloneFixme]
         public void UsingDisposedWorldThrows()
@@ -84,16 +84,16 @@ namespace Unity.Entities.Tests
             var world = new World("WorldX");
             world.Dispose();
 
-            Assert.Throws<ArgumentException>(() => world.GetExistingManager<TestManager>());
+            Assert.Throws<ArgumentException>(() => world.GetExistingSystem<TestManager>());
         }
-        
+
         [DisableAutoCreation]
         class AddWorldDuringConstructorThrowsSystem : ComponentSystem
         {
             public AddWorldDuringConstructorThrowsSystem()
             {
                 Assert.AreEqual(null, World);
-                World.Active.AddManager(this);
+                World.Active.AddSystem(this);
             }
 
             protected override void OnUpdate() { }
@@ -105,18 +105,18 @@ namespace Unity.Entities.Tests
             var world = new World("WorldX");
             World.Active = world;
             // Adding a manager during construction is not allowed
-            Assert.Throws<TargetInvocationException>(() => world.CreateManager<AddWorldDuringConstructorThrowsSystem>());
+            Assert.Throws<TargetInvocationException>(() => world.CreateSystem<AddWorldDuringConstructorThrowsSystem>());
             // The manager will not be added to the list of managers if throws
-            Assert.AreEqual(0, world.BehaviourManagers.Count());
-            
+            Assert.AreEqual(0, world.Systems.Count());
+
             world.Dispose();
         }
-        
-        
+
+
         [DisableAutoCreation]
-        class SystemThrowingInOnCreateManagerIsRemovedSystem : ComponentSystem
+        class SystemThrowingInOnCreateIsRemovedSystem : ComponentSystem
         {
-            protected override void OnCreateManager()
+            protected override void OnCreate()
             {
                 throw new AssertionException("");
             }
@@ -125,28 +125,27 @@ namespace Unity.Entities.Tests
         }
         [Test]
         [StandaloneFixme]
-        public void SystemThrowingInOnCreateManagerIsRemoved()
+        public void SystemThrowingInOnCreateIsRemoved()
         {
             var world = new World("WorldX");
-            world.GetOrCreateManager<EntityManager>();
-            Assert.AreEqual(1, world.BehaviourManagers.Count());
+            Assert.AreEqual(0, world.Systems.Count());
 
-            Assert.Throws<AssertionException>(() => world.GetOrCreateManager<SystemThrowingInOnCreateManagerIsRemovedSystem>());
+            Assert.Throws<AssertionException>(() => world.GetOrCreateSystem<SystemThrowingInOnCreateIsRemovedSystem>());
 
             // throwing during OnCreateManager does not add the manager to the behaviour manager list
-            Assert.AreEqual(1, world.BehaviourManagers.Count());
-            
+            Assert.AreEqual(0, world.Systems.Count());
+
             world.Dispose();
         }
 
         [DisableAutoCreation]
         class SystemIsAccessibleDuringOnCreateManagerSystem : ComponentSystem
         {
-            protected override void OnCreateManager()
+            protected override void OnCreate()
             {
-                Assert.AreEqual(this, World.GetOrCreateManager<SystemIsAccessibleDuringOnCreateManagerSystem>());
+                Assert.AreEqual(this, World.GetOrCreateSystem<SystemIsAccessibleDuringOnCreateManagerSystem>());
             }
-            
+
             protected override void OnUpdate() { }
         }
         [Test]
@@ -154,14 +153,13 @@ namespace Unity.Entities.Tests
         public void SystemIsAccessibleDuringOnCreateManager ()
         {
             var world = new World("WorldX");
-            world.GetOrCreateManager<EntityManager>();
-            Assert.AreEqual(1, world.BehaviourManagers.Count());
-            world.CreateManager<SystemIsAccessibleDuringOnCreateManagerSystem>();
-            Assert.AreEqual(2, world.BehaviourManagers.Count());
-            
+            Assert.AreEqual(0, world.Systems.Count());
+            world.CreateSystem<SystemIsAccessibleDuringOnCreateManagerSystem>();
+            Assert.AreEqual(1, world.Systems.Count());
+
             world.Dispose();
         }
-        
-        //@TODO: Test for adding a manager from one world to another. 
+
+        //@TODO: Test for adding a manager from one world to another.
     }
 }

@@ -8,6 +8,7 @@ using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Assertions;
 using UnityEngine.SceneManagement;
 using static Unity.Entities.GameObjectConversionUtility;
 using Hash128 = Unity.Entities.Hash128;
@@ -44,7 +45,7 @@ namespace Unity.Scenes.Editor
         public static SceneData[] WriteEntityScene(Scene scene, Hash128 sceneGUID, ConversionFlags conversionFlags)
         {
             var world = new World("ConversionWorld");
-            var entityManager = world.GetOrCreateManager<EntityManager>();
+            var entityManager = world.EntityManager;
             
             var boundsEntity = entityManager.CreateEntity(typeof(SceneBoundingVolume));
             entityManager.SetComponentData(boundsEntity, new SceneBoundingVolume { Value = MinMaxAABB.Empty } );
@@ -63,11 +64,11 @@ namespace Unity.Scenes.Editor
 
             NativeArray<Entity> entitiesInMainSection;
             
-            var sectionGrp = entityManager.CreateComponentGroup(
-                new EntityArchetypeQuery
+            var sectionGrp = entityManager.CreateEntityQuery(
+                new EntityQueryDesc
                 {
                     All = new[] {ComponentType.ReadWrite<SceneSection>()},
-                    Options = EntityArchetypeQueryOptions.IncludePrefab | EntityArchetypeQueryOptions.IncludeDisabled
+                    Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
                 }
             );
 
@@ -82,6 +83,10 @@ namespace Unity.Scenes.Editor
                 // otherwise they would reuse entities that have been moved and mess up the remapping tables.
                 for(int sectionIndex = 1; sectionIndex < subSectionList.Count; ++sectionIndex)
                 {
+                    if (subSectionList[sectionIndex].Section == 0)
+                        // Main section, the only one that doesn't need an external ref array
+                        continue;
+
                     var extRefInfoEntity = entityManager.CreateEntity();
                     entityManager.AddSharedComponentData(extRefInfoEntity, subSectionList[sectionIndex]);
                     extRefInfoEntities[sectionIndex] = extRefInfoEntity;
@@ -106,7 +111,7 @@ namespace Unity.Scenes.Editor
 
                 // Save main section
                 var sectionWorld = new World("SectionWorld");
-                var sectionManager = sectionWorld.GetOrCreateManager<EntityManager>();
+                var sectionManager = sectionWorld.EntityManager;
 
                 var entityRemapping = entityManager.CreateEntityRemapArray(Allocator.TempJob);
                 sectionManager.MoveEntitiesFrom(entityManager, sectionGrp, entityRemapping);
@@ -114,8 +119,8 @@ namespace Unity.Scenes.Editor
                 // The section component is only there to break the conversion world into different sections
                 // We don't want to store that on the disk
                 //@TODO: Component should be removed but currently leads to corrupt data file. Figure out why.
-                //sectionManager.RemoveComponent(sectionManager.UniversalGroup, typeof(SceneSection));
-                
+                //sectionManager.RemoveComponent(sectionManager.UniversalQuery, typeof(SceneSection));
+
                 var sectionFileSize = WriteEntityScene(sectionManager, sceneGUID, "0");
                 sceneSections.Add(new SceneData
                 {
@@ -137,7 +142,7 @@ namespace Unity.Scenes.Editor
                     var subSection = subSectionList[subSectionIndex];
                     if (subSection.Section == 0)
                         continue;
-                    
+
                     sectionGrp.SetFilter(subSection);
                     var entitiesInSection = sectionGrp.ToEntityArray(Allocator.TempJob);
 
@@ -155,10 +160,13 @@ namespace Unity.Scenes.Editor
                             ExternalEntityRef.Add(ref externRefs, new ExternalEntityRef{entityIndex = i});
                         }
 
-                        // Entities will be remapped to a contiguous range in the section world,
-                        // so any range after that is fine for the external references
-                        //@TODO why are we not mapping anything to entity 0? we use the range [1;count], hence +1
-                        var externEntityIndexStart = entitiesInSection.Length + 1;
+                        var entityRemapping = entityManager.CreateEntityRemapArray(Allocator.TempJob);
+
+                        // Entities will be remapped to a contiguous range in the section world, but they will
+                        // also come with an unpredictable amount of meta entities. We have the guarantee that
+                        // the entities in the main section won't be moved over, so there's a free range of that
+                        // size at the end of the remapping table. So we use that range for external references.
+                        var externEntityIndexStart = entityRemapping.Length - entitiesInMainSection.Length;
 
                         entityManager.AddComponentData(refInfoEntity,
                             new ExternalEntityRefInfo
@@ -168,9 +176,7 @@ namespace Unity.Scenes.Editor
                             });
 
                         var sectionWorld = new World("SectionWorld");
-                        var sectionManager = sectionWorld.GetOrCreateManager<EntityManager>();
-
-                        var entityRemapping = entityManager.CreateEntityRemapArray(Allocator.TempJob);
+                        var sectionManager = sectionWorld.EntityManager;
 
                         // Insert mapping for external references, conversion world entity to virtual index in section
                         for (int i = 0; i < entitiesInMainSection.Length; ++i)
@@ -180,19 +186,47 @@ namespace Unity.Scenes.Editor
                         }
 
                         sectionManager.MoveEntitiesFrom(entityManager, sectionGrp, entityRemapping);
-                        
+
+                        // Now that all the required entities have been moved over, we can get rid of the gap between
+                        // real entities and external references. This allows remapping during load to deal with a
+                        // smaller remap table, containing only useful entries.
+
+                        int highestEntityIndexInUse = 0;
+                        for (int i = 0; i < externEntityIndexStart; ++i)
+                        {
+                            var targetIndex = entityRemapping[i].Target.Index;
+                            if (targetIndex < externEntityIndexStart && targetIndex > highestEntityIndexInUse)
+                                highestEntityIndexInUse = targetIndex;
+                        }
+
+                        var oldExternEntityIndexStart = externEntityIndexStart;
+                        externEntityIndexStart = highestEntityIndexInUse + 1;
+
+                        sectionManager.SetComponentData
+                        (
+                            EntityRemapUtility.RemapEntity(ref entityRemapping, refInfoEntity),
+                            new ExternalEntityRefInfo
+                            {
+                                SceneGUID = sceneGUID,
+                                EntityIndexStart = externEntityIndexStart
+                            }
+                        );
+
                         // When writing the scene, references to missing entities are set to Entity.Null by default
+                        // (but only if they have been used, otherwise they remain untouched)
                         // We obviously don't want that to happen to our external references, so we add explicit mapping
+                        // And at the same time, we put them back at the end of the effective range of real entities.
                         for (int i = 0; i < entitiesInMainSection.Length; ++i)
                         {
-                            var entity = new Entity {Index = i + externEntityIndexStart, Version = 1};
-                            EntityRemapUtility.AddEntityRemapping(ref entityRemapping, entity, entity);
+                            var src = new Entity {Index = i + oldExternEntityIndexStart, Version = 1};
+                            var dst = new Entity {Index = i + externEntityIndexStart, Version = 1};
+                            EntityRemapUtility.AddEntityRemapping(ref entityRemapping, src, dst);
                         }
 
                         // The section component is only there to break the conversion world into different sections
                         // We don't want to store that on the disk
                         //@TODO: Component should be removed but currently leads to corrupt data file. Figure out why.
-                        //sectionManager.RemoveComponent(sectionManager.UniversalGroup, typeof(SceneSection));
+                        //sectionManager.RemoveComponent(sectionManager.UniversalQuery, typeof(SceneSection));
 
                         var fileSize = WriteEntityScene(sectionManager, sceneGUID, subSection.Section.ToString(), entityRemapping);
                         sceneSections.Add(new SceneData
@@ -213,11 +247,11 @@ namespace Unity.Scenes.Editor
             }
 
             {
-                var noSectionGrp = entityManager.CreateComponentGroup(
-                    new EntityArchetypeQuery
+                var noSectionGrp = entityManager.CreateEntityQuery(
+                    new EntityQueryDesc
                     {
                         None = new[] {ComponentType.ReadWrite<SceneSection>()},
-                        Options = EntityArchetypeQueryOptions.IncludePrefab | EntityArchetypeQueryOptions.IncludeDisabled
+                        Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
                     }
                 );
                 if (noSectionGrp.CalculateLength() != 0)

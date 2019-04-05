@@ -14,7 +14,7 @@ namespace Unity.Entities.Streaming
     {
         static void MarkStaticFrozen(EntityManager entityManager)
         {
-            var staticGroup = entityManager.CreateComponentGroup(typeof(Static));
+            var staticGroup = entityManager.CreateEntityQuery(typeof(Static));
             entityManager.AddComponent(staticGroup, ComponentType.ReadWrite<Frozen>());
             staticGroup.Dispose();
         }
@@ -26,7 +26,7 @@ namespace Unity.Entities.Streaming
                 if (TypeManager.IsSystemStateComponent(s.TypeIndex))
                 {
                     //@TODO: Make query instead of this crazy slow shit
-                    entityManager.RemoveComponent(entityManager.UniversalGroup, ComponentType.FromTypeIndex(s.TypeIndex));
+                    entityManager.RemoveComponent(entityManager.UniversalQuery, ComponentType.FromTypeIndex(s.TypeIndex));
                 }
             }
         }
@@ -35,7 +35,7 @@ namespace Unity.Entities.Streaming
         {
             var entityManager = world.EntityManager;
 
-            var group = world.GetOrCreateManager<OptimizationGroup>();
+            var group = world.GetOrCreateSystem<OptimizationGroup>();
 
             var systemTypes = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.EntitySceneOptimizations);
             foreach (var systemType in systemTypes)
@@ -50,7 +50,7 @@ namespace Unity.Entities.Streaming
 
             // Freeze static objects.
             // After this no more reordering is allowed
-            var staticGroup = entityManager.CreateComponentGroup(typeof(Static));
+            var staticGroup = entityManager.CreateEntityQuery(typeof(Static));
             entityManager.LockChunkOrder(staticGroup);
             staticGroup.Dispose();
 
@@ -66,7 +66,7 @@ namespace Unity.Entities.Streaming
         {
             try
             {
-                group.AddSystemToUpdateList(world.GetOrCreateManager(type) as ComponentSystemBase);
+                group.AddSystemToUpdateList(world.GetOrCreateSystem(type) as ComponentSystemBase);
             }
             catch (Exception e)
             {

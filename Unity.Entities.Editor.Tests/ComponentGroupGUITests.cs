@@ -15,14 +15,14 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void ComponentGroupGUI_SpecifiedTypeName_NestedTypeInGeneric()
         {
-            var typeName = ComponentGroupGUI.SpecifiedTypeName(typeof(GenericClassTest<object>.InternalClass));
+            var typeName = EntityQueryGUI.SpecifiedTypeName(typeof(GenericClassTest<object>.InternalClass));
             Assert.AreEqual("GenericClassTest<Object>.InternalClass", typeName);
         }
         
         [Test]
         public void ComponentGroupGUI_SpecifiedTypeName_NestedGenericTypeInGeneric()
         {
-            var typeName = ComponentGroupGUI.SpecifiedTypeName(typeof(GenericClassTest<object>.InternalGenericClass<int, bool>));
+            var typeName = EntityQueryGUI.SpecifiedTypeName(typeof(GenericClassTest<object>.InternalGenericClass<int, bool>));
             Assert.AreEqual("GenericClassTest<Object>.InternalGenericClass<Int32, Boolean>", typeName);
         }
     }

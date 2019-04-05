@@ -14,7 +14,7 @@ namespace Unity.Entities.Tests
         {
             var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
             m_Manager.CreateEntity(archetype, entities);
-#if UNITY_CSHARP_TINY
+#if NET_DOTS
             var managedEntities = new Entity[entities.Length];
             for (int i = 0; i < entities.Length; i++)
             {
@@ -45,8 +45,8 @@ namespace Unity.Entities.Tests
 
             var allCreatedChunks = createdChunks1.Concat(createdChunks2).Concat(createdChunks12);
 
-            var group1 = m_Manager.CreateComponentGroup(typeof(EcsTestData));
-            var group12 = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestData2));
+            var group1 = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            var group12 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
 
             var queriedChunks1 = group1.CreateArchetypeChunkArray(Allocator.TempJob);
             var queriedChunks12 = group12.CreateArchetypeChunkArray(Allocator.TempJob);
@@ -67,7 +67,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void CreateArchetypeChunkArray_FiltersSharedComponents()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
@@ -78,7 +77,7 @@ namespace Unity.Entities.Tests
             var createdChunks3 = CreateEntitiesAndReturnChunks(archetype1, 5000, e => SetShared(e, 2));
             var createdChunks4 = CreateEntitiesAndReturnChunks(archetype2, 5000, e => SetShared(e, 2));
 
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestSharedComp));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp));
 
             group.SetFilter(new EcsTestSharedComp(1));
 
@@ -103,7 +102,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void CreateArchetypeChunkArray_FiltersTwoSharedComponents()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
@@ -118,7 +116,7 @@ namespace Unity.Entities.Tests
             var createdChunks7 = CreateEntitiesAndReturnChunks(archetype1, 5000, e => SetShared(e, 2,8));
             var createdChunks8 = CreateEntitiesAndReturnChunks(archetype2, 5000, e => SetShared(e, 2,8));
 
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
 
             group.SetFilter(new EcsTestSharedComp(1), new EcsTestSharedComp2(7));
             var queriedChunks1 = group.CreateArchetypeChunkArray(Allocator.TempJob);
@@ -164,7 +162,7 @@ namespace Unity.Entities.Tests
             m_ManagerDebug.SetGlobalSystemVersion(40);
             var createdChunks3 = CreateEntitiesAndReturnChunks(archetype3, 5000, e => SetData(e, 3));
 
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             group.SetFilterChanged(typeof(EcsTestData));
 
@@ -213,7 +211,7 @@ namespace Unity.Entities.Tests
             m_ManagerDebug.SetGlobalSystemVersion(40);
             var createdChunks3 = CreateEntitiesAndReturnChunks(archetype3, 5000, e => SetData(e, 3, 6));
 
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestData2));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
 
             group.SetFilterChanged(new ComponentType[]{typeof(EcsTestData), typeof(EcsTestData2)});
 
@@ -258,9 +256,9 @@ namespace Unity.Entities.Tests
 
             using
             (
-                var group = m_Manager.CreateComponentGroup
+                var group = m_Manager.CreateEntityQuery
                 (
-                    new EntityArchetypeQuery
+                    new EntityQueryDesc
                     {
                         All = new ComponentType[] {typeof(EcsTestData)}
                     }
@@ -276,7 +274,7 @@ namespace Unity.Entities.Tests
         [AlwaysUpdateSystem]
         public class WriteEcsTestDataSystem : JobComponentSystem
         {
-            private struct WriteJob : IJobProcessComponentData<EcsTestData>
+            private struct WriteJob : IJobForEach<EcsTestData>
             {
                 public void Execute(ref EcsTestData c0) {}
             }
@@ -289,13 +287,13 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CreateArchetypeChunkArray_SyncsChangeFilterTypes()
+        public unsafe void CreateArchetypeChunkArray_SyncsChangeFilterTypes()
         {
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             group.SetFilterChanged(typeof(EcsTestData));
-            var ws1 = World.GetOrCreateManager<WriteEcsTestDataSystem>();
+            var ws1 = World.GetOrCreateSystem<WriteEcsTestDataSystem>();
             ws1.Update();
-            var safetyHandle = m_Manager.ComponentJobSafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<EcsTestData>(), false);
+            var safetyHandle = m_Manager.ComponentJobSafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<EcsTestData>(), false);
 
             Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckWriteAndThrow(safetyHandle));
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
@@ -306,13 +304,13 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CalculateLength_SyncsChangeFilterTypes()
+        public unsafe void CalculateLength_SyncsChangeFilterTypes()
         {
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             group.SetFilterChanged(typeof(EcsTestData));
-            var ws1 = World.GetOrCreateManager<WriteEcsTestDataSystem>();
+            var ws1 = World.GetOrCreateSystem<WriteEcsTestDataSystem>();
             ws1.Update();
-            var safetyHandle = m_Manager.ComponentJobSafetyManager.GetSafetyHandle(TypeManager.GetTypeIndex<EcsTestData>(), false);
+            var safetyHandle = m_Manager.ComponentJobSafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<EcsTestData>(), false);
 
             Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckWriteAndThrow(safetyHandle));
             group.CalculateLength();
@@ -323,7 +321,6 @@ namespace Unity.Entities.Tests
 #endif
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void ToEntityArrayOnFilteredGroup()
         {
             // Note - test is setup so that each entity is in its own chunk, this checks that entity indices are correct
@@ -335,7 +332,7 @@ namespace Unity.Entities.Tests
             m_Manager.SetSharedComponentData(b, new EcsTestSharedComp {value = 456});
             m_Manager.SetSharedComponentData(c, new EcsTestSharedComp {value = 123});
 
-            using (var group = m_Manager.CreateComponentGroup(typeof(EcsTestSharedComp)))
+            using (var group = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 group.SetFilter(new EcsTestSharedComp {value = 123});
                 using (var entities = group.ToEntityArray(Allocator.TempJob))
@@ -344,7 +341,7 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            using (var group = m_Manager.CreateComponentGroup(typeof(EcsTestSharedComp)))
+            using (var group = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 group.SetFilter(new EcsTestSharedComp {value = 456});
                 using (var entities = group.ToEntityArray(Allocator.TempJob))

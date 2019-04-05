@@ -154,7 +154,7 @@ namespace Unity.Entities
             DefaultWorldInitialization.DefaultLazyEditModeInitialize();
             if (World.Active != null)
             {
-                m_EntityManager = World.Active.GetOrCreateManager<EntityManager>();
+                m_EntityManager = World.Active.EntityManager;
                 m_Entity = AddToEntityManager(m_EntityManager, gameObject);
             }
         }

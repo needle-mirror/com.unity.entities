@@ -13,7 +13,7 @@ uid: ecs-components
 > BufferComponent
 > ChunkComponent
 > Prefab and Disabled IComponentData
-> ComponentGroup and filtering
+> EntityQuery and filtering
 -->
 
 Components are one of the three principle elements of an Entity Component System architecture. They represent the data of your game or program. [Entities](ecs_entities.md) are essentially identifiers that index your collections of components [Systems](ecs_systems.md) provide the behavior. 

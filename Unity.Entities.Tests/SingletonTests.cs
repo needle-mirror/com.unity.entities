@@ -6,7 +6,6 @@ namespace Unity.Entities.Tests
     class SingletonTests : ECSTestsFixture
     {
         [Test]
-        [StandaloneFixme]
         public void GetSetSingleton()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -16,7 +15,6 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [StandaloneFixme]
         public void GetSetSingletonZeroThrows()
         {
             Assert.Throws<InvalidOperationException>(() => EmptySystem.SetSingleton(new EcsTestData()));
@@ -24,7 +22,6 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [StandaloneFixme]
         public void GetSetSingletonMultipleThrows()
         {
             m_Manager.CreateEntity(typeof(EcsTestData));
@@ -35,11 +32,11 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [StandaloneFixme]
+        [StandaloneFixme] // EmptySystem.ShouldRunSystem is always true in ZeroPlayer
         public void RequireSingletonWorks()
         {
             EmptySystem.RequireSingletonForUpdate<EcsTestData>();
-            EmptySystem.GetComponentGroup(typeof(EcsTestData2));
+            EmptySystem.GetEntityQuery(typeof(EcsTestData2));
             
             m_Manager.CreateEntity(typeof(EcsTestData2));
             Assert.IsFalse(EmptySystem.ShouldRunSystem());
@@ -48,7 +45,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
         public void HasSingletonWorks()
         {
             Assert.IsFalse(EmptySystem.HasSingleton<EcsTestData>());

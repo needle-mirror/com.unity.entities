@@ -11,7 +11,7 @@ namespace Unity.Entities.Editor.Tests
 
         private EntityDebugger m_Window;
         private ComponentSystem m_System;
-        private ComponentGroup m_ComponentGroup;
+        private EntityQuery entityQuery;
         private Entity m_Entity;
 
         [DisableAutoCreation]
@@ -23,9 +23,9 @@ namespace Unity.Entities.Editor.Tests
                 throw new NotImplementedException();
             }
 
-            protected override void OnCreateManager()
+            protected override void OnCreate()
             {
-                GetComponentGroup(typeof(EcsTestData));
+                GetEntityQuery(typeof(EcsTestData));
             }
         }
 
@@ -48,18 +48,17 @@ namespace Unity.Entities.Editor.Tests
 
             m_Window = EditorWindow.GetWindow<EntityDebugger>();
 
-            m_System = World.Active.GetOrCreateManager<SingleGroupSystem>();
-            World.Active.GetOrCreateManager<SimulationSystemGroup>().AddSystemToUpdateList(m_System);
+            m_System = World.Active.GetOrCreateSystem<SingleGroupSystem>();
+            World.Active.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(m_System);
 
             ScriptBehaviourUpdateOrder.UpdatePlayerLoop(World.Active);
 
             World2 = new World(World2Name);
-            World2.GetOrCreateManager<EntityManager>();
-            var emptySys = World2.GetOrCreateManager<EmptySystem>();
-            World.Active.GetOrCreateManager<SimulationSystemGroup>().AddSystemToUpdateList(emptySys);
-            World.Active.GetOrCreateManager<SimulationSystemGroup>().SortSystemUpdateList();
+            var emptySys = World2.GetOrCreateSystem<EmptySystem>();
+            World.Active.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(emptySys);
+            World.Active.GetOrCreateSystem<SimulationSystemGroup>().SortSystemUpdateList();
 
-            m_ComponentGroup = m_System.ComponentGroups[0];
+            entityQuery = m_System.EntityQueries[0];
 
             m_Entity = m_Manager.CreateEntity(typeof(EcsTestData));
         }
@@ -93,11 +92,14 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void EntityDebugger_SetSystemSelection()
         {
+            // TODO EntityManager is no longer a system
+            /*
             m_Window.SetSystemSelection(m_Manager, World.Active, true, true);
 
             Assert.AreEqual(World.Active, m_Window.SystemSelectionWorld);
 
             Assert.Throws<ArgumentNullException>(() => m_Window.SetSystemSelection(m_Manager, null, true, true));
+            */
         }
 
         [Test]
@@ -115,27 +117,27 @@ namespace Unity.Entities.Editor.Tests
         {
             m_Window.SetWorldSelection(World2, true);
             Assert.IsFalse(m_Window.systemListView.NeedsReload);
-            var emptySystem = World2.GetExistingManager<EmptySystem>();
-            World2.DestroyManager(emptySystem);
+            var emptySystem = World2.GetExistingSystem<EmptySystem>();
+            World2.DestroySystem(emptySystem);
             Assert.IsTrue(m_Window.systemListView.NeedsReload);
         }
 
         [Test]
         public void EntityDebugger_SetAllSelections()
         {
-            var entityListQuery = new EntityListQuery(m_ComponentGroup);
+            var entityListQuery = new EntityListQuery(entityQuery);
             EntityDebugger.SetAllSelections(World.Active, m_System, entityListQuery, m_Entity);
 
             Assert.AreEqual(World.Active, m_Window.WorldSelection);
             Assert.AreEqual(m_System, m_Window.SystemSelection);
-            Assert.AreEqual(m_ComponentGroup, m_Window.EntityListQuerySelection.Group);
+            Assert.AreEqual(entityQuery, m_Window.EntityListQuerySelection.Group);
             Assert.AreEqual(m_Entity, m_Window.EntitySelection);
         }
 
         [Test]
         public void EntityDebugger_RememberSelections()
         {
-            var entityListQuery = new EntityListQuery(m_ComponentGroup);
+            var entityListQuery = new EntityListQuery(entityQuery);
             EntityDebugger.SetAllSelections(World.Active, m_System, entityListQuery, m_Entity);
 
             m_Window.SetWorldSelection(null, true);
@@ -144,14 +146,14 @@ namespace Unity.Entities.Editor.Tests
 
             Assert.AreEqual(World.Active, m_Window.WorldSelection);
             Assert.AreEqual(m_System, m_Window.SystemSelection);
-            Assert.AreEqual(m_ComponentGroup, m_Window.EntityListQuerySelection.Group);
+            Assert.AreEqual(entityQuery, m_Window.EntityListQuerySelection.Group);
             Assert.AreEqual(m_Entity, m_Window.EntitySelection);
         }
 
         [Test]
         public void EntityDebugger_SetAllEntitiesFilter()
         {
-            var query = new EntityArchetypeQuery()
+            var query = new EntityQueryDesc()
             {
                 All = new ComponentType[] {ComponentType.ReadWrite<EcsTestData>() },
                 Any = new ComponentType[0],
@@ -162,12 +164,12 @@ namespace Unity.Entities.Editor.Tests
             m_Window.SetWorldSelection(World.Active, true);
             m_Window.SetSystemSelection(null, null, true, true);
             m_Window.SetAllEntitiesFilter(listQuery);
-            Assert.AreEqual(query, m_Window.EntityListQuerySelection.Query);
+            Assert.AreEqual(query, m_Window.EntityListQuerySelection.QueryDesc);
 
             m_Window.SetEntityListSelection(null, true, true);
-            m_Window.SetSystemSelection(World.Active.GetExistingManager<EntityManager>(), World.Active, true, true);
+            m_Window.SetSystemSelection(null, World.Active, true, true);
             m_Window.SetAllEntitiesFilter(listQuery);
-            Assert.AreEqual(query, m_Window.EntityListQuerySelection.Query);
+            Assert.AreEqual(query, m_Window.EntityListQuerySelection.QueryDesc);
 
             m_Window.SetSystemSelection(m_System, World.Active, true, true);
             m_Window.SetAllEntitiesFilter(listQuery);

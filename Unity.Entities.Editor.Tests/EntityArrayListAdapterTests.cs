@@ -19,14 +19,14 @@ namespace Unity.Entities.Editor.Tests
                 m_Manager.CreateEntity(archetype, entities);
             }
 
-            var query = new EntityArchetypeQuery()
+            var query = new EntityQueryDesc()
             {
                 Any = new ComponentType[0],
                 All = new ComponentType[0],
                 None = new ComponentType[0]
             };
 
-            var group = m_Manager.CreateComponentGroup(query);
+            var group = m_Manager.CreateEntityQuery(query);
             m_ChunkArray = group.CreateArchetypeChunkArray(Allocator.TempJob);
         }
 

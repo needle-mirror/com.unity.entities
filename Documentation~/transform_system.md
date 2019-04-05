@@ -41,11 +41,8 @@ e.g. If the following components are present...
 
 - [TRSToLocalToWorldSystem] Write LocalToWorld <= Translation * Rotation 
 
-```
-┌─────────────┐     ┌──────────────┐     ┌──────────┐
-│ Translation │ ──> │ LocalToWorld │ <── │ Rotation │
-└─────────────┘     └──────────────┘     └──────────┘
-```    
+![](images/sec1-1.png)
+
 Or, if the following components are present...
 
 | (Entity)      |
@@ -59,17 +56,8 @@ Or, if the following components are present...
 
 - [TRSToLocalToWorldSystem] Write LocalToWorld <= Translation * Rotation * Scale
 
-```
-                    ┌──────────────┐
-                    │    Scale     │
-                    └──────────────┘
-                      │
-                      │
-                      ∨
-┌─────────────┐     ┌──────────────┐     ┌──────────┐
-│ Translation │ ──> │ LocalToWorld │ <── │ Rotation │
-└─────────────┘     └──────────────┘     └──────────┘
-```
+![](images/sec1-2.png)
+
 ------------------------------------------
 Section 2: Hierarchical Transforms (Basic)
 ------------------------------------------
@@ -94,25 +82,7 @@ e.g. If the following components are present...
 1. [TRSToLocalToWorldSystem] Parent: Write LocalToWorld as defined above in "Non-hierarchical Transforms (Basic)"
 2. [LocalToParentSystem]     Child: Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
 
-```
------- Parent: ------
-
-                    ┌──────────────┐
-                    │    Scale     │
-                    └──────────────┘
-                      │
-                      │
-                      ∨
-┌─────────────┐     ┌──────────────┐     ┌──────────┐
-│ Translation │ ──> │ LocalToWorld │ <── │ Rotation │
-└─────────────┘     └──────────────┘     └──────────┘
-
------- Child: ------
-
-┌──────────────────────┐     ┌──────────────┐     ┌───────────────┐
-│ LocalToWorld[Parent] │ ──> │ LocalToWorld │ <── │ LocalToParent │
-└──────────────────────┘     └──────────────┘     └───────────────┘
-```
+![](images/sec2-1.png)
 
 LocalToWorld components associated with Parent Entity IDs are guaranteed to be computed before multiplies with LocalToParent associated with Child Entity ID.
 
@@ -164,37 +134,7 @@ e.g. If the following components are present...
 2. [TRSToLocalToParentSystem] Child:  Write LocalToParent <= Translation * Rotation * Scale
 3. [LocalToParentSystem]      Child:  Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
 
-```
------- Parent: ------
-
-                    ┌──────────────┐
-                    │    Scale     │
-                    └──────────────┘
-                      │
-                      │
-                      ∨
-┌─────────────┐     ┌──────────────┐     ┌──────────┐
-│ Translation │ ──> │ LocalToWorld │ <── │ Rotation │
-└─────────────┘     └──────────────┘     └──────────┘
-
------- Child: ------
-
-                 ┌───────────────┐     ┌──────────────────────┐
-                 │ LocalToWorld  │ <── │ LocalToWorld[Parent] │
-                 └───────────────┘     └──────────────────────┘
-                   ∧
-                   │
-                   │
-┌──────────┐     ┌───────────────┐     ┌──────────────────────┐
-│ Rotation │ ──> │ LocalToParent │ <── │     Translation      │
-└──────────┘     └───────────────┘     └──────────────────────┘
-                   ∧
-                   │
-                   │
-                 ┌───────────────┐
-                 │     Scale     │
-                 └───────────────┘
-```
+![](images/sec2-2.png)
 
 Parents may of course themselves be children of other LocalToWorld components. 
 
@@ -218,43 +158,7 @@ e.g. If the following components are present...
 3. [LocalToParentSystem]      Parent: Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
 4. [LocalToParentSystem]      Child:  Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
 
-```
------- Parent: ------
-
-                 ┌───────────────┐     ┌──────────────────────┐
-                 │ LocalToWorld  │ <── │ LocalToWorld[Parent] │
-                 └───────────────┘     └──────────────────────┘
-                   ∧
-                   │
-                   │
-┌──────────┐     ┌───────────────┐     ┌──────────────────────┐
-│ Rotation │ ──> │ LocalToParent │ <── │     Translation      │
-└──────────┘     └───────────────┘     └──────────────────────┘
-                   ∧
-                   │
-                   │
-                 ┌───────────────┐
-                 │     Scale     │
-                 └───────────────┘
-
------- Child: ------
-
-                 ┌───────────────┐     ┌──────────────────────┐
-                 │ LocalToWorld  │ <── │ LocalToWorld[Parent] │
-                 └───────────────┘     └──────────────────────┘
-                   ∧
-                   │
-                   │
-┌──────────┐     ┌───────────────┐     ┌──────────────────────┐
-│ Rotation │ ──> │ LocalToParent │ <── │     Translation      │
-└──────────┘     └───────────────┘     └──────────────────────┘
-                   ∧
-                   │
-                   │
-                 ┌───────────────┐
-                 │     Scale     │
-                 └───────────────┘
-```
+![](images/sec2-3.png)
 
 -------------------------------------
 Section 3: Default Conversion (Basic)
@@ -304,17 +208,7 @@ e.g. If the following components are present...
 
 - [TRSToLocalToWorldSystem] Write LocalToWorld <= Translation * Rotation * NonUniformScale
 
-```
-                    ┌──────────────┐
-                    │   Rotation   │
-                    └──────────────┘
-                      │
-                      │
-                      ∨
-┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
-│ Translation │ ──> │ LocalToWorld │ <── │ NonUniformScale │
-└─────────────┘     └──────────────┘     └─────────────────┘
-```
+![](images/sec4-1.png)
 
 The Rotation component may be written to directly as a quaternion by user code. However, if an Euler interface is preferred, components are available for each rotation order which will cause a write to the Rotation component if present. 
 
@@ -339,17 +233,7 @@ e.g. If the following components are present...
 1. [RotationEulerSystem]     Write Rotation <= RotationEulerXYZ
 2. [TRSToLocalToWorldSystem] Write LocalToWorld <= Translation * Rotation * Scale
 
-```
-                    ┌──────────────┐
-                    │    Scale     │
-                    └──────────────┘
-                      │
-                      │
-                      ∨
-┌─────────────┐     ┌──────────────┐     ┌──────────┐     ┌──────────────────┐
-│ Translation │ ──> │ LocalToWorld │ <── │ Rotation │ <── │ RotationEulerXYZ │
-└─────────────┘     └──────────────┘     └──────────┘     └──────────────────┘
-```
+![](images/sec4-2.png)
 
 It is a setup error to have more than one RotationEuler*** component is associated with the same Entity, however the result is defined. The first to be found in the order of precedence will be applied. That order is:
 
@@ -417,26 +301,7 @@ e.g. If the following components are present...
 1. [CompositeRotationSystem] Write CompositeRotation <= RotationPivotTranslation * RotationPivot * Rotation * PostRotation * RotationPivot^-1
 2. [TRSToLocalToWorldSystem] Write LocalToWorld <= Translation * CompositeRotation * Scale
 
-```
-                    ┌──────────────────────────┐     ┌───────────────────┐
-                    │          Scale           │     │   RotationPivot   │
-                    └──────────────────────────┘     └───────────────────┘
-                      │                                │
-                      │                                │
-                      ∨                                ∨
-┌─────────────┐     ┌──────────────────────────┐     ┌───────────────────┐     ┌──────────────────┐
-│ Translation │ ──> │       LocalToWorld       │ <── │                   │ <── │   PostRotation   │
-└─────────────┘     └──────────────────────────┘     │ CompositeRotation │     └──────────────────┘
-                    ┌──────────────────────────┐     │                   │     ┌──────────────────┐
-                    │ RotationPivotTranslation │ ──> │                   │     │ RotationEulerXYZ │
-                    └──────────────────────────┘     └───────────────────┘     └──────────────────┘
-                                                       ∧                         │
-                                                       │                         │
-                                                       │                         ∨
-                                                       │                       ┌──────────────────┐
-                                                       └────────────────────── │     Rotation     │
-                                                                               └──────────────────┘
-```
+![](images/sec4-3.png)
 
 The PostRotation component may be written to directly as a quaternion by user code. However, if an Euler interface is preferred, components are available for each rotation order which will cause a write to the PostRotation component if present. 
 
@@ -469,20 +334,7 @@ e.g. If the following components are present...
 3. [CompositeRotationSystem] Write CompositeRotation <= RotationPivotTranslation * RotationPivot * Rotation * PostRotation * RotationPivot^-1
 4. [TRSToLocalToWorldSystem] Write LocalToWorld <= Translation * CompositeRotation * Scale
 
-```
-                    ┌──────────────────────────┐     ┌───────────────────┐
-                    │          Scale           │     │   RotationPivot   │
-                    └──────────────────────────┘     └───────────────────┘
-                      │                                │
-                      │                                │
-                      ∨                                ∨
-┌─────────────┐     ┌──────────────────────────┐     ┌───────────────────┐     ┌──────────────┐     ┌──────────────────────┐
-│ Translation │ ──> │       LocalToWorld       │ <── │                   │ <── │ PostRotation │ <── │ PostRotationEulerXYZ │
-└─────────────┘     └──────────────────────────┘     │ CompositeRotation │     └──────────────┘     └──────────────────────┘
-                    ┌──────────────────────────┐     │                   │     ┌──────────────┐     ┌──────────────────────┐
-                    │ RotationPivotTranslation │ ──> │                   │ <── │   Rotation   │ <── │   RotationEulerXYZ   │
-                    └──────────────────────────┘     └───────────────────┘     └──────────────┘     └──────────────────────┘
-```
+![](images/sec4-4.png)
 
 For more complex Scale requirements, a CompositeScale (float4x4) component may be used as an alternative to Scale (or NonUniformScale).
 
@@ -543,38 +395,7 @@ e.g. If the following components are present...
 4. [CompositeRotationSystem] Write CompositeRotation <= RotationPivotTranslation * RotationPivot * Rotation * PostRotation * RotationPivot^-1
 5. [TRSToLocalToWorldSystem] Write LocalToWorld <= Translation * CompositeRotation * CompositeScale
 
-```
-                                                     ┌───────────────────┐
-                                                     │   RotationPivot   │
-                                                     └───────────────────┘
-                                                       │
-                                                       │
-                                                       ∨
-┌─────────────┐     ┌──────────────────────────┐     ┌───────────────────┐     ┌───────────────────────┐     ┌──────────────────────┐
-│ Translation │ ──> │       LocalToWorld       │ <── │                   │ <── │     PostRotation      │ <── │ PostRotationEulerXYZ │
-└─────────────┘     └──────────────────────────┘     │                   │     └───────────────────────┘     └──────────────────────┘
-                      ∧                              │                   │
-                 ┌────┘                              │ CompositeRotation │
-                 │                                   │                   │
-                 │  ┌──────────────────────────┐     │                   │     ┌───────────────────────┐     ┌──────────────────────┐
-                 │  │ RotationPivotTranslation │ ──> │                   │ <── │       Rotation        │ <── │   RotationEulerXYZ   │
-                 │  └──────────────────────────┘     └───────────────────┘     └───────────────────────┘     └──────────────────────┘
-                 │
-                 │                                                               ┌─────────────────────────────────────────────────────┐
-                 │                                                               ∨                                                     │
-                 │                                                             ┌───────────────────────┐     ┌──────────────────────┐  │
-                 └──────────────────────────────────────────────────────────── │    CompositeScale     │ <── │        Scale         │  │
-                                                                               └───────────────────────┘     └──────────────────────┘  │
-                                                                                 ∧                                                     │
-                                                                                 │                                                     │
-                                                                                 │                                                     │
-                                                                               ┌───────────────────────┐                               │
-                                                                               │ ScalePivotTranslation │                               │
-                                                                               └───────────────────────┘                               │
-                                                                               ┌───────────────────────┐                               │
-                                                                               │      ScalePivot       │ ──────────────────────────────┘
-                                                                               └───────────────────────┘
-```
+![](images/sec4-5.png)
 
 ---------------------------------------------
 Section 5: Hierarchical Transforms (Advanced)
@@ -613,37 +434,7 @@ e.g. If the following components are present...
 2. [TRSToLocalToParentSystem] Child:  Write LocalToParent <= Translation * Rotation * NonUniformScale
 3. [LocalToParentSystem]      Child:  Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
 
-```
------- Parent: ------
-
-                    ┌──────────────┐
-                    │    Scale     │
-                    └──────────────┘
-                      │
-                      │
-                      ∨
-┌─────────────┐     ┌──────────────┐     ┌──────────┐
-│ Translation │ ──> │ LocalToWorld │ <── │ Rotation │
-└─────────────┘     └──────────────┘     └──────────┘
-
------- Child: ------
-
-                        ┌───────────────┐     ┌──────────────────────┐
-                        │ LocalToWorld  │ <── │ LocalToWorld[Parent] │
-                        └───────────────┘     └──────────────────────┘
-                          ∧
-                          │
-                          │
-┌─────────────────┐     ┌───────────────┐     ┌──────────────────────┐
-│ NonUniformScale │ ──> │ LocalToParent │ <── │     Translation      │
-└─────────────────┘     └───────────────┘     └──────────────────────┘
-                          ∧
-                          │
-                          │
-                        ┌───────────────┐
-                        │   Rotation    │
-                        └───────────────┘
-```
+![](images/sec5-1.png)
 
 Parent LocalToWorld is multiplied with the Child LocalToWorld, which includes any scaling. However, if removing Parent scale is preferred (AKA Scale Compensate), ParentScaleInverse is available for that purpose.
 
@@ -693,37 +484,7 @@ e.g. If the following components are present...
 3. [TRSToLocalToParentSystem] Child:  Write LocalToParent <= Translation * ParentScaleInverse * Rotation 
 4. [LocalToParentSystem]      Child:  Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
 
-```
------- Parent: ------
-
-                    ┌──────────────┐
-                    │    Scale     │
-                    └──────────────┘
-                      │
-                      │
-                      ∨
-┌─────────────┐     ┌──────────────┐     ┌──────────┐
-│ Translation │ ──> │ LocalToWorld │ <── │ Rotation │
-└─────────────┘     └──────────────┘     └──────────┘
-
------- Child: ------
-
-                 ┌────────────────────┐     ┌──────────────────────┐
-                 │    LocalToWorld    │ <── │ LocalToWorld[Parent] │
-                 └────────────────────┘     └──────────────────────┘
-                   ∧
-                   │
-                   │
-┌──────────┐     ┌────────────────────┐     ┌──────────────────────┐
-│ Rotation │ ──> │   LocalToParent    │ <── │     Translation      │
-└──────────┘     └────────────────────┘     └──────────────────────┘
-                   ∧
-                   │
-                   │
-                 ┌────────────────────┐     ┌──────────────────────┐
-                 │ ParentScaleInverse │ <── │    Scale[Parent]     │
-                 └────────────────────┘     └──────────────────────┘
-```
+![](images/sec5-2.png)
 
 The Rotation component may be written to directly as a quaternion by user code. However, if an Euler interface is preferred, components are available for each rotation order which will cause a write to the Rotation component if present. 
 
@@ -753,37 +514,7 @@ e.g. If the following components are present...
 3. [TRSToLocalToParentSystem] Child:  Write LocalToParent <= Translation * Rotation 
 4. [LocalToParentSystem]      Child:  Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
 
-```
------- Parent: ------
-
-                    ┌──────────────┐
-                    │    Scale     │
-                    └──────────────┘
-                      │
-                      │
-                      ∨
-┌─────────────┐     ┌──────────────┐     ┌──────────┐
-│ Translation │ ──> │ LocalToWorld │ <── │ Rotation │
-└─────────────┘     └──────────────┘     └──────────┘
-
------- Child: ------
-
-┌───────────────┐     ┌──────────────────────┐
-│ LocalToWorld  │ <── │ LocalToWorld[Parent] │
-└───────────────┘     └──────────────────────┘
-  ∧
-  │
-  │
-┌───────────────┐     ┌──────────────────────┐
-│ LocalToParent │ <── │     Translation      │
-└───────────────┘     └──────────────────────┘
-  ∧
-  │
-  │
-┌───────────────┐     ┌──────────────────────┐
-│   Rotation    │ <── │   RotationEulerXYZ   │
-└───────────────┘     └──────────────────────┘
-```
+![](images/sec5-3.png)
 
 For more complex Rotation requirements, a CompositeRotation (float4x4) component may be used as an alternative to Rotation.
 
@@ -856,51 +587,7 @@ e.g. If the following components are present...
 4. [TRSToLocalToParentSystem] Child:  Write LocalToParent <= Translation * CompositeRotation * Scale
 5. [LocalToParentSystem]      Child:  Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
 
-```
------- Parent: ------
-
-                    ┌──────────────┐
-                    │    Scale     │
-                    └──────────────┘
-                      │
-                      │
-                      ∨
-┌─────────────┐     ┌──────────────┐     ┌──────────┐
-│ Translation │ ──> │ LocalToWorld │ <── │ Rotation │
-└─────────────┘     └──────────────┘     └──────────┘
-
------- Child: ------
-                                 ┌───────────────────┐     ┌──────────────────────┐
-                                 │   LocalToWorld    │ <── │ LocalToWorld[Parent] │
-                                 └───────────────────┘     └──────────────────────┘
-                                   ∧
-                                   │
-                                   │
-┌──────────────────────────┐     ┌───────────────────┐     ┌──────────────────────┐
-│          Scale           │ ──> │                   │ <── │     Translation      │
-└──────────────────────────┘     │                   │     └──────────────────────┘
-                                 │                   │
-                                 │   LocalToParent   │ <─────────────────────────────┐
-                                 │                   │                               │
-                                 │                   │     ┌──────────────────────┐  │
-                                 │                   │     │   RotationEulerXYZ   │  │
-                                 └───────────────────┘     └──────────────────────┘  │
-                                   ∧                         │                       │
-                                   │                         │                       │
-                                   │                         ∨                       │
-┌──────────────────────────┐     ┌───────────────────┐     ┌──────────────────────┐  │
-│ RotationPivotTranslation │ ──> │                   │ <── │       Rotation       │  │
-└──────────────────────────┘     │ CompositeRotation │     └──────────────────────┘  │
-┌──────────────────────────┐     │                   │     ┌──────────────────────┐  │
-│       PostRotation       │ ──> │                   │     │    Scale[Parent]     │  │
-└──────────────────────────┘     └───────────────────┘     └──────────────────────┘  │
-                                   ∧                         │                       │
-                                   │                         │                       │
-                                   │                         ∨                       │
-                                 ┌───────────────────┐     ┌──────────────────────┐  │
-                                 │   RotationPivot   │     │  ParentScaleInverse  │ ─┘
-                                 └───────────────────┘     └──────────────────────┘
-```
+![](images/sec5-4.png)
 
 The PostRotation component may be written to directly as a quaternion by user code. However, if an Euler interface is preferred, components are available for each rotation order which will cause a write to the PostRotation component if present. 
 
@@ -938,58 +625,7 @@ e.g. If the following components are present...
 5. [TRSToLocalToParentSystem] Child:  Write LocalToParent <= Translation * CompositeRotation * Scale
 6. [LocalToParentSystem]      Child:  Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
 
-```
------- Parent: ------
-
-                    ┌──────────────┐
-                    │    Scale     │
-                    └──────────────┘
-                      │
-                      │
-                      ∨
-┌─────────────┐     ┌──────────────┐     ┌──────────┐
-│ Translation │ ──> │ LocalToWorld │ <── │ Rotation │
-└─────────────┘     └──────────────┘     └──────────┘
-
------- Child: ------
-
-                                 ┌────────────────────┐     ┌──────────────────────┐
-                                 │    LocalToWorld    │ <── │ LocalToWorld[Parent] │
-                                 └────────────────────┘     └──────────────────────┘
-                                   ∧
-                                   │
-                                   │
-┌──────────────────────────┐     ┌────────────────────┐     ┌──────────────────────┐
-│          Scale           │ ──> │                    │ <── │     Translation      │
-└──────────────────────────┘     │                    │     └──────────────────────┘
-                                 │                    │
-                                 │   LocalToParent    │ <─────────────────────────────┐
-                                 │                    │                               │
-                                 │                    │     ┌──────────────────────┐  │
-                                 │                    │     │ PostRotationEulerXYZ │  │
-                                 └────────────────────┘     └──────────────────────┘  │
-                                   ∧                          │                       │
-                                   │                          │                       │
-                                   │                          ∨                       │
-┌──────────────────────────┐     ┌────────────────────┐     ┌──────────────────────┐  │
-│ RotationPivotTranslation │ ──> │                    │ <── │     PostRotation     │  │
-└──────────────────────────┘     │ CompositeRotation  │     └──────────────────────┘  │
-┌──────────────────────────┐     │                    │     ┌──────────────────────┐  │
-│      RotationPivot       │ ──> │                    │     │   RotationEulerXYZ   │  │
-└──────────────────────────┘     └────────────────────┘     └──────────────────────┘  │
-                                   ∧                          │                       │
-                                   │                          │                       │
-                                   │                          ∨                       │
-                                   │                        ┌──────────────────────┐  │
-                                   └─────────────────────── │       Rotation       │  │
-                                                            └──────────────────────┘  │
-                                                                                      │
-                                   ┌──────────────────────────────────────────────────┘
-                                   │
-                                 ┌────────────────────┐     ┌──────────────────────┐
-                                 │ ParentScaleInverse │ <── │    Scale[Parent]     │
-                                 └────────────────────┘     └──────────────────────┘
-```
+![](images/sec5-5.png)
 
 It is a setup error to have more than one PostRotationEuler*** component is associated with the same Entity, however the result is defined. The first to be found in the order of precedence will be applied. That order is:
 
@@ -1068,19 +704,8 @@ e.g. If the following components are present...
 4. [TRSToLocalToParentSystem] Child:  Write LocalToParent <= Translation * CompositeRotation * Scale
 5. [LocalToParentSystem]      Child:  Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
 
-```
------- Parent: ------
+![](images/sec5-6.png)
 
-                    ┌──────────────┐
-                    │    Scale     │
-                    └──────────────┘
-                      │
-                      │
-                      ∨
-┌─────────────┐     ┌──────────────┐     ┌──────────┐
-│ Translation │ ──> │ LocalToWorld │ <── │ Rotation │
-└─────────────┘     └──────────────┘     └──────────┘
-```
 ...then the transform system will:
 
 1. [TRSToLocalToWorldSystem]  Parent: Write LocalToWorld as defined above in "Non-hierarchical Transforms (Basic)"
@@ -1091,56 +716,7 @@ e.g. If the following components are present...
 6. [TRSToLocalToParentSystem] Child:  Write LocalToParent <= Translation * CompositeRotation * Scale
 7. [LocalToParentSystem]      Child:  Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
 
-```
-                                      ┌───────────────────┐     ┌──────────────────────┐
-                                      │   LocalToWorld    │ <── │ LocalToWorld[Parent] │
-                                      └───────────────────┘     └──────────────────────┘
-                                        ∧
-                                        │
-                                        │
-                                      ┌───────────────────┐     ┌──────────────────────┐
-                                      │                   │ <── │     Translation      │
-                                      │                   │     └──────────────────────┘
-                                      │                   │
-                                      │   LocalToParent   │ <─────────────────────────────┐
-                                      │                   │                               │
-                                      │                   │     ┌──────────────────────┐  │
-  ┌─────────────────────────────────> │                   │     │ PostRotationEulerXYZ │  │
-  │                                   └───────────────────┘     └──────────────────────┘  │
-  │                                     ∧                         │                       │
-  │                                     │                         │                       │
-  │                                     │                         ∨                       │
-  │  ┌──────────────────────────┐     ┌───────────────────┐     ┌──────────────────────┐  │
-  │  │ RotationPivotTranslation │ ──> │                   │ <── │     PostRotation     │  │
-  │  └──────────────────────────┘     │ CompositeRotation │     └──────────────────────┘  │
-  │  ┌──────────────────────────┐     │                   │     ┌──────────────────────┐  │
-  │  │      RotationPivot       │ ──> │                   │     │   RotationEulerXYZ   │  │
-  │  └──────────────────────────┘     └───────────────────┘     └──────────────────────┘  │
-  │                                     ∧                         │                       │
-  │                                     │                         │                       │
-  │                                     │                         ∨                       │
-  │                                     │                       ┌──────────────────────┐  │
-  │                                     └────────────────────── │       Rotation       │  │
-  │                                                             └──────────────────────┘  │
-  │                                                                                       │
-  │                                     ┌─────────────────────────────────────────────────┘
-  │                                     │
-  │  ┌──────────────────────────┐     ┌───────────────────┐     ┌──────────────────────┐
-  │  │  ScalePivotTranslation   │ ──> │  CompositeScale   │ <── │        Scale         │
-  │  └──────────────────────────┘     └───────────────────┘     └──────────────────────┘
-  │                                     ∧
-  │                                     │
-  │                                     │
-  │                                   ┌───────────────────┐     ┌──────────────────────┐
-  │                                   │    ScalePivot     │     │    Scale[Parent]     │
-  │                                   └───────────────────┘     └──────────────────────┘
-  │                                                               │
-  │                                                               │
-  │                                                               ∨
-  │                                                             ┌──────────────────────┐
-  └──────────────────────────────────────────────────────────── │  ParentScaleInverse  │
-                                                                └──────────────────────┘
-```
+![](images/sec5-7.png)
 
 ---------------------------------------
 Section 6: Custom Transforms (Advanced)
@@ -1171,7 +747,7 @@ e.g.
     public class UserTransformSystem : JobComponentSystem
     {
         [BurstCompile]
-        struct UserTransform : IJobProcessComponentData<LocalToWorld, UserComponent>
+        struct UserTransform : IJobForEach<LocalToWorld, UserComponent>
         {
             public void Execute(ref LocalToWorld localToWorld, [ReadOnly] ref UserComponent userComponent)
             {
@@ -1221,7 +797,7 @@ And the equivalent system:
     public class UserTransformSystem2 : JobComponentSystem
     {
         [BurstCompile]
-        struct UserTransform2 : IJobProcessComponentData<LocalToWorld, UserComponent2>
+        struct UserTransform2 : IJobForEach<LocalToWorld, UserComponent2>
         {
             public void Execute(ref LocalToWorld localToWorld, [ReadOnly] ref UserComponent2 userComponent2)
             {
@@ -1269,23 +845,23 @@ And a system which filters based on the WriteGroup of LocalToWorld:
 
     public class UserTransformSystem : JobComponentSystem
     {
-        private ComponentGroup m_Group;
+        private EntityQuery m_Group;
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_Group = GetComponentGroup(new EntityArchetypeQuery()
+            m_Group = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
                 {
                     ComponentType.ReadWrite<LocalToWorld>(),
                     ComponentType.ReadOnly<UserComponent>(),
                 },
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryDescOptions.FilterWriteGroup
             });
         }
 
         [BurstCompile]
-        struct UserTransform : IJobProcessComponentData<LocalToWorld, UserComponent>
+        struct UserTransform : IJobForEach<LocalToWorld, UserComponent>
         {
             public void Execute(ref LocalToWorld localToWorld, [ReadOnly] ref UserComponent userComponent)
             {
@@ -1304,7 +880,7 @@ And a system which filters based on the WriteGroup of LocalToWorld:
 
 m_Group in UserTransformSystem will only match the explicitly mentioned components.
 
-For instance, the following with match and be included in the ComponentGroup:
+For instance, the following with match and be included in the EntityQuery:
 
 | (Entity)       |
 | -------------- |
@@ -1327,11 +903,11 @@ However, they may be explicitly supported by UserComponent systems by adding to 
 
     public class UserTransformExtensionSystem : JobComponentSystem
     {
-        private ComponentGroup m_Group;
+        private EntityQuery m_Group;
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_Group = GetComponentGroup(new EntityArchetypeQuery()
+            m_Group = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
                 {
@@ -1341,12 +917,12 @@ However, they may be explicitly supported by UserComponent systems by adding to 
                     ComponentType.ReadOnly<Rotation>(),
                     ComponentType.ReadOnly<Scale>(),
                 },
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryDescOptions.FilterWriteGroup
             });
         }
 
         [BurstCompile]
-        struct UserTransform : IJobProcessComponentData<LocalToWorld, UserComponent>
+        struct UserTransform : IJobForEach<LocalToWorld, UserComponent>
         {
             public void Execute(ref LocalToWorld localToWorld, [ReadOnly] ref UserComponent userComponent,
                 [ReadOnly] ref Translation translation,
@@ -1388,11 +964,11 @@ However, an explicit query can be created which can resolve the case and ensure 
 
     public class UserTransformComboSystem : JobComponentSystem
     {
-        private ComponentGroup m_Group;
+        private EntityQuery m_Group;
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_Group = GetComponentGroup(new EntityArchetypeQuery()
+            m_Group = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
                 {
@@ -1400,12 +976,12 @@ However, an explicit query can be created which can resolve the case and ensure 
                     ComponentType.ReadOnly<UserComponent>(),
                     ComponentType.ReadOnly<UserComponent2>(),
                 },
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryDescOptions.FilterWriteGroup
             });
         }
 
         [BurstCompile]
-        struct UserTransform : IJobProcessComponentData<LocalToWorld, UserComponent>
+        struct UserTransform : IJobForEach<LocalToWorld, UserComponent>
         {
             public void Execute(ref LocalToWorld localToWorld, 
                 [ReadOnly] ref UserComponent userComponent,

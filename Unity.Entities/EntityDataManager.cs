@@ -384,7 +384,7 @@ namespace Unity.Entities
             if (!Exists(entity))
                 throw new ArgumentException("The entity does not exist");
 
-            if (HasComponent(entity, componentType))
+            if (!componentType.IgnoreDuplicateAdd && HasComponent(entity, componentType))
                 throw new ArgumentException($"The component of type:{componentType} has already been added to the entity.");
             
             var chunk = GetComponentChunk(entity);
@@ -1003,6 +1003,7 @@ namespace Unity.Entities
             // zipper the two sorted arrays "type" and "componentTypeInArchetype" into "componentTypeInArchetype"
             // because this is done in-place, it must be done backwards so as not to disturb the existing contents.
 
+            var unusedIndices = 0;
             {
                 var oldThings = oldArchetype->TypesCount;
                 var newThings = types.Length;
@@ -1018,30 +1019,27 @@ namespace Unity.Entities
                     }
                     else
                     {
+                        if (oldThing.TypeIndex == newThing.TypeIndex && newThing.IgnoreDuplicateAdd)
+                            --oldThings;
+
                         var componentTypeInArchetype = new ComponentTypeInArchetype(newThing);
                         newTypes[--mixedThings] = componentTypeInArchetype;
                         --newThings;
                         indexOfNewTypeInNewArchetype[newThings] = mixedThings; // "this new thing ended up HERE"
                     }
                 }
-                while (newThings > 0) // if smallest new things < smallest old things, copy them here
-                {
-                    var newThing = types.GetComponentType(newThings - 1);
-                    var componentTypeInArchetype = new ComponentTypeInArchetype(newThing);
-                    newTypes[--mixedThings] = componentTypeInArchetype;
-                    --newThings;
-                    indexOfNewTypeInNewArchetype[newThings] = mixedThings; // "this new thing ended up HERE"
-                }
+
+                Assert.AreEqual(0, newThings); // must not be any new things to copy remaining, oldThings contain entity
+
                 while (oldThings > 0) // if there are remaining old things, copy them here
                 {
                     newTypes[--mixedThings] = oldTypes[--oldThings];
                 }
 
-                Assert.AreEqual(newThings, 0); // must not be any new things to copy remaining
-                Assert.AreEqual(oldThings, mixedThings); // all things we didn't copy must be old
+                unusedIndices = mixedThings; // In case we ignored duplicated types, this will be > 0
             }
 
-            var newArchetype = archetypeManager.GetOrCreateArchetype(newTypes, newTypesCount, groupManager);
+            var newArchetype = archetypeManager.GetOrCreateArchetype(newTypes + unusedIndices, newTypesCount, groupManager);
 
             var sharedComponentValues = GetComponentChunk(entity)->SharedComponentValues;
             if (types.m_masks.m_SharedComponentMask != 0)
@@ -1065,6 +1063,12 @@ namespace Unity.Entities
 
             int indexInTypeArray=0;
             var newType = archetypeManager.GetArchetypeWithAddedComponentType(archetype, type, groupManager, &indexInTypeArray);
+
+            if (newType == null)
+            {
+                // This can happen if we are adding a tag component to an entity that already has it.
+                return;
+            }
 
             var sharedComponentValues = GetComponentChunk(entity)->SharedComponentValues;
             if (type.IsSharedComponent)

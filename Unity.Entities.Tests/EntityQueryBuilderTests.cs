@@ -11,7 +11,7 @@ namespace Unity.Entities.Tests
         protected class TestComponentSystem : ComponentSystem
             { protected override void OnUpdate() { } }
 
-        protected static TestComponentSystem TestSystem => World.Active.GetOrCreateManager<TestComponentSystem>();
+        protected static TestComponentSystem TestSystem => World.Active.GetOrCreateSystem<TestComponentSystem>();
     }
 
     class EntityQueryBuilderTests : EntityQueryBuilderTestFixture
@@ -20,7 +20,7 @@ namespace Unity.Entities.Tests
         class TestComponentSystem2 : ComponentSystem
             { protected override void OnUpdate() { } }
 
-        static TestComponentSystem2 TestSystem2 => World.Active.GetOrCreateManager<TestComponentSystem2>();
+        static TestComponentSystem2 TestSystem2 => World.Active.GetOrCreateSystem<TestComponentSystem2>();
 
         [Test]
         public void WithGroup_WithNullGroup_Throws() =>
@@ -29,8 +29,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void WithGroup_WithExistingGroup_Throws()
         {
-            var group0 = TestSystem.GetComponentGroup(ComponentType.ReadWrite<EcsTestData>());
-            var group1 = TestSystem.GetComponentGroup(ComponentType.ReadOnly<EcsTestData>());
+            var group0 = TestSystem.GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
+            var group1 = TestSystem.GetEntityQuery(ComponentType.ReadOnly<EcsTestData>());
 
             var query = TestSystem.Entities.With(group0);
 
@@ -40,7 +40,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void WithGroup_WithExistingSpec_Throws()
         {
-            var group = TestSystem.GetComponentGroup(ComponentType.ReadWrite<EcsTestData>());
+            var group = TestSystem.GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
 
             Assert.Throws<InvalidOperationException>(() => TestSystem.Entities.WithAny<EcsTestData>().With(group));
             Assert.Throws<InvalidOperationException>(() => TestSystem.Entities.WithNone<EcsTestData>().With(group));
@@ -50,7 +50,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void WithSpec_WithExistingGroup_Throws()
         {
-            var group = TestSystem.GetComponentGroup(ComponentType.ReadWrite<EcsTestData>());
+            var group = TestSystem.GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
 
             Assert.Throws<InvalidOperationException>(() => TestSystem.Entities.With(group).WithAny<EcsTestData>());
             Assert.Throws<InvalidOperationException>(() => TestSystem.Entities.With(group).WithNone<EcsTestData>());
@@ -91,8 +91,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void Equals_WithDifferentGroups_ReturnsFalse()
         {
-            var group0 = TestSystem.GetComponentGroup(ComponentType.ReadWrite<EcsTestData>());
-            var group1 = TestSystem.GetComponentGroup(ComponentType.ReadOnly<EcsTestData>());
+            var group0 = TestSystem.GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
+            var group1 = TestSystem.GetEntityQuery(ComponentType.ReadOnly<EcsTestData>());
 
             var builder0 = TestSystem.Entities.With(group0);
             var builder1 = TestSystem.Entities.With(group1);
@@ -145,7 +145,7 @@ namespace Unity.Entities.Tests
             }
 
             {
-                var group = TestSystem.GetComponentGroup(ComponentType.ReadWrite<EcsTestData>());
+                var group = TestSystem.GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
                 var builder0 = TestSystem.Entities.With(group);
                 var builder1 = TestSystem.Entities;
                 Assert.IsFalse(builder0.ShallowEquals(ref builder1));
@@ -159,7 +159,7 @@ namespace Unity.Entities.Tests
                 .WithAll<EcsTestTag>()
                 .WithAny<EcsTestData, EcsTestData2>()
                 .WithNone<EcsTestData3, EcsTestData4, EcsTestData5>()
-                .ToEntityArchetypeQuery();
+                .ToEntityQueryDesc();
 
             CollectionAssert.AreEqual(
                 new[] { ComponentType.ReadWrite<EcsTestTag>() },
@@ -177,7 +177,7 @@ namespace Unity.Entities.Tests
         {
             // this will cause the group to get cached in the query
             var query = TestSystem.Entities.WithAll<EcsTestTag>();
-            query.ToComponentGroup();
+            query.ToEntityQuery();
 
             // this will throw because we're trying to modify the spec, yet we already have a group cached
             Assert.Throws<InvalidOperationException>(() => query.WithNone<EcsTestData>());
@@ -203,7 +203,7 @@ namespace Unity.Entities.Tests
 
             Assert.IsTrue(oldQuery.ShallowEquals(ref query));
 
-            var eaq = query.ToEntityArchetypeQuery();
+            var eaq = query.ToEntityQueryDesc();
             CollectionAssert.AreEqual(
                 new[] { ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>() },
                 eaq.All);

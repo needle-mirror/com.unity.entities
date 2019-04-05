@@ -25,7 +25,7 @@ namespace Unity.Entities.Tests
         public void IJobChunkProcess()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
-            var group = m_Manager.CreateComponentGroup(new EntityArchetypeQuery
+            var group = m_Manager.CreateEntityQuery(new EntityQueryDesc
             {
                 Any = Array.Empty<ComponentType>(),
                 None = Array.Empty<ComponentType>(),
@@ -47,7 +47,7 @@ namespace Unity.Entities.Tests
         public void IJobChunkProcessFiltered()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
 
             var entity1 = m_Manager.CreateEntity(archetype);
             var entity2 = m_Manager.CreateEntity(archetype);
@@ -76,7 +76,7 @@ namespace Unity.Entities.Tests
         public void IJobChunkWithEntityOffsetCopy()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestData2));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
 
             var entities = new NativeArray<Entity>(50000, Allocator.Temp);
             m_Manager.CreateEntity(archetype, entities);
@@ -127,7 +127,7 @@ namespace Unity.Entities.Tests
         public void IJobChunkProcessChunkIndex()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
 
             var entity1 = m_Manager.CreateEntity(archetype);
             var entity2 = m_Manager.CreateEntity(archetype);
@@ -160,7 +160,7 @@ namespace Unity.Entities.Tests
         public void IJobChunkProcessEntityOffset()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
 
             var entity1 = m_Manager.CreateEntity(archetype);
             var entity2 = m_Manager.CreateEntity(archetype);
@@ -203,7 +203,7 @@ namespace Unity.Entities.Tests
 
             var entityC = m_Manager.CreateEntity(archetypeC);
 
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             m_Manager.SetComponentData<EcsTestData>(entity1A, new EcsTestData { value = -1 });
             m_Manager.SetComponentData<EcsTestData>(entity2A, new EcsTestData { value = -1 });
@@ -222,5 +222,75 @@ namespace Unity.Entities.Tests
 
             group.Dispose();
         }
+
+        #if !UNITY_ZEROPLAYER
+        struct ProcessChunkWriteIndex : IJobChunk
+        {
+            public ArchetypeChunkComponentType<EcsTestData> ecsTestType;
+
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
+            {
+                var testDataArray = chunk.GetNativeArray(ecsTestType);
+                for (int i = 0; i < chunk.Count; ++i)
+                {
+                    testDataArray[i] = new EcsTestData
+                    {
+                        value = entityOffset + i
+                    };
+                }
+            }
+        }
+
+        struct ForEachComponentData : IJobForEachWithEntity<EcsTestData>
+        {
+            public void Execute(Entity entity, int index, ref EcsTestData c0)
+            {
+                c0 = new EcsTestData { value = index };
+            }
+        }
+
+        [Test]
+        public void FilteredIJobChunkProcessesSameChunksAsFilteredJobForEach()
+        {
+            var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
+
+            var entitiesA = new NativeArray<Entity>(5000, Allocator.Temp);
+            m_Manager.CreateEntity(archetypeA, entitiesA);
+
+            var entitiesB = new NativeArray<Entity>(5000, Allocator.Temp);
+            m_Manager.CreateEntity(archetypeA, entitiesB);
+
+            for (int i = 0; i < 5000; ++i)
+            {
+                m_Manager.SetSharedComponentData(entitiesA[i], new EcsTestSharedComp { value = i % 8 });
+                m_Manager.SetSharedComponentData(entitiesB[i], new EcsTestSharedComp { value = i % 8 });
+            }
+
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            group.SetFilter(new EcsTestSharedComp { value = 1 });
+
+            var jobChunk = new ProcessChunkWriteIndex
+            {
+                ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
+            };
+            jobChunk.Schedule(group).Complete();
+
+            var componentArrayA = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+
+            var jobProcess = new ForEachComponentData
+            {};
+            jobProcess.Schedule(group).Complete();
+
+            var componentArrayB = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+
+            CollectionAssert.AreEqual(componentArrayA.ToArray(), componentArrayB.ToArray());
+
+            componentArrayA.Dispose();
+            componentArrayB.Dispose();
+            group.Dispose();
+        }
+#endif
     }
 }

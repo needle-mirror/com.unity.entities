@@ -41,7 +41,7 @@
     - name: Accessing Entity Data
       href: chunk_iteration.md
       items:
-          - name: Using IJobProcessComponentData
+          - name: Using IJobForEach
             href: entity_iteration_job.md
           - name: Using IJobChunk
             href: chunk_iteration_job.md

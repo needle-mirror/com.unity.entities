@@ -24,7 +24,7 @@ namespace Unity.Transforms
     // (or) LocalToWorld = Translation * CompositeRotation * CompositeScale
     public abstract class TRSToLocalToWorldSystem : JobComponentSystem
     {
-        private ComponentGroup m_Group;
+        private EntityQuery m_Group;
         
         [BurstCompile]
         struct TRSToLocalToWorld : IJobChunk
@@ -223,9 +223,9 @@ namespace Unity.Transforms
             }
         }
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_Group = GetComponentGroup(new EntityArchetypeQuery()
+            m_Group = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
                 {
@@ -239,7 +239,7 @@ namespace Unity.Transforms
                     ComponentType.ReadOnly<CompositeRotation>(), 
                     ComponentType.ReadOnly<Translation>()
                 },
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryOptions.FilterWriteGroup
             });
         }
 

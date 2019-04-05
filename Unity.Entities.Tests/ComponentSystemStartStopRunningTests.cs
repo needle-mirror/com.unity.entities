@@ -10,7 +10,7 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         class TestSystem : ComponentSystem
         {
-            public ComponentGroup m_TestGroup;
+            public EntityQuery m_TestGroup;
 
             public const string OnStartRunningString =
                 nameof(TestSystem) + ".OnStartRunning()";
@@ -45,9 +45,9 @@ namespace Unity.Entities.Tests
                 base.OnStopRunning();
             }
 
-            protected override void OnCreateManager()
+            protected override void OnCreate()
             {
-                m_TestGroup = GetComponentGroup(ComponentType.ReadWrite<EcsTestData>());
+                m_TestGroup = GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
             }
         }
 
@@ -71,7 +71,7 @@ namespace Unity.Entities.Tests
         public override void Setup()
         {
             base.Setup();
-            system = World.Active.GetOrCreateManager<TestSystem>();
+            system = World.Active.GetOrCreateSystem<TestSystem>();
             ShouldRunSystem(true);
         }
 
@@ -84,7 +84,7 @@ namespace Unity.Entities.Tests
             }
             if (system != null)
             {
-                World.Active.DestroyManager(system);
+                World.Active.DestroySystem(system);
                 system = null;
             }
 
@@ -282,7 +282,7 @@ namespace Unity.Entities.Tests
             system.Update();
 
             LogAssert.Expect(LogType.Log, TestSystem.OnStopRunningString);
-            World.Active.DestroyManager(system);
+            World.Active.DestroySystem(system);
             system = null;
 
             LogAssert.NoUnexpectedReceived();
@@ -294,7 +294,7 @@ namespace Unity.Entities.Tests
             system.Enabled = false;
             system.Update();
 
-            World.Active.DestroyManager(system);
+            World.Active.DestroySystem(system);
             system = null;
 
             LogAssert.NoUnexpectedReceived();

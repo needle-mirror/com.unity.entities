@@ -121,7 +121,7 @@ namespace Unity.Entities.Tests
             var reader = new TestBinaryReader(writer);
 
             var deserializedWorld = new World("SerializeEntities Test World 3");
-            var entityManager = deserializedWorld.GetOrCreateManager<EntityManager>();
+            var entityManager = deserializedWorld.EntityManager;
 
             SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, 0);
             entityManager.EndExclusiveEntityTransaction();
@@ -134,20 +134,20 @@ namespace Unity.Entities.Tests
 
                 Assert.AreEqual(4, count);
 
-                var group1 = entityManager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestData2),
+                var group1 = entityManager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2),
                     typeof(TestComponentData1));
-                var group2 = entityManager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestData2),
+                var group2 = entityManager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2),
                     typeof(TestComponentData2));
-                var group3 = entityManager.CreateComponentGroup(typeof(EcsTestData),
+                var group3 = entityManager.CreateEntityQuery(typeof(EcsTestData),
                     typeof(TestComponentData1), typeof(TestComponentData2));
-                var group4 = entityManager.CreateComponentGroup(typeof(EcsComplexEntityRefElement));
+                var group4 = entityManager.CreateEntityQuery(typeof(EcsComplexEntityRefElement));
 
                 Assert.AreEqual(1, group1.CalculateLength());
                 Assert.AreEqual(1, group2.CalculateLength());
                 Assert.AreEqual(1, group3.CalculateLength());
                 Assert.AreEqual(1, group4.CalculateLength());
 
-                var everythingGroup = entityManager.CreateComponentGroup(Array.Empty<ComponentType>());
+                var everythingGroup = entityManager.CreateEntityQuery(Array.Empty<ComponentType>());
                 var chunks = everythingGroup.CreateArchetypeChunkArray(Allocator.TempJob);
                 Assert.AreEqual(4, chunks.Length);
                 everythingGroup.Dispose();
@@ -249,7 +249,7 @@ namespace Unity.Entities.Tests
             var reader = new TestBinaryReader(writer);
 
             var deserializedWorld = new World("SerializeEntitiesSupportsNonASCIIComponentTypeNames Test World");
-            var entityManager = deserializedWorld.GetOrCreateManager<EntityManager>();
+            var entityManager = deserializedWorld.EntityManager;
 
             SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, 0);
             entityManager.EndExclusiveEntityTransaction();
@@ -262,7 +262,7 @@ namespace Unity.Entities.Tests
 
                 Assert.AreEqual(1, count);
 
-                var group1 = entityManager.CreateComponentGroup(typeof(测试));
+                var group1 = entityManager.CreateEntityQuery(typeof(测试));
 
                 Assert.AreEqual(1, group1.CalculateLength());
 
@@ -308,7 +308,7 @@ namespace Unity.Entities.Tests
             var reader = new TestBinaryReader(writer);
 
             var deserializedWorld = new World("SerializeEntities Test World 3");
-            var entityManager = deserializedWorld.GetOrCreateManager<EntityManager>();
+            var entityManager = deserializedWorld.EntityManager;
 
             SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, 0);
             entityManager.EndExclusiveEntityTransaction();
@@ -316,8 +316,8 @@ namespace Unity.Entities.Tests
             try
             {
 
-                var group1 = entityManager.CreateComponentGroup(typeof(EcsTestData), typeof(TestBufferElement));
-                var group2 = entityManager.CreateComponentGroup(typeof(EcsTestData2), typeof(TestBufferElement));
+                var group1 = entityManager.CreateEntityQuery(typeof(EcsTestData), typeof(TestBufferElement));
+                var group2 = entityManager.CreateEntityQuery(typeof(EcsTestData2), typeof(TestBufferElement));
 
                 Assert.AreEqual(1, group1.CalculateLength());
                 Assert.AreEqual(1, group2.CalculateLength());
@@ -376,15 +376,15 @@ namespace Unity.Entities.Tests
             var reader = new TestBinaryReader(writer);
 
             var deserializedWorld = new World("SerializeEntities Test World 3");
-            var entityManager = deserializedWorld.GetOrCreateManager<EntityManager>();
+            var entityManager = deserializedWorld.EntityManager;
 
             SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, 0);
             entityManager.EndExclusiveEntityTransaction();
 
             try
             {
-                var group1 = entityManager.CreateComponentGroup(typeof(EcsTestData));
-                var group2 = entityManager.CreateComponentGroup(typeof(EcsTestData2));
+                var group1 = entityManager.CreateEntityQuery(typeof(EcsTestData));
+                var group2 = entityManager.CreateEntityQuery(typeof(EcsTestData2));
 
                 Assert.AreEqual(1, group1.CalculateLength());
                 Assert.AreEqual(1, group2.CalculateLength());
@@ -468,7 +468,7 @@ namespace Unity.Entities.Tests
             {
                 object value = manager.m_SharedComponentManager.GetSharedComponentDataNonDefaultBoxed(indices[i]);
                 int typeIndex = TypeManager.GetTypeIndex(value.GetType());
-                int hash = SharedComponentDataManager.GetHashCodeFast(value, typeIndex);
+                int hash = TypeManager.GetHashCode(value, typeIndex);
                 values[i] = new ExternalSharedComponentValue {obj = value, hashcode = hash, typeIndex = typeIndex};
             }
             return values;
@@ -536,7 +536,7 @@ namespace Unity.Entities.Tests
 
             var sharedComponents = ExtractSharedComponentValues(sharedData, m_Manager);
 
-            m_Manager.DestroyEntity(m_Manager.UniversalGroup);
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
 
             arrayComponent.array.Release();
             for(int i=0; i<intComponents.Length; ++i)
@@ -545,7 +545,7 @@ namespace Unity.Entities.Tests
             var reader = new TestBinaryReader(writer);
 
             var deserializedWorld = new World("SerializeEntities Test World 3");
-            var entityManager = deserializedWorld.GetOrCreateManager<EntityManager>();
+            var entityManager = deserializedWorld.EntityManager;
 
             InsertSharedComponentValues(sharedComponents, entityManager);
 
@@ -558,8 +558,8 @@ namespace Unity.Entities.Tests
 
             try
             {
-                var group1 = entityManager.CreateComponentGroup(typeof(EcsTestDataBlobAssetArray));
-                var group2 = entityManager.CreateComponentGroup(typeof(EcsTestDataBlobAssetRef));
+                var group1 = entityManager.CreateEntityQuery(typeof(EcsTestDataBlobAssetArray));
+                var group2 = entityManager.CreateEntityQuery(typeof(EcsTestDataBlobAssetRef));
 
                 var entities1 = group1.ToEntityArray(Allocator.TempJob);
                 Assert.AreEqual(entityCount, entities1.Length);
@@ -598,7 +598,7 @@ namespace Unity.Entities.Tests
             TestBinaryReader CreateSerializedData()
             {
                 var world = new World("DeserializedChunksAreConsideredChangedOnlyOnce World");
-                var manager = world.GetOrCreateManager<EntityManager>();
+                var manager = world.EntityManager;
                 var entity = manager.CreateEntity();
                 manager.AddComponentData(entity, new EcsTestData(42));
                 var writer = new TestBinaryWriter();
@@ -610,8 +610,8 @@ namespace Unity.Entities.Tests
             var reader = CreateSerializedData();
 
             var deserializedWorld = new World("DeserializedChunksAreConsideredChangedOnlyOnce World 2");
-            var deserializedManager = deserializedWorld.GetOrCreateManager<EntityManager>();
-            var system = deserializedWorld.GetOrCreateManager<TestEcsChangeSystem>();
+            var deserializedManager = deserializedWorld.EntityManager;
+            var system = deserializedWorld.GetOrCreateSystem<TestEcsChangeSystem>();
 
             system.Update();
             Assert.AreEqual(0, system.NumChanged);

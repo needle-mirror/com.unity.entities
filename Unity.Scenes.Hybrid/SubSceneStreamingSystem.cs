@@ -45,54 +45,54 @@ namespace Unity.Scenes
         int MaximumMoveEntitiesFromPerFrame = 1;
         
         Stream[] m_Streams = new Stream[LoadScenesPerFrame];
-        ComponentGroup m_PendingStreamRequests;
-        ComponentGroup m_UnloadStreamRequests;
-        ComponentGroup m_SceneFilter;
-        ComponentGroup m_PublicRefFilter;
-        ComponentGroup m_SectionData;
+        EntityQuery m_PendingStreamRequests;
+        EntityQuery m_UnloadStreamRequests;
+        EntityQuery m_SceneFilter;
+        EntityQuery m_PublicRefFilter;
+        EntityQuery m_SectionData;
 
         ProfilerMarker m_MoveEntitiesFrom = new ProfilerMarker("SceneStreaming.MoveEntitiesFrom");
         ProfilerMarker m_ExtractEntityRemapRefs = new ProfilerMarker("SceneStreaming.ExtractEntityRemapRefs");
         ProfilerMarker m_AddSceneSharedComponents = new ProfilerMarker("SceneStreaming.AddSceneSharedComponents");
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
             for (int i = 0; i < LoadScenesPerFrame; ++i)
                 CreateStreamWorld(i);
             
-            m_PendingStreamRequests = GetComponentGroup(new EntityArchetypeQuery()
+            m_PendingStreamRequests = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new[] {ComponentType.ReadWrite<RequestSceneLoaded>(), ComponentType.ReadWrite<SceneData>()},
                 None = new[] {ComponentType.ReadWrite<StreamingState>(), ComponentType.ReadWrite<IgnoreTag>() }
             });
 
-            m_UnloadStreamRequests = GetComponentGroup(new EntityArchetypeQuery()
+            m_UnloadStreamRequests = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new[] {ComponentType.ReadWrite<StreamingState>()},
                 None = new[] {ComponentType.ReadWrite<RequestSceneLoaded>(), ComponentType.ReadWrite<IgnoreTag>()}
             });
 
-            m_PublicRefFilter = GetComponentGroup
+            m_PublicRefFilter = GetEntityQuery
             (
                 ComponentType.ReadWrite<SceneTag>(),
                 ComponentType.ReadWrite<PublicEntityRef>()
             );
 
-            m_SectionData = GetComponentGroup
+            m_SectionData = GetEntityQuery
             (
                 ComponentType.ReadWrite<SceneData>()
             );
 
-            m_SceneFilter = GetComponentGroup(
-                new EntityArchetypeQuery
+            m_SceneFilter = GetEntityQuery(
+                new EntityQueryDesc
                 {
                     All = new [] {ComponentType.ReadWrite<SceneTag>() },
-                    Options = EntityArchetypeQueryOptions.IncludeDisabled | EntityArchetypeQueryOptions.IncludePrefab
+                    Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
                 }
             );
         }
 
-        protected override void OnDestroyManager()
+        protected override void OnDestroy()
         {
             for (int i = 0; i != m_Streams.Length; i++)
             {
@@ -100,7 +100,7 @@ namespace Unity.Scenes
                 DestroyStreamWorld(i);
             }
         }
-        
+
         void DestroyStreamWorld(int index)
         {
             m_Streams[index].World.Dispose();
@@ -111,12 +111,11 @@ namespace Unity.Scenes
         void CreateStreamWorld(int index)
         {
             m_Streams[index].World = new World("LoadingWorld" + index);
-            m_Streams[index].World.CreateManager<EntityManager>();
         }
 
         static NativeArray<Entity> GetExternalRefEntities(EntityManager manager, Allocator allocator)
         {
-            using (var group = manager.CreateComponentGroup(typeof(ExternalEntityRefInfo)))
+            using (var group = manager.CreateEntityQuery(typeof(ExternalEntityRefInfo)))
             {
                 return group.ToEntityArray(allocator);
             }
@@ -125,7 +124,7 @@ namespace Unity.Scenes
         //@TODO There must be a more efficient way
         static Entity GetPublicRefEntity(EntityManager manager, Entities.Hash128 guid)
         {
-            using (var sceneDataGrp = manager.CreateComponentGroup(typeof(SceneData)))
+            using (var sceneDataGrp = manager.CreateEntityQuery(typeof(SceneData)))
             {
                 using (var sceneEntities = sceneDataGrp.ToEntityArray(Allocator.TempJob))
                 {
@@ -134,7 +133,7 @@ namespace Unity.Scenes
                         var scenedata = manager.GetComponentData<SceneData>(sceneEntity);
                         if (scenedata.SceneGUID == guid && scenedata.SubSectionIndex == 0)
                         {
-                            using(var group = manager.CreateComponentGroup(typeof(SceneTag), typeof(PublicEntityRef)))
+                            using(var group = manager.CreateEntityQuery(typeof(SceneTag), typeof(PublicEntityRef)))
                             {
                                 group.SetFilter(new SceneTag {SceneEntity = sceneEntity});
                                 using (var entities = group.ToEntityArray(Allocator.TempJob))
@@ -196,10 +195,10 @@ namespace Unity.Scenes
                     SceneCullingMask = UnityEditor.SceneManagement.EditorSceneManager.DefaultSceneCullingMask | (1UL << 59),
                     PickableObject = EntityManager.HasComponent<SubScene>(sceneEntity) ? EntityManager.GetComponentObject<SubScene>(sceneEntity).gameObject : null
                 };
-                srcManager.AddSharedComponentData(srcManager.UniversalGroup, data);
+                srcManager.AddSharedComponentData(srcManager.UniversalQuery, data);
 #endif
             
-                srcManager.AddSharedComponentData(srcManager.UniversalGroup, new SceneTag { SceneEntity = sceneEntity});
+                srcManager.AddSharedComponentData(srcManager.UniversalQuery, new SceneTag { SceneEntity = sceneEntity});
             }
 
 
@@ -289,8 +288,8 @@ namespace Unity.Scenes
             {
                 var operation = m_Streams[i].Operation;
                 var streamingWorld = m_Streams[i].World;
-                var streamingManager = streamingWorld.GetOrCreateManager<EntityManager>();
-                
+                var streamingManager = streamingWorld.EntityManager;
+
                 if (operation != null)
                 {
                     operation.Update();
@@ -328,7 +327,7 @@ namespace Unity.Scenes
 
                                 EntityManager.RemoveComponent<StreamingState>(m_Streams[i].SceneEntity);
 
-                                streamingManager.DestroyEntity(streamingManager.UniversalGroup);
+                                streamingManager.DestroyEntity(streamingManager.UniversalQuery);
                                 streamingManager.PrepareForDeserialize();
                                 moveEntitiesFromProcessed++;
                             }
@@ -408,17 +407,17 @@ namespace Unity.Scenes
         public void UnloadSceneImmediate(Entity scene)
         {
             if (EntityManager.HasComponent<StreamingState>(scene))
-            {                          
+            {
                 m_SceneFilter.SetFilter(new SceneTag {SceneEntity = scene });
-                                
+
                 EntityManager.DestroyEntity(m_SceneFilter);
-                
+
                 m_SceneFilter.ResetFilter();
-            
+
                 EntityManager.RemoveComponent<StreamingState>(scene);
             }
         }
-        
+
         int CreateAsyncLoadScene(Entity entity)
         {
             for (int i = 0; i != m_Streams.Length; i++)
@@ -427,10 +426,10 @@ namespace Unity.Scenes
                     continue;
 
                 var sceneData = EntityManager.GetComponentData<SceneData>(entity);
-                
+
                 var entitiesBinaryPath = EntityScenesPaths.GetLoadPath(sceneData.SceneGUID, EntityScenesPaths.PathType.EntitiesBinary, sceneData.SubSectionIndex);
                 var resourcesPath = EntityScenesPaths.GetLoadPath(sceneData.SceneGUID, EntityScenesPaths.PathType.EntitiesSharedComponents, sceneData.SubSectionIndex);
-                var entityManager = m_Streams[i].World.GetOrCreateManager<EntityManager>(); 
+                var entityManager = m_Streams[i].World.EntityManager;
 
                 m_Streams[i].Operation = new AsyncLoadSceneOperation(entitiesBinaryPath, sceneData.FileSize, sceneData.SharedComponentCount, resourcesPath, entityManager);
                 m_Streams[i].SceneEntity = entity;

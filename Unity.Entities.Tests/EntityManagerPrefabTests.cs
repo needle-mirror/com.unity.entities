@@ -70,7 +70,7 @@ namespace Unity.Entities.Tests
             CheckLinkedGroup(clone, srcLinked, external);
             
             // Make sure that instantiated objects are found by component group (They are no longer prefabs)
-            Assert.AreEqual(4, m_Manager.CreateComponentGroup(typeof(EcsTestDataEntity)).CalculateLength());
+            Assert.AreEqual(4, m_Manager.CreateEntityQuery(typeof(EcsTestDataEntity)).CalculateLength());
             
             srcLinked.Dispose();
         }
@@ -91,7 +91,7 @@ namespace Unity.Entities.Tests
             }
 
             // Make sure that instantiated objects are found by component group (They are no longer prefabs)
-            Assert.AreEqual(3 * 4 * count, m_Manager.CreateComponentGroup(typeof(EcsTestDataEntity)).CalculateLength());
+            Assert.AreEqual(3 * 4 * count, m_Manager.CreateEntityQuery(typeof(EcsTestDataEntity)).CalculateLength());
             
             clones.Dispose();
             srcLinked.Dispose();

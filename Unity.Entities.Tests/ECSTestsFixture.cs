@@ -1,3 +1,4 @@
+using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
@@ -6,25 +7,25 @@ namespace Unity.Entities.Tests
 {
     [DisableAutoCreation]
 
-#if UNITY_CSHARP_TINY
+#if NET_DOTS
     public class EmptySystem : ComponentSystem
     {
         protected override void OnUpdate()
         {
 
         }
-        public new ComponentGroup GetComponentGroup(params EntityArchetypeQuery[] queries)
+        public new EntityQuery GetEntityQuery(params EntityQueryDesc[] queriesDesc)
         {
-            return base.GetComponentGroup(queries);
+            return base.GetEntityQuery(queriesDesc);
         }
 
-        public new ComponentGroup GetComponentGroup(params ComponentType[] componentTypes)
+        public new EntityQuery GetEntityQuery(params ComponentType[] componentTypes)
         {
-            return base.GetComponentGroup(componentTypes);
+            return base.GetEntityQuery(componentTypes);
         }
-        public new ComponentGroup GetComponentGroup(NativeArray<ComponentType> componentTypes)
+        public new EntityQuery GetEntityQuery(NativeArray<ComponentType> componentTypes)
         {
-            return base.GetComponentGroup(componentTypes);
+            return base.GetEntityQuery(componentTypes);
         }
         public BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : struct, IBufferElementData
         {
@@ -38,27 +39,19 @@ namespace Unity.Entities.Tests
         protected override JobHandle OnUpdate(JobHandle dep) { return dep; }
 
 
-        new public ComponentGroup GetComponentGroup(params EntityArchetypeQuery[] queries)
+        new public EntityQuery GetEntityQuery(params EntityQueryDesc[] queriesDesc)
         {
-            return base.GetComponentGroup(queries);
+            return base.GetEntityQuery(queriesDesc);
         }
 
-        new public ComponentGroup GetComponentGroup(params ComponentType[] componentTypes)
+        new public EntityQuery GetEntityQuery(params ComponentType[] componentTypes)
         {
-            return base.GetComponentGroup(componentTypes);
+            return base.GetEntityQuery(componentTypes);
         }
-        new public ComponentGroup GetComponentGroup(NativeArray<ComponentType> componentTypes)
+        new public EntityQuery GetEntityQuery(NativeArray<ComponentType> componentTypes)
         {
-            return base.GetComponentGroup(componentTypes);
+            return base.GetEntityQuery(componentTypes);
         }
-#if !UNITY_ZEROPLAYER
-        #pragma warning disable 618
-        new public ComponentGroupArray<T> GetEntities<T>() where T : struct
-        {
-            return base.GetEntities<T>();
-        }
-        #pragma warning restore 618
-#endif
     }
 #endif
     public class ECSTestsFixture
@@ -80,7 +73,7 @@ namespace Unity.Entities.Tests
             World = DefaultTinyWorldInitialization.Initialize("Test World");
 #endif
 
-            m_Manager = World.GetOrCreateManager<EntityManager>();
+            m_Manager = World.EntityManager;
             m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
 
 #if !UNITY_ZEROPLAYER
@@ -100,11 +93,9 @@ namespace Unity.Entities.Tests
             {
                 // Clean up systems before calling CheckInternalConsistency because we might have filters etc
                 // holding on SharedComponentData making checks fail
-                var system = World.GetExistingManager<ComponentSystemBase>();
-                while (system != null)
+                while (World.Systems.Any())
                 {
-                    World.DestroyManager(system);
-                    system = World.GetExistingManager<ComponentSystemBase>();
+                    World.DestroySystem(World.Systems.First());
                 }
 
                 m_ManagerDebug.CheckInternalConsistency();
@@ -166,7 +157,7 @@ namespace Unity.Entities.Tests
         {
             get
             {
-                return World.Active.GetOrCreateManager<EmptySystem>();
+                return World.Active.GetOrCreateSystem<EmptySystem>();
             }
         }
     }

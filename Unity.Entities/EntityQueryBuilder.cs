@@ -11,7 +11,7 @@ namespace Unity.Entities
 
         ComponentSystem m_System;
         ResizableArray64Byte<int> m_Any, m_None, m_All;
-        ComponentGroup m_Group;
+        EntityQuery m_Query;
 
         internal EntityQueryBuilder(ComponentSystem system)
         {
@@ -19,7 +19,7 @@ namespace Unity.Entities
             m_Any    = new ResizableArray64Byte<int>();
             m_None   = new ResizableArray64Byte<int>();
             m_All    = new ResizableArray64Byte<int>();
-            m_Group  = null;
+            m_Query  = null;
         }
 
         // this is a specialized function intended only for validation that builders are hashing and getting cached
@@ -36,7 +36,7 @@ namespace Unity.Entities
                 m_Any .Equals(ref other.m_Any)  &&
                 m_None.Equals(ref other.m_None) &&
                 m_All .Equals(ref other.m_All)  &&
-                ReferenceEquals(m_Group, other.m_Group);
+                ReferenceEquals(m_Query, other.m_Query);
         }
 
         public override int GetHashCode() =>
@@ -45,7 +45,7 @@ namespace Unity.Entities
             throw new InvalidOperationException("Calling this function is a sign of inadvertent boxing");
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        void ValidateHasNoGroup() => ThrowIfInvalidMixing(m_Group != null);
+        void ValidateHasNoQuery() => ThrowIfInvalidMixing(m_Query != null);
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         void ValidateHasNoSpec() => ThrowIfInvalidMixing(m_Any.Length != 0 || m_None.Length != 0 || m_All.Length != 0);
@@ -54,24 +54,24 @@ namespace Unity.Entities
         void ThrowIfInvalidMixing(bool throwIfTrue)
         {
             if (throwIfTrue)
-                throw new InvalidOperationException($"Cannot mix {nameof(WithAny)}/{nameof(WithNone)}/{nameof(WithAll)} and {nameof(With)}({nameof(ComponentGroup)})");
+                throw new InvalidOperationException($"Cannot mix {nameof(WithAny)}/{nameof(WithNone)}/{nameof(WithAll)} and {nameof(With)}({nameof(EntityQuery)})");
         }
 
-        public EntityQueryBuilder With(ComponentGroup componentGroup)
+        public EntityQueryBuilder With(EntityQuery entityQuery)
         {
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (componentGroup == null)
-                throw new ArgumentNullException(nameof(componentGroup));
-            if (m_Group != null)
-                throw new InvalidOperationException($"{nameof(ComponentGroup)} has already been set");
+            if (entityQuery == null)
+                throw new ArgumentNullException(nameof(entityQuery));
+            if (m_Query != null)
+                throw new InvalidOperationException($"{nameof(EntityQuery)} has already been set");
             ValidateHasNoSpec();
             #endif
 
-            m_Group = componentGroup;
+            m_Query = entityQuery;
             return this;
         }
 
-        EntityArchetypeQuery ToEntityArchetypeQuery(int delegateTypeCount)
+        EntityQueryDesc ToEntityQueryDesc(int delegateTypeCount)
         {
             ComponentType[] ToComponentTypes(ref ResizableArray64Byte<int> typeIndices, ComponentType.AccessMode mode, int extraCapacity = 0)
             {
@@ -86,7 +86,7 @@ namespace Unity.Entities
                 return types;
             }
 
-            return new EntityArchetypeQuery
+            return new EntityQueryDesc
             {
                 Any  = ToComponentTypes(ref m_Any,  ComponentType.AccessMode.ReadWrite),
                 None = ToComponentTypes(ref m_None, ComponentType.AccessMode.ReadOnly),
@@ -94,11 +94,11 @@ namespace Unity.Entities
             };
         }
 
-        public EntityArchetypeQuery ToEntityArchetypeQuery() =>
-            ToEntityArchetypeQuery(0);
+        public EntityQueryDesc ToEntityQueryDesc() =>
+            ToEntityQueryDesc(0);
 
-        public ComponentGroup ToComponentGroup() =>
-            m_Group ?? (m_Group = m_System.GetComponentGroup(ToEntityArchetypeQuery()));
+        public EntityQuery ToEntityQuery() =>
+            m_Query ?? (m_Query = m_System.GetEntityQuery(ToEntityQueryDesc()));
 
         // see EntityQueryBuilder.tt for the template that is converted into EntityQueryBuilder.gen.cs,
         // which contains ForEach and other generated methods.
@@ -108,7 +108,7 @@ namespace Unity.Entities
             new EntityManager.InsideForEach(m_System.EntityManager);
         #endif
 
-        unsafe ComponentGroup ResolveComponentGroup(int* delegateTypeIndices, int delegateTypeCount)
+        unsafe EntityQuery ResolveEntityQuery(int* delegateTypeIndices, int delegateTypeCount)
         {
             var hash
                 = (uint)m_Any .GetHashCode() * 0xEA928FF9
@@ -122,18 +122,18 @@ namespace Unity.Entities
             if (found < 0)
             {
                 // base query from builder spec, but reserve some extra room for the types detected from the delegate
-                var eaq = ToEntityArchetypeQuery(delegateTypeCount);
+                var eaq = ToEntityQueryDesc(delegateTypeCount);
 
                 // now fill out the extra types
                 for (var i = 0 ; i < delegateTypeCount; ++i)
                     eaq.All[i + m_All.Length] = ComponentType.FromTypeIndex(delegateTypeIndices[i]);
 
-                var group = m_System.GetComponentGroup(eaq);
+                var query = m_System.GetEntityQuery(eaq);
 
                 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                found = cache.CreateCachedQuery(hash, group, ref this, delegateTypeIndices, delegateTypeCount);
+                found = cache.CreateCachedQuery(hash, query, ref this, delegateTypeIndices, delegateTypeCount);
                 #else
-                found = cache.CreateCachedQuery(hash, group);
+                found = cache.CreateCachedQuery(hash, query);
                 #endif
             }
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -141,7 +141,7 @@ namespace Unity.Entities
             {
                 cache.ValidateMatchesCache(found, ref this, delegateTypeIndices, delegateTypeCount);
 
-                // TODO: also validate that m_Group spec matches m_Any/All/None and delegateTypeIndices
+                // TODO: also validate that m_Query spec matches m_Any/All/None and delegateTypeIndices
             }
             #endif
 

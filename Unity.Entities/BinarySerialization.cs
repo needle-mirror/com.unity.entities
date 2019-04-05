@@ -79,7 +79,7 @@ namespace Unity.Entities.Serialization
         }
     }
 
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
     public unsafe class StreamBinaryReader : BinaryReader
     {
         private Stream stream;

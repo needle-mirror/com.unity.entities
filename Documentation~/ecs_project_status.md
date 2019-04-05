@@ -8,7 +8,7 @@ uid: ecs-project-status
 As the ECS APIs change, so too will these best practices. For the time being, these are our best recommendations when using the ECS APIs.
 
 ### Do's
-* Use IJobProcessComponentData for processing many entities' components in a job.
+* Use IJobForEach for processing many entities' components in a job.
 * Use chunk iteration if you need finer-grained control.
 
 ### Don'ts

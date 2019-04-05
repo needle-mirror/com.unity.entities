@@ -11,7 +11,7 @@ namespace Unity.Entities
 #endif
     public interface IJobChunk
     {
-        // firstEntityIndex refers to the index of the first entity in the current chunk within the ComponentGroup the job was scheduled with
+        // firstEntityIndex refers to the index of the first entity in the current chunk within the EntityQuery the job was scheduled with
         // For example, if the job operates on 3 chunks with 20 entities each, then the firstEntityIndices will be [0, 20, 40] respectively
         void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex);
     }
@@ -40,25 +40,25 @@ namespace Unity.Entities
             public NativeArray<byte> PrefilterData;
         }
         
-        public static unsafe JobHandle Schedule<T>(this T jobData, ComponentGroup group, JobHandle dependsOn = default(JobHandle))
+        public static unsafe JobHandle Schedule<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IJobChunk
         {
-            return ScheduleInternal(ref jobData, group, dependsOn, ScheduleMode.Batched);
+            return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Batched);
         }
 
-        public static void Run<T>(this T jobData, ComponentGroup group)
+        public static void Run<T>(this T jobData, EntityQuery query)
             where T : struct, IJobChunk
         {
-            ScheduleInternal(ref jobData, group, default(JobHandle), ScheduleMode.Run);
+            ScheduleInternal(ref jobData, query, default(JobHandle), ScheduleMode.Run);
         }
 
 #if !UNITY_ZEROPLAYER
-        internal static unsafe JobHandle ScheduleInternal<T>(ref T jobData, ComponentGroup group, JobHandle dependsOn, ScheduleMode mode)
+        internal static unsafe JobHandle ScheduleInternal<T>(ref T jobData, EntityQuery query, JobHandle dependsOn, ScheduleMode mode)
             where T : struct, IJobChunk
         {
-            ComponentChunkIterator iterator = group.GetComponentChunkIterator();
+            ComponentChunkIterator iterator = query.GetComponentChunkIterator();
             
-            var unfilteredChunkCount = group.CalculateNumberOfChunksWithoutFiltering();
+            var unfilteredChunkCount = query.CalculateNumberOfChunksWithoutFiltering();
 
             var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount,
                 iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out var prefilterData,
@@ -69,7 +69,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 // All IJobChunk jobs have a EntityManager safety handle to ensure that BeforeStructuralChange throws an error if
                 // jobs without any other safety handles are still running (haven't been synced).
-                safety = new EntitySafetyHandle{m_Safety = group.SafetyManager.GetEntityManagerSafetyHandle()},
+                safety = new EntitySafetyHandle{m_Safety = query.SafetyManager->GetEntityManagerSafetyHandle()},
 #endif
                 Data = jobData,
                 PrefilterData = prefilterData,
@@ -124,8 +124,7 @@ namespace Unity.Entities
 
             internal unsafe static void ExecuteInternal(ref JobChunkData<T> jobData, ref JobRanges ranges, int jobIndex)
             {
-                var filteredChunks = (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(jobData.PrefilterData);
-                var entityIndices = (int*) (filteredChunks + ranges.TotalIterationCount);
+                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var filteredChunks, out var entityIndices, out var chunkCount);
                 
                 int chunkIndex, end;
                 while (JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out chunkIndex, out end))
@@ -138,10 +137,10 @@ namespace Unity.Entities
             }
         }
 #else
-        internal static unsafe JobHandle ScheduleInternal<T>(ref T jobData, ComponentGroup group, JobHandle dependsOn, ScheduleMode mode)
+        internal static unsafe JobHandle ScheduleInternal<T>(ref T jobData, EntityQuery query, JobHandle dependsOn, ScheduleMode mode)
             where T : struct, IJobChunk
         {
-            using (var chunks = group.CreateArchetypeChunkArray(Allocator.Temp))
+            using (var chunks = query.CreateArchetypeChunkArray(Allocator.Temp))
             {
                 int currentChunk = 0;
                 int currentEntity = 0;
@@ -153,7 +152,14 @@ namespace Unity.Entities
                 }
             }
 
+            DoDeallocateOnJobCompletion(jobData);
+
             return new JobHandle();
+        }
+
+        static internal void DoDeallocateOnJobCompletion(object jobData)
+        {
+            throw new NotImplementedException("This function should have been replaced by codegen");
         }
 #endif
     }

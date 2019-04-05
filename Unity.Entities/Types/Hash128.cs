@@ -12,7 +12,7 @@ namespace Unity.Entities
 
         public unsafe override string ToString()
         {
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
             var str = new string('0', 32);
             fixed (char* buf = str)
             {

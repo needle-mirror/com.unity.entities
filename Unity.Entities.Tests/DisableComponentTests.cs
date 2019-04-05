@@ -7,12 +7,12 @@ namespace Unity.Entities.Tests
 	class DisableComponentTests : ECSTestsFixture
 	{
 		[Test]
-		public void DIS_DontFindDisabledInComponentGroup()
+		public void DIS_DontFindDisabledInEntityQuery()
 		{
 		    var archetype0 = m_Manager.CreateArchetype(typeof(EcsTestData));
 			var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(Disabled));
 
-		    var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+		    var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
 			var entity0 = m_Manager.CreateEntity(archetype0);
 			var entity1 = m_Manager.CreateEntity(archetype1);
@@ -33,7 +33,7 @@ namespace Unity.Entities.Tests
 	        var entity0 = m_Manager.CreateEntity(archetype0);
 	        var entity1 = m_Manager.CreateEntity(archetype1);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestData>());
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
 	        var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 	        var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
@@ -46,12 +46,12 @@ namespace Unity.Entities.Tests
 	    }
 
 		[Test]
-		public void DIS_FindDisabledIfRequestedInComponentGroup()
+		public void DIS_FindDisabledIfRequestedInEntityQuery()
 		{
 		    var archetype0 = m_Manager.CreateArchetype(typeof(EcsTestData));
 			var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(Disabled));
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<Disabled>());
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<Disabled>());
 
 			var entity0 = m_Manager.CreateEntity(archetype0);
 			var entity1 = m_Manager.CreateEntity(archetype1);
@@ -75,7 +75,7 @@ namespace Unity.Entities.Tests
 	        var entity1 = m_Manager.CreateEntity(archetype1);
 	        var entity2 = m_Manager.CreateEntity(archetype1);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<Disabled>());
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<Disabled>());
 	        var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 	        var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
@@ -115,15 +115,15 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(Disabled));
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(Disabled), typeof(Prefab));
 
-            CheckPrefabAndDisabledQueryOptions(EntityArchetypeQueryOptions.Default, 0);
-            CheckPrefabAndDisabledQueryOptions(EntityArchetypeQueryOptions.IncludePrefab, 1);
-            CheckPrefabAndDisabledQueryOptions(EntityArchetypeQueryOptions.IncludeDisabled, 1);
-            CheckPrefabAndDisabledQueryOptions(EntityArchetypeQueryOptions.IncludeDisabled | EntityArchetypeQueryOptions.IncludePrefab, 3);
+            CheckPrefabAndDisabledQueryOptions(EntityQueryOptions.Default, 0);
+            CheckPrefabAndDisabledQueryOptions(EntityQueryOptions.IncludePrefab, 1);
+            CheckPrefabAndDisabledQueryOptions(EntityQueryOptions.IncludeDisabled, 1);
+            CheckPrefabAndDisabledQueryOptions(EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab, 3);
         }
 
-        void CheckPrefabAndDisabledQueryOptions(EntityArchetypeQueryOptions options, int expected)
+        void CheckPrefabAndDisabledQueryOptions(EntityQueryOptions options, int expected)
         {
-            var group = m_Manager.CreateComponentGroup(new EntityArchetypeQuery { All = new[] {ComponentType.ReadWrite<EcsTestData>()}, Options = options });
+            var group = m_Manager.CreateEntityQuery(new EntityQueryDesc { All = new[] {ComponentType.ReadWrite<EcsTestData>()}, Options = options });
             Assert.AreEqual(expected, group.CalculateLength());
             group.Dispose();
         }

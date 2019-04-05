@@ -2,79 +2,67 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
 
-#pragma warning disable 618
-
 namespace Unity.Entities.Tests
 {
     class ChangeVersionTests : ECSTestsFixture
     {
+#if !UNITY_ZEROPLAYER
         [DisableAutoCreation]
         class BumpVersionSystemInJob : ComponentSystem
         {
-#pragma warning disable 649
-            struct MyStruct
+            public EntityQuery m_Group;
+
+            struct UpdateData : IJobForEach<EcsTestData, EcsTestData2>
             {
-                public readonly int Length;
-                public ComponentDataArray<EcsTestData> Data;
-                public ComponentDataArray<EcsTestData2> Data2;
-            }
-
-            [Inject]
-            MyStruct DataStruct;
-#pragma warning restore 649
-
-            struct UpdateData : IJob
-            {
-                public int Length;
-                public ComponentDataArray<EcsTestData> Data;
-                public ComponentDataArray<EcsTestData2> Data2;
-
-                public void Execute()
+                public void Execute(ref EcsTestData data, ref EcsTestData2 data2)
                 {
-                    for (int i = 0; i < Length; ++i)
-                    {
-                        var d2 = Data2[i];
-                        d2.value0 = 10;
-                        Data2[i] = d2;
-                    }
+                    data2 = new EcsTestData2 {value0 = 10};
                 }
             }
 
             protected override void OnUpdate()
             {
-                var updateDataJob = new UpdateData
-                {
-                    Length = DataStruct.Length,
-                    Data = DataStruct.Data,
-                    Data2 = DataStruct.Data2
-                };
-                var updateDataJobHandle = updateDataJob.Schedule();
+                var updateDataJob = new UpdateData{};
+                var updateDataJobHandle = updateDataJob.Schedule(m_Group);
                 updateDataJobHandle.Complete();
             }
+
+            protected override void OnCreate()
+            {
+                m_Group = GetEntityQuery(ComponentType.ReadWrite<EcsTestData>(),
+                    ComponentType.ReadWrite<EcsTestData2>());
+            }
         }
+#endif
 
         [DisableAutoCreation]
         class BumpVersionSystem : ComponentSystem
         {
-            struct MyStruct
-            {
-#pragma warning disable 649
-                public readonly int Length;
-                public ComponentDataArray<EcsTestData> Data;
-                public ComponentDataArray<EcsTestData2> Data2;
-            }
-
-            [Inject]
-            MyStruct DataStruct;
-#pragma warning restore 649
+            public EntityQuery m_Group;
 
             protected override void OnUpdate()
             {
-                for (int i = 0; i < DataStruct.Length; ++i) {
-                    var d2 = DataStruct.Data2[i];
+                var data = m_Group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+                var data2 = m_Group.ToComponentDataArray<EcsTestData2>(Allocator.TempJob);
+
+                for (int i = 0; i < data.Length; ++i)
+                {
+                    var d2 = data2[i];
                     d2.value0 = 10;
-                    DataStruct.Data2[i] = d2;
+                    data2[i] = d2;
                 }
+
+                m_Group.CopyFromComponentDataArray(data);
+                m_Group.CopyFromComponentDataArray(data2);
+
+                data.Dispose();
+                data2.Dispose();
+            }
+
+            protected override void OnCreate()
+            {
+                m_Group = GetEntityQuery(ComponentType.ReadWrite<EcsTestData>(),
+                    ComponentType.ReadWrite<EcsTestData2>());
             }
         }
 
@@ -97,12 +85,12 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            ComponentGroup m_Group;
+            EntityQuery m_Group;
             private bool m_LastAllChanged;
 
-            protected override void OnCreateManager()
+            protected override void OnCreate()
             {
-                m_Group = GetComponentGroup(typeof(EcsTestData));
+                m_Group = GetEntityQuery(typeof(EcsTestData));
                 m_LastAllChanged = false;
             }
 
@@ -136,59 +124,11 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob
-        public void CHG_IncrementedOnInjectionInJob()
-        {
-            var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            var bumpSystem = World.CreateManager<BumpVersionSystemInJob>();
-
-            var oldGlobalVersion = m_Manager.GlobalSystemVersion;
-
-            bumpSystem.Update();
-
-            var value0 = m_Manager.GetComponentData<EcsTestData2>(entity0).value0;
-            Assert.AreEqual(10, value0);
-
-            Assert.That(m_Manager.GlobalSystemVersion > oldGlobalVersion);
-
-            unsafe {
-                // a system ran, the version should match the global
-                var chunk0 = m_Manager.Entities->GetComponentChunk(entity0);
-                var td2index0 = ChunkDataUtility.GetIndexInTypeArray(chunk0->Archetype, TypeManager.GetTypeIndex<EcsTestData2>());
-                Assert.AreEqual(m_Manager.GlobalSystemVersion, chunk0->GetChangeVersion(td2index0));
-            }
-        }
-
-        [Test]
-        [StandaloneFixme] // IJob
-        public void CHG_IncrementedOnInjection()
-        {
-            var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            var bumpSystem = World.CreateManager<BumpVersionSystem>();
-
-            var oldGlobalVersion = m_Manager.GlobalSystemVersion;
-
-            bumpSystem.Update();
-
-            var value0 = m_Manager.GetComponentData<EcsTestData2>(entity0).value0;
-            Assert.AreEqual(10, value0);
-
-            Assert.That(m_Manager.GlobalSystemVersion > oldGlobalVersion);
-
-            unsafe {
-                // a system ran, the version should match the global
-                var chunk0 = m_Manager.Entities->GetComponentChunk(entity0);
-                var td2index0 = ChunkDataUtility.GetIndexInTypeArray(chunk0->Archetype, TypeManager.GetTypeIndex<EcsTestData2>());
-                Assert.AreEqual(m_Manager.GlobalSystemVersion, chunk0->GetChangeVersion(td2index0));
-            }
-        }
-
-        [Test]
         public void CHG_BumpValueChangesChunkTypeVersion()
         {
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var bumpChunkTypeVersionSystem = World.CreateManager<BumpChunkTypeVersionSystem>();
+            var bumpChunkTypeVersionSystem = World.CreateSystem<BumpChunkTypeVersionSystem>();
 
             bumpChunkTypeVersionSystem.Update();
             Assert.AreEqual(true, bumpChunkTypeVersionSystem.AllEcsTestDataChunksChanged());
@@ -201,10 +141,22 @@ namespace Unity.Entities.Tests
         public void CHG_SystemVersionZeroWhenNotRun()
         {
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            var system = World.CreateManager<BumpVersionSystem>();
+            var system = World.CreateSystem<BumpVersionSystem>();
             Assert.AreEqual(0, system.LastSystemVersion);
             system.Update();
             Assert.AreNotEqual(0, system.LastSystemVersion);
         }
+
+#if !UNITY_ZEROPLAYER
+        [Test]
+        public void CHG_SystemVersionJob()
+        {
+            m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var system = World.CreateSystem<BumpVersionSystemInJob>();
+            Assert.AreEqual(0, system.LastSystemVersion);
+            system.Update();
+            Assert.AreNotEqual(0, system.LastSystemVersion);
+        }
+#endif
     }
 }

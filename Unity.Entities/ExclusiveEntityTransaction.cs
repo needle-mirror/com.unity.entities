@@ -39,7 +39,7 @@ namespace Unity.Entities
             m_SharedComponentDataManager = GCHandle.Alloc(sharedComponentDataManager, GCHandleType.Weak);
         }
 
-        internal void OnDestroyManager()
+        internal void OnDestroy()
         {
             m_ArchetypeManager.Free();
             m_EntityGroupManager.Free();

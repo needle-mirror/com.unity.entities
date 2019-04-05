@@ -45,7 +45,7 @@ namespace Unity.Entities
         public bool IsSystemStateComponent => (TypeIndex & TypeManager.SystemStateTypeFlag) != 0;
         public bool IsSystemStateSharedComponent => (TypeIndex & TypeManager.SystemStateSharedComponentTypeFlag) == TypeManager.SystemStateSharedComponentTypeFlag;
         public bool IsSharedComponent => (TypeIndex & TypeManager.SharedComponentTypeFlag) != 0;
-        public bool IsZeroSized => (TypeIndex & TypeManager.ZeroSizeTypeFlag) != 0;
+        public bool IsZeroSized => (TypeIndex & TypeManager.ZeroSizeInChunkTypeFlag) != 0;
         public bool IsChunkComponent => (TypeIndex & TypeManager.ChunkComponentTypeFlag) != 0;
         public bool HasEntityReferences => (TypeIndex & TypeManager.HasNoEntityReferencesFlag) == 0;
 
@@ -146,45 +146,53 @@ namespace Unity.Entities
         LockedEntityOrder = 1 << 1
     }
 
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Explicit)]
     internal unsafe struct Chunk
     {
-        // offset of field in architecture with   // 64 / 32 bits
         // Chunk header START
-        public Archetype* Archetype;              //  0 /  0
-        public Entity metaChunkEntity;            //  8 /  4
+        [FieldOffset(0)]
+        public Archetype* Archetype;
+        // 4-byte padding on 32-bit architectures here
+
+        [FieldOffset(8)]
+        public Entity metaChunkEntity;
 
         // This is meant as read-only.
         // ArchetypeManager.SetChunkCount should be used to change the count.
-        public int Count;                         // 16 / 12
-        public int Capacity;                      // 20 / 16
+        [FieldOffset(16)]
+        public int Count;
+        [FieldOffset(20)]
+        public int Capacity;
 
         // In hybrid mode, archetypes can contain non-ECS-type components which are managed objects.
         // In order to access them without a lot of overhead we conceptually store an Object[] in each chunk which contains the managed components.
         // The chunk does not really own the array though since we cannot store managed references in unmanaged memory,
         // so instead the ArchetypeManager has a list of Object[]s and the chunk just has an int to reference an Object[] by index in that list.
-        public int ManagedArrayIndex;             // 24 / 20
+        [FieldOffset(24)]
+        public int ManagedArrayIndex;
 
-        public int ListIndex;                     // 28 / 24
-        public int ListWithEmptySlotsIndex;       // 32 / 28
+        [FieldOffset(28)]
+        public int ListIndex;
+        [FieldOffset(32)]
+        public int ListWithEmptySlotsIndex;
 
         // Incrementing automatically for each chunk
-        public uint SequenceNumber;               // 36 / 32
+        [FieldOffset(36)]
+        public uint SequenceNumber;
 
         // Special chunk behaviors
-        public uint Flags;                        // 40 / 36
+        [FieldOffset(40)]
+        public uint Flags;
 
-        public int Padding1;                      // 44 / 40
+        // 4-byte padding here, available for an int
 
-#if     UNITY_32
-        public int Padding2;                      //  * / 44
-#endif
         // Chunk header END
 
         // Component data buffer
         // This is where the actual chunk data starts.
         // It's declared like this so we can skip the header part of the chunk and just get to the data.
-        public fixed byte Buffer[4];              // 48 / 48 (must be multiple of 16)
+        [FieldOffset(48)]                         // (must be multiple of 16)
+        public fixed byte Buffer[4];
 
         public const int kChunkSize = 16 * 1024 - 256; // allocate a bit less to allow for header overhead
         public const int kMaximumEntitiesPerChunk = kChunkSize / 8;
@@ -216,21 +224,21 @@ namespace Unity.Entities
             return kChunkSize - (sizeof(Chunk) - 4);
         }
 
-        public bool MatchesFilter(MatchingArchetype* match, ref ComponentGroupFilter filter)
+        public bool MatchesFilter(MatchingArchetype* match, ref EntityQueryFilter filter)
         {
             if ((filter.Type & FilterType.SharedComponent) != 0)
             {
                 var sharedComponentsInChunk = SharedComponentValues;
                 var filteredCount = filter.Shared.Count;
 
-                fixed (int* indexInComponentGroupPtr = filter.Shared.IndexInComponentGroup, sharedComponentIndexPtr =
+                fixed (int* indexInEntityQueryPtr = filter.Shared.IndexInEntityQuery, sharedComponentIndexPtr =
                     filter.Shared.SharedComponentIndex)
                 {
                     for (var i = 0; i < filteredCount; ++i)
                     {
-                        var indexInComponentGroup = indexInComponentGroupPtr[i];
+                        var indexInEntityQuery = indexInEntityQueryPtr[i];
                         var sharedComponentIndex = sharedComponentIndexPtr[i];
-                        var componentIndexInArcheType = match->IndexInArchetype[indexInComponentGroup];
+                        var componentIndexInArcheType = match->IndexInArchetype[indexInEntityQuery];
                         var componentIndexInChunk = componentIndexInArcheType - match->Archetype->FirstSharedComponent;
                         if (sharedComponentsInChunk[componentIndexInChunk] != sharedComponentIndex)
                             return false;
@@ -245,11 +253,11 @@ namespace Unity.Entities
                 var changedCount = filter.Changed.Count;
 
                 var requiredVersion = filter.RequiredChangeVersion;
-                fixed (int* indexInComponentGroupPtr = filter.Changed.IndexInComponentGroup)
+                fixed (int* indexInEntityQueryPtr = filter.Changed.IndexInEntityQuery)
                 {
                     for (var i = 0; i < changedCount; ++i)
                     {
-                        var indexInArchetype = match->IndexInArchetype[indexInComponentGroupPtr[i]];
+                        var indexInArchetype = match->IndexInArchetype[indexInEntityQueryPtr[i]];
 
                         var changeVersion = GetChangeVersion(indexInArchetype);
                         if (ChangeVersionUtility.DidChange(changeVersion, requiredVersion))
@@ -263,9 +271,9 @@ namespace Unity.Entities
             return true;
         }
 
-        public int GetSharedComponentIndex(MatchingArchetype* match, int indexInComponentGroup)
+        public int GetSharedComponentIndex(MatchingArchetype* match, int indexInEntityQuery)
         {
-            var componentIndexInArcheType = match->IndexInArchetype[indexInComponentGroup];
+            var componentIndexInArcheType = match->IndexInArchetype[indexInEntityQuery];
             var componentIndexInChunk = componentIndexInArcheType - match->Archetype->FirstSharedComponent;
             return GetSharedComponentValue(componentIndexInChunk);
         }
@@ -601,10 +609,18 @@ namespace Unity.Entities
             m_ChunksBySequenceNumber = new NativeHashMap<uint, IntPtr>(4096, Allocator.Persistent);
             m_EmptyChunks = new ChunkList();
             m_Archetypes = new ArchetypeList();
+
+            // Sanity check a few alignments
 #if UNITY_ASSERTIONS
             // Buffer should be 16 byte aligned to ensure component data layout itself can gurantee being aligned
             var offset = UnsafeUtility.GetFieldOffset(typeof(Chunk).GetField("Buffer"));
-            Assert.IsTrue(offset % 16 == 0, "Chunk buffer must be 16 byte aligned");
+            Assert.IsTrue(offset % TypeManager.MaximumSupportedAlignment == 0, $"Chunk buffer must be {TypeManager.MaximumSupportedAlignment} byte aligned (buffer offset at {offset})");
+            Assert.IsTrue(sizeof(Entity) == 8, $"Unity.Entities.Entity is expected to be 8 bytes in size (is {sizeof(Entity)}); if this changes, update Chunk explicit layout");
+#endif
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var bufHeaderSize = UnsafeUtility.SizeOf<BufferHeader>();
+            Assert.IsTrue(bufHeaderSize % TypeManager.MaximumSupportedAlignment == 0,
+                $"BufferHeader total struct size must be a multiple of the max supported alignment ({TypeManager.MaximumSupportedAlignment})");
 #endif
         }
 
@@ -714,6 +730,14 @@ namespace Unity.Entities
 
             if(indexInTypeArray != null)
                 *indexInTypeArray = t;
+
+            if(archetype->Types[t] == componentType)
+            {
+                Assert.IsTrue(addedComponentType.IgnoreDuplicateAdd, $"{addedComponentType} is already part of the archetype.");
+                // Tag component type is already there, no new archetype required.
+                return null;
+            }
+
             newTypes[t] = componentType;
             while (t < archetype->TypesCount)
             {
@@ -956,7 +980,11 @@ namespace Unity.Entities
 
             type->BytesPerInstance = 0;
 
-            int maxCapacity = int.MaxValue;
+            // number of bytes we'll reserve for potential alignment
+            int alignExtraSpace = 0;
+            var alignments = stackalloc int[count];
+
+            int maxCapacity = TypeManager.MaximumChunkCapacity;
             for (var i = 0; i < count; ++i)
             {
                 var cType = TypeManager.GetTypeInfo(types[i].TypeIndex);
@@ -969,15 +997,17 @@ namespace Unity.Entities
                 type->BufferCapacities[i] = cType.BufferCapacity;
 
                 type->BytesPerInstance += sizeOf;
-                #if !UNITY_CSHARP_TINY
-                //@TODO: not supported in tiny type manager
                 maxCapacity = math.min(cType.MaximumChunkCapacity, maxCapacity);
-                #endif
+
+                // explicitly 0 here for sizeof == 0, so that the usedBytes
+                // calculation below properly ignores 0-sized components
+                alignments[i] = sizeOf == 0 ? 0 : cType.AlignmentInChunkInBytes;
+                alignExtraSpace += alignments[i];
             }
 
             Assert.IsTrue(maxCapacity >= 1, "MaximumChunkCapacity must be larger than 1");
 
-            type->ChunkCapacity = math.min(chunkDataSize / type->BytesPerInstance, maxCapacity);
+            type->ChunkCapacity = math.min((chunkDataSize - alignExtraSpace) / type->BytesPerInstance, maxCapacity);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (type->BytesPerInstance > chunkDataSize)
@@ -1012,6 +1042,11 @@ namespace Unity.Entities
                 var index = type->TypeMemoryOrder[i];
                 var sizeOf = type->SizeOfs[index];
 
+                // align usedBytes upwards (eating into alignExtraSpace) so that
+                // this component actually starts at its required alignment.
+                // Assumption is that the start of the entire data segment is at the
+                // maximum possible alignment.
+                usedBytes = TypeManager.AlignUp(usedBytes, alignments[index]);
                 type->Offsets[index] = usedBytes;
 
                 usedBytes += sizeOf * type->ChunkCapacity;
@@ -1048,7 +1083,7 @@ namespace Unity.Entities
             for (var i = 0; i != count; i++)
             {
                 var ct = TypeManager.GetTypeInfo(types[i].TypeIndex);
-                #if !UNITY_CSHARP_TINY
+                #if !NET_DOTS
                     ulong handle = ~0UL;
                     var offsets = ct.EntityOffsets == null ? null : (TypeManager.EntityOffsetInfo*) UnsafeUtility.PinGCArrayAndGetDataAddress(ct.EntityOffsets, out handle);
                     var offsetCount = ct.EntityOffsetCount;
@@ -1066,7 +1101,7 @@ namespace Unity.Entities
                     scalarPatchInfo = EntityRemapUtility.AppendEntityPatches(scalarPatchInfo, offsets, offsetCount, type->Offsets[i], type->SizeOfs[i]);
                 }
 
-                #if !UNITY_CSHARP_TINY
+                #if !NET_DOTS
                     if(offsets != null)
                         UnsafeUtility.ReleaseGCObject(handle);
                 #endif
@@ -1507,7 +1542,7 @@ namespace Unity.Entities
                         dstArray[i] = globalSystemVersion;
                     }
                 }
-                
+
                 // Copy chunk count array
                 var dstCountArray = dstArchetype->Chunks.GetChunkEntityCountArray() + dstChunkCount;
                 UnsafeUtility.MemCpy(dstCountArray, srcArchetype->Chunks.GetChunkEntityCountArray(), sizeof(int) * srcChunkCount);

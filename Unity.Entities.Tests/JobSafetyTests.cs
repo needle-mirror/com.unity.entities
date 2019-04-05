@@ -35,7 +35,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void ComponentAccessAfterScheduledJobThrows()
         {
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
            
@@ -64,7 +64,7 @@ namespace Unity.Entities.Tests
         public void GetComponentCompletesJob()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
             job.entities = group.ToEntityArray(Allocator.TempJob);
@@ -82,7 +82,7 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             /*var entity2 =*/ m_Manager.CreateEntity(typeof(EcsTestData));
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
             job.entities = group.ToEntityArray(Allocator.TempJob);
@@ -110,7 +110,7 @@ namespace Unity.Entities.Tests
             #endif
 
             /*var entity =*/ m_Manager.CreateEntity(typeof(EcsTestData));
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
             job.entities = group.ToEntityArray(Allocator.TempJob);
@@ -126,7 +126,7 @@ namespace Unity.Entities.Tests
         public void DestroyEntityDetectsUnregisteredJob()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
             job.entities = group.ToEntityArray(Allocator.TempJob);
@@ -143,7 +143,7 @@ namespace Unity.Entities.Tests
         public void GetComponentDetectsUnregisteredJob()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
             job.entities = group.ToEntityArray(Allocator.TempJob);
@@ -185,7 +185,7 @@ namespace Unity.Entities.Tests
             protected override JobHandle OnUpdate(JobHandle inputDeps)
             {
                 EntityManager.CreateEntity(typeof(EcsTestData));
-                var group = GetComponentGroup(new ComponentType[]{});
+                var group = GetEntityQuery(new ComponentType[]{});
                 var job = new EntityOnlyDependencyJob
                 {
                     entityType = m_EntityManager.GetArchetypeChunkEntityType()
@@ -202,7 +202,7 @@ namespace Unity.Entities.Tests
             protected override JobHandle OnUpdate(JobHandle inputDeps)
             {
                 EntityManager.CreateEntity(typeof(EcsTestData));
-                var group = GetComponentGroup(new ComponentType[]{});
+                var group = GetEntityQuery(new ComponentType[]{});
                 var job = new NoDependenciesJob{};
 
                 JobHandle = job.Schedule(group, inputDeps);
@@ -225,18 +225,18 @@ namespace Unity.Entities.Tests
         [Test]
         public void StructuralChangeCompletesEntityOnlyDependencyJob()
         {
-            var system = World.GetOrCreateManager<EntityOnlyDependencySystem>();
+            var system = World.GetOrCreateSystem<EntityOnlyDependencySystem>();
             system.Update();
-            World.GetOrCreateManager<DestroyAllEntitiesSystem>().Update();
+            World.GetOrCreateSystem<DestroyAllEntitiesSystem>().Update();
             Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(system.JobHandle, new JobHandle()));
         }
 
         [Test]
         public void StructuralChangeCompletesNoComponentDependenciesJob()
         {
-            var system = World.GetOrCreateManager<NoComponentDependenciesSystem>();
+            var system = World.GetOrCreateSystem<NoComponentDependenciesSystem>();
             system.Update();
-            World.GetOrCreateManager<DestroyAllEntitiesSystem>().Update();
+            World.GetOrCreateSystem<DestroyAllEntitiesSystem>().Update();
             Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(system.JobHandle, new JobHandle()));
         }
 
@@ -245,7 +245,7 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             var entity = m_Manager.CreateEntity(archetype);
-            var group = EmptySystem.GetComponentGroup(typeof(EcsTestData));
+            var group = EmptySystem.GetEntityQuery(typeof(EcsTestData));
             var handle = new NoDependenciesJob().Schedule(group);
             Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(entity));
             handle.Complete();
@@ -256,7 +256,7 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             var entity = m_Manager.CreateEntity(archetype);
-            var group = EmptySystem.GetComponentGroup(typeof(EcsTestData));
+            var group = EmptySystem.GetEntityQuery(typeof(EcsTestData));
             var handle = new EntityOnlyDependencyJob{entityType = m_Manager.GetArchetypeChunkEntityType()}.Schedule(group);
             Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(entity));
             handle.Complete();
@@ -265,9 +265,9 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         class SharedComponentSystem : JobComponentSystem
         {
-            ComponentGroup group;
-            protected override void OnCreateManager() {
-                group = GetComponentGroup(ComponentType.ReadOnly<EcsTestSharedComp>());
+            EntityQuery group;
+            protected override void OnCreate() {
+                group = GetEntityQuery(ComponentType.ReadOnly<EcsTestSharedComp>());
             }
             struct SharedComponentJobChunk : IJobChunk
             {
@@ -292,7 +292,7 @@ namespace Unity.Entities.Tests
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
             var entity = m_Manager.CreateEntity(archetype);
 
-            var sharedComponentSystem = World.CreateManager<SharedComponentSystem>();
+            var sharedComponentSystem = World.CreateSystem<SharedComponentSystem>();
 
             sharedComponentSystem.Update();
             // DestroyEntity should sync the job and not cause any safety error

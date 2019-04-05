@@ -77,7 +77,7 @@ namespace Unity.Entities.Editor
             }
 
             public EntityArchetype archetype;
-            public ComponentGroupGUIControl control;
+            public EntityQueryGUIControl control;
             public int[] counts;
             public int maxCount;
             public int firstChunkIndex;
@@ -225,7 +225,7 @@ namespace Unity.Entities.Editor
                         var stats = new ArchetypeInfo()
                         {
                             archetype = currentArchetype,
-                            control = new ComponentGroupGUIControl(currentArchetype.GetComponentTypes(), true),
+                            control = new EntityQueryGUIControl(currentArchetype.GetComponentTypes(), true),
                             counts = new int[currentArchetype.ChunkCapacity],
                             firstChunkIndex = currentChunkIndex
                         };

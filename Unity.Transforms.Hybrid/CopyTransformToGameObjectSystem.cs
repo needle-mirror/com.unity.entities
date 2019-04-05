@@ -16,41 +16,33 @@ namespace Unity.Transforms
         [BurstCompile]
         struct CopyTransforms : IJobParallelForTransform
         {
-            [ReadOnly] public ComponentDataFromEntity<LocalToWorld> LocalToWorlds;
-
-            [ReadOnly]
             [DeallocateOnJobCompletion]
-            public NativeArray<Entity> entities;
+            [ReadOnly] public NativeArray<LocalToWorld> LocalToWorlds;
 
             public void Execute(int index, TransformAccess transform)
             {
-                var entity = entities[index];
-
-                var value = LocalToWorlds[entity];
-                transform.position = math.transform(value.Value, float3.zero);
+                var value = LocalToWorlds[index];
+                transform.position = value.Position;
                 transform.rotation = new quaternion(value.Value);
             }
         }
 
-        ComponentGroup m_TransformGroup;
+        EntityQuery m_TransformGroup;
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_TransformGroup = GetComponentGroup(ComponentType.ReadOnly(typeof(CopyTransformToGameObject)), ComponentType.ReadOnly<LocalToWorld>(), typeof(UnityEngine.Transform));
+            m_TransformGroup = GetEntityQuery(ComponentType.ReadOnly(typeof(CopyTransformToGameObject)), ComponentType.ReadOnly<LocalToWorld>(), typeof(UnityEngine.Transform));
         }
 
         protected override JobHandle OnUpdate(JobHandle inputDeps)
         {
             var transforms = m_TransformGroup.GetTransformAccessArray();
-            var entities = m_TransformGroup.ToEntityArray(Allocator.TempJob);
-
             var copyTransformsJob = new CopyTransforms
             {
-                LocalToWorlds = GetComponentDataFromEntity<LocalToWorld>(true),
-                entities = entities
+                LocalToWorlds = m_TransformGroup.ToComponentDataArray<LocalToWorld>(Allocator.TempJob, out inputDeps),
             };
 
-            return copyTransformsJob.Schedule(transforms,inputDeps);
+            return copyTransformsJob.Schedule(transforms, inputDeps);
         }
     }
 }

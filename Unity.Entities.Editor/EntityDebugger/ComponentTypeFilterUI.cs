@@ -13,7 +13,7 @@ namespace Unity.Entities.Editor
         private readonly List<bool> selectedFilterTypes = new List<bool>();
         private readonly List<ComponentType> filterTypes = new List<ComponentType>();
 
-        private readonly List<ComponentGroup> entityQueries = new List<ComponentGroup>();
+        private readonly List<EntityQuery> entityQueries = new List<EntityQuery>();
 
         public ComponentTypeFilterUI(SetFilterAction setFilter, WorldSelectionGetter worldSelectionGetter)
         {
@@ -53,8 +53,8 @@ namespace Unity.Entities.Editor
 
                 filterTypes.AddRange(requiredTypes);
                 filterTypes.AddRange(subtractiveTypes);
-                
-                filterTypes.Sort(ComponentGroupGUI.CompareTypes);
+
+                filterTypes.Sort(EntityQueryGUI.CompareTypes);
             }
         }
 
@@ -68,7 +68,7 @@ namespace Unity.Entities.Editor
                 {
                     ++filterCount;
                     var style = filterTypes[i].AccessModeType == ComponentType.AccessMode.Exclude ? EntityDebuggerStyles.ComponentExclude : EntityDebuggerStyles.ComponentRequired;
-                    GUILayout.Label(ComponentGroupGUI.SpecifiedTypeName(filterTypes[i].GetManagedType()), style);
+                    GUILayout.Label(EntityQueryGUI.SpecifiedTypeName(filterTypes[i].GetManagedType()), style);
                 }
             }
             if (filterCount == 0)
@@ -90,7 +90,7 @@ namespace Unity.Entities.Editor
             }
         }
 
-        internal ComponentGroup GetExistingGroup(ComponentType[] components)
+        internal EntityQuery GetExistingQuery(ComponentType[] components)
         {
             foreach (var existingGroup in entityQueries)
             {
@@ -101,12 +101,12 @@ namespace Unity.Entities.Editor
             return null;
         }
 
-        internal ComponentGroup GetComponentGroup(ComponentType[] components)
+        internal EntityQuery GetEntityQuery(ComponentType[] components)
         {
-            var group = GetExistingGroup(components);
+            var group = GetExistingQuery(components);
             if (group != null)
                 return group;
-            group = getWorldSelection().GetExistingManager<EntityManager>().CreateComponentGroup(components);
+            group = getWorldSelection().EntityManager.CreateEntityQuery(components);
             entityQueries.Add(group);
 
             return group;
@@ -120,7 +120,7 @@ namespace Unity.Entities.Editor
                 if (selectedFilterTypes[i])
                     selectedTypes.Add(filterTypes[i]);
             }
-            var group = GetComponentGroup(selectedTypes.ToArray());
+            var group = GetEntityQuery(selectedTypes.ToArray());
             setFilter(new EntityListQuery(group));
         }
     }

@@ -138,7 +138,7 @@ namespace Unity.Entities.Tests
 
             var hash = new NativeHashMap<Entity, bool>(count, Allocator.Temp);
 
-            var cg = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestComponentWithBool>());
+            var cg = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestComponentWithBool>());
             using (var chunks = cg.CreateArchetypeChunkArray(Allocator.TempJob))
             {
                 var boolsType = m_Manager.GetArchetypeChunkComponentType<EcsTestComponentWithBool>(false);
@@ -165,6 +165,57 @@ namespace Unity.Entities.Tests
 
             array.Dispose();
             hash.Dispose();
+        }
+
+
+        struct BigComponentWithAlign1A : IComponentData
+        {
+            NativeString4096 bs;
+            unsafe fixed byte val[3];
+        }
+
+        struct ComponentWithAlign8 : IComponentData {
+            double val;
+        }
+
+        struct BigComponentWithAlign1B : IComponentData {
+            NativeString4096 bs;
+            unsafe fixed byte val[3];
+        }
+
+        [Test]
+        public unsafe void ChunkComponentRunIsAligned()
+        {
+            // We need to make sure that the stricter-alignment component (WithAlign8) comes after the simpler one
+            Type oneByteAlignmentType = typeof(BigComponentWithAlign1A);
+            int bigTypeIndex = TypeManager.GetTypeIndex<ComponentWithAlign8>();
+            if ((TypeManager.GetTypeIndex<BigComponentWithAlign1A>() & TypeManager.ClearFlagsMask) >
+                (bigTypeIndex & TypeManager.ClearFlagsMask))
+            {
+                // must be the other one
+                oneByteAlignmentType = typeof(BigComponentWithAlign1B);
+            }
+
+            var oneByteInfo = TypeManager.GetTypeInfo(TypeManager.GetTypeIndex(oneByteAlignmentType));
+            int bigAlignment = TypeManager.GetTypeInfo<ComponentWithAlign8>().AlignmentInBytes;
+
+            //Assert.AreEqual(4, TypeManager.GetTypeInfo(TypeManager.GetTypeIndex(oneByteAlignmentType)).AlignmentInBytes);
+            Assert.AreEqual(8, bigAlignment);
+
+            // Create an entity
+            var archetype = m_Manager.CreateArchetype(oneByteAlignmentType, typeof(ComponentWithAlign8));
+            var entity = m_Manager.CreateEntity(archetype);
+            // Get a pointer to the first bigger-aligned component
+            var p2 = m_Manager.GetComponentDataRawRW(entity, bigTypeIndex);
+
+            // p2 needs to be aligned properly
+            Assert.AreEqual(0, (long)p2 & (bigAlignment - 1));
+
+            // But let's verify that we didn't get lucky.  If you see this assertion fire due to a change,
+            // it's because chunk layout chanked such that the 8-byte-aligned chunk would naturally fall
+            // on its proper alignment.  Play with the BigComponent sizes (by adding/removing members) above
+            // until you get this to pass.
+            Assert.AreNotEqual(0, (archetype.Archetype->ChunkCapacity * oneByteInfo.SizeInChunk) % 8);
         }
     }
 }

@@ -23,11 +23,11 @@ If you need to access `ComponentData` on another entity, the only stable way of 
 
 For more information, see the [ComponentDataFromEntity](component_data_from_entity.md) reference page.
 
-## ComponentGroup
+## EntityQuery
 
-The `ComponentGroup` is the foundation class on top of which all iteration methods are built `foreach`, `IJobProcessComponentData`, etc.). Essentially a `ComponentGroup` is constructed with a set of required components and or subtractive components. `ComponentGroup` lets you extract individual arrays of entities based on their components.
+The `EntityQuery` is the foundation class on top of which all iteration methods are built `foreach`, `IJobForEach`, etc.). Essentially a `EntityQuery` is constructed with a set of required components and or subtractive components. `EntityQuery` lets you extract individual arrays of entities based on their components.
 
-For more information, see the [ComponentGroup](component_group.md) reference page.
+For more information, see the [EntityQuery](component_group.md) reference page.
 
 ## Entity
 

@@ -9,7 +9,7 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         class TestSystem : JobComponentSystem
         {
-            private struct Process1 : IJobProcessComponentData<EcsTestData>
+            private struct Process1 : IJobForEach<EcsTestData>
             {
                 public void Execute(ref EcsTestData value)
                 {
@@ -17,14 +17,14 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            public struct Process2 : IJobProcessComponentData<EcsTestData, EcsTestData2>
+            public struct Process2 : IJobForEach<EcsTestData, EcsTestData2>
             {
                 public void Execute(ref EcsTestData src, ref EcsTestData2 dst)
                 {
                     dst.value1 = src.value;
                 }
             }
-            
+
             protected override JobHandle OnUpdate(JobHandle inputDeps)
             {
                 inputDeps = new Process1().Schedule(this, inputDeps);
@@ -34,11 +34,11 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        public void NestedIJobProcessComponentDataAreInjectedDuringOnCreateManager()
+        public void NestedIJobForEachAreInjectedDuringOnCreate()
         {
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            var system = World.GetOrCreateManager<TestSystem>();
-            Assert.AreEqual(2, system.ComponentGroups.Length);
+            var system = World.GetOrCreateSystem<TestSystem>();
+            Assert.AreEqual(2, system.EntityQueries.Length);
         }
     }
 }

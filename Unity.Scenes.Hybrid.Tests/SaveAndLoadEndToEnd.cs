@@ -38,17 +38,20 @@ namespace Unity.Scenes.Tests
 
                 for (int w = 0; w != 1000; w++)
                 {
-                    World.GetOrCreateManager<SubSceneStreamingSystem>().Update();
+                    World.GetOrCreateSystem<SubSceneStreamingSystem>().Update();
                     if (1 != m_Manager.Debug.EntityCount)
                         break;
 
                     yield return null;
                 }
 
-                Assert.AreEqual(4, m_Manager.Debug.EntityCount);
+                // 1. Scene entity
+                // 2. Public ref array
+                // 3. Mesh Renderer
+                Assert.AreEqual(3, m_Manager.Debug.EntityCount);
 
                 m_Manager.RemoveComponent<RequestSceneLoaded>(sceneEntity);
-                World.GetOrCreateManager<SubSceneStreamingSystem>().Update();
+                World.GetOrCreateSystem<SubSceneStreamingSystem>().Update();
 
                 Assert.AreEqual(1, m_Manager.Debug.EntityCount);
             }
@@ -56,4 +59,3 @@ namespace Unity.Scenes.Tests
         }
     }
 }
-

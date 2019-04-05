@@ -11,9 +11,9 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         public class ReadSystem1 : JobComponentSystem
         {
-            public ComponentGroup m_ReadGroup;
+            public EntityQuery m_ReadGroup;
 
-            struct ReadJob : IJobProcessComponentData<EcsTestData>
+            struct ReadJob : IJobForEach<EcsTestData>
             {
                 public void Execute([ReadOnly]ref EcsTestData c0)
                 {
@@ -23,24 +23,24 @@ namespace Unity.Entities.Tests
             protected override JobHandle OnUpdate(JobHandle input)
             {
                 var job = new ReadJob() {};
-                return job.ScheduleGroup(m_ReadGroup);
+                return job.Schedule(m_ReadGroup);
             }
 
-            protected override void OnCreateManager()
+            protected override void OnCreate()
             {
-                m_ReadGroup = GetComponentGroup(ComponentType.ReadOnly<EcsTestData>());
+                m_ReadGroup = GetEntityQuery(ComponentType.ReadOnly<EcsTestData>());
             }
         }
 
         [DisableAutoCreation]
         public class ReadSystem2 : JobComponentSystem
         {
-            public ComponentGroup m_ReadGroup;
+            public EntityQuery m_ReadGroup;
 
             public bool returnWrongJob = false;
             public bool ignoreInputDeps = false;
 
-            private struct ReadJob : IJobProcessComponentData<EcsTestData>
+            private struct ReadJob : IJobForEach<EcsTestData>
             {
                 public void Execute([ReadOnly]ref EcsTestData c0)
                 {
@@ -55,46 +55,46 @@ namespace Unity.Entities.Tests
 
                 if (ignoreInputDeps)
                 {
-                    h = job.ScheduleGroup(m_ReadGroup);
+                    h = job.Schedule(m_ReadGroup);
                 }
                 else
                 {
-                    h = job.ScheduleGroup(m_ReadGroup, input);
+                    h = job.Schedule(m_ReadGroup, input);
                 }
 
                 return returnWrongJob ? input : h;
             }
 
-            protected override void OnCreateManager()
+            protected override void OnCreate()
             {
-                m_ReadGroup = GetComponentGroup(ComponentType.ReadOnly<EcsTestData>());
+                m_ReadGroup = GetEntityQuery(ComponentType.ReadOnly<EcsTestData>());
             }
         }
 
         [DisableAutoCreation]
         public class ReadSystem3 : JobComponentSystem
         {
-            public ComponentGroup m_ReadGroup;
+            public EntityQuery m_ReadGroup;
 
             protected override JobHandle OnUpdate(JobHandle input)
             {
                 return input;
             }
 
-            protected override void OnCreateManager()
+            protected override void OnCreate()
             {
-                m_ReadGroup = GetComponentGroup(ComponentType.ReadOnly<EcsTestData>());
+                m_ReadGroup = GetEntityQuery(ComponentType.ReadOnly<EcsTestData>());
             }
         }
 
         [DisableAutoCreation]
         public class WriteSystem : JobComponentSystem
         {
-            public ComponentGroup m_WriteGroup;
+            public EntityQuery m_WriteGroup;
 
             public bool SkipJob = false;
 
-            private struct WriteJob : IJobProcessComponentData<EcsTestData>
+            private struct WriteJob : IJobForEach<EcsTestData>
             {
                 public void Execute(ref EcsTestData c0)
                 {
@@ -106,7 +106,7 @@ namespace Unity.Entities.Tests
                 if (!SkipJob)
                 {
                     var job = new WriteJob() {};
-                    return job.ScheduleGroup(m_WriteGroup);
+                    return job.Schedule(m_WriteGroup);
                 }
                 else
                 {
@@ -114,9 +114,9 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            protected override void OnCreateManager()
+            protected override void OnCreate()
             {
-                m_WriteGroup = GetComponentGroup(ComponentType.ReadWrite<EcsTestData>());
+                m_WriteGroup = GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
             }
         }
 
@@ -125,8 +125,8 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity (typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            ReadSystem1 rs1 = World.GetOrCreateManager<ReadSystem1>();
-            ReadSystem2 rs2 = World.GetOrCreateManager<ReadSystem2>();
+            ReadSystem1 rs1 = World.GetOrCreateSystem<ReadSystem1>();
+            ReadSystem2 rs2 = World.GetOrCreateSystem<ReadSystem2>();
 
             rs2.returnWrongJob = true;
 
@@ -139,8 +139,8 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity (typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            WriteSystem ws1 = World.GetOrCreateManager<WriteSystem>();
-            ReadSystem2 rs2 = World.GetOrCreateManager<ReadSystem2>();
+            WriteSystem ws1 = World.GetOrCreateSystem<WriteSystem>();
+            ReadSystem2 rs2 = World.GetOrCreateSystem<ReadSystem2>();
 
             rs2.ignoreInputDeps = true;
 
@@ -153,7 +153,7 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity (typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            WriteSystem ws1 = World.GetOrCreateManager<WriteSystem>();
+            WriteSystem ws1 = World.GetOrCreateSystem<WriteSystem>();
 
             ws1.Update();
             ws1.SkipJob = true;
@@ -165,20 +165,20 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity (typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            ReadSystem1 rs1 = World.GetOrCreateManager<ReadSystem1>();
-            ReadSystem3 rs3 = World.GetOrCreateManager<ReadSystem3>();
+            ReadSystem1 rs1 = World.GetOrCreateSystem<ReadSystem1>();
+            ReadSystem3 rs3 = World.GetOrCreateSystem<ReadSystem3>();
 
             rs1.Update();
             rs3.Update();
         }
 
         [Test]
-        public void ReadAfterWrite_JobProcessComponentDataGroup_Works()
+        public void ReadAfterWrite_JobForEachGroup_Works()
         {
             var entity = m_Manager.CreateEntity (typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            var ws = World.GetOrCreateManager<WriteSystem>();
-            var rs = World.GetOrCreateManager<ReadSystem2>();
+            var ws = World.GetOrCreateSystem<WriteSystem>();
+            var rs = World.GetOrCreateSystem<ReadSystem2>();
 
             ws.Update();
             rs.Update();
@@ -205,13 +205,13 @@ namespace Unity.Entities.Tests
         }
 
         // The writer dependency on EcsTestData is not predeclared during
-        // OnCreateManager, but we still expect the code to work correctly.
+        // OnCreate, but we still expect the code to work correctly.
         // This should result in a sync point when adding the dependency for the first time.
         [Test]
         public void AddingDependencyTypeDuringOnUpdateSyncsDependency()
         {
-            var systemA = World.CreateManager<UseEcsTestDataFromEntity>();
-            var systemB = World.CreateManager<UseEcsTestDataFromEntity>();
+            var systemA = World.CreateSystem<UseEcsTestDataFromEntity>();
+            var systemB = World.CreateSystem<UseEcsTestDataFromEntity>();
 
             systemA.Update();
             systemB.Update();
@@ -241,7 +241,7 @@ namespace Unity.Entities.Tests
                 var handle = new EmptyJob
                 {
                     TestDataType = GetArchetypeChunkComponentType<EcsTestData>()
-                }.Schedule(m_EntityManager.UniversalGroup, dep);
+                }.Schedule(m_EntityManager.UniversalQuery, dep);
                 return handle;
             }
         }
@@ -251,8 +251,8 @@ namespace Unity.Entities.Tests
         {
             m_Manager.CreateEntity(typeof(EcsTestData));
 
-            var systemA = World.CreateManager<JobComponentSystemWithJobChunkJob>();
-            var systemB = World.CreateManager<EmptyJobComponentSystem>();
+            var systemA = World.CreateSystem<JobComponentSystemWithJobChunkJob>();
+            var systemB = World.CreateSystem<EmptyJobComponentSystem>();
 
             systemA.Update();
             systemB.Update();

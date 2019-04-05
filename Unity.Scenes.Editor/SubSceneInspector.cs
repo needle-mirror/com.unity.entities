@@ -88,7 +88,7 @@ namespace Unity.Scenes.Editor
             
             if (World.Active != null)
             {
-                var entityManager = World.Active.GetOrCreateManager<EntityManager>();
+                var entityManager = World.Active.EntityManager;
 
                 foreach (var scene in scenes)
                 {

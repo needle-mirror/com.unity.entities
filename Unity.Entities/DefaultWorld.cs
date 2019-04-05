@@ -5,12 +5,10 @@ using UnityEngine.Scripting;
 namespace Unity.Entities
 {
     [DisableAutoCreation]
-    [Preserve]
     [UnityEngine.ExecuteAlways]
     public class BeginInitializationEntityCommandBufferSystem : EntityCommandBufferSystem {}
 
     [DisableAutoCreation]
-    [Preserve]
     [UnityEngine.ExecuteAlways]
     public class EndInitializationEntityCommandBufferSystem : EntityCommandBufferSystem {}
 
@@ -19,10 +17,10 @@ namespace Unity.Entities
         private BeginInitializationEntityCommandBufferSystem m_BeginEntityCommandBufferSystem;
         private EndInitializationEntityCommandBufferSystem m_EndEntityCommandBufferSystem;
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_BeginEntityCommandBufferSystem = World.GetOrCreateManager<BeginInitializationEntityCommandBufferSystem>();
-            m_EndEntityCommandBufferSystem = World.GetOrCreateManager<EndInitializationEntityCommandBufferSystem>();
+            m_BeginEntityCommandBufferSystem = World.GetOrCreateSystem<BeginInitializationEntityCommandBufferSystem>();
+            m_EndEntityCommandBufferSystem = World.GetOrCreateSystem<EndInitializationEntityCommandBufferSystem>();
             m_systemsToUpdate.Add(m_BeginEntityCommandBufferSystem);
             m_systemsToUpdate.Add(m_EndEntityCommandBufferSystem);
         }
@@ -53,12 +51,10 @@ namespace Unity.Entities
     }
 
     [DisableAutoCreation]
-    [Preserve]
     [UnityEngine.ExecuteAlways]
     public class BeginSimulationEntityCommandBufferSystem : EntityCommandBufferSystem {}
 
     [DisableAutoCreation]
-    [Preserve]
     [UnityEngine.ExecuteAlways]
     public class EndSimulationEntityCommandBufferSystem : EntityCommandBufferSystem {}
 
@@ -70,11 +66,11 @@ namespace Unity.Entities
         private BeginSimulationEntityCommandBufferSystem m_BeginEntityCommandBufferSystem;
         private LateSimulationSystemGroup m_lateSimulationGroup;
         private EndSimulationEntityCommandBufferSystem m_EndEntityCommandBufferSystem;
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_BeginEntityCommandBufferSystem = World.GetOrCreateManager<BeginSimulationEntityCommandBufferSystem>();
-            m_lateSimulationGroup = World.GetOrCreateManager<LateSimulationSystemGroup>();
-            m_EndEntityCommandBufferSystem = World.GetOrCreateManager<EndSimulationEntityCommandBufferSystem>();
+            m_BeginEntityCommandBufferSystem = World.GetOrCreateSystem<BeginSimulationEntityCommandBufferSystem>();
+            m_lateSimulationGroup = World.GetOrCreateSystem<LateSimulationSystemGroup>();
+            m_EndEntityCommandBufferSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
             m_systemsToUpdate.Add(m_BeginEntityCommandBufferSystem);
             m_systemsToUpdate.Add(m_lateSimulationGroup);
             m_systemsToUpdate.Add(m_EndEntityCommandBufferSystem);
@@ -109,12 +105,10 @@ namespace Unity.Entities
     }
 
     [DisableAutoCreation]
-    [Preserve]
     [UnityEngine.ExecuteAlways]
     public class BeginPresentationEntityCommandBufferSystem : EntityCommandBufferSystem {}
 
     [DisableAutoCreation]
-    [Preserve]
     [UnityEngine.ExecuteAlways]
     public class EndPresentationEntityCommandBufferSystem : EntityCommandBufferSystem {}
 
@@ -123,10 +117,10 @@ namespace Unity.Entities
         private BeginPresentationEntityCommandBufferSystem m_BeginEntityCommandBufferSystem;
         private EndPresentationEntityCommandBufferSystem m_EndEntityCommandBufferSystem;
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_BeginEntityCommandBufferSystem = World.GetOrCreateManager<BeginPresentationEntityCommandBufferSystem>();
-            m_EndEntityCommandBufferSystem = World.GetOrCreateManager<EndPresentationEntityCommandBufferSystem>();
+            m_BeginEntityCommandBufferSystem = World.GetOrCreateSystem<BeginPresentationEntityCommandBufferSystem>();
+            m_EndEntityCommandBufferSystem = World.GetOrCreateSystem<EndPresentationEntityCommandBufferSystem>();
             m_systemsToUpdate.Add(m_BeginEntityCommandBufferSystem);
             m_systemsToUpdate.Add(m_EndEntityCommandBufferSystem);
         }

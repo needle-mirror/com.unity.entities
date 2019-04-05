@@ -26,14 +26,14 @@ namespace Unity.Entities.Tests
         void VerifyComponentCount<T>(int expectedCount)
             where T : IComponentData
         {
-            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<T>());
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<T>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
             Assert.AreEqual(expectedCount, ArchetypeChunkArray.CalculateEntityCount(chunks));
             chunks.Dispose();
         }
 
-        void VerifyQueryCount(ComponentGroup group, int expectedCount)
+        void VerifyQueryCount(EntityQuery group, int expectedCount)
         {
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             Assert.AreEqual(expectedCount, ArchetypeChunkArray.CalculateEntityCount(chunks));
@@ -41,7 +41,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [StandaloneFixme] // ISharedComponentData
         public void DeleteWhenEmpty()
         {
             var entity = m_Manager.CreateEntity(
@@ -69,7 +69,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [StandaloneFixme] // ISharedComponentData
         public void DeleteWhenEmptyArray()
         {
             var entities = new Entity[512];
@@ -98,7 +98,7 @@ namespace Unity.Entities.Tests
 
             VerifyComponentCount<EcsTestData>(256);
             VerifyComponentCount<EcsState1>(512);
-            VerifyQueryCount(m_Manager.CreateComponentGroup(
+            VerifyQueryCount(m_Manager.CreateEntityQuery(
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsState1>()), 256);
 
@@ -124,7 +124,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [StandaloneFixme] // ISharedComponentData
         public void DeleteWhenEmptyArray2()
         {
             var entities = new Entity[512];
@@ -153,7 +153,7 @@ namespace Unity.Entities.Tests
 
             VerifyComponentCount<EcsTestData>(256);
             VerifyComponentCount<EcsState1>(512);
-            VerifyQueryCount(m_Manager.CreateComponentGroup(
+            VerifyQueryCount(m_Manager.CreateEntityQuery(
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsState1>()), 256);
 
@@ -232,7 +232,7 @@ namespace Unity.Entities.Tests
             VerifyComponentCount<EcsTestData>(0);
             VerifyComponentCount<EcsState1>(512);
 
-            var group = m_Manager.CreateComponentGroup(
+            var group = m_Manager.CreateEntityQuery(
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsState1>());
             
@@ -252,7 +252,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        public void DeleteFromComponentGroup()
+        public void DeleteFromEntityQuery()
         {
             var entities = new Entity[512];
 
@@ -279,7 +279,7 @@ namespace Unity.Entities.Tests
             VerifyComponentCount<EcsTestData>(0);
             VerifyComponentCount<EcsState1>(512);
 
-            var group = m_Manager.CreateComponentGroup(
+            var group = m_Manager.CreateEntityQuery(
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsState1>());
             
@@ -295,7 +295,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void DeleteTagFromComponentGroup()
+        public void DeleteTagFromEntityQuery()
         {
             var entities = new Entity[512];
 
@@ -321,7 +321,7 @@ namespace Unity.Entities.Tests
             VerifyComponentCount<EcsTestData>(0);
             VerifyComponentCount<EcsStateTag1>(512);
 
-            var group = m_Manager.CreateComponentGroup(
+            var group = m_Manager.CreateEntityQuery(
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsStateTag1>());
 

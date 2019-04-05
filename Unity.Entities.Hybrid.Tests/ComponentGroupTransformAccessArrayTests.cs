@@ -7,24 +7,6 @@ namespace Unity.Entities.Tests
 {
     class ComponentGroupTransformAccessArrayTests : ECSTestsFixture
 	{
-#pragma warning disable 618
-	    TransformAccessArrayInjectionHook m_TransformAccessArrayInjectionHook = new TransformAccessArrayInjectionHook();
-	    ComponentArrayInjectionHook m_ComponentArrayInjectionHook = new ComponentArrayInjectionHook();
-#pragma warning restore 618
-	    [OneTimeSetUp]
-	    public void Init()
-	    {
-	        InjectionHookSupport.RegisterHook(m_ComponentArrayInjectionHook);
-	        InjectionHookSupport.RegisterHook(m_TransformAccessArrayInjectionHook);
-	    }
-
-	    [OneTimeTearDown]
-	    public void Cleanup()
-	    {
-	        InjectionHookSupport.RegisterHook(m_TransformAccessArrayInjectionHook);
-	        InjectionHookSupport.UnregisterHook(m_ComponentArrayInjectionHook);
-	    }
-
         public ComponentGroupTransformAccessArrayTests()
         {
             Assert.IsTrue(Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobDebuggerEnabled, "JobDebugger must be enabled for these tests");
@@ -40,7 +22,7 @@ namespace Unity.Entities.Tests
 	    [Test]
 		public void EmptyTransformAccessArrayWorks()
 	    {
-	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
+	        var group = EmptySystem.GetEntityQuery(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
 			Assert.AreEqual(0, ta.length);
 	    }
@@ -49,7 +31,7 @@ namespace Unity.Entities.Tests
 	    {
 	        var go = new GameObject();
 	        go.AddComponent<TransformAccessArrayTestTagProxy>();
-	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
+	        var group = EmptySystem.GetEntityQuery(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(1, ta.length);
 
@@ -60,7 +42,7 @@ namespace Unity.Entities.Tests
 	    {
 	        var go = new GameObject();
 	        go.AddComponent<TransformAccessArrayTestTagProxy>();
-	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
+	        var group = EmptySystem.GetEntityQuery(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(1, ta.length);
 
@@ -78,7 +60,7 @@ namespace Unity.Entities.Tests
 	    {
 	        var go = new GameObject();
 	        go.AddComponent<TransformAccessArrayTestTagProxy>();
-	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
+	        var group = EmptySystem.GetEntityQuery(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(1, ta.length);
 
@@ -97,7 +79,7 @@ namespace Unity.Entities.Tests
 	        var go2 = new GameObject();
 	        go2.AddComponent<TransformAccessArrayTestTagProxy>();
 
-	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
+	        var group = EmptySystem.GetEntityQuery(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(2, ta.length);
 
@@ -117,7 +99,7 @@ namespace Unity.Entities.Tests
 	        var go2 = new GameObject();
 	        go2.AddComponent<TransformAccessArrayTestTagProxy>();
 
-	        var group = EmptySystem.GetComponentGroup(typeof(Transform), typeof(TransformAccessArrayTestTag));
+	        var group = EmptySystem.GetEntityQuery(typeof(Transform), typeof(TransformAccessArrayTestTag));
 	        var ta = group.GetTransformAccessArray();
 	        Assert.AreEqual(2, ta.length);
 
@@ -127,89 +109,5 @@ namespace Unity.Entities.Tests
 
 	        Object.DestroyImmediate(go2);
 	    }
-
-	    [DisableAutoCreation]
-	    public class GameObjectArrayWithTransformAccessSystem : ComponentSystem
-        {
-            public ComponentGroup group;
-	        protected override void OnUpdate()
-	        {
-	        }
-
-	        public new void UpdateInjectedComponentGroups()
-	        {
-	            base.UpdateInjectedComponentGroups();
-	        }
-
-            protected override void OnCreateManager()
-            {
-                group = GetComponentGroup(typeof(Transform));
-            }
-        }
-
-        #pragma warning disable 618
-	    [Test]
-	    public void GameObjectArrayWorksWithTransformAccessArray()
-	    {
-	        var hook = new GameObjectArrayInjectionHook();
-	        InjectionHookSupport.RegisterHook(hook);
-
-	        var go = new GameObject("test");
-	        GameObjectEntity.AddToEntityManager(m_Manager, go);
-
-	        var manager = World.GetOrCreateManager<GameObjectArrayWithTransformAccessSystem>();
-
-	        manager.UpdateInjectedComponentGroups();
-
-	        Assert.AreEqual(1, manager.group.CalculateLength());
-	        Assert.AreEqual(go, manager.group.GetGameObjectArray()[0]);
-	        Assert.AreEqual(go, manager.group.GetTransformAccessArray()[0].gameObject);
-
-	        Object.DestroyImmediate (go);
-
-	        InjectionHookSupport.UnregisterHook(hook);
-
-	        TearDown();
-	    }
-        #pragma warning restore 618
-
-	    [DisableAutoCreation]
-	    public class TransformWithTransformAccessSystem : ComponentSystem
-	    {
-            public ComponentGroup group;
-
-            protected override void OnUpdate()
-	        {
-	        }
-
-	        public new void UpdateInjectedComponentGroups()
-	        {
-	            base.UpdateInjectedComponentGroups();
-	        }
-
-            protected override void OnCreateManager()
-            {
-                group = GetComponentGroup(typeof(Transform));
-            }
-        }
-
-        #pragma warning disable 618
-	    [Test]
-	    public void TransformArrayWorksWithTransformAccessArray()
-	    {
-	        var go = new GameObject("test");
-	        GameObjectEntity.AddToEntityManager(m_Manager, go);
-
-	        var manager = World.GetOrCreateManager<TransformWithTransformAccessSystem>();
-
-	        manager.UpdateInjectedComponentGroups();
-
-	        Assert.AreEqual(1, manager.group.CalculateLength());
-	        Assert.AreEqual(manager.group.GetComponentArray<Transform>()[0].gameObject, manager.group.GetTransformAccessArray()[0].gameObject);
-
-	        Object.DestroyImmediate (go);
-	        TearDown();
-	    }
-        #pragma warning restore 618
     }
 }

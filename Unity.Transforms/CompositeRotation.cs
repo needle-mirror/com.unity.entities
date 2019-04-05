@@ -39,7 +39,7 @@ namespace Unity.Transforms
     // CompositeRotation = RotationPivotTranslation * RotationPivot * Rotation * PostRotation * RotationPivot^-1
     public abstract class CompositeRotationSystem : JobComponentSystem
     {
-        private ComponentGroup m_Group;
+        private EntityQuery m_Group;
 
         [BurstCompile]
         struct ToCompositeRotation : IJobChunk
@@ -357,9 +357,9 @@ namespace Unity.Transforms
             }
         }
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_Group = GetComponentGroup(new EntityArchetypeQuery
+            m_Group = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -372,7 +372,7 @@ namespace Unity.Transforms
                     ComponentType.ReadOnly<RotationPivot>(),
                     ComponentType.ReadOnly<RotationPivotTranslation>()
                 },
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryOptions.FilterWriteGroup
             });
         }
 

@@ -66,11 +66,11 @@ namespace Unity.Transforms
     // (or) PostRotation = PostRotationEulerZYX
     public abstract class PostRotationEulerSystem : JobComponentSystem
     {
-        private ComponentGroup m_Group;
+        private EntityQuery m_Group;
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_Group = GetComponentGroup(new EntityArchetypeQuery
+            m_Group = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -85,7 +85,7 @@ namespace Unity.Transforms
                     ComponentType.ReadOnly<PostRotationEulerZXY>(),
                     ComponentType.ReadOnly<PostRotationEulerZYX>()
                 },
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryOptions.FilterWriteGroup
             });
         }
 

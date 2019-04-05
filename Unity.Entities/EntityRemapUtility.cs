@@ -82,7 +82,7 @@ namespace Unity.Entities
             public int ElementStride;
         }
 
-#if UNITY_CSHARP_TINY
+#if NET_DOTS
         // @TODO TINY -- Need to use UnsafeArray to provide a view of the data in sEntityOffsetArray in the static type manager
         public static EntityOffsetInfo[] CalculateEntityOffsets<T>()
         {

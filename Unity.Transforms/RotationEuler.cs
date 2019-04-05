@@ -66,11 +66,11 @@ namespace Unity.Transforms
     // (or) Rotation = RotationEulerZYX
     public abstract class RotationEulerSystem : JobComponentSystem
     {
-        private ComponentGroup m_Group;
+        private EntityQuery m_Group;
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_Group = GetComponentGroup(new EntityArchetypeQuery
+            m_Group = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -85,7 +85,7 @@ namespace Unity.Transforms
                     ComponentType.ReadOnly<RotationEulerZXY>(),
                     ComponentType.ReadOnly<RotationEulerZYX>()
                 },
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryOptions.FilterWriteGroup
             });
         }
 

@@ -8,10 +8,10 @@ namespace Unity.Transforms
 {
    public abstract class ParentSystem : ComponentSystem
    {
-        private ComponentGroup m_NewParentsGroup;
-        private ComponentGroup m_RemovedParentsGroup;
-        private ComponentGroup m_ExistingParentsGroup;
-        private ComponentGroup m_DeletedParentsGroup;
+        private EntityQuery m_NewParentsGroup;
+        private EntityQuery m_RemovedParentsGroup;
+        private EntityQuery m_ExistingParentsGroup;
+        private EntityQuery m_DeletedParentsGroup;
 
         void AddChildToParent(Entity childEntity, Entity parentEntity)
         {
@@ -96,9 +96,9 @@ namespace Unity.Transforms
             }
         }
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_NewParentsGroup = GetComponentGroup(new EntityArchetypeQuery
+            m_NewParentsGroup = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -110,9 +110,9 @@ namespace Unity.Transforms
                 {
                     typeof(PreviousParent)
                 },
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryOptions.FilterWriteGroup
             });
-            m_RemovedParentsGroup = GetComponentGroup(new EntityArchetypeQuery
+            m_RemovedParentsGroup = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -122,9 +122,9 @@ namespace Unity.Transforms
                 {
                     typeof(Parent)
                 },
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryOptions.FilterWriteGroup
             });
-            m_ExistingParentsGroup = GetComponentGroup(new EntityArchetypeQuery
+            m_ExistingParentsGroup = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -133,9 +133,9 @@ namespace Unity.Transforms
                     ComponentType.ReadOnly<LocalToParent>(),
                     typeof(PreviousParent)
                 },
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryOptions.FilterWriteGroup
             });
-            m_DeletedParentsGroup = GetComponentGroup(new EntityArchetypeQuery
+            m_DeletedParentsGroup = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -145,7 +145,7 @@ namespace Unity.Transforms
                 {
                     typeof(LocalToWorld)
                 },
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryOptions.FilterWriteGroup
             });
         }
 

@@ -26,7 +26,7 @@ namespace Unity.Entities.Tests
         void VerifyComponentCount<T>(int expectedCount)
             where T : IComponentData
         {
-            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<T>());
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<T>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
             Assert.AreEqual(expectedCount, ArchetypeChunkArray.CalculateEntityCount(chunks));
@@ -36,14 +36,14 @@ namespace Unity.Entities.Tests
         void VerifyBufferCount<T>(int expectedCount)
             where T : ISystemStateBufferElementData
         {
-            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<T>());
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<T>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
             Assert.AreEqual(expectedCount, ArchetypeChunkArray.CalculateEntityCount(chunks));
             chunks.Dispose();
         }
 
-        void VerifyQueryCount(ComponentGroup group, int expectedCount)
+        void VerifyQueryCount(EntityQuery group, int expectedCount)
         {
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             Assert.AreEqual(expectedCount, ArchetypeChunkArray.CalculateEntityCount(chunks));
@@ -51,7 +51,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [StandaloneFixme] // ISharedComponentData
         public void DeleteWhenEmpty()
         {
             var entity = m_Manager.CreateEntity(
@@ -80,7 +80,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [StandaloneFixme] // ISharedComponentData
         public void DeleteWhenEmptyArray()
         {
             var entities = new Entity[512];
@@ -110,7 +110,7 @@ namespace Unity.Entities.Tests
 
             VerifyComponentCount<EcsTestData>(256);
             VerifyBufferCount<EcsIntStateElement>(512);
-            VerifyQueryCount(m_Manager.CreateComponentGroup(
+            VerifyQueryCount(m_Manager.CreateEntityQuery(
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsIntStateElement>()), 256);
 
@@ -136,7 +136,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [StandaloneFixme] // ISharedComponentData
         public void DeleteWhenEmptyArray2()
         {
             var entities = new Entity[512];
@@ -166,7 +166,7 @@ namespace Unity.Entities.Tests
 
             VerifyComponentCount<EcsTestData>(256);
             VerifyBufferCount<EcsIntStateElement>(512);
-            VerifyQueryCount(m_Manager.CreateComponentGroup(
+            VerifyQueryCount(m_Manager.CreateEntityQuery(
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsIntStateElement>()), 256);
 
@@ -192,7 +192,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [StandaloneFixme] // ISharedComponentData
         public void DoNotInstantiateSystemState()
         {
             var entity0 = m_Manager.CreateEntity(
@@ -219,7 +219,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [StandaloneFixme]
+        [StandaloneFixme] // Test Error
         public void DeleteFromEntity()
         {
             var entities = new Entity[512];
@@ -247,7 +247,7 @@ namespace Unity.Entities.Tests
             VerifyComponentCount<EcsTestData>(0);
             VerifyBufferCount<EcsIntStateElement>(512);
 
-            var group = m_Manager.CreateComponentGroup(
+            var group = m_Manager.CreateEntityQuery(
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsIntStateElement>());
             
@@ -267,8 +267,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [StandaloneFixme]
-        public void DeleteFromComponentGroup()
+        public void DeleteFromEntityQuery()
         {
             var entities = new Entity[512];
 
@@ -296,7 +295,7 @@ namespace Unity.Entities.Tests
             VerifyComponentCount<EcsTestData>(0);
             VerifyBufferCount<EcsIntStateElement>(512);
 
-            var group = m_Manager.CreateComponentGroup(
+            var group = m_Manager.CreateEntityQuery(
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsIntStateElement>());
             
@@ -312,8 +311,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
-        public void DeleteTagFromComponentGroup()
+        public void DeleteTagFromEntityQuery()
         {
             var entities = new Entity[512];
 
@@ -339,7 +337,7 @@ namespace Unity.Entities.Tests
             VerifyComponentCount<EcsTestData>(0);
             VerifyBufferCount<EcsIntStateElement>(512);
 
-            var group = m_Manager.CreateComponentGroup(
+            var group = m_Manager.CreateEntityQuery(
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsIntStateElement>());
 

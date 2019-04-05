@@ -6,12 +6,12 @@ using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
-    
+
     internal delegate void EntitySelectionCallback(Entity selection);
     internal delegate World WorldSelectionGetter();
-    internal delegate ScriptBehaviourManager SystemSelectionGetter();
+    internal delegate ComponentSystemBase SystemSelectionGetter();
     internal delegate void ChunkArrayAssignmentCallback(NativeArray<ArchetypeChunk> chunkArray);
-    
+
     internal class EntityListView : TreeView, IDisposable {
 
         public EntityListQuery SelectedEntityQuery
@@ -41,7 +41,7 @@ namespace Unity.Entities.Editor
         private readonly WorldSelectionGetter getWorldSelection;
         private readonly SystemSelectionGetter getSystemSelection;
         private readonly ChunkArrayAssignmentCallback setChunkArray;
-        
+
         private readonly EntityArrayListAdapter rows;
 
         public NativeArray<ArchetypeChunk> ChunkArray => chunkArray;
@@ -64,7 +64,7 @@ namespace Unity.Entities.Editor
 
         private int lastVersion = -1;
 
-        public bool NeedsReload => ShowingSomething && getWorldSelection().GetExistingManager<EntityManager>().Version != lastVersion;
+        public bool NeedsReload => ShowingSomething && getWorldSelection().EntityManager.Version != lastVersion;
         
         public void ReloadIfNecessary()
         {
@@ -77,42 +77,42 @@ namespace Unity.Entities.Editor
         protected override TreeViewItem BuildRoot()
         {
             var root  = new TreeViewItem { id = 0, depth = -1, displayName = "Root" };
-            
+
             return root;
         }
-        
+
         protected override IList<TreeViewItem> BuildRows(TreeViewItem root)
         {
             if (!ShowingSomething)
                 return new List<TreeViewItem>();
             
-            var entityManager = getWorldSelection().GetExistingManager<EntityManager>();
+            var entityManager = getWorldSelection().EntityManager;
             
             if (chunkArray.IsCreated)
                 chunkArray.Dispose();
-            
+
             entityManager.CompleteAllJobs();
 
             var group = SelectedEntityQuery?.Group;
-            
+
             if (group == null)
             {
-                var query = SelectedEntityQuery?.Query;
+                var query = SelectedEntityQuery?.QueryDesc;
                 if (query == null)
-                    group = entityManager.UniversalGroup;
+                    group = entityManager.UniversalQuery;
                 else
                 {
-                    group = entityManager.CreateComponentGroup(query);
+                    group = entityManager.CreateEntityQuery(query);
                 }
             }
-            
+
             chunkArray = group.CreateArchetypeChunkArray(Allocator.Persistent);
 
             rows.SetSource(chunkArray, entityManager, chunkFilter);
             setChunkArray(chunkArray);
 
             lastVersion = entityManager.Version;
-            
+
             return rows;
         }
 
@@ -128,7 +128,7 @@ namespace Unity.Entities.Editor
 
         public override void OnGUI(Rect rect)
         {
-            if (getWorldSelection()?.GetExistingManager<EntityManager>()?.IsCreated == true)
+            if (getWorldSelection()?.EntityManager.IsCreated == true)
                 base.OnGUI(rect);
         }
 
@@ -165,7 +165,7 @@ namespace Unity.Entities.Editor
         {
             if (args.acceptedRename)
             {
-                var manager = getWorldSelection()?.GetExistingManager<EntityManager>();
+                var manager = getWorldSelection()?.EntityManager;
                 if (manager != null)
                 {
                     Entity entity;
@@ -184,7 +184,7 @@ namespace Unity.Entities.Editor
 
         public void SetEntitySelection(Entity entitySelection)
         {
-            if (entitySelection != Entity.Null && getWorldSelection().GetExistingManager<EntityManager>().Exists(entitySelection))
+            if (entitySelection != Entity.Null && getWorldSelection().EntityManager.Exists(entitySelection))
                 SetSelection(new List<int>{EntityArrayListAdapter.IndexToItemId(entitySelection.Index)});
         }
 

@@ -11,13 +11,13 @@ public abstract class GameObjectConversionSystem : ComponentSystem
 
     GameObjectConversionMappingSystem m_MappingSystem;
 
-    protected override void OnCreateManager()
+    protected override void OnCreate()
     {
-        base.OnCreateManager();
+        base.OnCreate();
 
-        m_MappingSystem = World.GetOrCreateManager<GameObjectConversionMappingSystem>();
+        m_MappingSystem = World.GetOrCreateSystem<GameObjectConversionMappingSystem>();
         DstWorld = m_MappingSystem.DstWorld;
-        DstEntityManager = DstWorld.GetOrCreateManager<EntityManager>();
+        DstEntityManager = DstWorld.EntityManager;
     }
     
     public Entity GetPrimaryEntity(Component component)

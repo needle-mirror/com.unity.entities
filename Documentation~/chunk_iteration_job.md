@@ -2,38 +2,38 @@
 
 You can implement IJobChunk inside a JobComponentSystem to iterate through your data by chunk. The JobComponentSystem calls your Execute() function once for each chunk that contains the entities that you want the system to process. You can then process the data inside each chunk, entity by entity.
 
-Iterating with IJobChunk requires more code setup than does IJobProcessComponentData, but is also more explicit and represents the most direct access to the data, as it is actually stored. 
+Iterating with IJobChunk requires more code setup than does IJobForEach, but is also more explicit and represents the most direct access to the data, as it is actually stored. 
 
 Another benefit of using iterating by chunks is that you can check whether an optional component is present in each chunk (with Archetype.Has<T>) and process all the entities in the chunk accordingly.
 
 The steps involved in implementing an IJobChunk Job include:
 
-1. Identify the entities that you want to process by creating a ComponentGroup.
+1. Identify the entities that you want to process by creating a EntityQuery.
 2. Defining the Job struct, including fields for ArchetypeChunkComponentType objects to identifying the types of components the Job directly accesses, specifying whether the Job reads or writes to those components.
 3. Instantiating the Job struct and scheduling the Job in the system OnUpdate() function.
 4. In the Execute() function, getting the NativeArray instances for the components the Job reads or writes and, finally, iterating over the current chunk to perform the desired work.
 
 The [ECS samples repository](https://github.com/Unity-Technologies/EntityComponentSystemSamples) contains a simple example, HelloCube_03_IJobChunk, that uses IJobChunk.
 
-## Query for data with a ComponentGroup
+## Query for data with a EntityQuery
 
-A ComponentGroup defines the set of component types that an archetype must contain for the system to process its associated chunks and entities. An archetype can have additional components as well, but it must have at least those defined by the ComponentGroup. You can also exclude archetypes that contain specific types of components.  
+A EntityQuery defines the set of component types that an archetype must contain for the system to process its associated chunks and entities. An archetype can have additional components as well, but it must have at least those defined by the EntityQuery. You can also exclude archetypes that contain specific types of components.  
 
-For simple queries, you can use the JobComponentSystem.GetComponentGroup() function, passing in the component types:
+For simple queries, you can use the JobComponentSystem.GetEntityQuery() function, passing in the component types:
 
 ``` c#
 public class RotationSpeedSystem : JobComponentSystem
 {
-   private ComponentGroup m_Group;
-   protected override void OnCreateManager()
+   private EntityQuery m_Group;
+   protected override void OnCreate()
    {
-       m_Group = GetComponentGroup(typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>());
+       m_Group = GetEntityQuery(typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>());
    }
    //…
 }
 ````
 
-For more complex situations, you can use an EntityArchetypeQuery. An EntityArchetypeQuery provides a flexible query mechanism to specify the component types:
+For more complex situations, you can use an EntityQueryDesc. An EntityQueryDesc provides a flexible query mechanism to specify the component types:
 
 * `All` = All component types in this array must exist in the archetype
 * `Any` = At least one of the component types in this array must exist in the archetype
@@ -42,48 +42,48 @@ For more complex situations, you can use an EntityArchetypeQuery. An EntityArche
 For example, the following query includes archetypes containing the RotationQuaternion and RotationSpeed components, but excludes any archetypes containing the Frozen component:
 
 ``` c#
-protected override void OnCreateManager()
+protected override void OnCreate()
 {
-   var query = new EntityArchetypeQuery
+   var query = new EntityQueryDesc
    {
        None = new ComponentType[]{ typeof(Frozen) },
        All = new ComponentType[]{ typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>() }
 }
    };
-   m_Group = GetComponentGroup(query);
+   m_Group = GetEntityQuery(query);
 }
 ```
 
 The query uses `ComponentType.ReadOnly<T>`  instead of the simpler `typeof` expression to designate that the system does not write to RotationSpeed.
 
-You can also combine multiple queries by passing an array of EntityArchetypeQuery objects rather than a single instance. Each query is combined using a logical OR operation. The following example selects an archetypes that contain a RotationQuaternion component or a RotationSpeed component (or both):
+You can also combine multiple queries by passing an array of EntityQueryDesc objects rather than a single instance. Each query is combined using a logical OR operation. The following example selects an archetypes that contain a RotationQuaternion component or a RotationSpeed component (or both):
 
 ``` c#
-protected override void OnCreateManager()
+protected override void OnCreate()
 {
-   var query0 = new EntityArchetypeQuery
+   var query0 = new EntityQueryDesc
    {
        All = new ComponentType[] {typeof(RotationQuaternion)}
    };
 
-   var query1 = new EntityArchetypeQuery
+   var query1 = new EntityQueryDesc
    {
        All = new ComponentType[] {typeof(RotationSpeed)}
    };
 
-   m_Group = GetComponentGroup(new EntityArchetypeQuery[] {query0, query1});
+   m_Group = GetEntityQuery(new EntityQueryDesc[] {query0, query1});
 }
 ```
 
-**Note:** Do not include completely optional components in the EntityArchetypeQuery. To handle optional components, use the `chunk.Has<T>()` method inside `IJobChunk.Execute()` to determine whether the current ArchetypeChunk has the optional component or not. Since all entities within the same chunk have the same components, you only need to check whether an optional component exists once per chunk -- not once per entity.
+**Note:** Do not include completely optional components in the EntityQueryDesc. To handle optional components, use the `chunk.Has<T>()` method inside `IJobChunk.Execute()` to determine whether the current ArchetypeChunk has the optional component or not. Since all entities within the same chunk have the same components, you only need to check whether an optional component exists once per chunk -- not once per entity.
 
-For efficiency and to avoid needless creation of garbage-collected reference types, you should create the ComponentGroups for a system in the system’s OnCreateManager() function and store the result in an instance variable. (In the above examples, the `m_Group` variable is used for this purpose.)
+For efficiency and to avoid needless creation of garbage-collected reference types, you should create the EntityQueries for a system in the system’s OnCreate() function and store the result in an instance variable. (In the above examples, the `m_Group` variable is used for this purpose.)
 
 ### ## Define the IJobChunk struct
 
 The IJobChunk struct defines fields for the data the Job needs when it runs, as well as the Job’s Execute() method.
 
-In order to access the component arrays inside the chunks that the system passes to your Execute() method, you must create an ArchetypeChunkComponentType<T> object for each type of component that the Job reads or writes. These objects allow you to get instances of the NativeArrays providing access to the components of an entity. Include all the components referenced in the Job’s ComponentGroup that the Execute method reads or writes. You can also provide ArchetypeChunkComponentType variables for optional component types that you do not include in the ComponentGroup. (You must check to make sure that the current chunk has an optional component before trying to access it.)
+In order to access the component arrays inside the chunks that the system passes to your Execute() method, you must create an ArchetypeChunkComponentType<T> object for each type of component that the Job reads or writes. These objects allow you to get instances of the NativeArrays providing access to the components of an entity. Include all the components referenced in the Job’s EntityQuery that the Execute method reads or writes. You can also provide ArchetypeChunkComponentType variables for optional component types that you do not include in the EntityQuery. (You must check to make sure that the current chunk has an optional component before trying to access it.)
 
 For example, the HelloCube_03_IJobChunk example declares a Job struct that defines ArchetypeChunkComponentType<T> variables for two components, RotationQuaternion and RotationSpeed:
 
@@ -140,7 +140,7 @@ for (var i = 0; i < chunk.Count; i++)
 }
 ```
 
-If you the `Any` filter in your EntityArchetypeQuery or have completely optional components that don’t appear in the query at all, you can use the `ArchetypeChunk.Has<T>` function to test whether the current chunk contains the one of those components before using it:
+If you the `Any` filter in your EntityQueryDesc or have completely optional components that don’t appear in the query at all, you can use the `ArchetypeChunk.Has<T>` function to test whether the current chunk contains the one of those components before using it:
 
     if (chunk.Has<OptionalComp>(OptionalCompType))
     {//...}
@@ -149,20 +149,20 @@ __Note:__ If you use a concurrent entity command buffer, pass the chunkIndex arg
 
 ## Skipping chunks with unchanged entities
 
-If you only need to update entities when a component value has changed, you can add that component type to the change filter of the ComponentGroup used to select the entities and chunks for the job. For example, if you have a system that reads two components and only needs to update a third when one of the first two has changed, you could use a ComponentGroup as follows:
+If you only need to update entities when a component value has changed, you can add that component type to the change filter of the EntityQuery used to select the entities and chunks for the job. For example, if you have a system that reads two components and only needs to update a third when one of the first two has changed, you could use a EntityQuery as follows:
 
 ``` c#
-ComponentGroup m_Group;
-protected override void OnCreateManager()
+EntityQuery m_Group;
+protected override void OnCreate()
 {
-   m_Group = GetComponentGroup(typeof(Output), 
+   m_Group = GetEntityQuery(typeof(Output), 
                                ComponentType.ReadOnly<InputA>(), 
                                ComponentType.ReadOnly<InputB>());
    m_Group.SetFilterChanged(new ComponentType{ typeof(InputA), typeof(InputB)});
 }
 ```
 
-The ComponentGroup change filter supports up to two components. If you want to check more or aren't using a ComponentGroup, you can make the check manually. To make this check, compare the chunk’s change version for the component to the system’s LastSystemVersion using the `ArchetypeChunk.DidChange()` function. If this function returns false, you can skip the current chunk altogether since none of the components of that type have changed since the last time the system ran. 
+The EntityQuery change filter supports up to two components. If you want to check more or aren't using a EntityQuery, you can make the check manually. To make this check, compare the chunk’s change version for the component to the system’s LastSystemVersion using the `ArchetypeChunk.DidChange()` function. If this function returns false, you can skip the current chunk altogether since none of the components of that type have changed since the last time the system ran. 
 
 The LastSystemVersion from the system must be passed into the Job using a struct field:
 
@@ -214,6 +214,6 @@ protected override JobHandle OnUpdate(JobHandle inputDependencies)
 }
 ```
 
-When you call the GetArchetypeChunkComponentType<T> function to set your component type variables, make sure that you set the isReadOnly to true for components that the Job reads, but doesn’t write. Setting these parameters correctly can have a significant impact on how efficiently the ECS framework can schedule your Jobs. These access mode settings must match their equivalents in both the struct definition, and the ComponentGroup. 
+When you call the GetArchetypeChunkComponentType<T> function to set your component type variables, make sure that you set the isReadOnly to true for components that the Job reads, but doesn’t write. Setting these parameters correctly can have a significant impact on how efficiently the ECS framework can schedule your Jobs. These access mode settings must match their equivalents in both the struct definition, and the EntityQuery. 
 
 Do not cache the return value of GetArchetypeChunkComponentType<T> in a system  class variable. The function must be called every time the system runs and the updated value passed to the Job.

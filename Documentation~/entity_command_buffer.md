@@ -6,7 +6,7 @@ uid: ecs-entity-command-buffer
 The `EntityCommandBuffer` class solves two important problems:
 
 1. When you're in a job, you can't access the `EntityManager`.
-2. When you access the `EntityManager` (to say, create an entity) you invalidate all injected arrays and `ComponentGroup` objects.
+2. When you access the `EntityManager` (to say, create an entity) you invalidate all injected arrays and `EntityQuery` objects.
 
 The `EntityCommandBuffer` abstraction allows you to queue up changes (from either a job or from the main thread) so that they can take effect later on the main thread. There are two ways to use a `EntityCommandBuffer`:
 

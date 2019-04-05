@@ -8,6 +8,18 @@ namespace Unity.Entities.Tests
 {
     unsafe class EntityQueryCacheTests
     {
+        [SetUp]
+        public void Setup()
+        {
+            TypeManager.Initialize();
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            TypeManager.Shutdown();
+        }
+
         [Test]
         public void Ctor_WithCacheSize0_Throws()
         {
@@ -17,7 +29,7 @@ namespace Unity.Entities.Tests
             // ReSharper restore ObjectCreationAsStatement
         }
 
-        static void SimpleWrapCreateCachedQuery(EntityQueryCache cache, uint hash, ComponentGroup group)
+        static void SimpleWrapCreateCachedQuery(EntityQueryCache cache, uint hash, EntityQuery group)
         {
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var builder = new EntityQueryBuilder();
@@ -25,6 +37,32 @@ namespace Unity.Entities.Tests
             #else
             cache.CreateCachedQuery(hash, group);
             #endif
+        }
+
+        [Test]
+        public void CalcUsedCacheCount_WithEmptyCache_ReturnsZero()
+        {
+            var cache = new EntityQueryCache(1);
+
+            Assert.AreEqual(0, cache.CalcUsedCacheCount());
+        }
+
+        [Test]
+        public void CalcUsedCacheCount_WithSomeInCache_ReturnsCorrectNumber()
+        {
+            var cache = new EntityQueryCache(2);
+            SimpleWrapCreateCachedQuery(cache, 0, k_DummyGroup);
+
+            Assert.AreEqual(1, cache.CalcUsedCacheCount());
+        }
+
+        [Test]
+        public void CalcUsedCacheCount_WithFullCache_ReturnsCorrectNumber()
+        {
+            var cache = new EntityQueryCache(1);
+            SimpleWrapCreateCachedQuery(cache, 0, k_DummyGroup);
+
+            Assert.AreEqual(1, cache.CalcUsedCacheCount());
         }
 
         [Test]
@@ -61,7 +99,7 @@ namespace Unity.Entities.Tests
         }
 
         readonly Regex k_ResizeError = new Regex(".*is too small to hold the current number of queries.*");
-        readonly ComponentGroup k_DummyGroup = new ComponentGroup(null, null, null, null);
+        readonly EntityQuery k_DummyGroup = new EntityQuery(null, null, null, null);
 
         [Test]
         public void CreateCachedQuery_WithNullGroup_Throws()
@@ -127,6 +165,7 @@ namespace Unity.Entities.Tests
 
             Assert.Throws<IndexOutOfRangeException>(() => cache.GetCachedQuery(1));
         }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
 
         [Test]
         public void ValidateMatchesCache_WithValidMatch_DoesNotThrow()
@@ -191,5 +230,6 @@ namespace Unity.Entities.Tests
             catch (InvalidOperationException x) { testException1 = x; }
             Assert.NotNull(testException1);
         }
+#endif
     }
 }

@@ -25,7 +25,7 @@ namespace Unity.Transforms
     // (or) ParentScaleInverse = Parent.NonUniformScale^-1
     public abstract class ParentScaleInverseSystem : JobComponentSystem
     {
-        private ComponentGroup m_Group;
+        private EntityQuery m_Group;
 
         [BurstCompile]
         struct ToChildParentScaleInverse : IJobChunk
@@ -115,9 +115,9 @@ namespace Unity.Transforms
             }
         }
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_Group = GetComponentGroup(new EntityArchetypeQuery
+            m_Group = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -129,7 +129,7 @@ namespace Unity.Transforms
                     ComponentType.ReadOnly<NonUniformScale>(),
                     ComponentType.ReadOnly<CompositeScale>(),
                 },                
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryOptions.FilterWriteGroup
             });
         }
 

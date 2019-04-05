@@ -125,7 +125,7 @@ namespace Unity.Entities.Tests
             Type proxyType, object expectedValue, MockSetter setValue, MockGetter getValue
         )
         {
-            var entityManager = new EntityManager();
+            var entityManager = EntityManager.CreateEntityManagerInUninitializedState();
             k_EntityManagerBackingField.SetValue(m_GameObjectEntity, entityManager);
             Assume.That(entityManager.IsCreated, Is.False, "EntityManager was not in correct state in test arrangement");
             var proxy = m_GameObjectEntity.gameObject.AddComponent(proxyType) as ComponentDataProxyBase;

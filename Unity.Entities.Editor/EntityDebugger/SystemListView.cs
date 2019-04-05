@@ -8,7 +8,7 @@ using UnityEngine.Profiling;
 namespace Unity.Entities.Editor
 {
 
-    internal delegate void SystemSelectionCallback(ScriptBehaviourManager manager, World world);
+    internal delegate void SystemSelectionCallback(ComponentSystemBase manager, World world);
 
     internal class SystemListView : TreeView
     {
@@ -43,7 +43,7 @@ namespace Unity.Entities.Editor
         }
         internal readonly Dictionary<int, ComponentSystemBase> managersById = new Dictionary<int, ComponentSystemBase>();
         private readonly Dictionary<int, World> worldsById = new Dictionary<int, World>();
-        private readonly Dictionary<ScriptBehaviourManager, AverageRecorder> recordersByManager = new Dictionary<ScriptBehaviourManager, AverageRecorder>();
+        private readonly Dictionary<ComponentSystemBase, AverageRecorder> recordersByManager = new Dictionary<ComponentSystemBase, AverageRecorder>();
         private readonly Dictionary<int, HideNode> hideNodesById = new Dictionary<int, HideNode>();
 
         private const float kToggleWidth = 22f;
@@ -249,7 +249,7 @@ namespace Unity.Entities.Editor
                 if (executionDelegate != null &&
                     (dummy = executionDelegate.Target as ScriptBehaviourUpdateOrder.DummyDelegateWrapper) != null)
                 {
-                    var rootSystem = dummy.Manager;
+                    var rootSystem = dummy.System;
                     return BuildNodesForComponentSystem(rootSystem, ref currentId);
                 }
             }
@@ -264,7 +264,7 @@ namespace Unity.Entities.Editor
             return null;
         }
 
-        private HideNode BuildNodesForComponentSystem(ScriptBehaviourManager manager, ref int currentId)
+        private HideNode BuildNodesForComponentSystem(ComponentSystemBase manager, ref int currentId)
         {
             switch (manager)
             {
@@ -497,7 +497,7 @@ namespace Unity.Entities.Editor
                 {
                     if (manager is ComponentSystemBase system)
                     {
-                        if (system.World == null || !system.World.BehaviourManagers.Contains(manager))
+                        if (system.World == null || !system.World.Systems.Contains(manager))
                             return true;
                     }
                 }
@@ -527,7 +527,7 @@ namespace Unity.Entities.Editor
             lastTimedFrame = Time.frameCount;
         }
 
-        public void SetSystemSelection(ScriptBehaviourManager manager, World world)
+        public void SetSystemSelection(ComponentSystemBase manager, World world)
         {
             foreach (var pair in managersById)
             {

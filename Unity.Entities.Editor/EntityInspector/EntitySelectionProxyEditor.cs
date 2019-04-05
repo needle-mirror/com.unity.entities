@@ -13,7 +13,7 @@ namespace Unity.Entities.Editor
         private readonly RepaintLimiter repaintLimiter = new RepaintLimiter();
 
         [SerializeField] private SystemInclusionList inclusionList;
-        
+
         void OnEnable()
         {
             visitor = new EntityIMGUIVisitor((entity) =>
@@ -32,7 +32,7 @@ namespace Unity.Entities.Editor
         private uint GetVersion()
         {
             var container = target as EntitySelectionProxy;
-            return container.World.GetExistingManager<EntityManager>().GetChunkVersionHash(container.Entity);
+            return container.World.EntityManager.GetChunkVersionHash(container.Entity);
         }
 
         public override void OnInspectorGUI()
@@ -46,9 +46,9 @@ namespace Unity.Entities.Editor
             (targetProxy.Container.PropertyBag as StructPropertyBag<EntityContainer>)?.Visit(ref container, visitor);
 
             GUI.enabled = true;
-            
+
             inclusionList.OnGUI(targetProxy.World, targetProxy.Entity);
-            
+
             repaintLimiter.RecordRepaint();
             lastVersion = GetVersion();
         }

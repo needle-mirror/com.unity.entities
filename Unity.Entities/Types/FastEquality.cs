@@ -11,7 +11,7 @@ namespace Unity.Entities
 {
     public static class FastEquality
     {
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
         internal static TypeInfo CreateTypeInfo<T>() where T : struct
         {
             return CreateTypeInfo(typeof(T));
@@ -67,7 +67,7 @@ namespace Unity.Entities
         {
             private void* pter;
         }
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
         struct FieldData
         {
             public int Offset;

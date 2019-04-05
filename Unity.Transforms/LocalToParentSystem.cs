@@ -10,7 +10,7 @@ namespace Unity.Transforms
 {
     public abstract class LocalToParentSystem : JobComponentSystem
     {
-        private ComponentGroup m_RootsGroup;
+        private EntityQuery m_RootsGroup;
 
         // LocalToWorld = Parent.LocalToWorld * LocalToParent
         [BurstCompile]
@@ -56,9 +56,9 @@ namespace Unity.Transforms
             }
         }
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_RootsGroup = GetComponentGroup(new EntityArchetypeQuery
+            m_RootsGroup = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -69,7 +69,7 @@ namespace Unity.Transforms
                 {
                     typeof(Parent)
                 },
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryOptions.FilterWriteGroup
             });
         }
 

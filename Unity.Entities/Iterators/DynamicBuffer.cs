@@ -38,6 +38,9 @@ namespace Unity.Entities
         }
 #endif
 
+        /// <summary>
+        /// The number of elements the buffer holds.
+        /// </summary>
         public int Length
         {
             get
@@ -47,6 +50,9 @@ namespace Unity.Entities
             }
         }
 
+        /// <summary>
+        /// The number of elements the buffer can hold.
+        /// </summary>
         public int Capacity
         {
             get
@@ -116,11 +122,24 @@ namespace Unity.Entities
             }
         }
 
+        /// <summary>
+        /// Increases the buffer capacity and length.
+        /// </summary>
+        /// <param name="length">The new length of the buffer.</param>
         public void ResizeUninitialized(int length)
+        {
+            Reserve(length);
+            m_Buffer->Length = length;
+        }
+
+        /// <summary>
+        /// Increases the buffer capacity without increasing its length.
+        /// </summary>
+        /// <param name="length">The new buffer capacity.</param>
+        public void Reserve(int length)
         {
             CheckWriteAccessAndInvalidateArrayAliases();
             BufferHeader.EnsureCapacity(m_Buffer, length, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData);
-            m_Buffer->Length = length;
         }
 
         public void Clear()
@@ -143,8 +162,8 @@ namespace Unity.Entities
             int elemSize = UnsafeUtility.SizeOf<T>();
             int elemAlign = UnsafeUtility.AlignOf<T>();
 
-            byte* newPtr = (byte*) UnsafeUtility.Malloc(elemSize * length, elemAlign, Allocator.Persistent);
-            UnsafeUtility.MemCpy(newPtr, oldPtr, elemSize * length);
+            byte* newPtr = (byte*) UnsafeUtility.Malloc((long)elemSize * length, elemAlign, Allocator.Persistent);
+            UnsafeUtility.MemCpy(newPtr, oldPtr, (long)elemSize * length);
 
             m_Buffer->Capacity = length;
             m_Buffer->Pointer = newPtr;
@@ -168,7 +187,7 @@ namespace Unity.Entities
             CheckBounds(index); //CheckBounds after ResizeUninitialized since index == length is allowed
             int elemSize = UnsafeUtility.SizeOf<T>();
             byte* basePtr = BufferHeader.GetElementPointer(m_Buffer);
-            UnsafeUtility.MemMove(basePtr + (index + 1) * elemSize, basePtr + index * elemSize, elemSize * (length - index));
+            UnsafeUtility.MemMove(basePtr + (index + 1) * elemSize, basePtr + index * elemSize, (long)elemSize * (length - index));
             this[index] = elem;
         }
 
@@ -180,7 +199,7 @@ namespace Unity.Entities
             ResizeUninitialized(oldLength + newElems.Length);
 
             byte* basePtr = BufferHeader.GetElementPointer(m_Buffer);
-            UnsafeUtility.MemCpy(basePtr + oldLength * elemSize, newElems.GetUnsafeReadOnlyPtr<T>(), elemSize * newElems.Length);
+            UnsafeUtility.MemCpy(basePtr + (long)oldLength * elemSize, newElems.GetUnsafeReadOnlyPtr<T>(), (long)elemSize * newElems.Length);
         }
 
         public void RemoveRange(int index, int count)
@@ -191,7 +210,7 @@ namespace Unity.Entities
             int elemSize = UnsafeUtility.SizeOf<T>();
             byte* basePtr = BufferHeader.GetElementPointer(m_Buffer);
 
-            UnsafeUtility.MemMove(basePtr + index * elemSize, basePtr + (index + count) * elemSize, elemSize * (Length - count - index));
+            UnsafeUtility.MemMove(basePtr + index * elemSize, basePtr + (index + count) * elemSize, (long)elemSize * (Length - count - index));
 
             m_Buffer->Length -= count;
         }
@@ -243,7 +262,11 @@ namespace Unity.Entities
             return AsNativeArray();
         }
 
-
+        public NativeArray<T> ToNativeArray(Allocator allocator)
+        {
+            return new NativeArray<T>(AsNativeArray(), allocator);
+        }
+        
         public void CopyFrom(NativeArray<T> v)
         {
             ResizeUninitialized(v.Length);
@@ -252,7 +275,7 @@ namespace Unity.Entities
 
         public void CopyFrom(T[] v)
         {
-#if UNITY_CSHARP_TINY
+#if NET_DOTS
             Clear();
             foreach (var d in v)
             {

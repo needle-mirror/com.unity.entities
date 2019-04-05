@@ -35,7 +35,7 @@ namespace Unity.Transforms
     // (or) CompositeScale = ScalePivotTranslation * ScalePivot * NonUniformScale * ScalePivot^-1
     public abstract class CompositeScaleSystem : JobComponentSystem
     {
-        private ComponentGroup m_Group;
+        private EntityQuery m_Group;
 
         [BurstCompile]
         struct ToCompositeScale : IJobChunk
@@ -272,9 +272,9 @@ namespace Unity.Transforms
             }
         }
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_Group = GetComponentGroup(new EntityArchetypeQuery
+            m_Group = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -287,7 +287,7 @@ namespace Unity.Transforms
                     ComponentType.ReadOnly<ScalePivot>(),
                     ComponentType.ReadOnly<ScalePivotTranslation>()
                 },
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryOptions.FilterWriteGroup
             });
         }
 

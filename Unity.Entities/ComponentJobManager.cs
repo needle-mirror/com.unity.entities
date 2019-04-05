@@ -22,13 +22,13 @@ namespace Unity.Entities
     /// Job component systems that have no other type dependencies have their JobHandles registered on the Entity type
     /// to ensure that they are completed by CompleteAllJobsAndInvalidateArrays
     /// </summary>
-    internal unsafe class ComponentJobSafetyManager
+    internal unsafe struct ComponentJobSafetyManager
     {
         private const int kMaxReadJobHandles = 17;
         private const int kMaxTypes = TypeManager.MaximumTypesCount;
 
-        private readonly JobHandle* m_JobDependencyCombineBuffer;
-        private readonly int m_JobDependencyCombineBufferCount;
+        private JobHandle* m_JobDependencyCombineBuffer;
+        private int m_JobDependencyCombineBufferCount;
         private ComponentSafetyHandle* m_ComponentSafetyHandles;
 
         private JobHandle m_ExclusiveTransactionDependency;
@@ -40,7 +40,7 @@ namespace Unity.Entities
         private const int EntityTypeIndex = 1;
 
 
-        public ComponentJobSafetyManager()
+        public void OnCreate()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_TempSafety = AtomicSafetyHandle.Create();
@@ -63,6 +63,8 @@ namespace Unity.Entities
 #endif
 
             m_HasCleanHandles = true;
+            IsInTransaction = false;
+            m_ExclusiveTransactionDependency = default(JobHandle);
         }
 
         public bool IsInTransaction { get; private set; }
@@ -489,7 +491,7 @@ namespace Unity.Entities
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        private readonly AtomicSafetyHandle m_TempSafety;
+        private AtomicSafetyHandle m_TempSafety;
 #endif
     }
 }

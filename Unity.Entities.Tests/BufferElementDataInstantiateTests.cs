@@ -5,7 +5,6 @@ using NUnit.Framework;
 using Unity.Collections;
 
 #pragma warning disable 0649
-#pragma warning disable 0618
 #pragma warning disable 0219 // assigned but its value is never used
 
 namespace Unity.Entities.Tests
@@ -144,7 +143,6 @@ namespace Unity.Entities.Tests
 }
 
 #pragma warning restore 0649
-#pragma warning restore 0618
 #pragma warning restore 0219 // assigned but its value is never used
 
 

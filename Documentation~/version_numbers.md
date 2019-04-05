@@ -48,7 +48,7 @@ For each component type in the archetype, this array contains the value of `Enti
 
 Shared components can never be accessed as writeable, even if there is technically a version number stored for those too, it serves no purpose.
 
-When using the `[ChangedFilter]` attribute in an `IJobProcessComponentData`, the `Chunk.ChangeVersion` for that specific component is compared to `System.LastSystemVersion`, so only chunks whose component arrays have been accessed as writeable since after the system last started running will be processed.
+When using the `[ChangedFilter]` attribute in an `IJobForEach`, the `Chunk.ChangeVersion` for that specific component is compared to `System.LastSystemVersion`, so only chunks whose component arrays have been accessed as writeable since after the system last started running will be processed.
 
 > If the amount of health points of a group of units is guaranteed not to have changed since the previous frame, checking if those units should update their damage model can be skipped altogether.
 

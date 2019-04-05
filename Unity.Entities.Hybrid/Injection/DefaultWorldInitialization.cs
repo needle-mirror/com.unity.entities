@@ -26,11 +26,11 @@ namespace Unity.Entities
             ScriptBehaviourUpdateOrder.UpdatePlayerLoop(null);
         }
 
-        static ScriptBehaviourManager GetOrCreateManagerAndLogException(World world, Type type)
+        static ComponentSystemBase GetOrCreateManagerAndLogException(World world, Type type)
         {
             try
             {
-                return world.GetOrCreateManager(type);
+                return world.GetOrCreateSystem(type);
             }
             catch (Exception e)
             {
@@ -41,13 +41,6 @@ namespace Unity.Entities
 
         public static void Initialize(string worldName, bool editorWorld)
         {
-            // Register hybrid injection hooks
-            #pragma warning disable 0618
-            InjectionHookSupport.RegisterHook(new GameObjectArrayInjectionHook());
-            InjectionHookSupport.RegisterHook(new TransformAccessArrayInjectionHook());
-            InjectionHookSupport.RegisterHook(new ComponentArrayInjectionHook());
-            #pragma warning restore 0618
-
             PlayerLoopManager.RegisterDomainUnload(DomainUnloadShutdown, 10000);
 
             var world = new World(worldName);
@@ -64,9 +57,9 @@ namespace Unity.Entities
             }
 
             // create presentation system and simulation system
-            InitializationSystemGroup initializationSystemGroup = world.GetOrCreateManager<InitializationSystemGroup>();
-            SimulationSystemGroup simulationSystemGroup = world.GetOrCreateManager<SimulationSystemGroup>();
-            PresentationSystemGroup presentationSystemGroup = world.GetOrCreateManager<PresentationSystemGroup>();
+            InitializationSystemGroup initializationSystemGroup = world.GetOrCreateSystem<InitializationSystemGroup>();
+            SimulationSystemGroup simulationSystemGroup = world.GetOrCreateSystem<SimulationSystemGroup>();
+            PresentationSystemGroup presentationSystemGroup = world.GetOrCreateSystem<PresentationSystemGroup>();
             // Add systems to their groups, based on the [UpdateInGroup] attribute.
             foreach (var type in systems)
             {

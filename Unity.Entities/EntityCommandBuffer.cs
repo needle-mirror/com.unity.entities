@@ -199,7 +199,9 @@ namespace Unity.Entities
         SetComponentWithEntityFixUp,
 
         AddBuffer,
+        AddBufferWithEntityFixUp,
         SetBuffer,
+        SetBufferWithEntityFixUp,
 
         AddSharedComponentData,
         SetSharedComponentData
@@ -393,25 +395,36 @@ namespace Unity.Entities
             }
         }
 
-        internal BufferHeader* AddEntityBufferCommand<T>(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, Entity e) where T : struct, IBufferElementData
+        internal BufferHeader* AddEntityBufferCommand<T>(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op,
+            Entity e) where T : struct, IBufferElementData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
             var type = TypeManager.GetTypeInfo<T>();
             var sizeNeeded = Align(sizeof(EntityBufferCommand) + type.SizeInChunk, 8);
 
             ResetCommandBatching(chain);
-            var data = (EntityBufferCommand*)Reserve(chain, jobIndex, sizeNeeded);
+            var cmd = (EntityBufferCommand*) Reserve(chain, jobIndex, sizeNeeded);
 
-            data->Header.Header.CommandType = (int)op;
-            data->Header.Header.TotalSize = sizeNeeded;
-            data->Header.Header.SortIndex = chain->m_LastSortIndex;
-            data->Header.Entity = e;
-            data->ComponentTypeIndex = typeIndex;
-            data->ComponentSize = type.SizeInChunk;
+            cmd->Header.Header.CommandType = (int) op;
+            cmd->Header.Header.TotalSize = sizeNeeded;
+            cmd->Header.Header.SortIndex = chain->m_LastSortIndex;
+            cmd->Header.Entity = e;
+            cmd->ComponentTypeIndex = typeIndex;
+            cmd->ComponentSize = type.SizeInChunk;
 
-            BufferHeader.Initialize(&data->TempBuffer, type.BufferCapacity);
+            BufferHeader* header = &cmd->TempBuffer;
+            BufferHeader.Initialize(header, type.BufferCapacity);
 
-            return &data->TempBuffer;
+            if (TypeManager.HasEntityReferences(typeIndex))
+            {
+
+                if (op == ECBCommand.AddBuffer)
+                    cmd->Header.Header.CommandType = (int) ECBCommand.AddBufferWithEntityFixUp;
+                else if (op == ECBCommand.SetBuffer)
+                    cmd->Header.Header.CommandType = (int) ECBCommand.SetBufferWithEntityFixUp;
+            }
+
+            return header;
         }
 
         internal static int Align(int size, int alignmentPowerOfTwo)
@@ -586,6 +599,8 @@ namespace Unity.Entities
         private void EnforceSingleThreadOwnership()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (m_Data == null)
+                throw new NullReferenceException("The EntityCommandBuffer has not been initialized!");
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety0);
 #endif
         }
@@ -808,7 +823,7 @@ namespace Unity.Entities
         {
             var defaultValue = default(T);
 
-            #if !UNITY_CSHARP_TINY
+            #if !NET_DOTS
                 var typeIndex = TypeManager.GetTypeIndex<T>();
                 var typeInfo = TypeManager.GetTypeInfo(typeIndex).FastEqualityTypeInfo;
                 hashCode = FastEquality.GetHashCode(ref component, typeInfo);
@@ -977,22 +992,29 @@ namespace Unity.Entities
 
         private static void FixupComponentData(byte* data, int typeIndex, ECBSharedPlaybackState playbackState)
         {
+            FixupComponentData(data, 1, typeIndex, playbackState);
+        }
+        private static void FixupComponentData(byte* data, int count, int typeIndex, ECBSharedPlaybackState playbackState)
+        {
             var componentTypeInfo = TypeManager.GetTypeInfo(typeIndex);
             Assert.IsTrue(componentTypeInfo.EntityOffsets != null);
 
             var offsets = componentTypeInfo.EntityOffsets;
             var offsetCount = componentTypeInfo.EntityOffsetCount;
-
-            for (int i=0; i < offsetCount; i++)
+            for (var componentCount = 0; componentCount < count; componentCount++, data += componentTypeInfo.ElementSize)
             {
-                // Need fix ups
-                Entity* e = (Entity*) (data + offsets[i].Offset);
-                if (e->Index < 0)
+                for (int i=0; i < offsetCount; i++)
                 {
-                    var index = -e->Index - 1;
-                    Entity real = *(playbackState.CreateEntityBatch + index);
-                    *e = real;
+                    // Need fix ups
+                    Entity* e = (Entity*) (data + offsets[i].Offset);
+                    if (e->Index < 0)
+                    {
+                        var index = -e->Index - 1;
+                        Entity real = *(playbackState.CreateEntityBatch + index);
+                        *e = real;
+                    }
                 }
+
             }
         }
 
@@ -1004,6 +1026,17 @@ namespace Unity.Entities
             UnsafeUtility.MemCpy(data, cmd + 1, cmd->ComponentSize);
             FixupComponentData(data, cmd->ComponentTypeIndex,
                 playbackState);
+        }
+
+        private static unsafe void SetBufferWithFixup(
+                    EntityManager mgr, EntityBufferCommand* cmd, Entity entity,
+                    ECBSharedPlaybackState playbackState)
+        {
+            byte* data = (byte*) BufferHeader.GetElementPointer(&cmd->TempBuffer);
+            FixupComponentData(data, cmd->TempBuffer.Length,
+                cmd->ComponentTypeIndex, playbackState);
+
+            mgr.SetBufferRaw(entity, cmd->ComponentTypeIndex, &cmd->TempBuffer, cmd->ComponentSize);
         }
 
         private static unsafe void PlaybackChain(EntityManager mgr, ref ECBSharedPlaybackState playbackState, NativeArray<ECBChainPlaybackState> chainStates, int currentChain, int nextChain)
@@ -1123,11 +1156,28 @@ namespace Unity.Entities
                             }
                             break;
 
+                        case ECBCommand.AddBufferWithEntityFixUp:
+                            {
+                                var cmd = (EntityBufferCommand*) header;
+                                var entity = SelectEntity(cmd->Header.Entity, playbackState);
+                                mgr.AddComponent(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex));
+                                SetBufferWithFixup(mgr, cmd, entity, playbackState);
+                            }
+                            break;
+
                         case ECBCommand.SetBuffer:
                             {
                                 var cmd = (EntityBufferCommand*)header;
                                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                                 mgr.SetBufferRaw(entity, cmd->ComponentTypeIndex, &cmd->TempBuffer, cmd->ComponentSize);
+                            }
+                            break;
+
+                        case ECBCommand.SetBufferWithEntityFixUp:
+                            {
+                                var cmd = (EntityBufferCommand*)header;
+                                var entity = SelectEntity(cmd->Header.Entity, playbackState);
+                                SetBufferWithFixup(mgr, cmd, entity, playbackState);
                             }
                             break;
 
@@ -1231,6 +1281,8 @@ namespace Unity.Entities
             private void CheckWriteAccess()
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (m_Data == null)
+                    throw new NullReferenceException("The EntityCommandBuffer has not been initialized!");
                 AtomicSafetyHandle.CheckWriteAndThrow(m_Safety0);
 #endif
             }

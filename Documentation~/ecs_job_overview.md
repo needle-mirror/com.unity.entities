@@ -17,7 +17,7 @@ For example, the following system updates positions:
     public class MovementSpeedSystem : JobComponentSystem
     {
         [BurstCompile]
-        struct MovementSpeedJob : IJobProcessComponentData<Position, MovementSpeed>
+        struct MovementSpeedJob : IJobForEach<Position, MovementSpeed>
         {
             public float dT;
     

@@ -21,7 +21,7 @@ namespace Unity.Entities.Editor
             this.typeSelections = typeSelections;
             typeNames = new List<GUIContent>(types.Count);
             for (var i = 0; i < types.Count; ++i)
-                typeNames.Add(new GUIContent(ComponentGroupGUI.SpecifiedTypeName(types[i].GetManagedType())));
+                typeNames.Add(new GUIContent(EntityQueryGUI.SpecifiedTypeName(types[i].GetManagedType())));
             Reload();
         }
 

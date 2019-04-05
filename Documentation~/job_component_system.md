@@ -11,7 +11,7 @@ Managing dependencies is hard. This is why in `JobComponentSystem` we are doing 
 public class RotationSpeedSystem : JobComponentSystem
 {
     [BurstCompile]
-    struct RotationSpeedRotation : IJobProcessComponentData<Rotation, RotationSpeed>
+    struct RotationSpeedRotation : IJobForEach<Rotation, RotationSpeed>
     {
         public float dt;
 
@@ -41,10 +41,10 @@ Thus if a system writes to component `A`, and another system later on reads from
 
 ## Dependency management is conservative & deterministic
 
-Dependency management is conservative. `ComponentSystem` simply tracks all `ComponentGroup`objects ever used and stores which types are being written or read based on that. 
+Dependency management is conservative. `ComponentSystem` simply tracks all `EntityQuery`objects ever used and stores which types are being written or read based on that. 
 
 <!-- TODO non-injection example
-(So if you inject an `ComponentDataArray` or use `IJobProcessComponentData` once but skip using it sometimes, then we will create dependencies against all `ComponentGroup` objects that have ever been used by that `ComponentSystem`.)
+(So if you inject an `ComponentDataArray` or use `IJobForEach` once but skip using it sometimes, then we will create dependencies against all `EntityQuery` objects that have ever been used by that `ComponentSystem`.)
 -->
 
 Also when scheduling multiple jobs in a single system, dependencies must be passed to all jobs even though different jobs may need less dependencies. If that proves to be a performance issue the best solution is to split a system into two.

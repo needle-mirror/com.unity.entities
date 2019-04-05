@@ -3,7 +3,7 @@ uid: ecs-entity-manager
 ---
 # EntityManager
 
-The `EntityManager` owns `EntityData`, [EntityArchetypes](entity_archetype.md), [SharedComponentData](shared_component_data.md) and [ComponentGroup](component_group.md).
+The `EntityManager` owns `EntityData`, [EntityArchetypes](entity_archetype.md), [SharedComponentData](shared_component_data.md) and [EntityQuery](component_group.md).
 
 `EntityManager` is where you find APIs to create entities, check if an entity is still alive, instantiate entities and add or remove components.
 

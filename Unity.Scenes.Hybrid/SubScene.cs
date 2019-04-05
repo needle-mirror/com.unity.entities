@@ -168,7 +168,7 @@ namespace Unity.Scenes
             DefaultWorldInitialization.DefaultLazyEditModeInitialize();
             if (World.Active != null && m_SubSceneHeader != null)
             {
-                _SceneEntityManager = World.Active.GetOrCreateManager<EntityManager>();
+                _SceneEntityManager = World.Active.EntityManager;
 
                 for (int i = 0; i < m_SubSceneHeader.Sections.Length; ++i)
                 {

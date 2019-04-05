@@ -11,33 +11,33 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         class RegularSystem : ComponentSystem
         {
-            public ComponentGroup entities;
-            
+            public EntityQuery entities;
+
             protected override void OnUpdate()
             {
                 throw new NotImplementedException();
             }
 
-            protected override void OnCreateManager()
+            protected override void OnCreate()
             {
-                entities = GetComponentGroup(ComponentType.ReadWrite<EcsTestData>());
+                entities = GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
             }
         }
 
         [DisableAutoCreation]
         class ExcludeSystem : ComponentSystem
         {
-            public ComponentGroup entities;
-            
+            public EntityQuery entities;
+
             protected override void OnUpdate()
             {
                 throw new NotImplementedException();
             }
-            
-            protected override void OnCreateManager()
+
+            protected override void OnCreate()
             {
-                entities = GetComponentGroup(
-                    ComponentType.ReadWrite<EcsTestData>(), 
+                entities = GetEntityQuery(
+                    ComponentType.ReadWrite<EcsTestData>(),
                     ComponentType.Exclude<EcsTestData2>());
             }
         }
@@ -45,33 +45,33 @@ namespace Unity.Entities.Tests
         [Test]
         public void SystemInclusionList_MatchesComponents()
         {
-            var system = World.Active.GetOrCreateManager<RegularSystem>();
-            
+            var system = World.Active.GetOrCreateSystem<RegularSystem>();
+
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var matchList = new List<Tuple<ScriptBehaviourManager, List<ComponentGroup>>>();
-            
-            WorldDebuggingTools.MatchEntityInComponentGroups(World.Active, entity, matchList);
-            
+            var matchList = new List<Tuple<ComponentSystemBase, List<EntityQuery>>>();
+
+            WorldDebuggingTools.MatchEntityInEntityQueries(World.Active, entity, matchList);
+
             Assert.AreEqual(1, matchList.Count);
             Assert.AreEqual(system, matchList[0].Item1);
-            Assert.AreEqual(system.ComponentGroups[0], matchList[0].Item2[0]);
+            Assert.AreEqual(system.EntityQueries[0], matchList[0].Item2[0]);
         }
 
         [Test]
         public void SystemInclusionList_IgnoresSubtractedComponents()
         {
-            World.Active.GetOrCreateManager<ExcludeSystem>();
-            
+            World.Active.GetOrCreateSystem<ExcludeSystem>();
+
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var matchList = new List<Tuple<ScriptBehaviourManager, List<ComponentGroup>>>();
-            
-            WorldDebuggingTools.MatchEntityInComponentGroups(World.Active, entity, matchList);
-            
+            var matchList = new List<Tuple<ComponentSystemBase, List<EntityQuery>>>();
+
+            WorldDebuggingTools.MatchEntityInEntityQueries(World.Active, entity, matchList);
+
             Assert.AreEqual(0, matchList.Count);
         }
-        
+
     }
 }
 #endif

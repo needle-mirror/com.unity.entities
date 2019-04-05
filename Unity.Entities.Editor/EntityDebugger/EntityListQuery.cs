@@ -5,18 +5,18 @@ namespace Unity.Entities.Editor
     internal class EntityListQuery
     {
 
-        public ComponentGroup Group { get; }
+        public EntityQuery Group { get; }
 
-        public EntityArchetypeQuery Query { get; }
+        public EntityQueryDesc QueryDesc { get; }
 
-        public EntityListQuery(ComponentGroup group)
+        public EntityListQuery(EntityQuery group)
         {
             this.Group = group;
         }
 
-        public EntityListQuery(EntityArchetypeQuery query)
+        public EntityListQuery(EntityQueryDesc queryDesc)
         {
-            this.Query = query;
+            this.QueryDesc = queryDesc;
         }
     }
 

@@ -19,7 +19,7 @@ namespace Unity.Entities.Properties.Tests
         {
             m_PreviousWorld = World.Active;
             m_World = World.Active = new World ("Test World");
-            m_Manager = m_World.GetOrCreateManager<EntityManager> ();
+            m_Manager = m_World.EntityManager;
         }
 
         [TearDown]

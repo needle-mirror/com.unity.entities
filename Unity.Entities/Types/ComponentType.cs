@@ -30,6 +30,8 @@ namespace Unity.Entities
         public bool IsChunkComponent => TypeManager.IsChunkComponent(TypeIndex);
         public bool HasEntityReferences => TypeManager.HasEntityReferences(TypeIndex);
 
+        public bool IgnoreDuplicateAdd => TypeManager.IgnoreDuplicateAdd(TypeIndex);
+
         [Obsolete("Create<T> has been renamed. Use ReadWrite<T> instead.", false)]
         [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
         public static ComponentType Create<T>()
@@ -160,7 +162,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         public override string ToString()
         {
-#if UNITY_CSHARP_TINY
+#if NET_DOTS
             var name = TypeManager.GetTypeInfo(TypeIndex).StableTypeHash.ToString();
 #else
             var name = GetManagedType().Name;

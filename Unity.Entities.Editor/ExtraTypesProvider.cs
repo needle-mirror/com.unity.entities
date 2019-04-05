@@ -11,11 +11,11 @@ namespace Unity.Entities.Editor
     [InitializeOnLoad]
     public sealed class ExtraTypesProvider
     {
-        static void AddIJobProcessComponentData(Type type, HashSet<string> extraTypes)
+        static void AddIJobForEach(Type type, HashSet<string> extraTypes)
         {
             foreach (var typeInterface in type.GetInterfaces())
             {
-                if (typeInterface.Name.StartsWith("IJobProcessComponentData"))
+                if (typeInterface.Name.StartsWith("IJobForEach"))
                 {
                     var genericArgumentList = new List<Type> { type };
                     genericArgumentList.AddRange(typeInterface.GetGenericArguments());
@@ -23,7 +23,7 @@ namespace Unity.Entities.Editor
                     var producerAttribute = (JobProducerTypeAttribute) typeInterface.GetCustomAttribute(typeof(JobProducerTypeAttribute), true);
                                     
                     if (producerAttribute == null)
-                        throw new System.ArgumentException("IJobProcessComponentData interface must have [JobProducerType]");
+                        throw new System.ArgumentException("IJobForEach interface must have [JobProducerType]");
 
                     var generatedType = producerAttribute.ProducerType.MakeGenericType(genericArgumentList.ToArray());
                     extraTypes.Add(generatedType.ToString());
@@ -35,7 +35,7 @@ namespace Unity.Entities.Editor
 
         static ExtraTypesProvider()
         {
-            //@TODO: Only produce JobProcessComponentDataExtensions.JobStruct_Process1
+            //@TODO: Only produce JobForEachExtensions.JobStruct_Process1
             //       if there is any use of that specific type in deployed code.
             
             PlayerBuildInterface.ExtraTypesProvider += () =>
@@ -49,9 +49,9 @@ namespace Unity.Entities.Editor
 
                     foreach (var type in assembly.GetTypes())
                     {
-                        if (typeof(JobProcessComponentDataExtensions.IBaseJobProcessComponentData).IsAssignableFrom(type) && !type.IsAbstract)
+                        if (typeof(JobForEachExtensions.IBaseJobForEach).IsAssignableFrom(type) && !type.IsAbstract)
                         {
-                            AddIJobProcessComponentData(type, extraTypes);
+                            AddIJobForEach(type, extraTypes);
                         }
                     }
                 }

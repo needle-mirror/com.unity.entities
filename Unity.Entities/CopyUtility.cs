@@ -5,24 +5,6 @@ using Unity.Burst;
 namespace Unity.Entities
 {
     /// <summary>
-    ///     Copy ComponentDataArray to NativeArray Job.
-    /// </summary>
-    /// <typeparam name="T">Component data type stored in ComponentDataArray to be copied to NativeArray<T></typeparam>
-    [BurstCompile]
-    [System.Obsolete("CopyComponentData is deprecated. Use ComponentGroup.ToComponentDataArray instead.")]
-    public struct CopyComponentData<T> : IJobParallelFor
-        where T : struct, IComponentData
-    {
-        [ReadOnly] public ComponentDataArray<T> Source;
-        public NativeArray<T> Results;
-
-        public void Execute(int index)
-        {
-            Results[index] = Source[index];
-        }
-    }
-
-    /// <summary>
     ///     Assign Value to each element of NativeArray
     /// </summary>
     /// <typeparam name="T">Type of element in NativeArray</typeparam>
@@ -37,22 +19,6 @@ namespace Unity.Entities
         public void Execute(int index)
         {
             Source[index] = Value;
-        }
-    }
-
-    /// <summary>
-    ///     Copy Entities from EntityArray to NativeArray<Entity>
-    /// </summary>
-    [BurstCompile]
-    [System.Obsolete("CopyEntities is deprecated. Use ComponentGroup.ToEntityArray instead.")]
-    public struct CopyEntities : IJobParallelFor
-    {
-        [ReadOnly] public EntityArray Source;
-        public NativeArray<Entity> Results;
-
-        public void Execute(int index)
-        {
-            Results[index] = Source[index];
         }
     }
 }

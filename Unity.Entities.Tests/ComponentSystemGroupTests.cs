@@ -18,7 +18,7 @@ namespace Unity.Entities.Tests
         }
 
         [DisableAutoCreation]
-#if UNITY_CSHARP_TINY
+#if NET_DOTS
         private class TestSystemBase :ComponentSystem
         {
             protected override void OnUpdate() => throw new System.NotImplementedException();
@@ -46,8 +46,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void SortOneChildSystem()
         {
-            var parent = World.CreateManager<TestGroup>();
-            var child = World.CreateManager<TestSystem>();
+            var parent = World.CreateSystem<TestGroup>();
+            var child = World.CreateSystem<TestSystem>();
             parent.AddSystemToUpdateList(child);
             parent.SortSystemUpdateList();
             CollectionAssert.AreEqual(new[] {child}, parent.Systems);
@@ -66,9 +66,9 @@ namespace Unity.Entities.Tests
         [Test]
         public void SortTwoChildSystems_CorrectOrder()
         {
-            var parent = World.CreateManager<TestGroup>();
-            var child1 = World.CreateManager<Sibling1System>();
-            var child2 = World.CreateManager<Sibling2System>();
+            var parent = World.CreateSystem<TestGroup>();
+            var child1 = World.CreateSystem<Sibling1System>();
+            var child2 = World.CreateSystem<Sibling2System>();
             parent.AddSystemToUpdateList(child1);
             parent.AddSystemToUpdateList(child2);
             parent.SortSystemUpdateList();
@@ -114,18 +114,18 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-#if UNITY_CSHARP_TINY
+#if NET_DOTS
         [Ignore("Tiny pre-compiles systems. Many tests will fail if they exist, not just this one.")]
 #endif
         public void DetectCircularDependency_Throws()
         {
-            var parent = World.CreateManager<TestGroup>();
-            var child1 = World.CreateManager<Circle1System>();
-            var child2 = World.CreateManager<Circle2System>();
-            var child3 = World.CreateManager<Circle3System>();
-            var child4 = World.CreateManager<Circle4System>();
-            var child5 = World.CreateManager<Circle5System>();
-            var child6 = World.CreateManager<Circle6System>();
+            var parent = World.CreateSystem<TestGroup>();
+            var child1 = World.CreateSystem<Circle1System>();
+            var child2 = World.CreateSystem<Circle2System>();
+            var child3 = World.CreateSystem<Circle3System>();
+            var child4 = World.CreateSystem<Circle4System>();
+            var child5 = World.CreateSystem<Circle5System>();
+            var child6 = World.CreateSystem<Circle6System>();
             parent.AddSystemToUpdateList(child3);
             parent.AddSystemToUpdateList(child6);
             parent.AddSystemToUpdateList(child2);
@@ -175,11 +175,11 @@ namespace Unity.Entities.Tests
         [Test]
         public void SortUnconstrainedSystems_IsDeterministic()
         {
-            var parent = World.CreateManager<TestGroup>();
-            var child1 = World.CreateManager<Unconstrained1System>();
-            var child2 = World.CreateManager<Unconstrained2System>();
-            var child3 = World.CreateManager<Unconstrained3System>();
-            var child4 = World.CreateManager<Unconstrained4System>();
+            var parent = World.CreateSystem<TestGroup>();
+            var child1 = World.CreateSystem<Unconstrained1System>();
+            var child2 = World.CreateSystem<Unconstrained2System>();
+            var child3 = World.CreateSystem<Unconstrained3System>();
+            var child4 = World.CreateSystem<Unconstrained4System>();
             parent.AddSystemToUpdateList(child2);
             parent.AddSystemToUpdateList(child4);
             parent.AddSystemToUpdateList(child3);
@@ -219,14 +219,14 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !UNITY_CSHARP_TINY // Tiny precompiles systems, and lacks a Regex overload for LogAssert.Expect()
+#if !NET_DOTS // Tiny precompiles systems, and lacks a Regex overload for LogAssert.Expect()
         [Test]
         public void SystemInGroupThrows_LaterSystemsRun()
         {
-            var parent = World.CreateManager<TestGroup>();
-            var child1 = World.CreateManager<NonThrowing1System>();
-            var child2 = World.CreateManager<ThrowingSystem>();
-            var child3 = World.CreateManager<NonThrowing2System>();
+            var parent = World.CreateSystem<TestGroup>();
+            var child1 = World.CreateSystem<NonThrowing1System>();
+            var child2 = World.CreateSystem<ThrowingSystem>();
+            var child3 = World.CreateSystem<NonThrowing2System>();
             parent.AddSystemToUpdateList(child1);
             parent.AddSystemToUpdateList(child2);
             parent.AddSystemToUpdateList(child3);

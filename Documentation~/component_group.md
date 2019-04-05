@@ -1,37 +1,37 @@
 ---
 uid: ecs-component-group
 ---
-# Querying for data using a ComponentGroup
+# Querying for data using a EntityQuery
 
-The first step to reading or writing data is finding that data. Data in the ECS framework is stored in components, which are grouped together in memory according to the archetype of the entity to which they belong. To define a view into your ECS data that contains only the specific data you need for a given algorithm or process, you can construct a ComponentGroup. 
+The first step to reading or writing data is finding that data. Data in the ECS framework is stored in components, which are grouped together in memory according to the archetype of the entity to which they belong. To define a view into your ECS data that contains only the specific data you need for a given algorithm or process, you can construct a EntityQuery. 
 
-After creating a ComponentGroup, you can 
+After creating a EntityQuery, you can 
 
 * Run a Job to process the entities and components selected for the view
 * Get a NativeArray containing all the selected entities
 * Get NativeArrays of the selected components (by component type)
 
-The entity and component arrays returned by a ComponentGroup are guaranteed to be "parallel", that is, the same index value always applies to the same entity in any array.
+The entity and component arrays returned by a EntityQuery are guaranteed to be "parallel", that is, the same index value always applies to the same entity in any array.
 
-**Note:** that the `ComponentSystem.Entites.ForEach` delegates and IJobProcessComponentData create internal ComponentGroups based on the component types and attributes you specify for these APIs. 
+**Note:** that the `ComponentSystem.Entites.ForEach` delegates and IJobForEach create internal EntityQueries based on the component types and attributes you specify for these APIs. 
 
-<!-- TODO: (In an IJobProcessComponentData Job, you can override the ComponentGroup to use a more complex query than the default setup supports.) -->
+<!-- TODO: (In an IJobForEach Job, you can override the EntityQuery to use a more complex query than the default setup supports.) -->
 
 ## Defining a query
 
-A ComponentGroup query defines the set of component types that an archetype must contain in order for its chunks and entities to be included in the view. You can also exclude archetypes that contain specific types of components.  
+A EntityQuery query defines the set of component types that an archetype must contain in order for its chunks and entities to be included in the view. You can also exclude archetypes that contain specific types of components.  
 
-For simple queries, you can create a ComponentGroup based on an array of component types. The following example defines a ComponentGroup that finds all entities with both RotationQuaternion and RotationSpeed components. 
+For simple queries, you can create a EntityQuery based on an array of component types. The following example defines a EntityQuery that finds all entities with both RotationQuaternion and RotationSpeed components. 
 
 ``` c#
-ComponentGroup m_Group = GetComponentGroup(typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>());
+EntityQuery m_Group = GetEntityQuery(typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>());
 ````
 
 The query uses `ComponentType.ReadOnly<T>`  instead of the simpler `typeof` expression to designate that the system does not write to RotationSpeed. Always specify read only when possible, since there are fewer constraints on read access to data, which can help the Job scheduler execute your Jobs more efficiently. 
 
-### EntityArchetypeQuery
+### EntityQueryDesc
 
-For more complex queries, you can use an EntityArchetypeQuery to create the ComponentGroup. An EntityArchetypeQuery provides a flexible query mechanism to specify which archetypes to select based on the following sets of components:
+For more complex queries, you can use an EntityQueryDesc to create the EntityQuery. An EntityQueryDesc provides a flexible query mechanism to specify which archetypes to select based on the following sets of components:
 
 * `All` = All component types in this array must exist in the archetype
 * `Any` = At least one of the component types in this array must exist in the archetype
@@ -40,19 +40,19 @@ For more complex queries, you can use an EntityArchetypeQuery to create the Comp
 For example, the following query includes archetypes containing the RotationQuaternion and RotationSpeed components, but excludes any archetypes containing the Frozen component:
 
 ``` c#
-var query = new EntityArchetypeQuery
+var query = new EntityQueryDesc
 {
    None = new ComponentType[]{ typeof(Frozen) },
    All = new ComponentType[]{ typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>() }
 }
-ComponentGroup m_Group = GetComponentGroup(query);
+EntityQuery m_Group = GetEntityQuery(query);
 ```
 
-**Note:** Do not include completely optional components in the EntityArchetypeQuery. To handle optional components, use the `ArchetypeChunk.Has<T>()` method to determine whether a chunk contains the optional component or not. Since all entities within the same chunk have the same components, you only need to check whether an optional component exists once per chunk -- not once per entity.
+**Note:** Do not include completely optional components in the EntityQueryDesc. To handle optional components, use the `ArchetypeChunk.Has<T>()` method to determine whether a chunk contains the optional component or not. Since all entities within the same chunk have the same components, you only need to check whether an optional component exists once per chunk -- not once per entity.
 
 ### Query options
 
-When you create an EntityArchetypeQuery, you can set its `Options` variable. The options allow for specialized queries (normally you do not need to set them):
+When you create an EntityQueryDesc, you can set its `Options` variable. The options allow for specialized queries (normally you do not need to set them):
 
 * Default — no options set; the query behaves normally.
 * IncludePrefab — includes archetypes containing the special Prefab tag component.
@@ -73,11 +73,11 @@ public struct C2: IComponentData{}
 public struct C3: IComponentData{}
 
 // ... In a system:
-var query = new EntityArchetypeQuery{
+var query = new EntityQueryDesc{
     All = new ComponentType{typeof(C1), ComponentType.ReadOnly<C3>()},
-    Options = EntityArchetypeQueryOptions.FilterWriteGroup
+    Options = EntityQueryDescOptions.FilterWriteGroup
 };
-var m_group = GetComponentGroup(query);
+var m_group = GetEntityQuery(query);
 ```
 
 This query excludes any entities with both C2 and C3 because C2 is not explicitly included in the query. While you could design this into the query using `None`, doing it through a Write Group provides an important benefit: you don't need to alter the queries used by other systems (as long as these systems also use Write Groups). 
@@ -88,45 +88,45 @@ See [Write Groups](ecs_write_groups.md) for more information.
 
 ### Combining queries
 
-You can combine multiple queries by passing an array of EntityArchetypeQuery objects rather than a single instance. Each query is combined using a logical OR operation. The following example selects an archetypes that contain a RotationQuaternion component or a RotationSpeed component (or both):
+You can combine multiple queries by passing an array of EntityQueryDesc objects rather than a single instance. Each query is combined using a logical OR operation. The following example selects an archetypes that contain a RotationQuaternion component or a RotationSpeed component (or both):
 
 ``` c#
-var query0 = new EntityArchetypeQuery
+var query0 = new EntityQueryDesc
 {
    All = new ComponentType[] {typeof(RotationQuaternion)}
 };
 
-var query1 = new EntityArchetypeQuery
+var query1 = new EntityQueryDesc
 {
    All = new ComponentType[] {typeof(RotationSpeed)}
 };
 
-ComponentGroup m_Group = GetComponentGroup(new EntityArchetypeQuery[] {query0, query1});
+EntityQuery m_Group = GetEntityQuery(new EntityQueryDesc[] {query0, query1});
    ```
 
-## Creating a ComponentGroup
+## Creating a EntityQuery
 
-Outside a system class, you can create a ComponentGroup with the `EntityManager.CreateComponentGroup()` function:
+Outside a system class, you can create a EntityQuery with the `EntityManager.CreateEntityQuery()` function:
 
 ``` c#
-ComponentGroup m_Group = CreateComponentGroup(typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>());
+EntityQuery m_Group = CreateEntityQuery(typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>());
 ```
 
-However, in a system class, you must use the `GetComponentGroup()` function: 
+However, in a system class, you must use the `GetEntityQuery()` function: 
 
 ``` c#
 public class RotationSpeedSystem : JobComponentSystem
 {
-   private ComponentGroup m_Group;
-   protected override void OnCreateManager()
+   private EntityQuery m_Group;
+   protected override void OnCreate()
    {
-       m_Group = GetComponentGroup(typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>());
+       m_Group = GetEntityQuery(typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>());
    }
    //…
 }
 ```
 
-When you plan to reuse the same view, you should cache the ComponentGroup instance, if possible, instead of creating a new one for each use. For example, in a system, you can create the ComponentGroup in the system’s `OnCreateManager()` function and store the result in an instance variable. The `m_Group` variable in the above example is used for this purpose.
+When you plan to reuse the same view, you should cache the EntityQuery instance, if possible, instead of creating a new one for each use. For example, in a system, you can create the EntityQuery in the system’s `OnCreate()` function and store the result in an instance variable. The `m_Group` variable in the above example is used for this purpose.
 
 ## Defining filters
 
@@ -137,7 +137,7 @@ In addition to defining which components must be included or excluded from the q
 
 ### Shared component filters
 
-To use a shared component filter, first include the shared component in the ComponentGroup (along with other needed components), and then call the `SetFilter()` function, passing in a struct of the same ISharedComponent type that contains the values to select. All values must match. You can add up to two different shared components to the filter.
+To use a shared component filter, first include the shared component in the EntityQuery (along with other needed components), and then call the `SetFilter()` function, passing in a struct of the same ISharedComponent type that contains the values to select. All values must match. You can add up to two different shared components to the filter.
 
 You can change the filter at any time, but changing the filter does not change any existing arrays of entities or components that you received from the group `ToComponentDataArray()` or `ToEntityArray()` functions. You must recreate these arrays.
 
@@ -151,11 +151,11 @@ struct SharedGrouping : ISharedComponentData
 
 class ImpulseSystem : ComponentSystem
 {
-    ComponentGroup m_Group;
+    EntityQuery m_Group;
 
-    protected override void OnCreateManager(int capacity)
+    protected override void OnCreate(int capacity)
     {
-        m_Group = GetComponentGroup(typeof(Position), typeof(Displacement), typeof(SharedGrouping));
+        m_Group = GetEntityQuery(typeof(Position), typeof(Displacement), typeof(SharedGrouping));
     }
 
     protected override void OnUpdate()
@@ -174,12 +174,12 @@ class ImpulseSystem : ComponentSystem
 
 ### Change filters
 
-If you only need to update entities when a component value has changed, you can add that component to the ComponentGroup filter using the `SetFilterChanged()` function. For example, the following ComponentGroup only includes entities from chunks in which another system has already written to the Translation component: 
+If you only need to update entities when a component value has changed, you can add that component to the EntityQuery filter using the `SetFilterChanged()` function. For example, the following EntityQuery only includes entities from chunks in which another system has already written to the Translation component: 
 
 ``` c#
-protected override void OnCreateManager(int capacity)
+protected override void OnCreate(int capacity)
 {
-    m_Group = GetComponentGroup(typeof(LocalToWorld), ComponentType.ReadOnly<Translation>());
+    m_Group = GetEntityQuery(typeof(LocalToWorld), ComponentType.ReadOnly<Translation>());
     m_Group.SetFilterChanged(typeof(Translation));
 }
 
@@ -189,7 +189,7 @@ Note that for efficiency, the change filter applies to whole chunks not individu
 
 ## Executing the query
 
-A ComponentGroup executes its query when you use the ComponentGroup in a Job or you call one of the ComponentGroup methods that returns arrays of entities, components, or chunks in the view:
+A EntityQuery executes its query when you use the EntityQuery in a Job or you call one of the EntityQuery methods that returns arrays of entities, components, or chunks in the view:
 
 * `ToEntityArray()` returns an array of the selected entities.
 * `ToComponentDataArray<T>` returns an array of the components of type T for the selected entities.
@@ -199,7 +199,7 @@ A ComponentGroup executes its query when you use the ComponentGroup in a Job or 
 
 ### In Jobs
 
-In a JobComponentSystem, pass the ComponentGroup object to the system's `Schedule()` method. In the following example, from the HelloCube_03_IJobChunk sample, the `m_Group` argument is the ComponentGroup object 
+In a JobComponentSystem, pass the EntityQuery object to the system's `Schedule()` method. In the following example, from the HelloCube_03_IJobChunk sample, the `m_Group` argument is the EntityQuery object 
 
 ``` c#
 // OnUpdate runs on the main thread.
@@ -219,5 +219,5 @@ protected override JobHandle OnUpdate(JobHandle inputDependencies)
 }
 ```
 
-A ComponentGroup uses Jobs internally to create the required arrays. When you pass the group to the `Schedule()` method, the ComponentGroup Jobs are scheduled along with the system's own Jobs and can take advantage of parallel processing. 
+A EntityQuery uses Jobs internally to create the required arrays. When you pass the group to the `Schedule()` method, the EntityQuery Jobs are scheduled along with the system's own Jobs and can take advantage of parallel processing. 
  

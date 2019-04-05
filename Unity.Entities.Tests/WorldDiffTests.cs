@@ -29,8 +29,8 @@ namespace Unity.Entities.Tests
             m_After = new World("After");
             m_DstWorld = new World("DstWorld");
             
-            m_Manager = m_After.GetOrCreateManager<EntityManager>();
-            m_DstManager = m_DstWorld.GetOrCreateManager<EntityManager>();
+            m_Manager = m_After.EntityManager;
+            m_DstManager = m_DstWorld.EntityManager;
         }
 
         
@@ -39,9 +39,9 @@ namespace Unity.Entities.Tests
         {
             World.Active = m_PreviousWorld;
 
-            m_Shadow.GetOrCreateManager<EntityManager>().Debug.CheckInternalConsistency();
-            m_After.GetOrCreateManager<EntityManager>().Debug.CheckInternalConsistency();
-            m_DstWorld.GetOrCreateManager<EntityManager>().Debug.CheckInternalConsistency();
+            m_Shadow.EntityManager.Debug.CheckInternalConsistency();
+            m_After.EntityManager.Debug.CheckInternalConsistency();
+            m_DstWorld.EntityManager.Debug.CheckInternalConsistency();
 
             m_Shadow.Dispose();
             m_After.Dispose();

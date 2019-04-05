@@ -9,7 +9,7 @@ namespace Unity.Entities
         public CircularSystemDependencyException(IEnumerable<ComponentSystemBase> chain)
         {
             Chain = chain;
-#if UNITY_CSHARP_TINY
+#if NET_DOTS
             var lines = new List<string>();
             Console.WriteLine($"The following systems form a circular dependency cycle (check their [UpdateBefore]/[UpdateAfter] attributes):");
             foreach (var s in Chain)
@@ -23,7 +23,7 @@ namespace Unity.Entities
 
         public IEnumerable<ComponentSystemBase> Chain { get; }
 
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
         public override string Message
         {
             get
@@ -147,7 +147,7 @@ namespace Unity.Entities
             }
             public int CompareTo(TypeHeapElement other)
             {
-#if UNITY_CSHARP_TINY
+#if NET_DOTS
                 // Workaround for missing string.CompareTo() in HPC#. This is not a fully compatible substitute,
                 // but should be suitable for comparing system names.
                 if (typeName.Length < other.typeName.Length)
@@ -170,7 +170,7 @@ namespace Unity.Entities
 
         // Tiny doesn't have a data structure that can take Type as a key.
         // For now, this gives Tiny a linear search. Would like to do better.
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
         private Dictionary<Type, int> lookupDictionary = null;
 
         private int LookupSysAndDep(Type t, SysAndDep[] array) {
@@ -200,7 +200,7 @@ namespace Unity.Entities
 
         public virtual void SortSystemUpdateList()
         {
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
             lookupDictionary = null;
 #endif
             // Populate dictionary mapping systemType to system-and-before/after-types.
@@ -238,7 +238,7 @@ namespace Unity.Entities
                     int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
                     if (depIndex < 0)
                     {
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
                         Debug.LogWarning("Ignoring invalid [UpdateBefore] dependency for " + sys.GetType() + ": " + dep.SystemType + " must be a member of the same ComponentSystemGroup.");
 #else
                         Debug.LogWarning("WARNING: invalid [UpdateBefore] dependency:");
@@ -257,7 +257,7 @@ namespace Unity.Entities
                     int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
                     if (depIndex < 0)
                     {
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
                         Debug.LogWarning("Ignoring invalid [UpdateAfter] dependency for " + sys.GetType() + ": " + dep.SystemType + " must be a member of the same ComponentSystemGroup.");
 #else
                         Debug.LogWarning("WARNING: invalid [UpdateAfter] dependency:");
@@ -333,7 +333,7 @@ namespace Unity.Entities
         }
 
 
-#if UNITY_CSHARP_TINY
+#if NET_DOTS
         public void RecursiveLogToConsole()
         {
             foreach (var sys in m_systemsToUpdate)

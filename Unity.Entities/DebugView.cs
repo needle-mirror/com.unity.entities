@@ -140,7 +140,7 @@ namespace Unity.Entities
         }
     }
 
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
     sealed unsafe class DebugViewUtility
     {
         [DebuggerDisplay("{name} {entity} Components: {components.Count}")]
@@ -212,7 +212,7 @@ namespace Unity.Entities
     }
 #endif
     
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
     sealed class EntityManagerDebugView
     {
         private EntityManager m_target;
@@ -372,7 +372,7 @@ namespace Unity.Entities
     }
 #endif
 
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
     sealed class EntityArchetypeDebugView
     {
         private EntityArchetype m_EntityArchetype;

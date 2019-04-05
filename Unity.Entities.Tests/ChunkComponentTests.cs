@@ -91,7 +91,7 @@ namespace Unity.Entities.Tests
         public void UpdateChunkComponent()
         {
             var arch0 = m_Manager.CreateArchetype(ComponentType.ChunkComponent<EcsTestData>(), typeof(EcsTestData2));
-            ComponentGroup group0 = m_Manager.CreateComponentGroup(typeof(ChunkHeader), typeof(EcsTestData));
+            EntityQuery group0 = m_Manager.CreateEntityQuery(typeof(ChunkHeader), typeof(EcsTestData));
 
             var entity0 = m_Manager.CreateEntity(arch0);
             var chunk0 = m_Manager.GetChunk(entity0);
@@ -136,7 +136,7 @@ namespace Unity.Entities.Tests
             m_Manager.SetComponentData(entity0, new BoundsComponent{boundsMin = new float3(-10,-10,-10), boundsMax = new float3(0,0,0)});
             var entity1 = m_Manager.CreateEntity(typeof(BoundsComponent), ComponentType.ChunkComponent<ChunkBoundsComponent>());
             m_Manager.SetComponentData(entity1, new BoundsComponent{boundsMin = new float3(0,0,0), boundsMax = new float3(10,10,10)});
-            var metaGroup = m_Manager.CreateComponentGroup(typeof(ChunkBoundsComponent), typeof(ChunkHeader));
+            var metaGroup = m_Manager.CreateEntityQuery(typeof(ChunkBoundsComponent), typeof(ChunkHeader));
             var metaBoundsCount = metaGroup.CalculateLength();
             var metaChunkHeaders = metaGroup.ToComponentDataArray<ChunkHeader>(Allocator.TempJob);
             Assert.AreEqual(1, metaBoundsCount);
@@ -166,10 +166,9 @@ namespace Unity.Entities.Tests
 #if !UNITY_ZEROPLAYER
         [DisableAutoCreation]
         [UpdateInGroup(typeof(PresentationSystemGroup))]
-        [StandaloneFixme]
         private class ChunkBoundsUpdateSystem : JobComponentSystem
         {
-            struct UpdateChunkBoundsJob : IJobProcessComponentData<ChunkBoundsComponent, ChunkHeader>
+            struct UpdateChunkBoundsJob : IJobForEach<ChunkBoundsComponent, ChunkHeader>
             {
                 [ReadOnly] public ArchetypeChunkComponentType<BoundsComponent> chunkComponentType;
                 public void Execute(ref ChunkBoundsComponent chunkBounds, [ReadOnly] ref ChunkHeader chunkHeader)
@@ -194,10 +193,9 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
         public void SystemProcessMetaChunkComponent()
         {
-            var chunkBoundsUpdateSystem = World.GetOrCreateManager<ChunkBoundsUpdateSystem> ();
+            var chunkBoundsUpdateSystem = World.GetOrCreateSystem<ChunkBoundsUpdateSystem> ();
 
             var entity0 = m_Manager.CreateEntity(typeof(BoundsComponent), ComponentType.ChunkComponent<ChunkBoundsComponent>());
             m_Manager.SetComponentData(entity0, new BoundsComponent{boundsMin = new float3(-10,-10,-10), boundsMax = new float3(0,0,0)});
@@ -219,8 +217,8 @@ namespace Unity.Entities.Tests
             var arch0 = m_Manager.CreateArchetype(ComponentType.ChunkComponent<EcsTestData>(), typeof(EcsTestData2));
             var entity0 = m_Manager.CreateEntity(arch0);
 
-            ComponentGroup group0 = m_Manager.CreateComponentGroup(typeof(ChunkHeader), typeof(EcsTestData));
-            ComponentGroup group1 = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            EntityQuery group0 = m_Manager.CreateEntityQuery(typeof(ChunkHeader), typeof(EcsTestData));
+            EntityQuery group1 = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             Assert.AreEqual(1, group0.CalculateLength());
             Assert.AreEqual(0, group1.CalculateLength());

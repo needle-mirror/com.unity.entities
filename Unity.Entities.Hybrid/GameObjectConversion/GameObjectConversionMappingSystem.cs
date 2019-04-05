@@ -76,7 +76,6 @@ public struct EntitiesEnumerator : IEnumerable<Entity>, IEnumerator<Entity>
 }
 
 [DisableAutoCreation]
-[Preserve]
 class GameObjectConversionMappingSystem : ComponentSystem
 {
     NativeHashMap<int, int>       m_GameObjectToEntity = new NativeHashMap<int, int>(100 * 1000, Allocator.Persistent);
@@ -103,14 +102,14 @@ class GameObjectConversionMappingSystem : ComponentSystem
         m_DstWorld = DstWorld;
         m_SceneGUID = sceneGUID;
         m_ConversionFlags = conversionFlags;
-        m_DstManager = DstWorld.GetOrCreateManager<EntityManager>();
+        m_DstManager = DstWorld.EntityManager;
 
         m_Entities = new Entity[128];
         m_Next = new int[128];
         m_EntitiesCount = 0;
     }
 
-    protected override void OnDestroyManager()
+    protected override void OnDestroy()
     {
         m_GameObjectToEntity.Dispose();
     }   
@@ -354,7 +353,7 @@ class GameObjectConversionMappingSystem : ComponentSystem
 
     internal static void CreateEntitiesForGameObjects(Scene scene, World gameObjectWorld)
     {
-        var entityManager = gameObjectWorld.GetOrCreateManager<EntityManager>();
+        var entityManager = gameObjectWorld.EntityManager;
         var gameObjects = scene.GetRootGameObjects();
 
         foreach (var go in gameObjects)

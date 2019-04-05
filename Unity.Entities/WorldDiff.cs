@@ -11,7 +11,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Profiling;
 
 namespace Unity.Entities
-{    
+{
     public static class HashMapUtility
     {
         public static bool TryRemove<K, V>(this NativeMultiHashMap<K, V> h, K k, V v) where K : struct, IEquatable<K> where V : struct, IEquatable<V>
@@ -130,38 +130,38 @@ namespace Unity.Entities
     }
 
     public static class DiffUtil
-    {        
-        public static ComponentGroup CreateAllChunksGroup(EntityManager manager)
+    {
+        public static EntityQuery CreateAllChunksQuery(EntityManager manager)
         {
             var guidQuery = new[]
             {
-                new EntityArchetypeQuery
+                new EntityQueryDesc
                 {
                     All = new ComponentType[] {typeof(EntityGuid)},
                 },
-                new EntityArchetypeQuery
+                new EntityQueryDesc
                 {
                     All = new ComponentType[] {typeof(EntityGuid), typeof(Disabled)},
                 },
-                new EntityArchetypeQuery
+                new EntityQueryDesc
                 {
                     All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab)},
                 },
-                new EntityArchetypeQuery
+                new EntityQueryDesc
                 {
                     All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab), typeof(Disabled)},
                 }
             };
 
-            return manager.CreateComponentGroup(guidQuery);
+            return manager.CreateEntityQuery(guidQuery);
         }
         public static NativeArray<ArchetypeChunk> GetAllChunks(EntityManager manager)
         {
-            var group = CreateAllChunksGroup(manager);
+            var query = CreateAllChunksQuery(manager);
 
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
-            group.Dispose();
+            query.Dispose();
 
             return chunks;
         }
@@ -246,13 +246,13 @@ namespace Unity.Entities
             using (var diff = WorldDiffer.UpdateDiff(newState, previousStateShadowWorld, Allocator.TempJob))
             {
                 m_Diff.End();
-                    
+
                 m_ApplyDiff.Begin();
                 ApplyDiff(dstEntityWorld, diff);
                 m_ApplyDiff.End();
             }
         }
-        
+
         public static WorldDiff UpdateDiff(World Source, World ShadowWorld, Allocator resultAllocator)
         {
             if (Source == null)
@@ -264,8 +264,8 @@ namespace Unity.Entities
             if (resultAllocator == Allocator.Temp)
                 throw new ArgumentException("Allocator can not be Allocator.Temp. Use Allocator.TempJob instead.");
 
-            var smgr = Source.GetOrCreateManager<EntityManager>();
-            var dmgr = ShadowWorld.GetOrCreateManager<EntityManager>();
+            var smgr = Source.EntityManager;
+            var dmgr = ShadowWorld.EntityManager;
 
             var schunks = DiffUtil.GetAllChunks(smgr);
             var dchunks = DiffUtil.GetAllChunks(dmgr);
@@ -553,7 +553,7 @@ namespace Unity.Entities
                         byte* beforeAddress = mod.BeforeChunk->Buffer + beforeArch->Offsets[beforeType] + beforeArch->SizeOfs[beforeType] * mod.BeforeIndex;
                         byte* afterAddress = mod.AfterChunk->Buffer + afterArch->Offsets[afterType] + afterArch->SizeOfs[afterType] * mod.AfterIndex;
 
-                        if (!SharedComponentDataManager.FastEquality_ComparePtr(beforeAddress, afterAddress, targetTypeIndex))
+                        if (!TypeManager.Equals(beforeAddress, afterAddress, targetTypeIndex))
                         {
                             // For now do full component replacement, because we need to dig into field information to make this work.
                             dataDiffs.Add(new DataDiff
@@ -577,7 +577,7 @@ namespace Unity.Entities
                         object beforeObject = GetSharedComponentObject(dsharedComponentDataManager, mod.BeforeChunk, beforeType, targetTypeIndex);
                         object afterObject = GetSharedComponentObject(ssharedComponentDataManager, mod.AfterChunk, afterType, targetTypeIndex);
 
-                        if (!SharedComponentDataManager.FastEquality_CompareBoxed(beforeObject, afterObject, targetTypeIndex))
+                        if (!TypeManager.Equals(beforeObject, afterObject, targetTypeIndex))
                         {
                             sharedComponentDiffs.Add(new SetSharedComponentDiff
                             {
@@ -694,7 +694,7 @@ namespace Unity.Entities
             int elementOffset = 0;
             for (var element = 0; element < elementCount; ++element)
             {
-            #if !UNITY_CSHARP_TINY
+            #if !NET_DOTS
                 foreach (var eo in ft.EntityOffsets)
                 {
             #else
@@ -723,7 +723,7 @@ namespace Unity.Entities
         }
 
 
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
         static object GetSharedComponentObject(SharedComponentDataManager sharedComponentDataManager, Chunk* chunk, int typeIndexInArchetype, int targetTypeIndex)
         {
             int off = typeIndexInArchetype - chunk->Archetype->FirstSharedComponent;
@@ -1071,7 +1071,7 @@ namespace Unity.Entities
                 var entities = chunk.GetNativeArray(Entity);
                 for (int i = 0; i != entities.Length; i++)
                     GuidToDestWorldPrefabEntity.TryAdd(guids[i], entities[i]);
-            }            
+            }
         }
 
         struct BuildEntityToRootEntityLookup : IJobChunk
@@ -1097,8 +1097,8 @@ namespace Unity.Entities
         internal struct DiffApplier : IDisposable
         {
             static ProfilerMarker s_AllocateLookups = new ProfilerMarker("DiffApplier.AllocateLookups");
-            static ProfilerMarker s_BuildDestWorldLookups = new ProfilerMarker("DiffApplier.BuildDestWorldLookups");                
-            static ProfilerMarker s_BuildDiffToDestWorldLookups = new ProfilerMarker("DiffApplier.BuildDiffToDestWorldLookups");               
+            static ProfilerMarker s_BuildDestWorldLookups = new ProfilerMarker("DiffApplier.BuildDestWorldLookups");
+            static ProfilerMarker s_BuildDiffToDestWorldLookups = new ProfilerMarker("DiffApplier.BuildDiffToDestWorldLookups");
             static ProfilerMarker s_CreateEntities = new ProfilerMarker("DiffApplier.CreateEntities");
             static ProfilerMarker s_DestroyEntities = new ProfilerMarker("DiffApplier.DestroyEntities");
             static ProfilerMarker s_AddComponents = new ProfilerMarker("DiffApplier.AddComponents");
@@ -1108,7 +1108,7 @@ namespace Unity.Entities
             static ProfilerMarker s_ApplyLinkedEntityGroupAdds = new ProfilerMarker("DiffApplier.ApplyLinkedEntityGroupAdds");
             static ProfilerMarker s_ApplyLinkedEntityGroupRemoves = new ProfilerMarker("DiffApplier.ApplyLinkedEntityGroupRemoves");
             static ProfilerMarker s_PatchEntities = new ProfilerMarker("DiffApplier.PatchEntities");
-                        
+
             // World to which we apply the diff
             internal World destWorld;
 
@@ -1153,7 +1153,7 @@ namespace Unity.Entities
             {
                 destWorld = dest_;
                 diff = diff_;
-                DestWorldManager = destWorld.GetOrCreateManager<EntityManager>();
+                DestWorldManager = destWorld.EntityManager;
                 DestWorldManager.CompleteAllJobs();
                 DiffIndexToDestWorldEntities = default;
                 DiffIndexToDestWorldTypes = default;
@@ -1209,19 +1209,19 @@ namespace Unity.Entities
                 // we need to ask for guids, guids and disabled, guids and prefab, and guids/prefab/disabled.
                 var guidQuery = new[]
                 {
-                    new EntityArchetypeQuery
+                    new EntityQueryDesc
                     {
                         All = new ComponentType[] {typeof(EntityGuid)}
                     },
-                    new EntityArchetypeQuery
+                    new EntityQueryDesc
                     {
                         All = new ComponentType[] {typeof(EntityGuid), typeof(Disabled)}
                     },
-                    new EntityArchetypeQuery
+                    new EntityQueryDesc
                     {
                         All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab)}
                     },
-                    new EntityArchetypeQuery
+                    new EntityQueryDesc
                     {
                         All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab), typeof(Disabled)}
                     }
@@ -1230,19 +1230,19 @@ namespace Unity.Entities
                 // we need to ask for linkedentitygroups, linkedentitygroups and disabled, linkedentitygroups and prefab, and linkedentitygroups/prefab/disabled.
                 var linkedEntityGroupQuery = new[]
                 {
-                    new EntityArchetypeQuery
+                    new EntityQueryDesc
                     {
                         All = new ComponentType[] {typeof(LinkedEntityGroup)}
                     },
-                    new EntityArchetypeQuery
+                    new EntityQueryDesc
                     {
                         All = new ComponentType[] {typeof(LinkedEntityGroup), typeof(Disabled)}
                     },
-                    new EntityArchetypeQuery
+                    new EntityQueryDesc
                     {
                         All = new ComponentType[] {typeof(LinkedEntityGroup), typeof(Prefab)}
                     },
-                    new EntityArchetypeQuery
+                    new EntityQueryDesc
                     {
                         All = new ComponentType[] {typeof(LinkedEntityGroup), typeof(Prefab), typeof(Disabled)}
                     }
@@ -1250,18 +1250,18 @@ namespace Unity.Entities
                 // this is for finding entities that have GUIDs, and which are Prefabs.
                 var guidPrefabQuery = new[]
                 {
-                    new EntityArchetypeQuery
+                    new EntityQueryDesc
                     {
                         All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab)}
                     },
-                    new EntityArchetypeQuery
+                    new EntityQueryDesc
                     {
                         All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab), typeof(Disabled)}
                     }
                 };
-                using(ComponentGroup DestChunksWithGuids = DestWorldManager.CreateComponentGroup(guidQuery))
-                using (ComponentGroup DestChunksWithLinkedEntityGroups = DestWorldManager.CreateComponentGroup(linkedEntityGroupQuery))
-                using(ComponentGroup DestchunksWithGuidAndPrefab = DestWorldManager.CreateComponentGroup(guidPrefabQuery))
+                using (EntityQuery DestChunksWithGuids = DestWorldManager.CreateEntityQuery(guidQuery))
+                using (EntityQuery DestChunksWithLinkedEntityGroups = DestWorldManager.CreateEntityQuery(linkedEntityGroupQuery))
+                using (EntityQuery DestchunksWithGuidAndPrefab = DestWorldManager.CreateEntityQuery(guidPrefabQuery))
                 {
                     DestWorldEntitiesWithGuids = DestChunksWithGuids.CalculateLength();
                     DestWorldEntitiesWithLinkedEntityGroups = DestChunksWithLinkedEntityGroups.CalculateLength();
@@ -1293,7 +1293,7 @@ namespace Unity.Entities
                     {
                         GuidToDestWorldPrefabEntity = GuidToDestWorldPrefabEntity.ToConcurrent(),
                         Entity = DestWorldManager.GetArchetypeChunkEntityType(),
-                        EntityGUID = DestWorldManager.GetArchetypeChunkComponentType<EntityGuid>(true)                        
+                        EntityGUID = DestWorldManager.GetArchetypeChunkComponentType<EntityGuid>(true)
                     };
                     handle = buildDestWorldGuidPrefabLookups.Schedule(DestchunksWithGuidAndPrefab);
                     handle.Complete();
@@ -1362,14 +1362,14 @@ namespace Unity.Entities
                     {
                         do
                         {
-#if UNITY_EDITOR                
+#if UNITY_EDITOR
                             DestWorldManager.SetName(entity, diff.EntityNames[i].ToString());
 #endif
                         } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref it));
                     }
                 }
             }
-            
+
             void DestroyEntities()
             {
                 s_DestroyEntities.Begin();
@@ -1399,7 +1399,7 @@ namespace Unity.Entities
             void AddComponents()
             {
                 s_AddComponents.Begin();
-                var linkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>(); 
+                var linkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
 
                 foreach (var addition in diff.AddComponents)
                 {
@@ -1414,7 +1414,7 @@ namespace Unity.Entities
                                 // magic is required to force the first entity in the LinkedEntityGroup to be the entity
                                 // that owns the component. this magic doesn't seem to exist at a lower level, so let's
                                 // shim it in here. we'll probably need to move the magic lower someday.
-                                if (componentType.TypeIndex == linkedEntityGroupTypeIndex)                                
+                                if (componentType.TypeIndex == linkedEntityGroupTypeIndex)
                                 {
                                     var buffer = DestWorldManager.GetBuffer<LinkedEntityGroup>(entity);
                                     buffer.Add(entity);
@@ -1680,12 +1680,12 @@ namespace Unity.Entities
                             }
                             else
                             {
-                                Debug.LogWarning($"Tried to add a child to a linked entity group, but root entity didn't exist in destination world.");                                                           
+                                Debug.LogWarning($"Tried to add a child to a linked entity group, but root entity didn't exist in destination world.");
                             }
                         }
                         else
                         {
-                            Debug.LogWarning($"Tried to add a child to a linked entity group, but no such prefab exists in destination world.");                           
+                            Debug.LogWarning($"Tried to add a child to a linked entity group, but no such prefab exists in destination world.");
                         }
                     }
                     for (var a = 0; a < instanceChildren.Length; ++a)
@@ -1731,7 +1731,7 @@ namespace Unity.Entities
                     for (var a = 0; a < pending.Length; ++a)
                         RemoveChildFromTables(pending[a]);
                 }
-                s_ApplyLinkedEntityGroupRemoves.End();                
+                s_ApplyLinkedEntityGroupRemoves.End();
             }
         }
 

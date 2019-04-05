@@ -16,7 +16,7 @@ namespace Unity.Entities.PerformanceTests
         NativeArray<Entity> entities1;
         NativeArray<Entity> entities2;
         NativeArray<Entity> entities3;
-        ComponentGroup group;
+        EntityQuery group;
 
         const int count = 1024 * 128;
 
@@ -25,14 +25,14 @@ namespace Unity.Entities.PerformanceTests
         {
             m_PreviousWorld = World.Active;
             m_World = World.Active = new World("Test World");
-            m_Manager = m_World.GetOrCreateManager<EntityManager>();
+            m_Manager = m_World.EntityManager;
             archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
             archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
             archetype3 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData3));
             entities1 = new NativeArray<Entity>(count, Allocator.Persistent);
             entities2 = new NativeArray<Entity>(count, Allocator.Persistent);
             entities3 = new NativeArray<Entity>(count, Allocator.Persistent);
-            group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
         }
 
         [TearDown]

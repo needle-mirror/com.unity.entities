@@ -53,7 +53,7 @@ namespace Unity.Entities
     public static class ScriptBehaviourUpdateOrder
     {
         private static void InsertManagerIntoSubsystemList<T>(PlayerLoopSystem[] subsystemList, int insertIndex, T mgr)
-            where T : ScriptBehaviourManager
+            where T : ComponentSystemBase
         {
             var del = new DummyDelegateWrapper(mgr);
             subsystemList[insertIndex].type = typeof(T);
@@ -75,7 +75,7 @@ namespace Unity.Entities
                         for (var j = 0; j < subsystemListLength; ++j)
                             newSubsystemList[j] = playerLoop.subSystemList[i].subSystemList[j];
                         InsertManagerIntoSubsystemList(newSubsystemList,
-                            subsystemListLength + 0, world.GetOrCreateManager<SimulationSystemGroup>());
+                            subsystemListLength + 0, world.GetOrCreateSystem<SimulationSystemGroup>());
                         playerLoop.subSystemList[i].subSystemList = newSubsystemList;
                     }
                     else if (playerLoop.subSystemList[i].type == typeof(PreLateUpdate))
@@ -84,7 +84,7 @@ namespace Unity.Entities
                         for (var j = 0; j < subsystemListLength; ++j)
                             newSubsystemList[j] = playerLoop.subSystemList[i].subSystemList[j];
                         InsertManagerIntoSubsystemList(newSubsystemList,
-                            subsystemListLength + 0, world.GetOrCreateManager<PresentationSystemGroup>());
+                            subsystemListLength + 0, world.GetOrCreateSystem<PresentationSystemGroup>());
                         playerLoop.subSystemList[i].subSystemList = newSubsystemList;
                     }
                     else if (playerLoop.subSystemList[i].type == typeof(Initialization))
@@ -93,7 +93,7 @@ namespace Unity.Entities
                         for (var j = 0; j < subsystemListLength; ++j)
                             newSubsystemList[j] = playerLoop.subSystemList[i].subSystemList[j];
                         InsertManagerIntoSubsystemList(newSubsystemList,
-                            subsystemListLength + 0, world.GetOrCreateManager<InitializationSystemGroup>());
+                            subsystemListLength + 0, world.GetOrCreateSystem<InitializationSystemGroup>());
                         playerLoop.subSystemList[i].subSystemList = newSubsystemList;
                     }
                 }
@@ -116,17 +116,17 @@ namespace Unity.Entities
         internal class DummyDelegateWrapper
         {
 
-            internal ScriptBehaviourManager Manager => m_Manager;
-            private readonly ScriptBehaviourManager m_Manager;
+            internal ComponentSystemBase System => m_System;
+            private readonly ComponentSystemBase m_System;
 
-            public DummyDelegateWrapper(ScriptBehaviourManager man)
+            public DummyDelegateWrapper(ComponentSystemBase sys)
             {
-                m_Manager = man;
+                m_System = sys;
             }
 
             public void TriggerUpdate()
             {
-                m_Manager.Update();
+                m_System.Update();
             }
         }
     }

@@ -49,7 +49,7 @@ namespace Unity.Scenes.Editor
                 Type convertType = null;
                 foreach (var behaviour in gameobject.GetComponents<MonoBehaviour>())
                 {
-                    if (behaviour.GetType().GetCustomAttribute<RequiresEntityConversionAttribute>(true) != null)
+                    if (behaviour != null && behaviour.GetType().GetCustomAttribute<RequiresEntityConversionAttribute>(true) != null)
                     {
                         convertType = behaviour.GetType();
                         break;

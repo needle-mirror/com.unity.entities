@@ -73,13 +73,13 @@ namespace Unity.Entities.Tests
             m_Manager.LockChunk(chunk);
 
             Assert.Throws<InvalidOperationException>(() =>  m_Manager.AddComponentData(entity, new EcsTestTag()) );
-            Assert.Throws<InvalidOperationException>(() =>  m_Manager.AddComponent(m_Manager.UniversalGroup, typeof(EcsTestTag)) );
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.AddComponent(m_Manager.UniversalQuery, typeof(EcsTestTag)) );
 
             Assert.Throws<InvalidOperationException>(() =>  m_Manager.RemoveComponent<EcsTestData>(entity) );
-            Assert.Throws<InvalidOperationException>(() =>  m_Manager.RemoveComponent(m_Manager.UniversalGroup, typeof(EcsTestData)));
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.RemoveComponent(m_Manager.UniversalQuery, typeof(EcsTestData)));
             
             Assert.Throws<InvalidOperationException>(() =>  m_Manager.DestroyEntity(entity));
-            Assert.Throws<InvalidOperationException>(() =>  m_Manager.DestroyEntity(m_Manager.UniversalGroup));
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.DestroyEntity(m_Manager.UniversalQuery));
         }
         
         [Test]
@@ -90,10 +90,10 @@ namespace Unity.Entities.Tests
             m_Manager.LockChunkOrder(chunk);
 
             Assert.Throws<InvalidOperationException>(() =>  m_Manager.AddComponentData(entity, new EcsFooTest()));
-            Assert.Throws<InvalidOperationException>(() =>  m_Manager.AddComponent(m_Manager.UniversalGroup, typeof(EcsFooTest)));
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.AddComponent(m_Manager.UniversalQuery, typeof(EcsFooTest)));
 
             Assert.Throws<InvalidOperationException>(() =>  m_Manager.RemoveComponent<EcsTestData>(entity) );
-            Assert.Throws<InvalidOperationException>(() =>  m_Manager.RemoveComponent(m_Manager.UniversalGroup, typeof(EcsTestData)));
+            Assert.Throws<InvalidOperationException>(() =>  m_Manager.RemoveComponent(m_Manager.UniversalQuery, typeof(EcsTestData)));
             
             Assert.Throws<InvalidOperationException>(() =>  m_Manager.DestroyEntity(entity));
         }
@@ -105,10 +105,10 @@ namespace Unity.Entities.Tests
             var chunk = m_Manager.GetChunk(entity);
             m_Manager.LockChunkOrder(chunk);
 
-            m_Manager.AddComponent(m_Manager.UniversalGroup, typeof(EcsTestTag));
-            m_Manager.RemoveComponent(m_Manager.UniversalGroup, typeof(EcsTestTag));
-            m_Manager.AddChunkComponentData(m_Manager.UniversalGroup, new EcsFooTest());
-            m_Manager.DestroyEntity(m_Manager.UniversalGroup);
+            m_Manager.AddComponent(m_Manager.UniversalQuery, typeof(EcsTestTag));
+            m_Manager.RemoveComponent(m_Manager.UniversalQuery, typeof(EcsTestTag));
+            m_Manager.AddChunkComponentData(m_Manager.UniversalQuery, new EcsFooTest());
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
         }
         
         [Test]

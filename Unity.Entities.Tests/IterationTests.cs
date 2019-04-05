@@ -8,11 +8,11 @@ namespace Unity.Entities.Tests
 	class IterationTests : ECSTestsFixture
 	{
 		[Test]
-		public void CreateComponentGroup()
+		public void CreateEntityQuery()
 		{
 			var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
-			var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestData2));
+			var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
 			Assert.AreEqual(0, group.CalculateLength());
 
 			var entity = m_Manager.CreateEntity(archetype);
@@ -33,7 +33,7 @@ namespace Unity.Entities.Tests
 		[Test]
 		public void IterateEmptyArchetype()
 		{
-			var group = m_Manager.CreateComponentGroup(typeof(TempComponentNeverInstantiated));
+			var group = m_Manager.CreateEntityQuery(typeof(TempComponentNeverInstantiated));
 			Assert.AreEqual(0, group.CalculateLength());
 
 			var archetype = m_Manager.CreateArchetype(typeof(TempComponentNeverInstantiated));
@@ -45,12 +45,12 @@ namespace Unity.Entities.Tests
 			Assert.AreEqual(0, group.CalculateLength());
 		}
 		[Test]
-		public void IterateChunkedComponentGroup()
+		public void IterateChunkedEntityQuery()
 		{
 			var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData));
 			var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
-			var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+			var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 			Assert.AreEqual(0, group.CalculateLength());
 
             Entity[] entities = new Entity[10000];
@@ -87,7 +87,7 @@ namespace Unity.Entities.Tests
 			var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData));
 			var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
-			var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+			var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 			Assert.AreEqual(0, group.CalculateLength());
 
             Entity[] entities = new Entity[10000];
@@ -127,7 +127,7 @@ namespace Unity.Entities.Tests
 			var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData));
 			var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
-			var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+			var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 			Assert.AreEqual(0, group.CalculateLength());
 
             Entity[] entities = new Entity[10000];
@@ -188,70 +188,6 @@ namespace Unity.Entities.Tests
 			}
             arr.Dispose();
 		}
-
-#pragma warning disable 618
-		[Test]
-		public void IterateEntityArray()
-		{
-			var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData));
-			var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
-
-			var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
-			var arr = group.GetEntityArray();
-			Assert.AreEqual(0, arr.Length);
-
-            Entity[] entities = new Entity[10000];
-            for (int i = 0; i < entities.Length/2;i++)
-            {
-				entities[i] = m_Manager.CreateEntity(archetype1);
-				m_Manager.SetComponentData(entities[i], new EcsTestData(i));
-            }
-            for (int i = entities.Length/2; i < entities.Length;i++)
-            {
-				entities[i] = m_Manager.CreateEntity(archetype2);
-				m_Manager.SetComponentData(entities[i], new EcsTestData(i));
-            }
-
-			arr = group.GetEntityArray();
-			Assert.AreEqual(entities.Length, arr.Length);
-			var values = new HashSet<Entity>();
-            for (int i = 0; i < arr.Length;i++)
-			{
-				Entity val = arr[i];
-				Assert.IsFalse(values.Contains(val));
-				values.Add(val);
-			}
-
-            for (int i = 0; i < entities.Length;i++)
-				m_Manager.DestroyEntity(entities[i]);
-		}
-
-        [Test]
-        public void ComponentDataArrayCopy()
-        {
-            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
-
-            var entities = new NativeArray<Entity>(20000, Allocator.Persistent);
-            m_Manager.Instantiate(entity, entities);
-
-            var ecsArray = m_Manager.CreateComponentGroup(typeof(EcsTestData)).GetComponentDataArray<EcsTestData>();
-
-            for (int i = 0; i < ecsArray.Length; i++)
-                ecsArray[i] = new EcsTestData(i);
-
-            var copied = new NativeArray<EcsTestData>(entities.Length - 11 + 1, Allocator.Persistent);
-            ecsArray.CopyTo(copied, 11);
-
-            for (int i = 0; i < copied.Length; i++)
-            {
-                if (copied[i].value != i)
-                    Assert.AreEqual(i + 11, copied[i].value);
-            }
-
-            copied.Dispose();
-            entities.Dispose();
-        }
-#pragma warning restore 618
         
         [Test]
         public void GroupCopyFromNativeArray()
@@ -274,7 +210,7 @@ namespace Unity.Entities.Tests
 
             }
             
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             group.CopyFromComponentDataArray(dataToCopyA);
 
             for (int i = 0; i < dataToCopyA.Length; ++i)
@@ -297,7 +233,7 @@ namespace Unity.Entities.Tests
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
             var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
 
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
 
             var entity1A = m_Manager.CreateEntity(archetypeA);
             var entity2A = m_Manager.CreateEntity(archetypeA);
@@ -314,7 +250,7 @@ namespace Unity.Entities.Tests
             iterator.MoveToChunkWithoutFiltering(2); // 2 is index of chunk
             iterator.GetCurrentChunkRange(out var begin, out var end );
 
-            Assert.AreEqual(1, begin); // 1 is index of entity in filtered ComponentGroup
+            Assert.AreEqual(1, begin); // 1 is index of entity in filtered EntityQuery
 
             group.Dispose();
         }
@@ -325,7 +261,7 @@ namespace Unity.Entities.Tests
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
 
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
 
             for (int i = 0; i < archetypeA.ChunkCapacity * 2; ++i)
             {

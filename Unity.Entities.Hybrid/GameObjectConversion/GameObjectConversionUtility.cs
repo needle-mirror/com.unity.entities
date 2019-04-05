@@ -56,7 +56,7 @@ namespace Unity.Entities
             m_CreateConversionWorld.Begin();
 
             var gameObjectWorld = new World("GameObject World");
-            gameObjectWorld.CreateManager<GameObjectConversionMappingSystem>(dstEntityWorld, sceneGUID, conversionFlags);
+            gameObjectWorld.CreateSystem<GameObjectConversionMappingSystem>(dstEntityWorld, sceneGUID, conversionFlags);
 
             AddConversionSystems(gameObjectWorld);
 
@@ -68,14 +68,14 @@ namespace Unity.Entities
         
         internal static void Convert(World gameObjectWorld, World dstEntityWorld)
         {
-            var mappingSystem = gameObjectWorld.GetExistingManager<GameObjectConversionMappingSystem>();
+            var mappingSystem = gameObjectWorld.GetExistingSystem<GameObjectConversionMappingSystem>();
 
             using (m_UpdateSystems.Auto())
             {
                 // Convert all the data into dstEntityWorld
-                gameObjectWorld.GetExistingManager<GameObjectConversionInitializationGroup>().Update();
-                gameObjectWorld.GetExistingManager<GameObjectConversionGroup>().Update();
-                gameObjectWorld.GetExistingManager<GameObjectAfterConversionGroup>().Update();
+                gameObjectWorld.GetExistingSystem<GameObjectConversionInitializationGroup>().Update();
+                gameObjectWorld.GetExistingSystem<GameObjectConversionGroup>().Update();
+                gameObjectWorld.GetExistingSystem<GameObjectAfterConversionGroup>().Update();
             }
 
             using (m_AddPrefabComponentDataTag.Auto())
@@ -86,7 +86,7 @@ namespace Unity.Entities
 
         internal static Entity GameObjectToConvertedEntity(World gameObjectWorld, GameObject gameObject)
         {
-            var mappingSystem = gameObjectWorld.GetExistingManager<GameObjectConversionMappingSystem>();
+            var mappingSystem = gameObjectWorld.GetExistingSystem<GameObjectConversionMappingSystem>();
             return mappingSystem.GetPrimaryEntity(gameObject);
         }
 
@@ -98,7 +98,7 @@ namespace Unity.Entities
             Entity convertedEntity;
             using (var gameObjectWorld = CreateConversionWorld(dstEntityWorld, default(Hash128), 0))
             {
-                var mappingSystem = gameObjectWorld.GetExistingManager<GameObjectConversionMappingSystem>();
+                var mappingSystem = gameObjectWorld.GetExistingSystem<GameObjectConversionMappingSystem>();
 
                 using (m_CreateEntitiesForGameObjects.Auto())
                 {
@@ -139,13 +139,13 @@ namespace Unity.Entities
         
         static void AddConversionSystems(World gameObjectWorld)
         {
-            var init = gameObjectWorld.GetOrCreateManager<GameObjectConversionInitializationGroup>();
-            var convert = gameObjectWorld.GetOrCreateManager<GameObjectConversionGroup>();
-            var afterConvert = gameObjectWorld.GetOrCreateManager<GameObjectAfterConversionGroup>();
+            var init = gameObjectWorld.GetOrCreateSystem<GameObjectConversionInitializationGroup>();
+            var convert = gameObjectWorld.GetOrCreateSystem<GameObjectConversionGroup>();
+            var afterConvert = gameObjectWorld.GetOrCreateSystem<GameObjectAfterConversionGroup>();
 
             // Ensure the following systems run first in this order...
-            init.AddSystemToUpdateList(gameObjectWorld.GetOrCreateManager<ConvertGameObjectToEntitySystemDeclarePrefabs>());
-            init.AddSystemToUpdateList(gameObjectWorld.GetOrCreateManager<ComponentDataProxyToEntitySystem>());
+            init.AddSystemToUpdateList(gameObjectWorld.GetOrCreateSystem<ConvertGameObjectToEntitySystemDeclarePrefabs>());
+            init.AddSystemToUpdateList(gameObjectWorld.GetOrCreateSystem<ComponentDataProxyToEntitySystem>());
 
             var systems = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.GameObjectConversion);
             foreach (var system in systems)
@@ -185,7 +185,7 @@ namespace Unity.Entities
         {
             try
             {
-                group.AddSystemToUpdateList(world.GetOrCreateManager(type) as ComponentSystemBase);
+                group.AddSystemToUpdateList(world.GetOrCreateSystem(type) as ComponentSystemBase);
             }
             catch (Exception e)
             {

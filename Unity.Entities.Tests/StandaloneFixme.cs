@@ -3,7 +3,7 @@ using NUnit.Framework;
 
 namespace Unity.Entities.Tests
 {
-#if UNITY_CSHARP_TINY
+#if NET_DOTS
     public class StandaloneFixmeAttribute : IgnoreAttribute
     {
         public StandaloneFixmeAttribute() : base("Need to fix for Tiny.")

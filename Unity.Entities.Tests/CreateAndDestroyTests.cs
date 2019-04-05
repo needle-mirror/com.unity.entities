@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using Unity.Collections;
 
@@ -215,7 +216,7 @@ namespace Unity.Entities.Tests
 		[Test]
 		public void ExcludeArchetypeReactToAddRemoveComponent()
 		{
-			var subtractiveArch = m_Manager.CreateComponentGroup(ComponentType.Exclude(typeof(EcsTestData)), typeof(EcsTestData2));
+			var subtractiveArch = m_Manager.CreateEntityQuery(ComponentType.Exclude(typeof(EcsTestData)), typeof(EcsTestData2));
 
 			var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
@@ -345,7 +346,6 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
-        [StandaloneFixme] // ISharedComponentData
 	    public void AddComponentsWithSharedComponentsWorks()
 	    {
 	        var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
@@ -415,7 +415,6 @@ namespace Unity.Entities.Tests
 	    }
 
 	    [Test]
-        [StandaloneFixme] // ISharedComponentData
 	    public void InstantiateWithSharedSystemStateComponent()
 	    {
 	        var srcEntity = m_Manager.CreateEntity();
@@ -443,5 +442,80 @@ namespace Unity.Entities.Tests
 	        Assert.AreNotEqual(versionSharedBefore, versionSharedAfter);
 	        Assert.AreEqual(versionSystemBefore, versionSystemAfter);
 	    }
+
+        [Test]
+        public void AddTagComponentTwiceByValue()
+        {
+            var entity = m_Manager.CreateEntity();
+
+            m_Manager.AddComponentData(entity, new EcsTestTag());
+            m_Manager.AddComponentData(entity, new EcsTestTag());
+        }
+
+        [Test]
+        public void AddTagComponentTwiceByType()
+        {
+            var entity = m_Manager.CreateEntity();
+
+            m_Manager.AddComponent(entity, ComponentType.ReadWrite<EcsTestTag>());
+            m_Manager.AddComponent(entity, ComponentType.ReadWrite<EcsTestTag>());
+        }
+
+        [Test]
+        public void AddTagComponentTwiceToGroup()
+        {
+            m_Manager.CreateEntity();
+
+            m_Manager.AddComponent(m_Manager.UniversalQuery, ComponentType.ReadWrite<EcsTestTag>());
+            Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(m_Manager.UniversalQuery, ComponentType.ReadWrite<EcsTestTag>()));
+
+            // Failure because the component type is expected to be explicitly excluded from the group.
+        }
+
+        [Test]
+        public void AddTagComponentTwiceByTypeArray()
+        {
+            var entity = m_Manager.CreateEntity();
+
+            m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestTag>()));
+            m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestTag>()));
+
+            m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestData>()));
+            Assert.Throws<ArgumentException>(() => m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestData>())));
+        }
+
+        [Test]
+        public void AddChunkComponentTwice()
+        {
+            var entity = m_Manager.CreateEntity();
+
+            m_Manager.AddChunkComponentData<EcsTestTag>(entity);
+            m_Manager.AddChunkComponentData<EcsTestTag>(entity);
+
+            m_Manager.AddChunkComponentData<EcsTestData>(entity);
+            m_Manager.AddChunkComponentData<EcsTestData>(entity);
+        }
+
+        [Test]
+        public void AddChunkComponentToGroupTwice()
+        {
+            m_Manager.CreateEntity();
+
+            m_Manager.AddChunkComponentData(m_Manager.UniversalQuery, new EcsTestTag());
+            Assert.Throws<ArgumentException>(() => m_Manager.AddChunkComponentData(m_Manager.UniversalQuery, new EcsTestTag()));
+
+            m_Manager.AddChunkComponentData(m_Manager.UniversalQuery, new EcsTestData{value = 123});
+            Assert.Throws<ArgumentException>(() => m_Manager.AddChunkComponentData(m_Manager.UniversalQuery, new EcsTestData{value = 123}));
+            Assert.Throws<ArgumentException>(() => m_Manager.AddChunkComponentData(m_Manager.UniversalQuery, new EcsTestData{value = 456}));
+        }
+
+        [Test]
+        public void AddSharedComponentTwice()
+        {
+            var entity = m_Manager.CreateEntity();
+
+            m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp());
+            Assert.Throws<ArgumentException>(() => m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp()));
+        }
 	}
 }

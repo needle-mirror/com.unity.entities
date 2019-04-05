@@ -4,11 +4,11 @@ namespace Unity.Entities
 {
     class EntityQueryCache
     {
-        uint[]                  m_CacheHashes; // combined hash of QueryComponentBuilder and delegate types
-        ComponentGroup[]        m_CacheComponentGroups;
+        uint[]                 m_CacheHashes; // combined hash of QueryComponentBuilder and delegate types
+        EntityQuery[]          m_CachedEntityQueries;
         #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        EntityQueryBuilder[] m_CacheCheckQueryBuilders;
-        int[][]                 m_CacheCheckDelegateTypeIndices;
+        EntityQueryBuilder[]   m_CacheCheckQueryBuilders;
+        int[][]                m_CacheCheckDelegateTypeIndices;
         #endif
 
         public EntityQueryCache(int cacheSize = 10)
@@ -19,7 +19,7 @@ namespace Unity.Entities
             #endif
 
             m_CacheHashes = new uint[cacheSize];
-            m_CacheComponentGroups = new ComponentGroup[cacheSize];
+            m_CachedEntityQueries = new EntityQuery[cacheSize];
 
             // we use these for an additional equality check to avoid accidental hash collisions
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -28,9 +28,18 @@ namespace Unity.Entities
             #endif
         }
 
+        public int CalcUsedCacheCount()
+        {
+            var used = 0;
+            while (used < m_CacheHashes.Length && m_CachedEntityQueries[used] != null)
+                ++used;
+
+            return used;
+        }
+
         public int FindQueryInCache(uint hash)
         {
-            for (var i = 0; i < m_CacheHashes.Length && m_CacheComponentGroups[i] != null; ++i)
+            for (var i = 0; i < m_CacheHashes.Length && m_CachedEntityQueries[i] != null; ++i)
             {
                 if (m_CacheHashes[i] == hash)
                     return i;
@@ -39,15 +48,15 @@ namespace Unity.Entities
             return -1;
         }
 
-        public unsafe int CreateCachedQuery(uint hash, ComponentGroup group
+        public unsafe int CreateCachedQuery(uint hash, EntityQuery query
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
             , ref EntityQueryBuilder builder, int* delegateTypeIndices, int delegateTypeCount
             #endif
             )
         {
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (group == null)
-                throw new ArgumentNullException(nameof(group));
+            if (query == null)
+                throw new ArgumentNullException(nameof(query));
             #endif
 
             var index = 0;
@@ -65,7 +74,7 @@ namespace Unity.Entities
                         $"but this may cause a GC. Set cache size at init time via {nameof(ComponentSystem.InitEntityQueryCache)}() to a large enough number to ensure no allocations are required at run time.");
 
                     Array.Resize(ref m_CacheHashes, newSize);
-                    Array.Resize(ref m_CacheComponentGroups, newSize);
+                    Array.Resize(ref m_CachedEntityQueries, newSize);
 
                     #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     Array.Resize(ref m_CacheCheckQueryBuilders, newSize);
@@ -74,7 +83,7 @@ namespace Unity.Entities
                     break;
                 }
 
-                if (m_CacheComponentGroups[index] == null)
+                if (m_CachedEntityQueries[index] == null)
                     break;
 
                 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -88,7 +97,7 @@ namespace Unity.Entities
             // store in cache
 
             m_CacheHashes[index] = hash;
-            m_CacheComponentGroups[index] = group;
+            m_CachedEntityQueries[index] = query;
 
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_CacheCheckQueryBuilders[index] = builder;
@@ -101,8 +110,8 @@ namespace Unity.Entities
             return index;
         }
 
-        public ComponentGroup GetCachedQuery(int cacheIndex)
-            => m_CacheComponentGroups[cacheIndex];
+        public EntityQuery GetCachedQuery(int cacheIndex)
+            => m_CachedEntityQueries[cacheIndex];
 
         #if ENABLE_UNITY_COLLECTIONS_CHECKS
         public unsafe void ValidateMatchesCache(int foundCacheIndex, ref EntityQueryBuilder builder, int* delegateTypeIndices, int delegateTypeCount)

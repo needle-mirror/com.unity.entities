@@ -34,6 +34,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void TestIssue149()
         {
+            m_OurTypes = new ComponentType[] {typeof(Issue149Data)};
+
             m_Archetype = m_Manager.CreateArchetype(typeof(Issue149Data));
 
             for (int i = 0; i < Bags.Length; ++i)
@@ -91,19 +93,17 @@ namespace Unity.Entities.Tests
             }
         }
 
-        private static readonly ComponentType[] s_OurTypes = new ComponentType[] {
-            typeof(Issue149Data)
-        };
+        private ComponentType[] m_OurTypes;
 
         // Walk all accessible entity data and check that the versions match what we
         // believe the generation numbers should be.
         private void SanityCheckVersions()
         {
-            var group = m_Manager.CreateComponentGroup(new EntityArchetypeQuery
+            var group = m_Manager.CreateEntityQuery(new EntityQueryDesc
             {
                 Any = Array.Empty<ComponentType>(),
                 None = Array.Empty<ComponentType>(),
-                All = s_OurTypes,
+                All = m_OurTypes,
             });
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
@@ -138,7 +138,7 @@ namespace Unity.Entities.Tests
         public void EntityArchetypeQueryMembersHaveSensibleDefaults()
         {
             ComponentType[] types = {typeof(Issue476Data)};
-            var group = m_Manager.CreateComponentGroup(types);
+            var group = m_Manager.CreateEntityQuery(types);
             var temp = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
             temp.Dispose();
@@ -156,7 +156,7 @@ namespace Unity.Entities.Tests
             World w = DefaultTinyWorldInitialization.Initialize("TestWorld");
 #endif
             World.Active = w;
-            EntityManager em = World.Active.GetOrCreateManager<EntityManager>();
+            EntityManager em = World.Active.EntityManager;
             List<Entity> remember = new List<Entity>();
             for (int i = 0; i < 5; i++)
             {
@@ -185,7 +185,7 @@ namespace Unity.Entities.Tests
             World w = DefaultTinyWorldInitialization.Initialize("TestWorld");
 #endif
             World.Active = w;
-            EntityManager em = World.Active.GetOrCreateManager<EntityManager>();
+            EntityManager em = World.Active.EntityManager;
 
             List<Entity> remember = new List<Entity>();
             for (int i = 0; i < 5; i++)
@@ -202,7 +202,7 @@ namespace Unity.Entities.Tests
             w = DefaultTinyWorldInitialization.Initialize("TestWorld");
 #endif
             World.Active = w;
-            em = World.Active.GetOrCreateManager<EntityManager>();
+            em = World.Active.EntityManager;
             var allEnt = em.GetAllEntities(Allocator.Temp);
             Assert.AreEqual(0, allEnt.Length);
             allEnt.Dispose();

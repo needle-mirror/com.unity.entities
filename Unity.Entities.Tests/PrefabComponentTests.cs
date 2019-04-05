@@ -7,12 +7,12 @@ namespace Unity.Entities.Tests
 	class PrefabComponentTests : ECSTestsFixture
 	{
 		[Test]
-		public void PFB_DontFindPrefabInComponentGroup()
+		public void PFB_DontFindPrefabInEntityQuery()
 		{
 		    var archetype0 = m_Manager.CreateArchetype(typeof(EcsTestData));
 			var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(Prefab));
 
-		    var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
+		    var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
 			var entity0 = m_Manager.CreateEntity(archetype0);
 			var entity1 = m_Manager.CreateEntity(archetype1);
@@ -32,7 +32,7 @@ namespace Unity.Entities.Tests
 	        var entity0 = m_Manager.CreateEntity(archetype0);
 	        var entity1 = m_Manager.CreateEntity(archetype1);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestData>());
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
 	        var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 	        var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
@@ -45,12 +45,12 @@ namespace Unity.Entities.Tests
 	    }
 
 		[Test]
-		public void PFB_FindPrefabIfRequestedInComponentGroup()
+		public void PFB_FindPrefabIfRequestedInEntityQuery()
 		{
 		    var archetype0 = m_Manager.CreateArchetype(typeof(EcsTestData));
 			var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(Prefab));
 
-		    var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(Prefab));
+		    var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(Prefab));
 
 			var entity0 = m_Manager.CreateEntity(archetype0);
 			var entity1 = m_Manager.CreateEntity(archetype1);
@@ -73,7 +73,7 @@ namespace Unity.Entities.Tests
 	        var entity1 = m_Manager.CreateEntity(archetype1);
 	        var entity2 = m_Manager.CreateEntity(archetype1);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestData>(),
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>(),
                 ComponentType.ReadWrite<Prefab>());
 	        var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
@@ -117,7 +117,7 @@ namespace Unity.Entities.Tests
 	        Assert.AreEqual(true, m_Manager.HasComponent<Prefab>(entity0));
 	        Assert.AreEqual(false, m_Manager.HasComponent<Prefab>(entity1));
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsTestData>());
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
 	        var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 	        var count = ArchetypeChunkArray.CalculateEntityCount(chunks);

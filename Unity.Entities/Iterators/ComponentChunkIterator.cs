@@ -18,12 +18,12 @@ namespace Unity.Entities
     }
 
     //@TODO: Use field offset / union here... There seems to be an issue in mono preventing it...
-    internal unsafe struct ComponentGroupFilter
+    internal unsafe struct EntityQueryFilter
     {
         public struct SharedComponentData
         {
             public int Count;
-            public fixed int IndexInComponentGroup[2];
+            public fixed int IndexInEntityQuery[2];
             public fixed int SharedComponentIndex[2];
         }
 
@@ -33,7 +33,7 @@ namespace Unity.Entities
             public const int Capacity = 2;
 
             public int Count;
-            public fixed int IndexInComponentGroup[2];
+            public fixed int IndexInEntityQuery[2];
         }
 
         public FilterType Type;
@@ -91,11 +91,11 @@ namespace Unity.Entities
         private int m_CurrentArchetypeIndex;
         private int m_CurrentChunkIndex;
 
-        internal ComponentGroupFilter m_Filter;
+        internal EntityQueryFilter m_Filter;
 
         internal readonly uint m_GlobalSystemVersion;
 
-        public int IndexInComponentGroup;
+        public int IndexInEntityQuery;
 
         internal int GetSharedComponentFromCurrentChunk(int sharedComponentIndex)
         {
@@ -106,11 +106,11 @@ namespace Unity.Entities
         }
 
         public ComponentChunkIterator(MatchingArchetypeList match, uint globalSystemVersion,
-            ref ComponentGroupFilter filter)
+            ref EntityQueryFilter filter)
         {
             m_MatchingArchetypeList = match;
             m_CurrentMatchingArchetypeIndex = match.Count - 1;
-            IndexInComponentGroup = -1;
+            IndexInEntityQuery = -1;
             m_CurrentChunk = null;
             m_CurrentArchetypeIndex =
                 m_CurrentArchetypeEntityIndex =
@@ -129,14 +129,14 @@ namespace Unity.Entities
         public object GetManagedObject(ArchetypeManager typeMan, int cachedBeginIndex, int index)
         {
             return typeMan.GetManagedObject(*m_CurrentChunk,
-                m_CurrentMatchingArchetype->IndexInArchetype[IndexInComponentGroup], index - cachedBeginIndex);
+                m_CurrentMatchingArchetype->IndexInArchetype[IndexInEntityQuery], index - cachedBeginIndex);
         }
 
         public object[] GetManagedObjectRange(ArchetypeManager typeMan, int cachedBeginIndex, int index,
             out int rangeStart, out int rangeLength)
         {
             var objs = typeMan.GetManagedObjectRange(*m_CurrentChunk,
-                m_CurrentMatchingArchetype->IndexInArchetype[IndexInComponentGroup], out rangeStart,
+                m_CurrentMatchingArchetype->IndexInArchetype[IndexInEntityQuery], out rangeStart,
                 out rangeLength);
             rangeStart += index - cachedBeginIndex;
             rangeLength -= index - cachedBeginIndex;
@@ -169,7 +169,7 @@ namespace Unity.Entities
         /// <param name="jobHandle">Handle to the GatherChunks job used to fill the output array.</param>
         /// <returns>NativeArray of all the chunks in the matchingArchetypes list.</returns>
         public static NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(MatchingArchetypeList matchingArchetypes,
-            Allocator allocator, out JobHandle jobHandle, ref ComponentGroupFilter filter,
+            Allocator allocator, out JobHandle jobHandle, ref EntityQueryFilter filter,
             JobHandle dependsOn = default(JobHandle))
         {
             var archetypeCount = matchingArchetypes.Count;
@@ -239,21 +239,21 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        ///     Creates a NativeArray containing the entities in a given ComponentGroup.
+        ///     Creates a NativeArray containing the entities in a given EntityQuery.
         /// </summary>
         /// <param name="matchingArchetypes">List of matching archetypes.</param>
         /// <param name="allocator">Allocator to use for the array.</param>
         /// <param name="type">An atomic safety handle required by GatherEntitiesJob so it can call GetNativeArray() on chunks.</param>
-        /// <param name="componentGroup">ComponentGroup to gather entities from.</param>
-        /// <param name="filter">ComponentGroupFilter for calculating the length of the output array.</param>
+        /// <param name="entityQuery">EntityQuery to gather entities from.</param>
+        /// <param name="filter">EntityQueryFilter for calculating the length of the output array.</param>
         /// <param name="jobHandle">Handle to the GatherEntitiesJob job used to fill the output array.</param>
         /// <param name="dependsOn">Handle to a job this GatherEntitiesJob must wait on.</param>
-        /// <returns>NativeArray of the entities in a given ComponentGroup.</returns>
+        /// <returns>NativeArray of the entities in a given EntityQuery.</returns>
         public static NativeArray<Entity> CreateEntityArray(MatchingArchetypeList matchingArchetypes,
             Allocator allocator,
             ArchetypeChunkEntityType type,
-            ComponentGroup componentGroup,
-            ref ComponentGroupFilter filter,
+            EntityQuery entityQuery,
+            ref EntityQueryFilter filter,
             out JobHandle jobHandle,
             JobHandle dependsOn)
 
@@ -265,7 +265,7 @@ namespace Unity.Entities
                 EntityType = type,
                 Entities = new NativeArray<Entity>(entityCount, allocator)
             };
-            jobHandle = job.Schedule(componentGroup, dependsOn);
+            jobHandle = job.Schedule(entityQuery, dependsOn);
 
             return job.Entities;
         }
@@ -273,8 +273,8 @@ namespace Unity.Entities
         public static NativeArray<T> CreateComponentDataArray<T>(MatchingArchetypeList matchingArchetypes,
             Allocator allocator,
             ArchetypeChunkComponentType<T> type,
-            ComponentGroup componentGroup,
-            ref ComponentGroupFilter filter,
+            EntityQuery entityQuery,
+            ref EntityQueryFilter filter,
             out JobHandle jobHandle,
             JobHandle dependsOn)
             where T :struct, IComponentData
@@ -286,7 +286,7 @@ namespace Unity.Entities
                 ComponentData = new NativeArray<T>(entityCount, allocator),
                 ComponentType = type
             };
-            jobHandle = job.Schedule(componentGroup, dependsOn);
+            jobHandle = job.Schedule(entityQuery, dependsOn);
 
             return job.ComponentData;
         }
@@ -294,8 +294,8 @@ namespace Unity.Entities
         public static void CopyFromComponentDataArray<T>(MatchingArchetypeList matchingArchetypes,
             NativeArray<T> componentDataArray,
             ArchetypeChunkComponentType<T> type,
-            ComponentGroup componentGroup,
-            ref ComponentGroupFilter filter,
+            EntityQuery entityQuery,
+            ref EntityQueryFilter filter,
             out JobHandle jobHandle,
             JobHandle dependsOn)
             where T :struct, IComponentData
@@ -305,16 +305,16 @@ namespace Unity.Entities
                 ComponentData = componentDataArray,
                 ComponentType = type
             };
-            jobHandle = job.Schedule(componentGroup, dependsOn);
+            jobHandle = job.Schedule(entityQuery, dependsOn);
         }
 
         /// <summary>
         ///     Total number of entities contained in a given MatchingArchetype list.
         /// </summary>
         /// <param name="matchingArchetypes">List of matching archetypes.</param>
-        /// <param name="filter">ComponentGroupFilter to use when calculating total number of entities.</param>
+        /// <param name="filter">EntityQueryFilter to use when calculating total number of entities.</param>
         /// <returns>Number of entities</returns>
-        public static int CalculateLength(MatchingArchetypeList matchingArchetypes, ref ComponentGroupFilter filter)
+        public static int CalculateLength(MatchingArchetypeList matchingArchetypes, ref EntityQueryFilter filter)
         {
             var filterCopy = filter; // Necessary to avoid a nasty compiler error cause by fixed buffer types
 
@@ -342,10 +342,10 @@ namespace Unity.Entities
 
                     if (filter.Type == FilterType.SharedComponent)
                     {
-                        var indexInComponentGroup0 = filterCopy.Shared.IndexInComponentGroup[0];
+                        var indexInEntityQuery0 = filterCopy.Shared.IndexInEntityQuery[0];
                         var sharedComponentIndex0 = filterCopy.Shared.SharedComponentIndex[0];
                         var componentIndexInChunk0 =
-                            match->IndexInArchetype[indexInComponentGroup0] - archetype->FirstSharedComponent;
+                            match->IndexInArchetype[indexInEntityQuery0] - archetype->FirstSharedComponent;
                         var sharedComponents0 =
                             archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk0);
 
@@ -359,10 +359,10 @@ namespace Unity.Entities
                         }
                         else
                         {
-                            var indexInComponentGroup1 = filterCopy.Shared.IndexInComponentGroup[1];
+                            var indexInEntityQuery1 = filterCopy.Shared.IndexInEntityQuery[1];
                             var sharedComponentIndex1 = filterCopy.Shared.SharedComponentIndex[1];
                             var componentIndexInChunk1 =
-                                match->IndexInArchetype[indexInComponentGroup1] - archetype->FirstSharedComponent;
+                                match->IndexInArchetype[indexInEntityQuery1] - archetype->FirstSharedComponent;
                             var sharedComponents1 =
                                 archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk1);
 
@@ -376,8 +376,8 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        var indexInComponentGroup0 = filterCopy.Changed.IndexInComponentGroup[0];
-                        var componentIndexInChunk0 = match->IndexInArchetype[indexInComponentGroup0];
+                        var indexInEntityQuery0 = filterCopy.Changed.IndexInEntityQuery[0];
+                        var componentIndexInChunk0 = match->IndexInArchetype[indexInEntityQuery0];
                         var changeVersions0 = archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk0);
 
                         var requiredVersion = filter.RequiredChangeVersion;
@@ -391,8 +391,8 @@ namespace Unity.Entities
                         }
                         else
                         {
-                            var indexInComponentGroup1 = filterCopy.Changed.IndexInComponentGroup[1];
-                            var componentIndexInChunk1 = match->IndexInArchetype[indexInComponentGroup1];
+                            var indexInEntityQuery1 = filterCopy.Changed.IndexInEntityQuery[1];
+                            var componentIndexInChunk1 = match->IndexInArchetype[indexInEntityQuery1];
                             var changeVersions1 =
                                 archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk1);
 
@@ -550,16 +550,16 @@ namespace Unity.Entities
             return m_Filter.RequiresMatchesFilter;
         }
 
-        public int GetIndexInArchetypeFromCurrentChunk(int indexInComponentGroup)
+        public int GetIndexInArchetypeFromCurrentChunk(int indexInEntityQuery)
         {
-            return m_CurrentMatchingArchetype->IndexInArchetype[indexInComponentGroup];
+            return m_CurrentMatchingArchetype->IndexInArchetype[indexInEntityQuery];
         }
 
-        public void UpdateCacheToCurrentChunk(out ComponentChunkCache cache, bool isWriting, int indexInComponentGroup)
+        public void UpdateCacheToCurrentChunk(out ComponentChunkCache cache, bool isWriting, int indexInEntityQuery)
         {
             var archetype = m_CurrentMatchingArchetype->Archetype;
 
-            int indexInArchetype = m_CurrentMatchingArchetype->IndexInArchetype[indexInComponentGroup];
+            int indexInArchetype = m_CurrentMatchingArchetype->IndexInArchetype[indexInEntityQuery];
 
             cache.CachedBeginIndex = m_CurrentChunkEntityIndex + m_CurrentArchetypeEntityIndex;
             cache.CachedEndIndex = cache.CachedBeginIndex + (*m_CurrentChunk)->Count;
@@ -601,23 +601,23 @@ namespace Unity.Entities
             return chunk->Buffer + archetype->Offsets[indexInArchetype];
         }
 
-        public void* GetCurrentChunkComponentDataPtr(bool isWriting, int indexInComponentGroup)
+        public void* GetCurrentChunkComponentDataPtr(bool isWriting, int indexInEntityQuery)
         {
-            int indexInArchetype = m_CurrentMatchingArchetype->IndexInArchetype[indexInComponentGroup];
+            int indexInArchetype = m_CurrentMatchingArchetype->IndexInArchetype[indexInEntityQuery];
             return GetChunkComponentDataPtr(*m_CurrentChunk, isWriting, indexInArchetype, m_GlobalSystemVersion);
         }
 
         public void UpdateChangeVersion()
         {
-            int indexInArchetype = m_CurrentMatchingArchetype->IndexInArchetype[IndexInComponentGroup];
+            int indexInArchetype = m_CurrentMatchingArchetype->IndexInArchetype[IndexInEntityQuery];
             (*m_CurrentChunk)->SetChangeVersion(indexInArchetype, m_GlobalSystemVersion);
         }
 
         public void MoveToEntityIndexAndUpdateCache(int index, out ComponentChunkCache cache, bool isWriting)
         {
-            Assert.IsTrue(-1 != IndexInComponentGroup);
+            Assert.IsTrue(-1 != IndexInEntityQuery);
             MoveToEntityIndex(index);
-            UpdateCacheToCurrentChunk(out cache, isWriting, IndexInComponentGroup);
+            UpdateCacheToCurrentChunk(out cache, isWriting, IndexInEntityQuery);
         }
 
         internal ArchetypeChunk GetCurrentChunk()
@@ -712,7 +712,7 @@ namespace Unity.Entities
             return index;
         }
 
-        internal static JobHandle PreparePrefilteredChunkLists(int unfilteredChunkCount, MatchingArchetypeList archetypes, ComponentGroupFilter filter,  JobHandle dependsOn, ScheduleMode mode, out NativeArray<byte> prefilterDataArray, out void* deferredCountData)
+        internal static JobHandle PreparePrefilteredChunkLists(int unfilteredChunkCount, MatchingArchetypeList archetypes, EntityQueryFilter filter,  JobHandle dependsOn, ScheduleMode mode, out NativeArray<byte> prefilterDataArray, out void* deferredCountData)
         {
             // Allocate one buffer for all prefilter data and distribute it
             // We keep the full buffer as a "dummy array" so we can deallocate it later with [DeallocateOnJobCompletion]
@@ -763,6 +763,14 @@ namespace Unity.Entities
             deferredCountData = (byte*)deferredCountData - sizeof(void*);
 
             return prefilterHandle;
+        }
+        
+        internal static void UnpackPrefilterData(NativeArray<byte> prefilterData, out ArchetypeChunk* chunks, out int* entityOffsets, out int filteredChunkCount)
+        {
+            chunks = (ArchetypeChunk*) prefilterData.GetUnsafePtr();
+
+            filteredChunkCount = *(int*)((byte*) prefilterData.GetUnsafePtr() + prefilterData.Length - sizeof(int));
+            entityOffsets = (int*) (chunks + filteredChunkCount);
         }
     }
 }

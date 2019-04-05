@@ -85,13 +85,13 @@ namespace Unity.Entities.Tests
         {
             CreateMixedEntities(64);
 
-            var query = new EntityArchetypeQuery
+            var query = new EntityQueryDesc
             {
                 Any = new ComponentType[] {typeof(EcsTestData2), typeof(EcsTestData)}, // any
                 None = Array.Empty<ComponentType>(), // none
                 All = Array.Empty<ComponentType>(), // all
             };
-            var group = m_Manager.CreateComponentGroup(query);
+            var group = m_Manager.CreateEntityQuery(query);
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
@@ -199,7 +199,7 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            var group = m_Manager.CreateComponentGroup(new EntityArchetypeQuery
+            var group = m_Manager.CreateEntityQuery(new EntityQueryDesc
             {
                 Any = new ComponentType[] {typeof(EcsTestData2), typeof(EcsTestData)}, // any
                 None = Array.Empty<ComponentType>(), // none
@@ -287,7 +287,7 @@ namespace Unity.Entities.Tests
         {
             CreateEntities(128);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsIntElement>());
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
@@ -336,11 +336,11 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            ComponentGroup m_Group;
+            EntityQuery m_Group;
 
-            protected override void OnCreateManager()
+            protected override void OnCreate()
             {
-                m_Group = GetComponentGroup(typeof(EcsIntElement));
+                m_Group = GetEntityQuery(typeof(EcsIntElement));
             }
 
             protected override void OnUpdate()
@@ -365,7 +365,7 @@ namespace Unity.Entities.Tests
         {
             CreateEntities(128);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsIntElement>());
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
@@ -392,7 +392,7 @@ namespace Unity.Entities.Tests
         {
             CreateEntities(128);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsIntElement>());
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
@@ -412,7 +412,7 @@ namespace Unity.Entities.Tests
             }
 
             // Run system to bump chunk versions
-            var bumpChunkBufferTypeVersionSystem = World.CreateManager<BumpChunkBufferTypeVersionSystem>();
+            var bumpChunkBufferTypeVersionSystem = World.CreateSystem<BumpChunkBufferTypeVersionSystem>();
             bumpChunkBufferTypeVersionSystem.Update();
 
             // Check versions after modifications
@@ -430,12 +430,12 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
+        [StandaloneFixme] // don't know why this fails
         public void ACS_BuffersRO()
         {
             CreateEntities(128);
 
-            var group = m_Manager.CreateComponentGroup(ComponentType.ReadWrite<EcsIntElement>());
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
             var intElements = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(true);
@@ -450,14 +450,14 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
+        [StandaloneFixme] // don't know why this fails
         public void ACS_ChunkArchetypeTypesMatch()
         {
             var entityTypes = new ComponentType[] {typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsIntElement)};
 
             CreateEntities(128);
 
-            var group = m_Manager.CreateComponentGroup(entityTypes);
+            var group = m_Manager.CreateEntityQuery(entityTypes);
             using (var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob))
             {
                 foreach (var chunk in chunks)
@@ -481,13 +481,12 @@ namespace Unity.Entities.Tests
         struct Max3Capacity : IComponentData { }
 
         [Test]
-        [StandaloneFixme] // MaximumChunkCapacityAttribute not supported in Tiny?
         public void MaximumChunkCapacityIsRespected()
         {
             for (int i = 0; i != 4; i++)
                 m_Manager.CreateEntity(typeof(Max3Capacity));
 
-            var group = m_Manager.CreateComponentGroup(typeof(Max3Capacity));
+            var group = m_Manager.CreateEntityQuery(typeof(Max3Capacity));
             using (var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob))
             {
                 Assert.AreEqual(2, chunks.Length);

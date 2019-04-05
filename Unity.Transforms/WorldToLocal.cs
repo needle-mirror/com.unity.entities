@@ -19,7 +19,7 @@ namespace Unity.Transforms
 
     public abstract class WorldToLocalSystem : JobComponentSystem
     {
-        private ComponentGroup m_Group;
+        private EntityQuery m_Group;
 
         struct ToWorldToLocal : IJobChunk
         {
@@ -43,16 +43,16 @@ namespace Unity.Transforms
             }
         }
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_Group = GetComponentGroup(new EntityArchetypeQuery
+            m_Group = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
                     typeof(WorldToLocal),
                     ComponentType.ReadOnly<LocalToWorld>(),
                 },
-                Options = EntityArchetypeQueryOptions.FilterWriteGroup
+                Options = EntityQueryOptions.FilterWriteGroup
             });
         }
 

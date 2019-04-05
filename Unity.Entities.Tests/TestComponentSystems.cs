@@ -6,10 +6,10 @@ namespace Unity.Entities.Tests
     public class TestEcsChangeSystem : JobComponentSystem
     {
         public int NumChanged;
-        ComponentGroup ChangeGroup;
-        protected override void OnCreateManager()
+        EntityQuery ChangeGroup;
+        protected override void OnCreate()
         {
-            ChangeGroup = GetComponentGroup(typeof(EcsTestData));
+            ChangeGroup = GetEntityQuery(typeof(EcsTestData));
             ChangeGroup.SetFilterChanged(typeof(EcsTestData));
         }
 

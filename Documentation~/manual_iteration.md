@@ -1,6 +1,6 @@
 # Manual iteration
 
-You can also request all the chunks explicitly in a NativeArray and process them with a Job such as `IJobParallelFor`. This method is recommended if you need to manage chunks in some way that is not appropriate for the simplified model of simply iterating over all the Chunks in a ComponentGroup. As in:
+You can also request all the chunks explicitly in a NativeArray and process them with a Job such as `IJobParallelFor`. This method is recommended if you need to manage chunks in some way that is not appropriate for the simplified model of simply iterating over all the Chunks in a EntityQuery. As in:
 
 ```c#
 public class RotationSpeedSystem : JobComponentSystem
@@ -30,16 +30,16 @@ public class RotationSpeedSystem : JobComponentSystem
        }
    }
    
-   ComponentGroup m_group;   
+   EntityQuery m_group;   
 
-   protected override void OnCreateManager()
+   protected override void OnCreate()
    {
-       var query = new EntityArchetypeQuery
+       var query = new EntityQueryDesc
        {
            All = new ComponentType[]{ typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>() }
        };
 
-       m_group = GetComponentGroup(query);
+       m_group = GetEntityQuery(query);
    }
 
    protected override JobHandle OnUpdate(JobHandle inputDeps)

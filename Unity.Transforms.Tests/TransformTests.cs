@@ -25,8 +25,8 @@ namespace Unity.Entities.Tests
                 Value = math.mul( float4x4.RotateY((float)math.PI), float4x4.Translate( new float3(0.0f, 0.0f, 1.0f)))
             });
             
-            World.GetOrCreateManager<EndFrameParentSystem>().Update();
-            World.GetOrCreateManager<EndFrameLocalToParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_Manager.CompleteAllJobs();   
            
             var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
@@ -49,8 +49,8 @@ namespace Unity.Entities.Tests
                 Value = math.mul( float4x4.RotateY((float)math.PI), float4x4.Translate( new float3(0.0f, 0.0f, 1.0f)))
             });
             
-            World.GetOrCreateManager<EndFrameParentSystem>().Update();
-            World.GetOrCreateManager<EndFrameLocalToParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_Manager.CompleteAllJobs();   
 
             var expectedChildWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
@@ -62,8 +62,8 @@ namespace Unity.Entities.Tests
                 Value = math.mul( float4x4.RotateY((float)math.PI), float4x4.Translate( new float3(0.0f, 0.0f, 1.0f)))
             });
             
-            World.GetOrCreateManager<EndFrameParentSystem>().Update();
-            World.GetOrCreateManager<EndFrameLocalToParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
 
             var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
 
@@ -251,14 +251,14 @@ namespace Unity.Entities.Tests
             
             public void Update()
             {
-                World.GetOrCreateManager<EndFrameParentSystem>().Update();
-                World.GetOrCreateManager<EndFrameCompositeRotationSystem>().Update();
-                World.GetOrCreateManager<EndFrameCompositeScaleSystem>().Update();
-                World.GetOrCreateManager<EndFrameParentScaleInverseSystem>().Update();
-                World.GetOrCreateManager<EndFrameTRSToLocalToWorldSystem>().Update();
-                World.GetOrCreateManager<EndFrameTRSToLocalToParentSystem>().Update();
-                World.GetOrCreateManager<EndFrameLocalToParentSystem>().Update();
-                World.GetOrCreateManager<EndFrameWorldToLocalSystem>().Update();
+                World.GetOrCreateSystem<EndFrameParentSystem>().Update();
+                World.GetOrCreateSystem<EndFrameCompositeRotationSystem>().Update();
+                World.GetOrCreateSystem<EndFrameCompositeScaleSystem>().Update();
+                World.GetOrCreateSystem<EndFrameParentScaleInverseSystem>().Update();
+                World.GetOrCreateSystem<EndFrameTRSToLocalToWorldSystem>().Update();
+                World.GetOrCreateSystem<EndFrameTRSToLocalToParentSystem>().Update();
+                World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
+                World.GetOrCreateSystem<EndFrameWorldToLocalSystem>().Update();
                 
                 // Force complete so that main thread (tests) can have access to direct editing.
                 m_Manager.CompleteAllJobs();                

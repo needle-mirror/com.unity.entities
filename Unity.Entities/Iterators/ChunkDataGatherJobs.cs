@@ -69,7 +69,7 @@ namespace Unity.Entities
     unsafe struct GatherChunksWithFiltering : IJobParallelFor
     {
         [NativeDisableUnsafePtrRestriction] public MatchingArchetype** MatchingArchetypes;
-        public ComponentGroupFilter Filter;
+        public EntityQueryFilter Filter;
 
         [ReadOnly] public NativeArray<int> Offsets;
         public NativeArray<int> FilteredCounts;
@@ -88,9 +88,9 @@ namespace Unity.Entities
 
             if (filter.Type == FilterType.SharedComponent)
             {
-                var indexInComponentGroup1 = filter.Shared.IndexInComponentGroup[0];
+                var indexInEntityQuery1 = filter.Shared.IndexInEntityQuery[0];
                 var sharedComponentIndex1 = filter.Shared.SharedComponentIndex[0];
-                var componentIndexInChunk1 = match->IndexInArchetype[indexInComponentGroup1] - archetype->FirstSharedComponent;
+                var componentIndexInChunk1 = match->IndexInArchetype[indexInEntityQuery1] - archetype->FirstSharedComponent;
                 var sharedComponents1 = archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk1);
 
                 if (filter.Shared.Count == 1)
@@ -103,9 +103,9 @@ namespace Unity.Entities
                 }
                 else
                 {
-                    var indexInComponentGroup2 = filter.Shared.IndexInComponentGroup[1];
+                    var indexInEntityQuery2 = filter.Shared.IndexInEntityQuery[1];
                     var sharedComponentIndex2 = filter.Shared.SharedComponentIndex[1];
-                    var componentIndexInChunk2 = match->IndexInArchetype[indexInComponentGroup2] - archetype->FirstSharedComponent;
+                    var componentIndexInChunk2 = match->IndexInArchetype[indexInEntityQuery2] - archetype->FirstSharedComponent;
                     var sharedComponents2 = archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk2);
 
                     for (var i = 0; i < chunkCount; ++i)
@@ -118,8 +118,8 @@ namespace Unity.Entities
             }
             else
             {
-                var indexInComponentGroup1 = filter.Changed.IndexInComponentGroup[0];
-                var componentIndexInChunk1 = match->IndexInArchetype[indexInComponentGroup1];
+                var indexInEntityQuery1 = filter.Changed.IndexInEntityQuery[0];
+                var componentIndexInChunk1 = match->IndexInArchetype[indexInEntityQuery1];
                 var changeVersions1 = archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk1);
 
                 var requiredVersion = filter.RequiredChangeVersion;
@@ -133,8 +133,8 @@ namespace Unity.Entities
                 }
                 else
                 {
-                    var indexInComponentGroup2 = filter.Changed.IndexInComponentGroup[1];
-                    var componentIndexInChunk2 = match->IndexInArchetype[indexInComponentGroup2];
+                    var indexInEntityQuery2 = filter.Changed.IndexInEntityQuery[1];
+                    var componentIndexInChunk2 = match->IndexInArchetype[indexInEntityQuery2];
                     var changeVersions2 = archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk2);
 
                     for (var i = 0; i < chunkCount; ++i)
@@ -154,7 +154,7 @@ namespace Unity.Entities
     internal unsafe struct GatherChunksAndOffsetsWithFilteringJob : IJob
     {
         public MatchingArchetypeList Archetypes;
-        public ComponentGroupFilter Filter;
+        public EntityQueryFilter Filter;
 
         [NativeDisableUnsafePtrRestriction]
         public void* PrefilterData;
@@ -181,10 +181,10 @@ namespace Unity.Entities
 
                 if (filter.Type == FilterType.SharedComponent)
                 {
-                    var indexInComponentGroup0 = filter.Shared.IndexInComponentGroup[0];
+                    var indexInEntityQuery0 = filter.Shared.IndexInEntityQuery[0];
                     var sharedComponentIndex0 = filter.Shared.SharedComponentIndex[0];
                     var componentIndexInChunk0 =
-                        match->IndexInArchetype[indexInComponentGroup0] - archetype->FirstSharedComponent;
+                        match->IndexInArchetype[indexInEntityQuery0] - archetype->FirstSharedComponent;
                     var sharedComponents0 =
                         archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk0);
 
@@ -203,10 +203,10 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        var indexInComponentGroup1 = filter.Shared.IndexInComponentGroup[1];
+                        var indexInEntityQuery1 = filter.Shared.IndexInEntityQuery[1];
                         var sharedComponentIndex1 = filter.Shared.SharedComponentIndex[1];
                         var componentIndexInChunk1 =
-                            match->IndexInArchetype[indexInComponentGroup1] - archetype->FirstSharedComponent;
+                            match->IndexInArchetype[indexInEntityQuery1] - archetype->FirstSharedComponent;
                         var sharedComponents1 =
                             archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk1);
 
@@ -225,8 +225,8 @@ namespace Unity.Entities
                 }
                 else
                 {
-                    var indexInComponentGroup0 = filter.Changed.IndexInComponentGroup[0];
-                    var componentIndexInChunk0 = match->IndexInArchetype[indexInComponentGroup0];
+                    var indexInEntityQuery0 = filter.Changed.IndexInEntityQuery[0];
+                    var componentIndexInChunk0 = match->IndexInArchetype[indexInEntityQuery0];
                     var changeVersions0 = archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk0);
 
                     var requiredVersion = filter.RequiredChangeVersion;
@@ -245,8 +245,8 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        var indexInComponentGroup1 = filter.Changed.IndexInComponentGroup[1];
-                        var componentIndexInChunk1 = match->IndexInArchetype[indexInComponentGroup1];
+                        var indexInEntityQuery1 = filter.Changed.IndexInEntityQuery[1];
+                        var componentIndexInChunk1 = match->IndexInArchetype[indexInEntityQuery1];
                         var changeVersions1 =
                             archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk1);
 

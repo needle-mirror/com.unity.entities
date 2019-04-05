@@ -35,7 +35,7 @@ namespace Unity.Entities.Editor
         {
             this.World = world;
             this.Entity = entity;
-            this.EntityManager = world.GetExistingManager<EntityManager>();
+            this.EntityManager = world.EntityManager;
             this.Container = new EntityContainer(EntityManager, Entity);
             EditorUtility.SetDirty(this);
         }

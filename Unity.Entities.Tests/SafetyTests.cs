@@ -20,77 +20,6 @@ namespace Unity.Entities.Tests
 			Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
 		}
 
-#pragma warning disable 618
-		[Test]
-	    public void ComponentArrayChunkSliceOutOfBoundsThrowsException()
-	    {
-	        for (int i = 0;i<10;i++)
-	            m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-
-	        var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
-	        var testData = group.GetComponentDataArray<EcsTestData>();
-
-	        Assert.AreEqual(0, testData.GetChunkArray(5, 0).Length);
-	        Assert.AreEqual(10, testData.GetChunkArray(0, 10).Length);
-
-	        Assert.Throws<IndexOutOfRangeException>(() => { testData.GetChunkArray(-1, 1); });
-	        Assert.Throws<IndexOutOfRangeException>(() => { testData.GetChunkArray(5, 6); });
-	        Assert.Throws<IndexOutOfRangeException>(() => { testData.GetChunkArray(10, 1); });
-	    }
-
-
-        [Test]
-        [StandaloneFixme] // Real problem : Atomic Safety
-        public void ReadOnlyComponentDataArray()
-        {
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData2), ComponentType.ReadOnly(typeof(EcsTestData)));
-
-            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            m_Manager.SetComponentData(entity, new EcsTestData(42));
-
-            // EcsTestData is read only
-            var arr = group.GetComponentDataArray<EcsTestData>();
-            Assert.AreEqual(1, arr.Length);
-            Assert.AreEqual(42, arr[0].value);
-            Assert.Throws<System.InvalidOperationException>(() => { arr[0] = new EcsTestData(0); });
-
-            // EcsTestData2 can be written to
-            var arr2 = group.GetComponentDataArray<EcsTestData2>();
-            Assert.AreEqual(1, arr2.Length);
-            arr2[0] = new EcsTestData2(55);
-            Assert.AreEqual(55, arr2[0].value0);
-        }
-
-        [Test]
-        [StandaloneFixme] // Real problem : Atomic Safety
-        public void AccessComponentArrayAfterCreationThrowsException()
-        {
-            CreateEntityWithDefaultData(0);
-
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
-            var arr = group.GetComponentDataArray<EcsTestData>();
-
-            CreateEntityWithDefaultData(1);
-
-            Assert.Throws<InvalidOperationException>(() => { var value = arr[0]; });
-        }
-
-        [Test]
-        [StandaloneFixme] // Real problem : Atomic Safety
-        public void CreateEntityInvalidatesArray()
-        {
-            CreateEntityWithDefaultData(0);
-
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData));
-            var arr = group.GetComponentDataArray<EcsTestData>();
-
-            CreateEntityWithDefaultData(1);
-
-            Assert.Throws<InvalidOperationException>(() => { var value = arr[0]; });
-        }
-
-        #pragma warning restore 618
-
         [Test]
         public void GetSetComponentThrowsIfNotExist()
         {
@@ -106,7 +35,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // Real problem : Atomic Safety
         public void ComponentDataArrayFromEntityThrowsIfNotExist()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -129,15 +57,6 @@ namespace Unity.Entities.Tests
 
             m_Manager.AddComponentData(entity, new EcsTestData(1));
             Assert.Throws<System.ArgumentException>(() => { m_Manager.AddComponentData(entity, new EcsTestData(1)); });
-        }
-
-        [Test]
-        public void AddChunkComponentTwiceOnEntityThrows()
-        {
-            var entity = m_Manager.CreateEntity();
-
-            m_Manager.AddChunkComponentData<EcsTestData>(entity);
-            Assert.Throws<System.ArgumentException>(() => { m_Manager.AddChunkComponentData<EcsTestData>(entity); });
         }
 
         [Test]
@@ -210,7 +129,6 @@ namespace Unity.Entities.Tests
         }
 
 	    [Test]
-        [StandaloneFixme] // Real problem - sizeof(BigComponentData1) = 4 vs 40000 expected
 	    public void CreateTooBigArchetypeThrows()
 	    {
 	        Assert.Throws<System.ArgumentException>(() =>

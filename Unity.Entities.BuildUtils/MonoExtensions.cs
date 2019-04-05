@@ -91,6 +91,48 @@ namespace Unity.Entities.BuildUtils
             return (typeRef.FullName == "Unity.Entities.Entity");
         }
 
+        public static bool IsManagedType(this TypeReference typeRef)
+        {
+            // We must check this before calling Resolve() as cecil loses this property otherwise
+            if (typeRef.IsPointer)
+                return false;
+
+            if (typeRef.IsArray)
+                return true;
+
+            var type = typeRef.Resolve();
+
+            if (type.IsDynamicArray())
+                return true;
+
+            TypeDefinition fixedSpecialType = type.FixedSpecialType();
+            if (fixedSpecialType != null)
+            {
+                if (fixedSpecialType.MetadataType == MetadataType.String)
+                    return true;
+                return false;
+            }
+
+            if (type.IsEnum)
+                return false;
+
+            if (type.IsValueType)
+            {
+                // if none of the above check the type's fields
+                foreach (var field in type.Fields)
+                {
+                    if (field.IsStatic)
+                        continue;
+
+                    if (field.FieldType.IsManagedType())
+                        return true;
+                }
+
+                return false;
+            }
+
+            return true;
+        }
 
 
         public static bool IsComplex(this TypeReference typeRef)

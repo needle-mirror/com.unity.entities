@@ -34,14 +34,14 @@ namespace Unity.Entities
                 return;
 
             int newCapacity = Math.Max(Math.Max(2 * header->Capacity, count), kMinimumCapacity);
-            long newBlockSize = newCapacity * typeSize;
+            long newBlockSize = (long)newCapacity * typeSize;
 
             byte* oldData = GetElementPointer(header);
             byte* newData = (byte*) UnsafeUtility.Malloc(newBlockSize, alignment, Allocator.Persistent);
 
             if (trashMode == TrashMode.RetainOldData)
             {
-                long oldBlockSize = header->Capacity * typeSize;
+                long oldBlockSize = (long)header->Capacity * typeSize;
                 UnsafeUtility.MemCpy(newData, oldData, oldBlockSize);
             }
 
@@ -62,7 +62,7 @@ namespace Unity.Entities
             // Select between internal capacity buffer and heap buffer.
             byte* elementPtr = GetElementPointer(header);
 
-            UnsafeUtility.MemCpy(elementPtr, source, typeSize * count);
+            UnsafeUtility.MemCpy(elementPtr, source, (long)typeSize * count);
 
             header->Length = count;
         }
@@ -103,9 +103,9 @@ namespace Unity.Entities
                     if (header->Pointer != null) // hoo boy, it's a malloc
                     {
                         BufferHeader newHeader = *header;
-                        var bytesToAllocate = header->Capacity * ti.ElementSize;
-                        var bytesToCopy = header->Length * ti.ElementSize;
-                        newHeader.Pointer = (byte*)UnsafeUtility.Malloc(bytesToAllocate, 16, Allocator.Persistent);
+                        long bytesToAllocate = (long)header->Capacity * ti.ElementSize;
+                        long bytesToCopy = (long)header->Length * ti.ElementSize;
+                        newHeader.Pointer = (byte*)UnsafeUtility.Malloc(bytesToAllocate, TypeManager.MaximumSupportedAlignment, Allocator.Persistent);
                         UnsafeUtility.MemCpy(newHeader.Pointer, header->Pointer, bytesToCopy);
                         *header = newHeader;
                     }

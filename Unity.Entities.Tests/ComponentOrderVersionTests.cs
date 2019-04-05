@@ -32,10 +32,10 @@ namespace Unity.Entities.Tests
             }
         }
 
-        void ActionEvenOdd(Action<int, ComponentGroup> even, Action<int, ComponentGroup> odd)
+        void ActionEvenOdd(Action<int, EntityQuery> even, Action<int, EntityQuery> odd)
         {
             var uniqueTypes = new List<SharedData1>(10);
-            var group = m_Manager.CreateComponentGroup(typeof(EcsTestData), typeof(SharedData1));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
             group.CompleteDependency();
 
             m_Manager.GetAllUniqueSharedComponentData(uniqueTypes);
@@ -61,7 +61,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void SharedComponentNoChangeVersionUnchanged()
         {
             AddEvenOddTestData();
@@ -69,7 +68,7 @@ namespace Unity.Entities.Tests
                 (version, group) => { Assert.AreEqual(version, 1); });
         }
 
-        void TestSourceEvenValues(int version, ComponentGroup group)
+        void TestSourceEvenValues(int version, EntityQuery group)
         {
             var testData = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 
@@ -83,7 +82,7 @@ namespace Unity.Entities.Tests
             testData.Dispose();
         }
 
-        void TestSourceOddValues(int version, ComponentGroup group)
+        void TestSourceOddValues(int version, EntityQuery group)
         {
             var testData = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 
@@ -98,14 +97,13 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void SharedComponentNoChangeValuesUnchanged()
         {
             AddEvenOddTestData();
             ActionEvenOdd(TestSourceEvenValues, TestSourceOddValues);
         }
 
-        void ChangeGroupOrder(int version, ComponentGroup group)
+        void ChangeGroupOrder(int version, EntityQuery group)
         {
             var entities = group.ToEntityArray(Allocator.TempJob);
 
@@ -123,7 +121,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void SharedComponentChangeOddGroupOrderOnlyOddVersionChanged()
         {
             AddEvenOddTestData();
@@ -134,7 +131,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void SharedComponentChangeOddGroupOrderEvenValuesUnchanged()
         {
             AddEvenOddTestData();
@@ -143,7 +139,7 @@ namespace Unity.Entities.Tests
             ActionEvenOdd(TestSourceEvenValues, (version, group) => { });
         }
 
-        void DestroyAllButOneEntityInGroup(int version, ComponentGroup group)
+        void DestroyAllButOneEntityInGroup(int version, EntityQuery group)
         {
             var entities = group.ToEntityArray(Allocator.TempJob);
 
@@ -157,7 +153,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void SharedComponentDestroyAllButOneEntityInOddGroupOnlyOddVersionChanged()
         {
             AddEvenOddTestData();
@@ -168,7 +163,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void SharedComponentDestroyAllButOneEntityInOddGroupEvenValuesUnchanged()
         {
             AddEvenOddTestData();
@@ -228,7 +222,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void SetSharedComponent()
         {
             var entity = m_Manager.CreateEntity(typeof(SharedData1), typeof(SharedData2));
@@ -241,7 +234,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void DestroySharedComponentEntity()
         {
             var sharedData = new SharedData1(1);
@@ -258,7 +250,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void DestroySharedComponentDataSetsOrderVersionToZero()
         {
             var sharedData = new SharedData1(1);

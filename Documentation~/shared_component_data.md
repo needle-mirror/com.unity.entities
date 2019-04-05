@@ -26,8 +26,8 @@ We use `ISharedComponentData` to group all entities using the same `InstanceRend
 ## Some important notes about SharedComponentData:
 
 - Entities with the same `SharedComponentData` are grouped together in the same [Chunks](chunk_iteration.md). The index to the `SharedComponentData` is stored once per `Chunk`, not per entity. As a result `SharedComponentData` have zero memory overhead on a per entity basis. 
-- Using `ComponentGroup` we can iterate over all entities with the same type.
-- Additionally we can use `ComponentGroup.SetFilter()` to iterate specifically over entities that have a specific `SharedComponentData` value. Due to the data layout this iteration has low overhead.
+- Using `EntityQuery` we can iterate over all entities with the same type.
+- Additionally we can use `EntityQuery.SetFilter()` to iterate specifically over entities that have a specific `SharedComponentData` value. Due to the data layout this iteration has low overhead.
 - Using `EntityManager.GetAllUniqueSharedComponents` we can retrieve all unique `SharedComponentData` that is added to any alive entities.
 - `SharedComponentData` are automatically [reference counted](https://en.wikipedia.org/wiki/Reference_counting).
 - `SharedComponentData` should change rarely. Changing a `SharedComponentData` involves using [memcpy](https://msdn.microsoft.com/en-us/library/aa246468(v=vs.60).aspx) to copy all `ComponentData` for that entity into a different `Chunk`.

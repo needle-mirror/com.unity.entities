@@ -4,8 +4,6 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
 
-#pragma warning disable 618
-
 namespace Unity.Entities.Tests
 {
     [TestFixture]
@@ -28,14 +26,15 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
-                var group = GetComponentGroup(typeof(EcsTestData));
+                var group = GetEntityQuery(typeof(EcsTestData));
                 group.SetFilterChanged(typeof(EcsTestData));
 
-                var actualEntityArray = group.GetEntityArray().ToArray();
+                var actualEntityArray = group.ToEntityArray(Allocator.TempJob);
                 var systemVersion = GlobalSystemVersion;
                 var lastSystemVersion = LastSystemVersion;
 
                 CollectionAssert.AreEqual(Expected, actualEntityArray);
+                actualEntityArray.Dispose();
             }
 
             public void UpdateExpectedResults(Entity[] expected)
@@ -47,11 +46,10 @@ namespace Unity.Entities.Tests
 
 
         [Test]
-        [StandaloneFixme]
         public void CreateEntityTriggersChange()
         {
             Entity[] entity = new Entity[] { m_Manager.CreateEntity(typeof(EcsTestData)) };
-            var deltaCheckSystem = World.CreateManager<DeltaCheckSystem>();
+            var deltaCheckSystem = World.CreateSystem<DeltaCheckSystem>();
             deltaCheckSystem.UpdateExpectedResults(entity);
         }
 
@@ -59,8 +57,6 @@ namespace Unity.Entities.Tests
         {
             SetComponentData,
             SetComponentDataFromEntity,
-            ComponentDataArray,
-            ComponentGroupArray
         }
 
 #pragma warning disable 649
@@ -80,15 +76,10 @@ namespace Unity.Entities.Tests
         unsafe void SetValue(int index, int value, ChangeMode mode)
         {
             EmptySystem.Update();
-            var entityArray = EmptySystem.GetComponentGroup(typeof(EcsTestData)).GetEntityArray();
+            var entityArray = EmptySystem.GetEntityQuery(typeof(EcsTestData)).ToEntityArray(Allocator.TempJob);
             var entity = entityArray[index];
 
-            if (mode == ChangeMode.ComponentDataArray)
-            {
-                var array = EmptySystem.GetComponentGroup(typeof(EcsTestData)).GetComponentDataArray<EcsTestData>();
-                array[index] = new EcsTestData(value);
-            }
-            else if (mode == ChangeMode.SetComponentData)
+            if (mode == ChangeMode.SetComponentData)
             {
                 m_Manager.SetComponentData(entity, new EcsTestData(value));
             }
@@ -98,27 +89,17 @@ namespace Unity.Entities.Tests
                 var array = EmptySystem.GetComponentDataFromEntity<EcsTestData>(false);
                 array[entity] = new EcsTestData(value);
             }
-            else if (mode == ChangeMode.ComponentGroupArray)
-            {
-                *(EmptySystem.GetEntities<GroupRW>()[index].Data) = new EcsTestData(value);
-            }
+            
+            entityArray.Dispose();
         }
 
         // Running GetValue should not trigger any changes to chunk version.
         void GetValue(ChangeMode mode)
         {
             EmptySystem.Update();
-            var entityArray = EmptySystem.GetComponentGroup(typeof(EcsTestData)).GetEntityArray();
+            var entityArray = EmptySystem.GetEntityQuery(typeof(EcsTestData)).ToEntityArray(Allocator.TempJob);
 
-            if (mode == ChangeMode.ComponentDataArray)
-            {
-                var array = EmptySystem.GetComponentGroup(typeof(EcsTestData)).GetComponentDataArray<EcsTestData>();
-                for (int i = 0; i != array.Length; i++)
-                {
-                    var val = array[i];
-                }
-            }
-            else if (mode == ChangeMode.SetComponentData)
+            if (mode == ChangeMode.SetComponentData)
             {
                 for(int i = 0;i != entityArray.Length;i++)
                     m_Manager.GetComponentData<EcsTestData>(entityArray[i]);
@@ -128,22 +109,17 @@ namespace Unity.Entities.Tests
                 for(int i = 0;i != entityArray.Length;i++)
                     m_Manager.GetComponentData<EcsTestData>(entityArray[i]);
             }
-            else if (mode == ChangeMode.ComponentGroupArray)
-            {
-                foreach (var e in EmptySystem.GetEntities<GroupRO>())
-                    ;
-            }
+            entityArray.Dispose();
         }
 
         [Test]
-        [StandaloneFixme]
         public void ChangeEntity([Values]ChangeMode mode)
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData));
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var deltaCheckSystem0 = World.CreateManager<DeltaCheckSystem>();
-            var deltaCheckSystem1 = World.CreateManager<DeltaCheckSystem>();
+            var deltaCheckSystem0 = World.CreateSystem<DeltaCheckSystem>();
+            var deltaCheckSystem1 = World.CreateSystem<DeltaCheckSystem>();
 
             // Chunk versions are considered changed upon creation and until after they're first updated.
             deltaCheckSystem0.UpdateExpectedResults(new Entity[] { entity0, entity1 });
@@ -172,12 +148,11 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
         public void GetEntityDataDoesNotChange([Values]ChangeMode mode)
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData));
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            var deltaCheckSystem = World.CreateManager<DeltaCheckSystem>();
+            var deltaCheckSystem = World.CreateSystem<DeltaCheckSystem>();
 
             // First update of chunks after creation.
             SetValue(0, 2, mode);
@@ -185,20 +160,19 @@ namespace Unity.Entities.Tests
             deltaCheckSystem.UpdateExpectedResults(new Entity[] { entity0, entity1 });
             deltaCheckSystem.UpdateExpectedResults(nothing);
 
-            // Now ensure that GetValue does not trigger a change on the ComponentGroup.
+            // Now ensure that GetValue does not trigger a change on the EntityQuery.
             GetValue(mode);
             deltaCheckSystem.UpdateExpectedResults(nothing);
         }
 
         [Test]
-        [StandaloneFixme]
         public void ChangeEntityWrap()
         {
            m_Manager.Debug.SetGlobalSystemVersion(uint.MaxValue-3);
 
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
 
-            var deltaCheckSystem = World.CreateManager<DeltaCheckSystem>();
+            var deltaCheckSystem = World.CreateSystem<DeltaCheckSystem>();
 
             for (int i = 0; i != 7; i++)
             {
@@ -210,7 +184,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
         public void NoChangeEntityWrap()
         {
             m_Manager.Debug.SetGlobalSystemVersion(uint.MaxValue - 3);
@@ -218,7 +191,7 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             SetValue(0, 2, ChangeMode.SetComponentData);
 
-            var deltaCheckSystem = World.CreateManager<DeltaCheckSystem>();
+            var deltaCheckSystem = World.CreateSystem<DeltaCheckSystem>();
             deltaCheckSystem.UpdateExpectedResults(new Entity[] { entity });
 
             for (int i = 0; i != 7; i++)
@@ -228,7 +201,7 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         public class DeltaProcessComponentSystem : JobComponentSystem
         {
-            struct DeltaJob : IJobProcessComponentData<EcsTestData, EcsTestData2>
+            struct DeltaJob : IJobForEach<EcsTestData, EcsTestData2>
             {
                 public void Execute([ChangedFilter][ReadOnly]ref EcsTestData input, ref EcsTestData2 output)
                 {
@@ -244,13 +217,12 @@ namespace Unity.Entities.Tests
 
 
         [Test]
-        [StandaloneFixme]
         public void IJobProcessComponentDeltaWorks()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var deltaSystem = World.CreateManager<DeltaProcessComponentSystem>();
+            var deltaSystem = World.CreateSystem<DeltaProcessComponentSystem>();
 
             // First update of chunks after creation.
             SetValue(0, -100, ChangeMode.SetComponentData);
@@ -276,7 +248,7 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         public class DeltaProcessComponentSystemUsingRun : ComponentSystem
         {
-            struct DeltaJob : IJobProcessComponentData<EcsTestData, EcsTestData2>
+            struct DeltaJob : IJobForEach<EcsTestData, EcsTestData2>
             {
                 public void Execute([ChangedFilter][ReadOnly]ref EcsTestData input, ref EcsTestData2 output)
                 {
@@ -291,13 +263,12 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
         public void IJobProcessComponentDeltaWorksWhenUsingRun()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var deltaSystem = World.CreateManager<DeltaProcessComponentSystemUsingRun>();
+            var deltaSystem = World.CreateSystem<DeltaProcessComponentSystemUsingRun>();
 
             // First update of chunks after creation.
             SetValue(0, -100, ChangeMode.SetComponentData);
@@ -320,7 +291,6 @@ namespace Unity.Entities.Tests
 
 #if false
         [Test]
-        [StandaloneFixme]
         public void IJobProcessComponentDeltaWorksWhenSetSharedComponent()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestSharedComp));
@@ -341,10 +311,10 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         public class ModifyComponentSystem1Comp : JobComponentSystem
         {
-            public ComponentGroup m_Group;
+            public EntityQuery m_Group;
             public EcsTestSharedComp m_sharedComp;
 
-            struct DeltaJob : IJobProcessComponentData<EcsTestData>
+            struct DeltaJob : IJobForEach<EcsTestData>
             {
                 public void Execute(ref EcsTestData data)
                 {
@@ -354,28 +324,28 @@ namespace Unity.Entities.Tests
 
             protected override JobHandle OnUpdate(JobHandle deps)
             {
-                m_Group = GetComponentGroup(
+                m_Group = GetEntityQuery(
                     typeof(EcsTestData),
                     ComponentType.ReadOnly(typeof(EcsTestSharedComp)));
 
                 m_Group.SetFilter(m_sharedComp);
 
                 DeltaJob job = new DeltaJob();
-                return job.ScheduleGroup(m_Group, deps);
+                return job.Schedule(m_Group, deps);
             }
         }
 
         [DisableAutoCreation]
         public class DeltaModifyComponentSystem1Comp : JobComponentSystem
         {
-            struct DeltaJobFirstRunAfterCreation : IJobProcessComponentData<EcsTestData>
+            struct DeltaJobFirstRunAfterCreation : IJobForEach<EcsTestData>
             {
                 public void Execute([ChangedFilter]ref EcsTestData output)
                 {
                     output.value = 0;
                 }
             }
-            struct DeltaJob : IJobProcessComponentData<EcsTestData>
+            struct DeltaJob : IJobForEach<EcsTestData>
             {
                 public void Execute([ChangedFilter]ref EcsTestData output)
                 {
@@ -394,15 +364,14 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
         public void ChangedFilterJobAfterAnotherJob1Comp()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
             var entities = new NativeArray<Entity>(10000, Allocator.Persistent);
             m_Manager.CreateEntity(archetype, entities);
 
-            var modifSystem = World.CreateManager<ModifyComponentSystem1Comp>();
-            var deltaSystem = World.CreateManager<DeltaModifyComponentSystem1Comp>();
+            var modifSystem = World.CreateSystem<ModifyComponentSystem1Comp>();
+            var deltaSystem = World.CreateSystem<DeltaModifyComponentSystem1Comp>();
 
             // First update of chunks after creation.
             modifSystem.Update();
@@ -435,10 +404,10 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         public class ModifyComponentSystem2Comp : JobComponentSystem
         {
-            public ComponentGroup m_Group;
+            public EntityQuery m_Group;
             public EcsTestSharedComp m_sharedComp;
 
-            struct DeltaJob : IJobProcessComponentData<EcsTestData, EcsTestData2>
+            struct DeltaJob : IJobForEach<EcsTestData, EcsTestData2>
             {
                 public void Execute(ref EcsTestData data, ref EcsTestData2 data2)
                 {
@@ -448,7 +417,7 @@ namespace Unity.Entities.Tests
 
             protected override JobHandle OnUpdate(JobHandle deps)
             {
-                m_Group = GetComponentGroup(
+                m_Group = GetEntityQuery(
                     typeof(EcsTestData),
                     typeof(EcsTestData2),
                     ComponentType.ReadOnly(typeof(EcsTestSharedComp)));
@@ -456,14 +425,14 @@ namespace Unity.Entities.Tests
                 m_Group.SetFilter(m_sharedComp);
 
                 DeltaJob job = new DeltaJob();
-                return job.ScheduleGroup(m_Group, deps);
+                return job.Schedule(m_Group, deps);
             }
         }
 
         [DisableAutoCreation]
         public class DeltaModifyComponentSystem2Comp : JobComponentSystem
         {
-            struct DeltaJobFirstRunAfterCreation : IJobProcessComponentData<EcsTestData, EcsTestData2>
+            struct DeltaJobFirstRunAfterCreation : IJobForEach<EcsTestData, EcsTestData2>
             {
                 public void Execute(ref EcsTestData output, ref EcsTestData2 output2)
                 {
@@ -472,7 +441,7 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            struct DeltaJobChanged0 : IJobProcessComponentData<EcsTestData, EcsTestData2>
+            struct DeltaJobChanged0 : IJobForEach<EcsTestData, EcsTestData2>
             {
                 public void Execute([ChangedFilter]ref EcsTestData output, ref EcsTestData2 output2)
                 {
@@ -481,7 +450,7 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            struct DeltaJobChanged1 : IJobProcessComponentData<EcsTestData, EcsTestData2>
+            struct DeltaJobChanged1 : IJobForEach<EcsTestData, EcsTestData2>
             {
                 public void Execute(ref EcsTestData output, [ChangedFilter]ref EcsTestData2 output2)
                 {
@@ -517,7 +486,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
         public void ChangedFilterJobAfterAnotherJob2Comp([Values]DeltaModifyComponentSystem2Comp.Variant variant)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
@@ -525,8 +493,8 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype, entities);
 
             // All entities have just been created, so they're all technically "changed".
-            var modifSystem = World.CreateManager<ModifyComponentSystem2Comp>();
-            var deltaSystem = World.CreateManager<DeltaModifyComponentSystem2Comp>();
+            var modifSystem = World.CreateSystem<ModifyComponentSystem2Comp>();
+            var deltaSystem = World.CreateSystem<DeltaModifyComponentSystem2Comp>();
 
             // First update of chunks after creation.
             modifSystem.Update();
@@ -562,10 +530,10 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         public class ModifyComponentSystem3Comp : JobComponentSystem
         {
-            public ComponentGroup m_Group;
+            public EntityQuery m_Group;
             public EcsTestSharedComp m_sharedComp;
 
-            struct DeltaJob : IJobProcessComponentData<EcsTestData, EcsTestData2, EcsTestData3>
+            struct DeltaJob : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>
             {
                 public void Execute(ref EcsTestData data, ref EcsTestData2 data2, ref EcsTestData3 data3)
                 {
@@ -576,7 +544,7 @@ namespace Unity.Entities.Tests
 
             protected override JobHandle OnUpdate(JobHandle deps)
             {
-                m_Group = GetComponentGroup(
+                m_Group = GetEntityQuery(
                     typeof(EcsTestData),
                     typeof(EcsTestData2),
                     typeof(EcsTestData3),
@@ -585,14 +553,14 @@ namespace Unity.Entities.Tests
                 m_Group.SetFilter(m_sharedComp);
 
                 DeltaJob job = new DeltaJob();
-                return job.ScheduleGroup(m_Group, deps);
+                return job.Schedule(m_Group, deps);
             }
         }
 
         [DisableAutoCreation]
         public class DeltaModifyComponentSystem3Comp : JobComponentSystem
         {
-            struct DeltaJobChanged0 : IJobProcessComponentData<EcsTestData, EcsTestData2, EcsTestData3>
+            struct DeltaJobChanged0 : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>
             {
                 public void Execute([ChangedFilter]ref EcsTestData output, ref EcsTestData2 output2, ref EcsTestData3 output3)
                 {
@@ -602,7 +570,7 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            struct DeltaJobChanged1 : IJobProcessComponentData<EcsTestData, EcsTestData2, EcsTestData3>
+            struct DeltaJobChanged1 : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>
             {
                 public void Execute(ref EcsTestData output, [ChangedFilter]ref EcsTestData2 output2, ref EcsTestData3 output3)
                 {
@@ -612,7 +580,7 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            struct DeltaJobChanged2 : IJobProcessComponentData<EcsTestData, EcsTestData2, EcsTestData3>
+            struct DeltaJobChanged2 : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>
             {
                 public void Execute(ref EcsTestData output, ref EcsTestData2 output2, [ChangedFilter]ref EcsTestData3 output3)
                 {
@@ -653,8 +621,8 @@ namespace Unity.Entities.Tests
             var entities = new NativeArray<Entity>(10000, Allocator.Persistent);
             m_Manager.CreateEntity(archetype, entities);
 
-            var modifSystem = World.CreateManager<ModifyComponentSystem3Comp>();
-            var deltaSystem = World.CreateManager<DeltaModifyComponentSystem3Comp>();
+            var modifSystem = World.CreateSystem<ModifyComponentSystem3Comp>();
+            var deltaSystem = World.CreateSystem<DeltaModifyComponentSystem3Comp>();
 
             deltaSystem.variant = variant;
 
@@ -687,7 +655,7 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         class ChangeFilter1TestSystem : JobComponentSystem
         {
-            struct ChangedFilterJob : IJobProcessComponentData<EcsTestData, EcsTestData2>
+            struct ChangedFilterJob : IJobForEach<EcsTestData, EcsTestData2>
             {
                 public void Execute(ref EcsTestData output, [ChangedFilter]ref EcsTestData2 output2)
                 {
@@ -706,7 +674,7 @@ namespace Unity.Entities.Tests
         public void ChangeFilterWorksWithOneTypes()
         {
             var e = m_Manager.CreateEntity();
-            var system = World.GetOrCreateManager<ChangeFilter1TestSystem>();
+            var system = World.GetOrCreateSystem<ChangeFilter1TestSystem>();
             m_Manager.AddComponentData(e, new EcsTestData(0));
             m_Manager.AddComponentData(e, new EcsTestData2(1));
 
@@ -733,7 +701,7 @@ namespace Unity.Entities.Tests
         [DisableAutoCreation]
         class ChangeFilter2TestSystem : JobComponentSystem
         {
-            struct ChangedFilterJob : IJobProcessComponentData<EcsTestData, EcsTestData2, EcsTestData3>
+            struct ChangedFilterJob : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>
             {
                 public void Execute(ref EcsTestData output, [ChangedFilter]ref EcsTestData2 output2, [ChangedFilter]ref EcsTestData3 output3)
                 {
@@ -752,7 +720,7 @@ namespace Unity.Entities.Tests
         public void ChangeFilterWorksWithTwoTypes()
         {
             var e = m_Manager.CreateEntity();
-            var system = World.GetOrCreateManager<ChangeFilter2TestSystem>();
+            var system = World.GetOrCreateSystem<ChangeFilter2TestSystem>();
             m_Manager.AddComponentData(e, new EcsTestData(0));
             m_Manager.AddComponentData(e, new EcsTestData2(1));
             m_Manager.AddComponentData(e, new EcsTestData3(2));

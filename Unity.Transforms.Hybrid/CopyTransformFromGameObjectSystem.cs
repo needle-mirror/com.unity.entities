@@ -34,7 +34,7 @@ namespace Unity.Transforms
         }
 
         [BurstCompile]
-        struct CopyTransforms : IJobProcessComponentDataWithEntity<LocalToWorld>
+        struct CopyTransforms : IJobForEachWithEntity<LocalToWorld>
         {
             [DeallocateOnJobCompletion] public NativeArray<TransformStash> transformStashes;
 
@@ -52,11 +52,11 @@ namespace Unity.Transforms
             }
         }
 
-        ComponentGroup m_TransformGroup;
+        EntityQuery m_TransformGroup;
 
-        protected override void OnCreateManager()
+        protected override void OnCreate()
         {
-            m_TransformGroup = GetComponentGroup(
+            m_TransformGroup = GetEntityQuery(
                 ComponentType.ReadOnly(typeof(CopyTransformFromGameObject)),
                 typeof(UnityEngine.Transform),
                 ComponentType.ReadWrite<LocalToWorld>());
@@ -81,7 +81,7 @@ namespace Unity.Transforms
                 transformStashes = transformStashes,
             };
 
-            return copyTransformsJob.ScheduleGroup(m_TransformGroup, stashTransformsJobHandle);
+            return copyTransformsJob.Schedule(m_TransformGroup, stashTransformsJobHandle);
         }
     }
 }

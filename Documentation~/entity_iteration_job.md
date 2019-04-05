@@ -1,17 +1,17 @@
-# Using IJobProcessComponentData
+# Using IJobForEach
 
-You can define an `IJobProcessComponentData` Job in a JobComponentSystem to read and write component data. 
+You can define an `IJobForEach` Job in a JobComponentSystem to read and write component data. 
 
-When the Job runs, the ECS framework finds all of the entities that have the required components and calls the Job’s Execute() function for each of them. The data is processed in the order it is laid out in memory and the Job runs in parallel, so a `IJobProcessComponentData` combines simplicity and efficiency.
+When the Job runs, the ECS framework finds all of the entities that have the required components and calls the Job’s Execute() function for each of them. The data is processed in the order it is laid out in memory and the Job runs in parallel, so a `IJobForEach` combines simplicity and efficiency.
 
-The following example illustrates a simple system that uses `IJobProcessComponentData`. The Job reads a `RotationSpeed` component and writes to a `RotationQuaternion` component.
+The following example illustrates a simple system that uses `IJobForEach`. The Job reads a `RotationSpeed` component and writes to a `RotationQuaternion` component.
 
 ```c#
 public class RotationSpeedSystem : JobComponentSystem
 {
    // Use the [BurstCompile] attribute to compile a job with Burst.
    [BurstCompile]
-   struct RotationSpeedJob : IJobProcessComponentData<RotationQuaternion, RotationSpeed>
+   struct RotationSpeedJob : IJobForEach<RotationQuaternion, RotationSpeed>
    {
        public float DeltaTime;
        // The [ReadOnly] attribute tells the job scheduler that this job will not write to rotSpeed
@@ -39,11 +39,11 @@ protected override JobHandle OnUpdate(JobHandle inputDependencies)
 Note: this system is part of the HelloCubes_02 example in the  [ECS samples repository](https://github.com/Unity-Technologies/EntityComponentSystemSamples).
 
 
-## Defining the IJobProcessComponentData signature
+## Defining the IJobForEach signature
 
-The `IJobProcessComponentData` struct signature identifies which components your system operates on:
+The `IJobForEach` struct signature identifies which components your system operates on:
 
-    struct RotationSpeedJob : IJobProcessComponentData<RotationQuaternion, RotationSpeed>
+    struct RotationSpeedJob : IJobForEach<RotationQuaternion, RotationSpeed>
 
 You can also use the following attributes to modify which entities the Job selects:
 
@@ -55,13 +55,13 @@ For example, the following Job definition selects entities that have archetypes 
     [ExcludeComponent(typeof(Frozen))]
     [RequireComponentTag(typeof(Gravity))]
     [BurstCompile]
-    struct RotationSpeedJob : IJobProcessComponentData<RotationQuaternion, RotationSpeed>
+    struct RotationSpeedJob : IJobForEach<RotationQuaternion, RotationSpeed>
 
-If you need a more complex query to select the entities to operate upon, you can use an IJobChunk Job instead of IJobProcessComponentData.
+If you need a more complex query to select the entities to operate upon, you can use an IJobChunk Job instead of IJobForEach.
 
 ## Writing the Execute() method
 
-The JobComponentSystem calls your Execute() method for each eligible entity, passing in the components identified by the IJobProcessComponentData signature. Thus, the parameters of your Execute() function must match the generic arguments you defined for the struct.
+The JobComponentSystem calls your Execute() method for each eligible entity, passing in the components identified by the IJobForEach signature. Thus, the parameters of your Execute() function must match the generic arguments you defined for the struct.
 
 For example, the following Execute() method reads a RotationSpeed component and reads and writes a RotationQuaternion component. (Read/write is the default, so no attribute is needed.)
 
@@ -78,9 +78,9 @@ Identifying read-only and write-only components allows the Job scheduler to sche
 Note that for efficiency, the change filter works on whole chunks of entities; it does not track individual entities. If a chunk has been accessed by another Job which had the ability to write to that type of component, then the ECS framework considers that chunk to have changed and includes all of the entities in the Job. Otherwise, the ECS framework excludes the entities in that chunk entirely. 
 
 <a name="with-entity"></a>
-## Using IJobProcessComponentDataWithEntity
+## Using IJobForEachWithEntity
 
-The Jobs implementing the IJobProcessComponentDataWithEntity interface behave much the same as those implementing IJobProcessComponentData. The difference is that the Execute() function signature in IJobProcessComponentDataWithEntity provides you with the Entity object for the current entity and the index into the extended, parallel arrays of components.
+The Jobs implementing the IJobForEachWithEntity interface behave much the same as those implementing IJobForEach. The difference is that the Execute() function signature in IJobForEachWithEntity provides you with the Entity object for the current entity and the index into the extended, parallel arrays of components.
 
 ### Using the Entity parameter
 
@@ -94,12 +94,12 @@ public class HelloSpawnerSystem : JobComponentSystem
    // EndFrameBarrier provides the CommandBuffer
    EndFrameBarrier m_EndFrameBarrier;
 
-   protected override void OnCreateManager()
+   protected override void OnCreate()
    {
        // Cache the EndFrameBarrier in a field, so we don't have to get it every frame
-       m_EndFrameBarrier = World.GetOrCreateManager<EndFrameBarrier>();
+       m_EndFrameBarrier = World.GetOrCreateSystem<EndFrameBarrier>();
    }
-   struct SpawnJob : IJobProcessComponentDataWithEntity<HelloSpawner, LocalToWorld>
+   struct SpawnJob : IJobForEachWithEntity<HelloSpawner, LocalToWorld>
    {
        public EntityCommandBuffer CommandBuffer;
        public void Execute(Entity entity, int index, [ReadOnly] ref HelloSpawner spawner,
@@ -136,12 +136,12 @@ public class HelloSpawnerSystem : JobComponentSystem
 }
 ```
 
-__Note:__ this example uses IJobProcessComponentData.ScheduleSingle(), which performs the Job on a single thread. If you used the Schedule() method instead, the system uses parallel jobs to process the entities. In the parallel case, you must use a concurrent entity command buffer (EntityCommandBuffer.Concurrent).
+__Note:__ this example uses IJobForEach.ScheduleSingle(), which performs the Job on a single thread. If you used the Schedule() method instead, the system uses parallel jobs to process the entities. In the parallel case, you must use a concurrent entity command buffer (EntityCommandBuffer.Concurrent).
 
 See the  [ECS samples repository](https://github.com/Unity-Technologies/EntityComponentSystemSamples) for the full example source code.
 
 ### Using the index parameter
 
-You can use the index when adding a command to a concurrent command buffer. You use concurrent command buffers when running Jobs that process entities in parallel. In an IJobProcessComponentDataWithEntity Job, the Job System process entities in parallel when you use the Schedule() method rather than the ScheduleSingle() method used in the example above. Concurrent command buffers should always be used for parallel Jobs to guarantee thread safety and deterministic execution of the buffer commands.
+You can use the index when adding a command to a concurrent command buffer. You use concurrent command buffers when running Jobs that process entities in parallel. In an IJobForEachWithEntity Job, the Job System process entities in parallel when you use the Schedule() method rather than the ScheduleSingle() method used in the example above. Concurrent command buffers should always be used for parallel Jobs to guarantee thread safety and deterministic execution of the buffer commands.
 
 You can also use the index to reference the same entities across Jobs within the same system. For example, if you need to process a set of entities in multiple passes and collect temporary data along the way, you can use the index to insert the temporary data into a NativeArray in one Job and then use the index to access that data in a subsequent Job. (Naturally, you have to pass the same NativeArray to both Jobs.)
