@@ -743,6 +743,9 @@ namespace Unity.Entities.Tests
         [Test]
         public void DynamicBuffer_AllocateBufferWithLongSize_DoesNotThrow()
         {
+	        if (IntPtr.Size == 4)
+		        Assert.Ignore("Test makes no sense on 32bit");
+
             var entity = m_Manager.CreateEntity(typeof(EcsIntStateElement));
             var buffer = m_Manager.GetBuffer<EcsIntStateElement>(entity);
             int capacity = (int)(((long)int.MaxValue + 1) / UnsafeUtility.SizeOf<EcsIntStateElement>() + 1); //536870913
@@ -753,6 +756,9 @@ namespace Unity.Entities.Tests
         [Test]
         public void DynamicBuffer_Insert_BufferHasLongSize_DoesNotThrow()
         {
+	        if (IntPtr.Size == 4)
+		        Assert.Ignore("Test makes no sense on 32bit");
+
             var entity = m_Manager.CreateEntity(typeof(EcsIntStateElement));
             var buffer = m_Manager.GetBuffer<EcsIntStateElement>(entity);
             int capacity = (int)(((long)int.MaxValue + 1) / UnsafeUtility.SizeOf<EcsIntStateElement>() + 1); //536870913
@@ -765,6 +771,9 @@ namespace Unity.Entities.Tests
         [Test]
         public void DynamicBuffer_AddRange_NewBufferHasLongSize_DoesNotThrow()
         {
+	        if (IntPtr.Size == 4)
+		        Assert.Ignore("Test makes no sense on 32bit");
+
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             int capacity = (int)(((long)int.MaxValue + 1) / UnsafeUtility.SizeOf<EcsIntElement>() + 1); //536870913
@@ -775,14 +784,18 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(capacity + 10, buffer.Length);
         }
 
+        
         [Test]
         public void DynamicBuffer_RemoveRange_MovedBufferHasLongSize_DoesNotThrow()
         {
-            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
-            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+	        if (IntPtr.Size == 4)
+		        Assert.Ignore("Test makes no sense on 32bit");
+	        
+	        var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+	        var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             int capacity = (int)(((long)int.MaxValue + 1) / UnsafeUtility.SizeOf<EcsIntElement>() + 2);
             buffer.ResizeUninitialized(capacity);
-
+            
             Assert.AreEqual(536870914, buffer.Length);
             Assert.DoesNotThrow(() => buffer.RemoveRange(0, 1));
             Assert.AreEqual(536870913, buffer.Length);
@@ -791,7 +804,10 @@ namespace Unity.Entities.Tests
         [Test]
         public void DynamicBuffer_Add_NewBufferHasLongSize_DoesNotThrow()
         {
-            var arrayType = ComponentType.ReadWrite<EcsIntElement>();
+	        if (IntPtr.Size == 4) 
+		        Assert.Ignore("Test makes no sense on 32bit");
+
+	        var arrayType = ComponentType.ReadWrite<EcsIntElement>();
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             int capacity = (int)(((long)int.MaxValue + 1) / UnsafeUtility.SizeOf<EcsIntElement>() + 1); //536870913
@@ -804,6 +820,9 @@ namespace Unity.Entities.Tests
         [Test]
         public void DynamicBuffer_TrimExcess_NewBufferHasLongSize_DoesNotThrow()
         {
+	        if (IntPtr.Size == 4)
+		        Assert.Ignore("Test makes no sense on 32bit");
+
             var arrayType = ComponentType.ReadWrite<EcsIntElement>();
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);

@@ -1,5 +1,4 @@
-﻿#if !UNITY_ZEROPLAYER
-using System;
+﻿using System;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
@@ -118,6 +117,7 @@ namespace Unity.Entities.Tests
         
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
+        [StandaloneFixme]
         public void JobWithMissingDependency()
         {
             Assert.IsTrue(Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobDebuggerEnabled, "JobDebugger must be enabled for these tests");
@@ -154,6 +154,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [StandaloneFixme]    // https://github.com/Unity-Technologies/dots/issues/1540
         public void JobProcessAdditionalRequirements()
         {
             var entityIgnore0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
@@ -165,6 +166,7 @@ namespace Unity.Entities.Tests
             var entityProcess = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData4));
             Test(true, entityProcess);
         }
+
         struct ProcessFilteredData : IJobForEach<EcsTestData>
         {
             public void Execute(ref EcsTestData c0)
@@ -172,7 +174,8 @@ namespace Unity.Entities.Tests
                 c0 = new EcsTestData {value = 10};
             }
         }
-        
+
+#if !UNITY_DOTSPLAYER
         [Test]
         public void JobProcessWithFilteredEntityQuery()
         {
@@ -195,7 +198,14 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(10, m_Manager.GetComponentData<EcsTestData>(entityInGroupA).value);
             Assert.AreEqual(5,  m_Manager.GetComponentData<EcsTestData>(entityInGroupB).value);
         }
-        
+
+        [Test]
+        public void JobProcessWithMismatchedComponentGroupThrowsException()
+        {
+            var query = EmptySystem.GetEntityQuery(typeof(EcsTestData));
+            Assert.Throws<InvalidOperationException>(() => { new Process2().Schedule(query); });
+        }
+
         [Test]
         public void JobCalculateEntityCount()
         {
@@ -223,6 +233,7 @@ namespace Unity.Entities.Tests
             Assert.Throws<InvalidOperationException>(() => handle = new Process1().Schedule(group));
             handle.Complete();
         }
+#endif
 
         [Test]
         [Ignore("TODO")]
@@ -237,4 +248,3 @@ namespace Unity.Entities.Tests
         }
     }
 }
-#endif

@@ -3,7 +3,11 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine;
+#if UNITY_2019_3_OR_NEWER
+using UnityEngine.PlayerLoop;
+#else
 using UnityEngine.Experimental.PlayerLoop;
+#endif
 using UnityEngine.Profiling;
 using Hash128 = UnityEngine.Hash128;
 
@@ -15,10 +19,10 @@ namespace Unity.Scenes
     {
         public struct IgnoreTag : IComponentData
         {
-            
+
         }
-       
-        
+
+
         internal enum StreamingStatus
         {
             NotYetProcessed,
@@ -43,7 +47,7 @@ namespace Unity.Scenes
 
         const int LoadScenesPerFrame = 4;
         int MaximumMoveEntitiesFromPerFrame = 1;
-        
+
         Stream[] m_Streams = new Stream[LoadScenesPerFrame];
         EntityQuery m_PendingStreamRequests;
         EntityQuery m_UnloadStreamRequests;
@@ -59,7 +63,7 @@ namespace Unity.Scenes
         {
             for (int i = 0; i < LoadScenesPerFrame; ++i)
                 CreateStreamWorld(i);
-            
+
             m_PendingStreamRequests = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new[] {ComponentType.ReadWrite<RequestSceneLoaded>(), ComponentType.ReadWrite<SceneData>()},
@@ -183,7 +187,7 @@ namespace Unity.Scenes
             NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping;
             using (m_ExtractEntityRemapRefs.Auto())
             {
-                if (!ExtractEntityRemapRefs(srcManager, out entityRemapping)) 
+                if (!ExtractEntityRemapRefs(srcManager, out entityRemapping))
                     return false;
             }
 
@@ -197,7 +201,7 @@ namespace Unity.Scenes
                 };
                 srcManager.AddSharedComponentData(srcManager.UniversalQuery, data);
 #endif
-            
+
                 srcManager.AddSharedComponentData(srcManager.UniversalQuery, new SceneTag { SceneEntity = sceneEntity});
             }
 
@@ -283,7 +287,7 @@ namespace Unity.Scenes
         {
             bool needsMoreProcessing = false;
             int moveEntitiesFromProcessed = 0;
-            
+
             for (int i = 0; i != m_Streams.Length; i++)
             {
                 var operation = m_Streams[i].Operation;

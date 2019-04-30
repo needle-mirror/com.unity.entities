@@ -30,6 +30,11 @@ namespace Unity.Entities.StaticTypeRegistry
             throw new NotImplementedException("This function should have been replaced by the TypeRegGen build step. Ensure TypeRegGen.exe is generating a new Unity.Entities.StaticTypeRegistry assembly.");
         }
 
+        public static unsafe object ConstructComponentFromBuffer(int typeIndex, void* data)
+        {
+            throw new NotImplementedException("This function should have been replaced by the TypeRegGen build step. Ensure TypeRegGen.exe is generating a new Unity.Entities.StaticTypeRegistry assembly.");
+        }
+
         public static bool Equals(void* lhs, void* rhs, int typeIndex)
         {
             // empty -- dynamic reg is used.  TypeRegGen will generate

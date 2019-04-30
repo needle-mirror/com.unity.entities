@@ -2,7 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+#if UNITY_2019_3_OR_NEWER
+using UnityEngine.LowLevel;
+#else
 using UnityEngine.Experimental.LowLevel;
+#endif
 using UnityEngine.Profiling;
 
 namespace Unity.Entities.Editor
@@ -329,7 +333,7 @@ namespace Unity.Entities.Editor
                     ids.Add(parent.Item.id);
                 }
             }
-            
+
             return shouldExpand;
         }
 
@@ -337,7 +341,7 @@ namespace Unity.Entities.Editor
         {
             if (rootNode == null)
             {
-                BuildNodeTree(); 
+                BuildNodeTree();
                 var expanded = new List<int>();
                 GetDefaultExpandedIds(rootNode, expanded);
                 expanded.Sort();
@@ -353,9 +357,9 @@ namespace Unity.Entities.Editor
             {
                 root.children.Insert(0, new TreeViewItem(kAllEntitiesItemId, 0, $"All Entities ({getWorldSelection().Name})"));
             }
-            
+
             root.depth = -1;
-            
+
             SetupDepthsFromParentsAndChildren(root);
             return root;
         }
@@ -415,7 +419,7 @@ namespace Unity.Entities.Editor
             }
             else if (args.item.id == kAllEntitiesItemId)
             {
-                
+
             }
             else
             {

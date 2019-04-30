@@ -3,7 +3,7 @@ using NUnit.Framework;
 using Unity.Jobs;
 using Unity.Collections;
 using UnityEngine;
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
 using System.Text.RegularExpressions;
 #endif
 using UnityEngine.TestTools;
@@ -92,7 +92,7 @@ namespace Unity.Entities.Tests
             /*var jobHandle =*/ job.Schedule(m_Manager.ExclusiveEntityTransactionDependency);
 
             // Commit transaction expects an error nt exception otherwise errors might occurr after a system has completed...
-            #if !UNITY_ZEROPLAYER
+            #if !UNITY_DOTSPLAYER
             LogAssert.Expect(LogType.Error, new Regex("ExclusiveEntityTransaction job has not been registered"));
             #endif
             m_Manager.EndExclusiveEntityTransaction();

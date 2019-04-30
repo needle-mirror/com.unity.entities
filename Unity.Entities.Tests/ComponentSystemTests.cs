@@ -81,6 +81,28 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(system.Created);
         }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [Test]
+        public void ComponentSystem_CheckExistsAfterDestroy_CorrectMessage()
+        {
+            var destroyedSystem = World.CreateSystem<TestSystem>();
+            World.DestroySystem(destroyedSystem);
+            Assert.That(() => { destroyedSystem.ShouldRunSystem(); },
+                Throws.InvalidOperationException.With.Message.Contains("has already been destroyed"));
+        }
+#endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [Test]
+        public void ComponentSystem_CheckExistsBeforeCreate_CorrectMessage()
+        {
+
+            var incompleteSystem = new TestSystem();
+            Assert.That(() => { incompleteSystem.ShouldRunSystem(); },
+                Throws.InvalidOperationException.With.Message.Contains("m_systemID is zero"));
+        }
+#endif
+
         [Test]
         public void CreateAndDestroy()
         {
@@ -112,7 +134,7 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(system.Created);
         }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
         [Test]
         public void CreateNonSystemThrows()
         {

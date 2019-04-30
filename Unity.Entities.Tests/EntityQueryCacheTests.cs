@@ -110,7 +110,7 @@ namespace Unity.Entities.Tests
         }
 
 // TEMPORARY HACK
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
         [Test]
         public void CreateCachedQuery_OverflowWithCacheSize1_ResizesAndWarns()
         {
@@ -136,7 +136,7 @@ namespace Unity.Entities.Tests
             // this should not error
             SimpleWrapCreateCachedQuery(cache, 5, k_DummyGroup);
         }
-#endif // !UNITY_ZEROPLAYER
+#endif // !UNITY_DOTSPLAYER
 
         [Test]
         public void CreateCachedQuery_WithExistingHash_Throws()

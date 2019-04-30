@@ -19,6 +19,7 @@ namespace Unity.Entities
         private readonly bool m_IsReadOnly;
         readonly uint                    m_GlobalSystemVersion;
         int                              m_TypeLookupCache;
+        int                              m_InternalCapacity;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         internal BufferFromEntity(int typeIndex, EntityDataManager* entityData, bool isReadOnly,
@@ -37,6 +38,8 @@ namespace Unity.Entities
             if (!TypeManager.IsBuffer(m_TypeIndex))
                 throw new ArgumentException(
                     $"GetComponentBufferArray<{typeof(T)}> must be IBufferElementData");
+
+            m_InternalCapacity = TypeManager.GetTypeInfo<T>().BufferCapacity;
         }
 #else
         internal BufferFromEntity(int typeIndex, EntityDataManager* entityData, bool isReadOnly)
@@ -46,6 +49,7 @@ namespace Unity.Entities
             m_IsReadOnly = isReadOnly;
             m_TypeLookupCache = 0;
             m_GlobalSystemVersion = entityData->GlobalSystemVersion;
+            m_InternalCapacity = TypeManager.GetTypeInfo<T>().BufferCapacity;
         }
 #endif
 
@@ -75,9 +79,9 @@ namespace Unity.Entities
                 BufferHeader* header = (BufferHeader*) m_Entities->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_TypeLookupCache);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                return new DynamicBuffer<T>(header, m_Safety0, m_ArrayInvalidationSafety, m_IsReadOnly);
+                return new DynamicBuffer<T>(header, m_Safety0, m_ArrayInvalidationSafety, m_IsReadOnly, m_InternalCapacity);
 #else
-                return new DynamicBuffer<T>(header);
+                return new DynamicBuffer<T>(header, m_InternalCapacity);
 #endif
             }
         }

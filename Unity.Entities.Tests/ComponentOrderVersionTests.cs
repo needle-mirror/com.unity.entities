@@ -195,7 +195,7 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.AddComponentData(entity, new EcsTestData2());
 
-            Assert.AreEqual(2, m_Manager.GetComponentOrderVersion<EcsTestData>());
+            Assert.AreEqual(3, m_Manager.GetComponentOrderVersion<EcsTestData>());
             Assert.AreEqual(1, m_Manager.GetComponentOrderVersion<EcsTestData2>());
         }
 
@@ -205,7 +205,7 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             m_Manager.RemoveComponent<EcsTestData2>(entity);
 
-            Assert.AreEqual(2, m_Manager.GetComponentOrderVersion<EcsTestData>());
+            Assert.AreEqual(3, m_Manager.GetComponentOrderVersion<EcsTestData>());
             Assert.AreEqual(2, m_Manager.GetComponentOrderVersion<EcsTestData2>());
         }
 
@@ -216,7 +216,7 @@ namespace Unity.Entities.Tests
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             m_Manager.RemoveComponent<EcsTestData2>(entity1);
 
-            Assert.AreEqual(3, m_Manager.GetComponentOrderVersion<EcsTestData>());
+            Assert.AreEqual(4, m_Manager.GetComponentOrderVersion<EcsTestData>());
             Assert.AreEqual(2, m_Manager.GetComponentOrderVersion<EcsTestData2>());
             Assert.AreEqual(1, m_Manager.GetComponentOrderVersion<EcsTestData3>());
         }

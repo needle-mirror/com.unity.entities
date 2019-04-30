@@ -150,7 +150,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void Test1()
         {
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
             World w = new World("TestWorld");
 #else
             World w = DefaultTinyWorldInitialization.Initialize("TestWorld");
@@ -179,7 +179,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void Test2()
         {
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
             World w = new World("TestWorld");
 #else
             World w = DefaultTinyWorldInitialization.Initialize("TestWorld");
@@ -196,7 +196,7 @@ namespace Unity.Entities.Tests
             w = null;
             World.DisposeAllWorlds();
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
             w = new World("TestWorld2");
 #else
             w = DefaultTinyWorldInitialization.Initialize("TestWorld");

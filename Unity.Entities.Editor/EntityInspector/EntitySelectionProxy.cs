@@ -1,10 +1,9 @@
-﻿using Unity.Entities.Properties;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
-    internal class EntitySelectionProxy : ScriptableObject
+    public class EntitySelectionProxy : ScriptableObject
     {
         public delegate void EntityControlDoubleClickHandler(Entity entity);
 

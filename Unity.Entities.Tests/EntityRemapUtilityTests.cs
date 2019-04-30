@@ -68,7 +68,7 @@ namespace Unity.Entities.Tests
 
         static TypeManager.EntityOffsetInfo[] GetEntityOffsets(System.Type type)
         {
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
             return EntityRemapUtility.CalculateEntityOffsets(type);
 #else
             unsafe {
@@ -121,7 +121,7 @@ namespace Unity.Entities.Tests
         }
 
         struct EmbeddedEntityStruct
-#if UNITY_ZEROPLAYER
+#if UNITY_DOTSPLAYER
             : IComponentData
 #endif
         {

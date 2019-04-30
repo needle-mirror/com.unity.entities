@@ -1,4 +1,4 @@
-﻿#if !UNITY_ZEROPLAYER
+﻿#if !UNITY_DOTSPLAYER
 using System.Linq;
 using System.Runtime.InteropServices;
 using NUnit.Framework;

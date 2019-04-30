@@ -110,6 +110,7 @@ public class BurstSafetyTests
         }
     }
     
+#if !UNITY_DOTSPLAYER    
     [Test]
     [Ignore("Crashes Unity - No user is supposed to write code like this, so not very important")]
     public void AccessNullUnsafePtr()
@@ -118,4 +119,5 @@ public class BurstSafetyTests
 
         new AccessNullUnsafePtrJob().Run();
     }
+#endif
 }

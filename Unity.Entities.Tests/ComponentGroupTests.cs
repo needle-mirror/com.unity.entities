@@ -268,7 +268,7 @@ namespace Unity.Entities.Tests
             Assert.Throws<InvalidOperationException>(() => group.ToComponentDataArray<EcsTestData2>(Allocator.TempJob));
         }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
 
         [DisableAutoCreation]
         [AlwaysUpdateSystem]

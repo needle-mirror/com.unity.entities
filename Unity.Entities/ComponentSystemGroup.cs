@@ -42,6 +42,7 @@ namespace Unity.Entities
 
     public abstract class ComponentSystemGroup : ComponentSystem
     {
+        private bool m_systemSortDirty = false;
         protected List<ComponentSystemBase> m_systemsToUpdate = new List<ComponentSystemBase>();
 
         public virtual IEnumerable<ComponentSystemBase> Systems => m_systemsToUpdate;
@@ -51,6 +52,7 @@ namespace Unity.Entities
             if (sys != null)
             {
                 m_systemsToUpdate.Add(sys);
+                m_systemSortDirty = true;
             }
         }
 
@@ -200,6 +202,9 @@ namespace Unity.Entities
 
         public virtual void SortSystemUpdateList()
         {
+            if (!m_systemSortDirty)
+                return;
+            m_systemSortDirty = false;
 #if !NET_DOTS
             lookupDictionary = null;
 #endif
@@ -354,6 +359,9 @@ namespace Unity.Entities
 
         protected override void OnUpdate()
         {
+            if (m_systemSortDirty)
+                SortSystemUpdateList();
+
             foreach (var sys in m_systemsToUpdate)
             {
                 try

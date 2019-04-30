@@ -19,6 +19,7 @@
     * [Using ComponentSystem and ForEach](entity_iteration_foreach.md)
     * [Manual iteration](manual_iteration.md)
     * [Component Groups](component_group.md)
+  * [Component WriteGroups](ecs_write_groups.md)
   * [Versions and Generations](version_numbers.md)
   * [Jobs in ECS](ecs_job_overview.md)
     * [ECS Job System extensions](ecs_job_extensions.md)

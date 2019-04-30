@@ -44,6 +44,9 @@ namespace Unity.Entities
         public uint GlobalSystemVersion => m_EntityManager.GlobalSystemVersion;
         public uint LastSystemVersion => m_LastSystemVersion;
 
+        public EntityManager EntityManager => m_EntityManager;
+        public World World => m_World;
+
         // ============
 
 #if UNITY_EDITOR
@@ -170,9 +173,6 @@ namespace Unity.Entities
 #endif
         }
 
-        protected internal EntityManager EntityManager => m_EntityManager;
-        protected internal World World => m_World;
-
         // ===================
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -205,7 +205,18 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (World == null || !World.IsCreated)
-                throw new InvalidOperationException($"{GetType()} has already been destroyed. It may not be used anymore.");
+            {
+                if (m_SystemID == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"{GetType()}.m_systemID is zero (invalid); This usually means it was not created with World.GetOrCreateSystem<{GetType()}>().");
+                }
+                else
+                {
+                    throw new InvalidOperationException(
+                        $"{GetType()} has already been destroyed. It may not be used anymore.");
+                }
+            }
 #endif
         }
 
@@ -260,18 +271,6 @@ namespace Unity.Entities
             m_AlwaysUpdateSystem = GetType().GetCustomAttributes(typeof(AlwaysUpdateSystemAttribute), true).Length != 0;
 #else
             m_AlwaysUpdateSystem = true;
-#endif
-
-            InjectNestedIJobForEachJobs();
-        }
-
-        void InjectNestedIJobForEachJobs()
-        {
-#if !UNITY_ZEROPLAYER
-            // Create EntityQuery for all nested IJobForEach jobs
-            foreach (var nestedType in GetType()
-                .GetNestedTypes(BindingFlags.FlattenHierarchy | BindingFlags.NonPublic | BindingFlags.Public))
-                JobForEachExtensions.GetEntityQueryForIJobForEach(this, nestedType);
 #endif
         }
 
@@ -601,6 +600,7 @@ namespace Unity.Entities
         /// attribute.
         /// </summary>
         protected abstract void OnUpdate();
+
     }
 
     public abstract class JobComponentSystem : ComponentSystemBase
@@ -765,6 +765,8 @@ namespace Unity.Entities
         {
             m_PreviousFrameDependency = m_SafetyManager->AddDependency(m_JobDependencyForReadingSystems.p, m_JobDependencyForReadingSystems.Count, m_JobDependencyForWritingSystems.p, m_JobDependencyForWritingSystems.Count, dependency);
         }
+
+
     }
 
     [Obsolete("BarrierSystem has been renamed. Use EntityCommandBufferSystem instead (UnityUpgradable) -> EntityCommandBufferSystem", true)]

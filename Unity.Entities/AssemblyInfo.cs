@@ -6,3 +6,7 @@
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.Tests")]
 [assembly: InternalsVisibleTo("Unity.Entities.StaticTypeRegistry")]
 [assembly: InternalsVisibleTo("Unity.Entities.CPlusPlus")]
+[assembly: InternalsVisibleTo("Unity.Editor")]
+[assembly: InternalsVisibleTo("Unity.Authoring")]
+[assembly: InternalsVisibleTo("Unity.Tiny.IO")]
+[assembly: InternalsVisibleTo("Unity.Tiny.Scenes")]

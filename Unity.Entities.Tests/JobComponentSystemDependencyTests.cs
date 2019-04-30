@@ -1,4 +1,4 @@
-﻿#if !UNITY_ZEROPLAYER
+﻿#if !UNITY_DOTSPLAYER
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;

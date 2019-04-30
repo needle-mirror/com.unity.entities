@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿using System;
+using NUnit.Framework;
 using Unity.Collections;
 
 namespace Unity.Entities.Tests
@@ -76,17 +77,24 @@ namespace Unity.Entities.Tests
             Run
         }
 
+        public enum CallMode
+        {
+            System,
+            Query
+        }
+
+#if false
+        // This code, though much simpler, won't compile on ZEROPLAYER
         void Schedule<T>(ProcessMode mode) where T : struct, JobForEachExtensions.IBaseJobForEach
         {
-#if !UNITY_ZEROPLAYER
             if (mode == ProcessMode.Parallel)
                 new T().Schedule(EmptySystem).Complete();
             else if (mode == ProcessMode.Run)
                 new T().Run(EmptySystem);
             else 
                 new T().ScheduleSingle(EmptySystem).Complete();
-#endif
         }
+#endif
 
         NativeArray<Entity> PrepareData(int entityCount)
         {
@@ -99,6 +107,24 @@ namespace Unity.Entities.Tests
 
             return entities;
         }
+
+        EntityQuery PrepareQuery(int entityCount)
+        {
+            switch (entityCount)
+            {
+                case 1:
+                    return m_Manager.CreateEntityQuery(typeof(EcsTestData));
+                case 2:
+                    return m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
+                case 3:
+                    return m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
+                case 4:
+                    return m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4));
+                default:
+                    throw new Exception("Test case setup error.");
+            }
+        }
+
 
         void CheckResultsAndDispose(NativeArray<Entity> entities, int processCount, bool withEntity)
         {
@@ -131,19 +157,33 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
-        
         [Test]
-        public void JobProcessStress_1([Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
+        public void JobProcessStress_1([Values]CallMode call, [Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
             m_Manager.CreateEntity(archetype, entities);
 
-#if UNITY_ZEROPLAYER
-            (new Process1()).Schedule(EmptySystem);
-#else
-            Schedule<Process1>(mode);
-#endif
+            if (call == CallMode.System)
+            {
+                if (mode == ProcessMode.Parallel)
+                    (new Process1()).Schedule(EmptySystem).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process1()).Run(EmptySystem);
+                else
+                    (new Process1()).ScheduleSingle(EmptySystem).Complete();
+            }
+            else
+            {
+                var query = PrepareQuery(1);
+                if (mode == ProcessMode.Parallel)
+                    (new Process1()).Schedule(query).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process1()).Run(query);
+                else
+                    (new Process1()).ScheduleSingle(query).Complete();
+            }
+
             for (int i = 0; i < entities.Length; i++)
                 Assert.AreEqual(1, m_Manager.GetComponentData<EcsTestData>(entities[i]).value);
 
@@ -151,17 +191,31 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void JobProcessStress_1_WithEntity([Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
+        public void JobProcessStress_1_WithEntity([Values]CallMode call, [Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
             m_Manager.CreateEntity(archetype, entities);
             
-#if UNITY_ZEROPLAYER
-            (new Process1Entity()).Schedule(EmptySystem);
-#else
-            Schedule<Process1Entity>(mode);
-#endif
+            if (call == CallMode.System)
+            {
+                if (mode == ProcessMode.Parallel)
+                    (new Process1Entity()).Schedule(EmptySystem).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process1Entity()).Run(EmptySystem);
+                else
+                    (new Process1Entity()).ScheduleSingle(EmptySystem).Complete();
+            }
+            else
+            {
+                var query = PrepareQuery(1);
+                if (mode == ProcessMode.Parallel)
+                    (new Process1Entity()).Schedule(query).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process1Entity()).Run(query);
+                else
+                    (new Process1Entity()).ScheduleSingle(query).Complete();
+            }
 
             for (int i = 0; i < entities.Length; i++)
                 Assert.AreEqual(i + entities[i].Index, m_Manager.GetComponentData<EcsTestData>(entities[i]).value);
@@ -170,83 +224,170 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        public void JobProcessStress_2([Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
+        public void JobProcessStress_2([Values]CallMode call, [Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
         {
             var entities = PrepareData(entityCount);
 
-#if UNITY_ZEROPLAYER
-            (new Process2()).Schedule(EmptySystem);
-#else
-            Schedule<Process2>(mode);
-#endif
+            if (call == CallMode.System)
+            {
+                if (mode == ProcessMode.Parallel)
+                    (new Process2()).Schedule(EmptySystem).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process2()).Run(EmptySystem);
+                else
+                    (new Process2()).ScheduleSingle(EmptySystem).Complete();
+            }
+            else
+            {
+                var query = PrepareQuery(2);
+                if (mode == ProcessMode.Parallel)
+                    (new Process2()).Schedule(query).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process2()).Run(query);
+                else
+                    (new Process2()).ScheduleSingle(query).Complete();
+            }
+
             CheckResultsAndDispose(entities, 2, false);
         }
 
         [Test]
-        public void JobProcessStress_2_WithEntity([Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
+        public void JobProcessStress_2_WithEntity([Values]CallMode call, [Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
         {
             var entities = PrepareData(entityCount);
 
-#if UNITY_ZEROPLAYER
-            (new Process2Entity()).Schedule(EmptySystem);
-#else
-            Schedule<Process2Entity>(mode);
-#endif
+            if (call == CallMode.System)
+            {
+                if (mode == ProcessMode.Parallel)
+                    (new Process2Entity()).Schedule(EmptySystem).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process2Entity()).Run(EmptySystem);
+                else
+                    (new Process2Entity()).ScheduleSingle(EmptySystem).Complete();
+            }
+            else
+            {
+                var query = PrepareQuery(2);
+                if (mode == ProcessMode.Parallel)
+                    (new Process2Entity()).Schedule(query).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process2Entity()).Run(query);
+                else
+                    (new Process2Entity()).ScheduleSingle(query).Complete();
+            }
 
             CheckResultsAndDispose(entities, 2, true);
 
         }
         
         [Test]
-        public void JobProcessStress_3([Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
+        public void JobProcessStress_3([Values]CallMode call, [Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
         {
             var entities = PrepareData(entityCount);
 
-#if UNITY_ZEROPLAYER
-            (new Process3()).Schedule(EmptySystem);
-#else
-            Schedule<Process3>(mode);
-#endif
+            if (call == CallMode.System)
+            {
+                if (mode == ProcessMode.Parallel)
+                    (new Process3()).Schedule(EmptySystem).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process3()).Run(EmptySystem);
+                else
+                    (new Process3()).ScheduleSingle(EmptySystem).Complete();
+            }
+            else
+            {
+                var query = PrepareQuery(3);
+                if (mode == ProcessMode.Parallel)
+                    (new Process3()).Schedule(query).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process3()).Run(query);
+                else
+                    (new Process3()).ScheduleSingle(query).Complete();
+            }
 
             CheckResultsAndDispose(entities, 3, false);
         }
         
         [Test]
-        public void JobProcessStress_3_WithEntity([Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
+        public void JobProcessStress_3_WithEntity([Values]CallMode call, [Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
         {
             var entities = PrepareData(entityCount);
 
-#if UNITY_ZEROPLAYER
-            (new Process3Entity()).Schedule(EmptySystem);
-#else
-            Schedule<Process3Entity>(mode);
-#endif
+            if (call == CallMode.System)
+            {
+                if (mode == ProcessMode.Parallel)
+                    (new Process3Entity()).Schedule(EmptySystem).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process3Entity()).Run(EmptySystem);
+                else
+                    (new Process3Entity()).ScheduleSingle(EmptySystem).Complete();
+            }
+            else
+            {
+                var query = PrepareQuery(3);
+                if (mode == ProcessMode.Parallel)
+                    (new Process3Entity()).Schedule(query).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process3Entity()).Run(query);
+                else
+                    (new Process3Entity()).ScheduleSingle(query).Complete();
+            }
+
             CheckResultsAndDispose(entities, 3, true);
         }
         
         [Test]
-        public void JobProcessStress_4([Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
+        public void JobProcessStress_4([Values]CallMode call, [Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
         {
             var entities = PrepareData(entityCount);
 
-#if UNITY_ZEROPLAYER
-            (new Process4()).Schedule(EmptySystem);
-#else
-            Schedule<Process4>(mode);
-#endif
+            if (call == CallMode.System)
+            {
+                if (mode == ProcessMode.Parallel)
+                    (new Process4()).Schedule(EmptySystem).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process4()).Run(EmptySystem);
+                else
+                    (new Process4()).ScheduleSingle(EmptySystem).Complete();
+            }
+            else
+            {
+                var query = PrepareQuery(4);
+                if (mode == ProcessMode.Parallel)
+                    (new Process4()).Schedule(query).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process4()).Run(query);
+                else
+                    (new Process4()).ScheduleSingle(query).Complete();
+            }
+
             CheckResultsAndDispose(entities, 4, false);
         }
         
         [Test]
-        public void JobProcessStress_4_WithEntity([Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
+        public void JobProcessStress_4_WithEntity([Values]CallMode call, [Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
         {
             var entities = PrepareData(entityCount);
 
-#if UNITY_ZEROPLAYER
-            (new Process4Entity()).Schedule(EmptySystem);
-#else
-            Schedule<Process4Entity>(mode);
-#endif
+            if (call == CallMode.System)
+            {
+                if (mode == ProcessMode.Parallel)
+                    (new Process4Entity()).Schedule(EmptySystem).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process4Entity()).Run(EmptySystem);
+                else
+                    (new Process4Entity()).ScheduleSingle(EmptySystem).Complete();
+            }
+            else
+            {
+                var query = PrepareQuery(4);
+                if (mode == ProcessMode.Parallel)
+                    (new Process4Entity()).Schedule(query).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process4Entity()).Run(query);
+                else
+                    (new Process4Entity()).ScheduleSingle(query).Complete();
+            }
             CheckResultsAndDispose(entities, 4, true);
         }
     }

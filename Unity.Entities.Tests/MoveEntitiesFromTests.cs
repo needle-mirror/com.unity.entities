@@ -551,8 +551,6 @@ namespace Unity.Entities.Tests
             creationManager.AddComponentData(entity, new EcsTestData(42));
 
             var system = World.GetOrCreateSystem<TestEcsChangeSystem>();
-
-            system.Update();
             Assert.AreEqual(0, system.NumChanged);
 
             m_Manager.MoveEntitiesFrom(creationManager);

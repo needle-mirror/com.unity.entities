@@ -911,7 +911,7 @@ namespace Unity.Entities
                 fixed (uint* b = buffer)
                 {
                     var c = (char*) b;
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
                     return new String(c, 0, Length);
 #else
                     var s = new char[Length];
@@ -1055,7 +1055,7 @@ namespace Unity.Entities
                 fixed (uint* b = buffer)
                 {
                     var c = (char*) b;
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
                     return new String(c, 0, Length);
 #else
                     var s = new char[Length];
@@ -1198,7 +1198,7 @@ namespace Unity.Entities
                 fixed (uint* b = buffer)
                 {
                     var c = (char*) b;
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
                     return new String(c, 0, Length);
 #else
                     var s = new char[Length];
@@ -1275,7 +1275,7 @@ namespace Unity.Entities
         {
             unsafe
             {
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
                 return new String(pointer, 0, length);
 #else
                 var c = new char[Length];

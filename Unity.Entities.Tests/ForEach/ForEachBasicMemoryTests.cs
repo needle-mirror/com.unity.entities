@@ -1,4 +1,4 @@
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
 using System;
 using NUnit.Framework;
 
@@ -38,4 +38,4 @@ namespace Unity.Entities.Tests.ForEach
         }
     }
 }
-#endif // !UNITY_ZEROPLAYER
+#endif // !UNITY_DOTSPLAYER

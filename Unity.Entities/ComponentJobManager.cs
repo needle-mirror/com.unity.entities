@@ -33,15 +33,47 @@ namespace Unity.Entities
 
         private JobHandle m_ExclusiveTransactionDependency;
 
-        private bool m_HasCleanHandles;
-
         private JobHandle* m_ReadJobFences;
 
         private const int EntityTypeIndex = 1;
 
+        private ushort* m_TypeArrayIndices;
+        private ushort m_TypeCount;
+        private const ushort NullTypeIndex = 0xFFFF;
+
+        ushort GetTypeArrayIndex(int typeIndex)
+        {
+            var withoutFlags = typeIndex & TypeManager.ClearFlagsMask;
+            var arrayIndex = m_TypeArrayIndices[withoutFlags];
+            if (arrayIndex != NullTypeIndex)
+                return arrayIndex;
+
+            arrayIndex = m_TypeCount++;
+            m_TypeArrayIndices[withoutFlags] = arrayIndex;
+            m_ComponentSafetyHandles[arrayIndex].TypeIndex = typeIndex;
+            m_ComponentSafetyHandles[arrayIndex].NumReadFences = 0;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_ComponentSafetyHandles[arrayIndex].SafetyHandle = AtomicSafetyHandle.Create();
+            AtomicSafetyHandle.SetAllowSecondaryVersionWriting(m_ComponentSafetyHandles[arrayIndex].SafetyHandle, false);
+            m_ComponentSafetyHandles[arrayIndex].BufferHandle = AtomicSafetyHandle.Create();
+#endif
+            m_ComponentSafetyHandles[arrayIndex].WriteFence = new JobHandle();
+
+            return arrayIndex;
+        }
+
+        void ClearAllTypeArrayIndices()
+        {
+            for(int i=0;i<m_TypeCount;++i)
+                m_TypeArrayIndices[m_ComponentSafetyHandles[i].TypeIndex & TypeManager.ClearFlagsMask] = NullTypeIndex;
+            m_TypeCount = 0;
+        }
 
         public void OnCreate()
         {
+            m_TypeArrayIndices = (ushort*)UnsafeUtility.Malloc(sizeof(ushort) * kMaxTypes, 16, Allocator.Persistent);
+            UnsafeUtilityEx.MemSet(m_TypeArrayIndices, 0xFF, sizeof(ushort)*kMaxTypes);
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_TempSafety = AtomicSafetyHandle.Create();
 #endif
@@ -58,11 +90,7 @@ namespace Unity.Entities
             m_JobDependencyCombineBuffer = (JobHandle*) UnsafeUtility.Malloc(
                 sizeof(ComponentSafetyHandle) * m_JobDependencyCombineBufferCount, 16, Allocator.Persistent);
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            CreateComponentSafetyHandles(kMaxTypes);
-#endif
-
-            m_HasCleanHandles = true;
+            m_TypeCount = 0;
             IsInTransaction = false;
             m_ExclusiveTransactionDependency = default(JobHandle);
         }
@@ -89,30 +117,16 @@ namespace Unity.Entities
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         public AtomicSafetyHandle ExclusiveTransactionSafety { get; private set; }
-        
-        void CreateComponentSafetyHandles(int count)
-        {
-            for (var i = 0; i != count; i++)
-            {
-                m_ComponentSafetyHandles[i].SafetyHandle = AtomicSafetyHandle.Create();
-                AtomicSafetyHandle.SetAllowSecondaryVersionWriting(m_ComponentSafetyHandles[i].SafetyHandle, false);
-
-                m_ComponentSafetyHandles[i].BufferHandle = AtomicSafetyHandle.Create();
-            }
-        }
-
 #endif
 
         //@TODO: Optimize as one function call to in batch bump version on every single handle...
         public void CompleteAllJobsAndInvalidateArrays()
         {
-            if (m_HasCleanHandles)
+            if (m_TypeCount == 0)
                 return;
 
             Profiler.BeginSample("CompleteAllJobsAndInvalidateArrays");
-
-            var count = TypeManager.GetTypeCount();
-            for (var t = 0; t != count; t++)
+            for (int t = 0; t < m_TypeCount; ++t)
             {
                 m_ComponentSafetyHandles[t].WriteFence.Complete();
 
@@ -123,24 +137,22 @@ namespace Unity.Entities
                 m_ComponentSafetyHandles[t].NumReadFences = 0;
             }
 
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            for (var i = 0; i != count; i++)
+            for (var i = 0; i != m_TypeCount; i++)
             {
                 AtomicSafetyHandle.CheckDeallocateAndThrow(m_ComponentSafetyHandles[i].SafetyHandle);
                 AtomicSafetyHandle.CheckDeallocateAndThrow(m_ComponentSafetyHandles[i].BufferHandle);
             }
 
-            for (var i = 0; i != count; i++)
+            for (var i = 0; i != m_TypeCount; i++)
             {
                 AtomicSafetyHandle.Release(m_ComponentSafetyHandles[i].SafetyHandle);
                 AtomicSafetyHandle.Release(m_ComponentSafetyHandles[i].BufferHandle);
             }
-
-            CreateComponentSafetyHandles(count);
 #endif
 
-            m_HasCleanHandles = true;
-
+            ClearAllTypeArrayIndices();
             Profiler.EndSample();
         }
 
@@ -148,14 +160,14 @@ namespace Unity.Entities
 
         public void Dispose()
         {
-            for (var i = 0; i < kMaxTypes; i++)
+            for (var i = 0; i < m_TypeCount; i++)
                 m_ComponentSafetyHandles[i].WriteFence.Complete();
 
-            for (var i = 0; i < kMaxTypes * kMaxReadJobHandles; i++)
+            for (var i = 0; i < m_TypeCount * kMaxReadJobHandles; i++)
                 m_ReadJobFences[i].Complete();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            for (var i = 0; i < kMaxTypes; i++)
+            for (var i = 0; i < m_TypeCount; i++)
             {
                 var res0 = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompletedAndRelease(m_ComponentSafetyHandles[i].SafetyHandle);
                 var res1 = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompletedAndRelease(m_ComponentSafetyHandles[i].BufferHandle);
@@ -170,6 +182,7 @@ namespace Unity.Entities
 
             UnsafeUtility.Free(m_JobDependencyCombineBuffer, Allocator.Persistent);
 
+            UnsafeUtility.Free(m_TypeArrayIndices, Allocator.Persistent);
             UnsafeUtility.Free(m_ComponentSafetyHandles, Allocator.Persistent);
             m_ComponentSafetyHandles = null;
 
@@ -188,14 +201,14 @@ namespace Unity.Entities
 
         internal void PreDisposeCheck()
         {
-            for (var i = 0; i < kMaxTypes; i++)
+            for (var i = 0; i < m_TypeCount; i++)
                 m_ComponentSafetyHandles[i].WriteFence.Complete();
 
-            for (var i = 0; i < kMaxTypes * kMaxReadJobHandles; i++)
+            for (var i = 0; i < m_TypeCount * kMaxReadJobHandles; i++)
                 m_ReadJobFences[i].Complete();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            for (var i = 0; i < kMaxTypes; i++)
+            for (var i = 0; i < m_TypeCount; i++)
             {
                 var res0 = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_ComponentSafetyHandles[i].SafetyHandle);
                 var res1 = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_ComponentSafetyHandles[i].BufferHandle);
@@ -208,15 +221,19 @@ namespace Unity.Entities
 
         public bool HasReaderOrWriterDependency(int type, JobHandle dependency)
         {
-            var typeWithoutFlags = type & TypeManager.ClearFlagsMask;
-            var writer = m_ComponentSafetyHandles[typeWithoutFlags].WriteFence;
+
+            var typeArrayIndex = m_TypeArrayIndices[type & TypeManager.ClearFlagsMask];
+            if (typeArrayIndex == NullTypeIndex)
+                return false;
+
+            var writer = m_ComponentSafetyHandles[typeArrayIndex].WriteFence;
             if (JobHandle.CheckFenceIsDependencyOrDidSyncFence(dependency, writer))
                 return true;
 
-            var count = m_ComponentSafetyHandles[typeWithoutFlags].NumReadFences;
+            var count = m_ComponentSafetyHandles[typeArrayIndex].NumReadFences;
             for (var r = 0; r < count; r++)
             {
-                var reader = m_ReadJobFences[typeWithoutFlags * kMaxReadJobHandles + r];
+                var reader = m_ReadJobFences[typeArrayIndex * kMaxReadJobHandles + r];
                 if (JobHandle.CheckFenceIsDependencyOrDidSyncFence(dependency, reader))
                     return true;
             }
@@ -233,17 +250,24 @@ namespace Unity.Entities
 
             var count = 0;
             for (var i = 0; i != readerTypesCount; i++)
-                m_JobDependencyCombineBuffer[count++] = m_ComponentSafetyHandles[readerTypes[i] & TypeManager.ClearFlagsMask].WriteFence;
+            {
+                var typeArrayIndex = m_TypeArrayIndices[readerTypes[i] & TypeManager.ClearFlagsMask];
+                if(typeArrayIndex != NullTypeIndex)
+                    m_JobDependencyCombineBuffer[count++] = m_ComponentSafetyHandles[typeArrayIndex].WriteFence;
+            }
+
 
             for (var i = 0; i != writerTypesCount; i++)
             {
-                var writerType = writerTypes[i] & TypeManager.ClearFlagsMask;
+                var typeArrayIndex = m_TypeArrayIndices[writerTypes[i] & TypeManager.ClearFlagsMask];
+                if (typeArrayIndex == NullTypeIndex)
+                    continue;
 
-                m_JobDependencyCombineBuffer[count++] = m_ComponentSafetyHandles[writerType].WriteFence;
+                m_JobDependencyCombineBuffer[count++] = m_ComponentSafetyHandles[typeArrayIndex].WriteFence;
 
-                var numReadFences = m_ComponentSafetyHandles[writerType].NumReadFences;
+                var numReadFences = m_ComponentSafetyHandles[typeArrayIndex].NumReadFences;
                 for (var j = 0; j != numReadFences; j++)
-                    m_JobDependencyCombineBuffer[count++] = m_ReadJobFences[writerType * kMaxReadJobHandles + j];
+                    m_JobDependencyCombineBuffer[count++] = m_ReadJobFences[typeArrayIndex * kMaxReadJobHandles + j];
             }
 
             return JobHandleUnsafeUtility.CombineDependencies(m_JobDependencyCombineBuffer,
@@ -257,22 +281,21 @@ namespace Unity.Entities
             JobHandle* combinedDependencies = null;
             var combinedDependenciesCount = 0;
 #endif
-            m_HasCleanHandles = false;
-
             if (readerTypesCount == 0 && writerTypesCount == 0)
             {
+                ushort entityTypeArrayIndex = GetTypeArrayIndex(EntityTypeIndex);
                 // if no dependency types are provided add read dependency to the Entity type
                 // to ensure these jobs are still synced by CompleteAllJobsAndInvalidateArrays
-                m_ReadJobFences[EntityTypeIndex * kMaxReadJobHandles +
-                    m_ComponentSafetyHandles[EntityTypeIndex].NumReadFences] = dependency;
-                m_ComponentSafetyHandles[EntityTypeIndex].NumReadFences++;
+                m_ReadJobFences[entityTypeArrayIndex * kMaxReadJobHandles +
+                    m_ComponentSafetyHandles[entityTypeArrayIndex].NumReadFences] = dependency;
+                m_ComponentSafetyHandles[entityTypeArrayIndex].NumReadFences++;
 
-                if (m_ComponentSafetyHandles[EntityTypeIndex].NumReadFences == kMaxReadJobHandles)
+                if (m_ComponentSafetyHandles[entityTypeArrayIndex].NumReadFences == kMaxReadJobHandles)
                 {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    return CombineReadDependencies(EntityTypeIndex);
+                    return CombineReadDependencies(entityTypeArrayIndex);
 #else
-                    CombineReadDependencies(EntityTypeIndex);
+                    CombineReadDependencies(entityTypeArrayIndex);
 #endif
                 }
                 return dependency;
@@ -280,14 +303,13 @@ namespace Unity.Entities
 
             for (var i = 0; i != writerTypesCount; i++)
             {
-                var writer = writerTypes[i] & TypeManager.ClearFlagsMask;
-                m_ComponentSafetyHandles[writer].WriteFence = dependency;
+                m_ComponentSafetyHandles[GetTypeArrayIndex(writerTypes[i])].WriteFence = dependency;
             }
 
 
             for (var i = 0; i != readerTypesCount; i++)
             {
-                var reader = readerTypes[i] & TypeManager.ClearFlagsMask;
+                var reader = GetTypeArrayIndex(readerTypes[i]);
                 m_ReadJobFences[reader * kMaxReadJobHandles + m_ComponentSafetyHandles[reader].NumReadFences] =
                     dependency;
                 m_ComponentSafetyHandles[reader].NumReadFences++;
@@ -318,75 +340,81 @@ namespace Unity.Entities
 #endif
         }
 
-        public void CompleteWriteDependencyNoChecks(int type)
+        ushort CompleteWriteDependencyNoChecks(int type)
         {
-            m_ComponentSafetyHandles[type & TypeManager.ClearFlagsMask].WriteFence.Complete();
+            if (TypeManager.IsZeroSized(type))
+                return NullTypeIndex;
+
+            var withoutFlags = type & TypeManager.ClearFlagsMask;
+            var arrayIndex = m_TypeArrayIndices[withoutFlags];
+            if (arrayIndex != NullTypeIndex)
+            {
+                m_ComponentSafetyHandles[arrayIndex].WriteFence.Complete();
+            }
+            return arrayIndex;
         }
 
-        public void CompleteReadAndWriteDependencyNoChecks(int type)
+        ushort CompleteReadAndWriteDependencyNoChecks(int type)
         {
-            var typeWithoutFlags = type & TypeManager.ClearFlagsMask;
+            if (TypeManager.IsZeroSized(type))
+                return NullTypeIndex;
 
-            for (var i = 0; i < m_ComponentSafetyHandles[typeWithoutFlags].NumReadFences; ++i)
-                m_ReadJobFences[typeWithoutFlags * kMaxReadJobHandles + i].Complete();
-            m_ComponentSafetyHandles[typeWithoutFlags].NumReadFences = 0;
+            var withoutFlags = type & TypeManager.ClearFlagsMask;
+            var arrayIndex = m_TypeArrayIndices[withoutFlags];
+            if (arrayIndex != NullTypeIndex)
+            {
+                for (var i = 0; i < m_ComponentSafetyHandles[arrayIndex].NumReadFences; ++i)
+                    m_ReadJobFences[arrayIndex * kMaxReadJobHandles + i].Complete();
+                m_ComponentSafetyHandles[arrayIndex].NumReadFences = 0;
 
-            m_ComponentSafetyHandles[typeWithoutFlags].WriteFence.Complete();
+                m_ComponentSafetyHandles[arrayIndex].WriteFence.Complete();
+            }
+            return arrayIndex;
         }
 
         public void CompleteWriteDependency(int type)
         {
-            //TODO: avoid call and turn into assert
-            if (TypeManager.IsZeroSized(type))
-                return;
+            var arrayIndex = CompleteWriteDependencyNoChecks(type);
 
-            CompleteWriteDependencyNoChecks(type);
-            
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var typeWithoutFlags = type & TypeManager.ClearFlagsMask;
-            AtomicSafetyHandle.CheckReadAndThrow(m_ComponentSafetyHandles[typeWithoutFlags].SafetyHandle);
-            AtomicSafetyHandle.CheckReadAndThrow(m_ComponentSafetyHandles[typeWithoutFlags].BufferHandle);
+            if (arrayIndex == NullTypeIndex)
+                return;
+            AtomicSafetyHandle.CheckReadAndThrow(m_ComponentSafetyHandles[arrayIndex].SafetyHandle);
+            AtomicSafetyHandle.CheckReadAndThrow(m_ComponentSafetyHandles[arrayIndex].BufferHandle);
 #endif
-            
         }
 
         public void CompleteReadAndWriteDependency(int type)
         {
-            //TODO: avoid call and turn into assert
-            if (TypeManager.IsZeroSized(type))
-                return;
-
-            CompleteReadAndWriteDependencyNoChecks(type);
-
+            var arrayIndex = CompleteReadAndWriteDependencyNoChecks(type);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var typeWithoutFlags = type & TypeManager.ClearFlagsMask;
-            AtomicSafetyHandle.CheckWriteAndThrow(m_ComponentSafetyHandles[typeWithoutFlags].SafetyHandle);
-            AtomicSafetyHandle.CheckWriteAndThrow(m_ComponentSafetyHandles[typeWithoutFlags].BufferHandle);
+            if (arrayIndex == NullTypeIndex)
+                return;
+            AtomicSafetyHandle.CheckWriteAndThrow(m_ComponentSafetyHandles[arrayIndex].SafetyHandle);
+            AtomicSafetyHandle.CheckWriteAndThrow(m_ComponentSafetyHandles[arrayIndex].BufferHandle);
 #endif
         }
-        
-        
+
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
 
         public AtomicSafetyHandle GetEntityManagerSafetyHandle()
         {
-            m_HasCleanHandles = false;
-            var handle = m_ComponentSafetyHandles[EntityTypeIndex].SafetyHandle;
+            var handle = m_ComponentSafetyHandles[GetTypeArrayIndex(EntityTypeIndex)].SafetyHandle;
             AtomicSafetyHandle.UseSecondaryVersion(ref handle);
             return handle;
         }
-        
+
         public AtomicSafetyHandle GetSafetyHandle(int type, bool isReadOnly)
         {
             if (TypeManager.IsZeroSized(type))
             {
-                var entityTypeHandle = m_ComponentSafetyHandles[EntityTypeIndex].SafetyHandle;
-                AtomicSafetyHandle.UseSecondaryVersion(ref entityTypeHandle);
-                return entityTypeHandle;
+                return GetEntityManagerSafetyHandle();
             }
 
-            m_HasCleanHandles = false;
-            var handle = m_ComponentSafetyHandles[type & TypeManager.ClearFlagsMask].SafetyHandle;
+            var arrayIndex = GetTypeArrayIndex(type);
+
+            var handle = m_ComponentSafetyHandles[arrayIndex].SafetyHandle;
             if (isReadOnly)
                 AtomicSafetyHandle.UseSecondaryVersion(ref handle);
 
@@ -396,19 +424,18 @@ namespace Unity.Entities
         public AtomicSafetyHandle GetBufferSafetyHandle(int type)
         {
             Assert.IsTrue(TypeManager.IsBuffer(type));
-            m_HasCleanHandles = false;
-
-            return m_ComponentSafetyHandles[type & TypeManager.ClearFlagsMask].BufferHandle;
+            var arrayIndex = GetTypeArrayIndex(type);
+            return m_ComponentSafetyHandles[arrayIndex].BufferHandle;
         }
 #endif
 
-        private JobHandle CombineReadDependencies(int typeWithoutFlags)
+        private JobHandle CombineReadDependencies(ushort typeArrayIndex)
         {
             var combined = JobHandleUnsafeUtility.CombineDependencies(
-                m_ReadJobFences + typeWithoutFlags * kMaxReadJobHandles, m_ComponentSafetyHandles[typeWithoutFlags].NumReadFences);
+                m_ReadJobFences + typeArrayIndex * kMaxReadJobHandles, m_ComponentSafetyHandles[typeArrayIndex].NumReadFences);
 
-            m_ReadJobFences[typeWithoutFlags * kMaxReadJobHandles] = combined;
-            m_ComponentSafetyHandles[typeWithoutFlags].NumReadFences = 1;
+            m_ReadJobFences[typeArrayIndex * kMaxReadJobHandles] = combined;
+            m_ComponentSafetyHandles[typeArrayIndex].NumReadFences = 1;
 
             return combined;
         }
@@ -419,13 +446,13 @@ namespace Unity.Entities
                 return;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            for (var i = 0; i != TypeManager.GetTypeCount(); i++)
+            for (var i = 0; i != m_TypeCount; i++)
             {
                 AtomicSafetyHandle.CheckDeallocateAndThrow(m_ComponentSafetyHandles[i].SafetyHandle);
                 AtomicSafetyHandle.CheckDeallocateAndThrow(m_ComponentSafetyHandles[i].BufferHandle);
             }
 
-            for (var i = 0; i != TypeManager.GetTypeCount(); i++)
+            for (var i = 0; i != m_TypeCount; i++)
             {
                 AtomicSafetyHandle.Release(m_ComponentSafetyHandles[i].SafetyHandle);
                 AtomicSafetyHandle.Release(m_ComponentSafetyHandles[i].BufferHandle);
@@ -437,6 +464,7 @@ namespace Unity.Entities
             ExclusiveTransactionSafety = AtomicSafetyHandle.Create();
 #endif
             m_ExclusiveTransactionDependency = GetAllDependencies();
+            ClearAllTypeArrayIndices();
         }
 
         public void EndExclusiveTransaction()
@@ -453,19 +481,15 @@ namespace Unity.Entities
                 Debug.LogError("ExclusiveEntityTransaction job has not been registered");
 #endif
             IsInTransaction = false;
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            CreateComponentSafetyHandles(TypeManager.GetTypeCount());
-#endif
         }
 
         private JobHandle GetAllDependencies()
         {
             var jobHandles =
-                new NativeArray<JobHandle>(TypeManager.GetTypeCount() * (kMaxReadJobHandles + 1), Allocator.Temp);
+                new NativeArray<JobHandle>(m_TypeCount * (kMaxReadJobHandles + 1), Allocator.Temp);
 
             var count = 0;
-            for (var i = 0; i != TypeManager.GetTypeCount(); i++)
+            for (var i = 0; i != m_TypeCount; i++)
             {
                 jobHandles[count++] = m_ComponentSafetyHandles[i].WriteFence;
 
@@ -488,6 +512,7 @@ namespace Unity.Entities
 #endif
             public JobHandle WriteFence;
             public int NumReadFences;
+            public int TypeIndex;
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS

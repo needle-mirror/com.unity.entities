@@ -1,5 +1,4 @@
-﻿#if !UNITY_ZEROPLAYER
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using Unity.Collections;
 using System;
 using Unity.Collections.LowLevel.Unsafe;
@@ -613,7 +612,6 @@ namespace Unity.Entities.Tests
             var deserializedManager = deserializedWorld.EntityManager;
             var system = deserializedWorld.GetOrCreateSystem<TestEcsChangeSystem>();
 
-            system.Update();
             Assert.AreEqual(0, system.NumChanged);
 
             SerializeUtility.DeserializeWorld(deserializedManager.BeginExclusiveEntityTransaction(), reader, 0);
@@ -630,4 +628,3 @@ namespace Unity.Entities.Tests
         }
     }
 }
-#endif

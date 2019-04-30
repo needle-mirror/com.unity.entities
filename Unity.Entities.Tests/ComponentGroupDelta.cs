@@ -1,4 +1,4 @@
-﻿#if !UNITY_ZEROPLAYER
+﻿#if !UNITY_DOTSPLAYER
 using System;
 using NUnit.Framework;
 using Unity.Collections;

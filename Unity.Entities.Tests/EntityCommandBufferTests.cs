@@ -1060,7 +1060,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddOrSetBufferWithEntity_NeedsFixup_Works([Values(true,false)] bool setBuffer)
+        public void AddOrSetBufferWithEntity_NeedsFixup_ContainsRealizedEntity([Values(true,false)] bool setBuffer)
         {
             EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob);
 
@@ -1098,6 +1098,135 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(expect1, outbuf[1].Entity);
                 Assert.AreEqual(expect2, outbuf[2].Entity);
                 Assert.AreEqual(expect0, outbuf[3].Entity);
+            }
+        }
+
+        [Test]
+        public void BufferWithEntity_DelayedFixup_ContainsRealizedEntity()
+        {
+            int kNumOfBuffers = 12; // Must be > 2
+            int kNumOfDeferredEntities = 12;
+
+            EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            Entity[] e = new Entity[kNumOfBuffers];
+
+            for (int n = 0; n < kNumOfBuffers; n++)
+            {
+                e[n] = m_Manager.CreateEntity();
+                var buf = cmds.AddBuffer<EcsComplexEntityRefElement>(e[n]);
+                for (int i = 0; i < kNumOfDeferredEntities; i++)
+                    buf.Add(new EcsComplexEntityRefElement() {Entity = cmds.CreateEntity()});
+            }
+
+            cmds.RemoveComponent<EcsComplexEntityRefElement>(e[0]);
+            cmds.DestroyEntity(e[1]);
+
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            Assert.IsFalse(m_Manager.HasComponent<EcsComplexEntityRefElement>(e[0]));
+            Assert.IsFalse(m_Manager.Exists(e[1]));
+
+            for (int n = 2; n < kNumOfBuffers; n++)
+            {
+                var outbuf = m_Manager.GetBuffer<EcsComplexEntityRefElement>(e[n]);
+                Assert.AreEqual(kNumOfDeferredEntities, outbuf.Length);
+                for (int i = 0; i < outbuf.Length; i++)
+                {
+                    Assert.IsTrue(m_Manager.Exists(outbuf[i].Entity));
+                }
+            }
+        }
+
+        void VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(bool shouldThrow, TestDelegate code)
+        {
+            if (shouldThrow)
+            {
+                var ex = Assert.Throws<ArgumentException>(code);
+                Assert.IsTrue(ex.Message.Contains("deferred"));
+            }
+            else
+            {
+                code();
+            }
+        }
+
+        void RunDeferredTest(Entity entity)
+        {
+            bool isDeferredEntity = entity.Index < 0;
+
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.AddComponent(entity, typeof(EcsTestData)));
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.RemoveComponent(entity, typeof(EcsTestData)));
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.AddComponentData(entity, new EcsTestData()));
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.SetComponentData(entity, new EcsTestData()));
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.GetComponentData<EcsTestData>(entity));
+
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp()));
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.SetSharedComponentData(entity, new EcsTestSharedComp()));
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity));
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.RemoveComponent(entity, typeof(EcsTestSharedComp)));
+
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.AddBuffer<EcsIntElement>(entity));
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.GetBuffer<EcsIntElement>(entity));
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.Exists(entity));
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.HasComponent(entity, typeof(EcsTestData2)));
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.GetComponentCount(entity));
+
+            VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(
+                isDeferredEntity,
+                () => m_Manager.DestroyEntity(entity));
+        }
+
+        [Test]
+        public void DeferredEntities_UsedInTheEntityManager_ShouldThrow()
+        {
+
+            using (EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob))
+            {
+
+                var deferred = cmds.CreateEntity();
+                cmds.AddComponent(cmds.CreateEntity(), new EcsTestDataEntity()
+                {
+                    value1 = deferred
+                });
+
+                RunDeferredTest(deferred);
+
+                cmds.Playback(m_Manager);
+                using (var group = m_Manager.CreateEntityQuery(typeof(EcsTestDataEntity)))
+                using (var arr = group.ToComponentDataArray<EcsTestDataEntity>(Allocator.TempJob))
+                {
+                    RunDeferredTest(arr[0].value1);
+                }
             }
         }
     }

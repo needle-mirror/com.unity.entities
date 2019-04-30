@@ -88,7 +88,14 @@ namespace Unity.Entities
 
     internal unsafe struct ECBSharedPlaybackState
     {
+        public struct BufferWithFixUp
+        {
+            public EntityBufferCommand* cmd;
+        }
+
         public Entity* CreateEntityBatch;
+        public BufferWithFixUp* BuffersWithFixUp;
+        public int LastBuffer;
     }
 
     internal unsafe struct ECBChainPlaybackState
@@ -261,6 +268,8 @@ namespace Unity.Entities
 
         public Entity m_Entity;
 
+        public int m_BufferWithFixupsCount;
+
         internal void InitConcurrentAccess()
         {
             if (m_ThreadedChains != null)
@@ -396,7 +405,7 @@ namespace Unity.Entities
         }
 
         internal BufferHeader* AddEntityBufferCommand<T>(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op,
-            Entity e) where T : struct, IBufferElementData
+            Entity e, out int internalCapacity) where T : struct, IBufferElementData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
             var type = TypeManager.GetTypeInfo<T>();
@@ -415,13 +424,20 @@ namespace Unity.Entities
             BufferHeader* header = &cmd->TempBuffer;
             BufferHeader.Initialize(header, type.BufferCapacity);
 
+            internalCapacity = type.BufferCapacity;
+
             if (TypeManager.HasEntityReferences(typeIndex))
             {
-
                 if (op == ECBCommand.AddBuffer)
+                {
+                    m_BufferWithFixupsCount++;
                     cmd->Header.Header.CommandType = (int) ECBCommand.AddBufferWithEntityFixUp;
+                }
                 else if (op == ECBCommand.SetBuffer)
+                {
+                    m_BufferWithFixupsCount++;
                     cmd->Header.Header.CommandType = (int) ECBCommand.SetBufferWithEntityFixUp;
+                }
             }
 
             return header;
@@ -527,15 +543,16 @@ namespace Unity.Entities
         public DynamicBuffer<T> CreateBufferCommand<T>(ECBCommand commandType, EntityCommandBufferChain* chain, int jobIndex, Entity e) where T : struct, IBufferElementData
 #endif
         {
-            BufferHeader* header = AddEntityBufferCommand<T>(chain, jobIndex, commandType, e);
+            int internalCapacity;
+            BufferHeader* header = AddEntityBufferCommand<T>(chain, jobIndex, commandType, e, out internalCapacity);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var safety = bufferSafety;
             AtomicSafetyHandle.UseSecondaryVersion(ref safety);
             var arraySafety = arrayInvalidationSafety;
-            return new DynamicBuffer<T>(header, safety, arraySafety, false);
+            return new DynamicBuffer<T>(header, safety, arraySafety, false, internalCapacity);
 #else
-            return new DynamicBuffer<T>(header);
+            return new DynamicBuffer<T>(header, internalCapacity);
 #endif
         }
 
@@ -662,6 +679,7 @@ namespace Unity.Entities
             SystemID = 0;
 #endif
             m_Data->m_Entity = new Entity();
+            m_Data->m_BufferWithFixupsCount = 0;
         }
 
         public bool IsCreated   { get { return m_Data != null; } }
@@ -930,23 +948,36 @@ namespace Unity.Entities
                 Assert.AreEqual<int>(m_Data->m_RecordedChainCount, initialChainCount);
 
                 // Play back the recorded commands in increasing sortIndex order
-                const int kMaxEntitiesOnStack = 10000;
+                const int kMaxStatesOnStack = 100000;
                 int entityCount = -m_Data->m_Entity.Index;
+                int bufferCount = m_Data->m_BufferWithFixupsCount;
+                int playbackStateSize = entityCount * sizeof(Entity) +
+                                   bufferCount * sizeof(ECBSharedPlaybackState.BufferWithFixUp);
+
                 Entity* createEntitiesBatch = null;
-                if (entityCount > kMaxEntitiesOnStack)
+                ECBSharedPlaybackState.BufferWithFixUp* buffersWithFixup = null;
+                if (playbackStateSize > kMaxStatesOnStack)
                 {
-                    createEntitiesBatch = (Entity*) UnsafeUtility.Malloc(
-                        entityCount * sizeof(Entity), 16, Allocator.Temp);
+                    createEntitiesBatch = (Entity*)
+                        UnsafeUtility.Malloc(entityCount * sizeof(Entity),
+                            4, Allocator.Temp);
+                    buffersWithFixup = (ECBSharedPlaybackState.BufferWithFixUp*)
+                        UnsafeUtility.Malloc(bufferCount* sizeof(ECBSharedPlaybackState.BufferWithFixUp),
+                            4, Allocator.Temp);
                 }
                 else
                 {
                     var stacke = stackalloc Entity[entityCount];
                     createEntitiesBatch = stacke;
+                    var stackb = stackalloc ECBSharedPlaybackState.BufferWithFixUp[bufferCount];
+                    buffersWithFixup = stackb;
                 }
 
                 ECBSharedPlaybackState playbackState = new ECBSharedPlaybackState
                 {
                     CreateEntityBatch = createEntitiesBatch,
+                    BuffersWithFixUp = buffersWithFixup,
+                    LastBuffer = 0,
                 };
 
                 using (ECBChainPriorityQueue chainQueue = new ECBChainPriorityQueue(chainStates, Allocator.Temp))
@@ -968,9 +999,21 @@ namespace Unity.Entities
                         currentElem = nextElem;
                     }
                 }
-                if (entityCount > kMaxEntitiesOnStack)
+
+                Assert.AreEqual(bufferCount, playbackState.LastBuffer);
+                for (int i = 0; i < playbackState.LastBuffer; i++)
+                {
+                    ECBSharedPlaybackState.BufferWithFixUp* fixup = playbackState.BuffersWithFixUp + i;
+                    EntityBufferCommand* cmd = fixup->cmd;
+                    var entity = SelectEntity(cmd->Header.Entity, playbackState);
+                    if (mgr.Exists(entity) && mgr.HasComponent(entity, TypeManager.GetType(cmd->ComponentTypeIndex)))
+                        SetBufferWithFixup(mgr, cmd, entity, playbackState);
+                }
+
+                if (playbackStateSize > kMaxStatesOnStack)
                 {
                     UnsafeUtility.Free(createEntitiesBatch, Allocator.Temp);
+                    UnsafeUtility.Free(buffersWithFixup, Allocator.Temp);
                 }
             }
 
@@ -1026,6 +1069,14 @@ namespace Unity.Entities
             UnsafeUtility.MemCpy(data, cmd + 1, cmd->ComponentSize);
             FixupComponentData(data, cmd->ComponentTypeIndex,
                 playbackState);
+        }
+
+        private static unsafe void AddToPostPlaybackFixup(EntityBufferCommand* cmd, ref ECBSharedPlaybackState playbackState)
+        {
+            var entity = SelectEntity(cmd->Header.Entity, playbackState);
+            ECBSharedPlaybackState.BufferWithFixUp* toFixup =
+                playbackState.BuffersWithFixUp + playbackState.LastBuffer++;
+            toFixup->cmd = cmd;
         }
 
         private static unsafe void SetBufferWithFixup(
@@ -1115,7 +1166,7 @@ namespace Unity.Entities
                                 var cmd = (EntityComponentCommand*)header;
                                 var componentType = (ComponentType)TypeManager.GetType(cmd->ComponentTypeIndex);
                                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                                mgr.AddComponent(entity, componentType);
+                                mgr.AddComponent(entity, componentType, componentType.IgnoreDuplicateAdd);
                                 if (!componentType.IsZeroSized)
                                     mgr.SetComponentDataRaw(entity, cmd->ComponentTypeIndex, cmd + 1, cmd->ComponentSize);
                             }
@@ -1126,7 +1177,7 @@ namespace Unity.Entities
                                 var cmd = (EntityComponentCommand*)header;
                                 var componentType = (ComponentType)TypeManager.GetType(cmd->ComponentTypeIndex);
                                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                                mgr.AddComponent(entity, componentType);
+                                mgr.AddComponent(entity, componentType, componentType.IgnoreDuplicateAdd);
                                 SetCommandDataWithFixup(mgr, cmd, entity, playbackState);
                             }
                             break;
@@ -1161,7 +1212,7 @@ namespace Unity.Entities
                                 var cmd = (EntityBufferCommand*) header;
                                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                                 mgr.AddComponent(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex));
-                                SetBufferWithFixup(mgr, cmd, entity, playbackState);
+                                AddToPostPlaybackFixup(cmd, ref playbackState);
                             }
                             break;
 
@@ -1176,8 +1227,7 @@ namespace Unity.Entities
                         case ECBCommand.SetBufferWithEntityFixUp:
                             {
                                 var cmd = (EntityBufferCommand*)header;
-                                var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                                SetBufferWithFixup(mgr, cmd, entity, playbackState);
+                                AddToPostPlaybackFixup(cmd, ref playbackState);
                             }
                             break;
 

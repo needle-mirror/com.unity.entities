@@ -53,10 +53,6 @@ namespace Unity.Entities
             world.AddSystem(presentationSystemGroup);
 
             // Create the working set of systems.
-            int nSystems = 0;
-            Type[] systemTypes = new Type[allSystemTypes.Length];
-            ComponentSystem[] systems = new ComponentSystem[allSystemTypes.Length];
-
 #if WRITE_LOG
             Console.WriteLine("--- Adding systems:");
 #endif
@@ -74,38 +70,11 @@ namespace Unity.Entities
 
                 if (world.GetExistingSystem(allSystemTypes[i]) != null)
                     continue;
+
 #if WRITE_LOG
                 Console.WriteLine(allSystemNames[i]);
 #endif
-                systemTypes[nSystems] = allSystemTypes[i];
-                systems[nSystems] = TypeManager.ConstructSystem(allSystemTypes[i]);
-                world.AddSystem(systems[nSystems]);
-                nSystems++;
-            }
-#if WRITE_LOG
-            Console.WriteLine("--- Adding systems Done.");
-#endif
-
-            for (int i = 0; i < nSystems; ++i)
-            {
-                var sysType = systemTypes[i];
-                var system = systems[i];
-
-                var groups = TypeManager.GetSystemAttributes(sysType, typeof(UpdateInGroupAttribute));
-                if (groups.Length == 0)
-                {
-                    simulationSystemGroup.AddSystemToUpdateList(system);
-                }
-
-                for (int g = 0; g < groups.Length; ++g)
-                {
-                    var groupType = groups[g] as UpdateInGroupAttribute;
-                    var groupSystem = world.GetExistingSystem(groupType.GroupType) as ComponentSystemGroup;
-                    if (groupSystem == null)
-                        throw new Exception("DefaultTinyWorldInitialization failed to find existing SystemGroup.");
-
-                    groupSystem.AddSystemToUpdateList(system);
-                }
+                AddSystem(world, TypeManager.ConstructSystem(allSystemTypes[i]));
             }
         }
 
@@ -120,7 +89,7 @@ namespace Unity.Entities
             presentationSystemGroup.SortSystemUpdateList();
 
 #if WRITE_LOG
-#if UNITY_ZEROPLAYER
+#if UNITY_DOTSPLAYER
             Console.WriteLine("** Sorted: initializationSystemGroup **");
             initializationSystemGroup.RecursiveLogToConsole();
             Console.WriteLine("** Sorted: simulationSystemGroup **");
@@ -130,6 +99,47 @@ namespace Unity.Entities
             Console.WriteLine("** Sorted done. **");
 #endif
 #endif
+        }
+
+        /// <summary>
+        /// Call this to add a System that was manually constructed; normally these
+        /// Systems are marked with [DisableAutoCreation]
+        /// </summary>
+        public static void AddSystem(World world, ComponentSystemBase system)
+        {
+            AddSystem(world, new [] {system});
+        }
+
+        /// <summary>
+        /// Call this to add a System that was manually constructed; normally these
+        /// Systems are marked with [DisableAutoCreation]
+        /// </summary>
+        public static void AddSystem(World world, ComponentSystemBase[] systems)
+        {
+            foreach(ComponentSystemBase system in systems)
+            {
+                if (world.GetExistingSystem(system.GetType()) != null)
+                    throw new ArgumentException("AddAndSortSystem: Error to add a duplicate system.");
+
+                world.AddSystem(system);
+
+                var groups = TypeManager.GetSystemAttributes(system.GetType(), typeof(UpdateInGroupAttribute));
+                if (groups.Length == 0)
+                {
+                    var simulationSystemGroup = world.GetExistingSystem<SimulationSystemGroup>();
+                    simulationSystemGroup.AddSystemToUpdateList(system);
+                }
+
+                for (int g = 0; g < groups.Length; ++g)
+                {
+                    var groupType = groups[g] as UpdateInGroupAttribute;
+                    var groupSystem = world.GetExistingSystem(groupType.GroupType) as ComponentSystemGroup;
+                    if (groupSystem == null)
+                        throw new Exception("AddAndSortSystem failed to find existing SystemGroup.");
+
+                    groupSystem.AddSystemToUpdateList(system);
+                }
+            }
         }
     }
 }

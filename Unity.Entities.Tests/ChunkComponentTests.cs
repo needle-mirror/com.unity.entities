@@ -163,7 +163,7 @@ namespace Unity.Entities.Tests
             metaChunkHeaders.Dispose();
         }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
         [DisableAutoCreation]
         [UpdateInGroup(typeof(PresentationSystemGroup))]
         private class ChunkBoundsUpdateSystem : JobComponentSystem

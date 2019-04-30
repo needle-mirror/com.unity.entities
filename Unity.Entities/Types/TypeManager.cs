@@ -8,6 +8,8 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
+
 
 namespace Unity.Entities
 {
@@ -105,7 +107,7 @@ namespace Unity.Entities
         private static NativeList<EntityOffsetInfo> s_BlobAssetRefOffsetList;
 #endif
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
         internal static Type UnityEngineComponentType;
 
         public static void RegisterUnityEngineComponentType(Type type)
@@ -526,6 +528,13 @@ namespace Unity.Entities
                         if (type.IsAbstract || !type.IsValueType)
                             continue;
 
+                        // Don't register open generics here.  It's an open question
+                        // on whether we should support them for components at all,
+                        // as with them we can't ever see a full set of component types
+                        // in use.
+                        if (type.ContainsGenericParameters)
+                            continue;
+
                         // XXX There's a bug in the Unity Mono scripting backend where if the
                         // Mono type hasn't been initialized, the IsUnmanaged result is wrong.
                         // We force it to be fully initialized by creating an instance until
@@ -555,7 +564,7 @@ namespace Unity.Entities
                 // This must always be first so that Entity is always first in the archetype
                 AddTypeInfoToTables(new TypeInfo(typeof(Entity), 1, sizeof(Entity), TypeCategory.EntityData,
                     FastEquality.CreateTypeInfo<Entity>(), EntityRemapUtility.CalculateEntityOffsets<Entity>(), null, 0, -1,
-                    sizeof(Entity), UnsafeUtility.AlignOf<Entity>(), CalculateStableTypeHash(typeof(Entity)), null, 0, int.MaxValue));
+                    sizeof(Entity), CalculateAlignmentInChunk(sizeof(Entity)), TypeHash.CalculateStableTypeHash(typeof(Entity)), null, 0, int.MaxValue));
 
                 var componentTypeCount = componentTypeSet.Count;
                 var componentTypes = new Type[componentTypeCount];
@@ -781,13 +790,9 @@ namespace Unity.Entities
 
         public static int GetTypeIndexFromStableTypeHash(ulong stableTypeHash)
         {
-            #if !NET_DOTS
-                if(s_StableTypeHashToTypeIndex.TryGetValue(stableTypeHash, out var typeIndex))
-                    return typeIndex;
-                return -1;
-            #else
-                throw new InvalidOperationException("Not allowed in Project Tiny");
-            #endif
+            if(s_StableTypeHashToTypeIndex.TryGetValue(stableTypeHash, out var typeIndex))
+                return typeIndex;
+            return -1;
         }
 
 #if !NET_DOTS
@@ -854,13 +859,23 @@ namespace Unity.Entities
         /// <summary>
         /// Construct a System from a Type. Uses the same list in GetSystems()
         /// </summary>
-        public static ComponentSystem ConstructSystem(Type systemType)
+        ///
+        public static ComponentSystemBase ConstructSystem(Type systemType)
         {
             var obj = StaticTypeRegistry.StaticTypeRegistry.CreateSystem(systemType);
-            var sys = obj as ComponentSystem;
-            if (sys == null)
+            if (!(obj is ComponentSystemBase))
                 throw new Exception("Null casting in Construct System. Bug in TypeManager.");
-            return sys;
+            return obj as ComponentSystemBase;
+        }
+
+        public static T ConstructSystem<T>(Type systemType) where T : ComponentSystemBase
+        {
+            return (T) ConstructSystem(systemType);
+        }
+
+        public static T ConstructSystem<T>() where T : ComponentSystemBase
+        {
+            return ConstructSystem<T>(typeof(T));
         }
 
         /// <summary>
@@ -869,6 +884,11 @@ namespace Unity.Entities
         public static Attribute[] GetSystemAttributes(Type systemType)
         {
             return StaticTypeRegistry.StaticTypeRegistry.GetSystemAttributes(systemType);
+        }
+
+        public static object ConstructComponentFromBuffer(int typeIndex, void* data)
+        {
+            return StaticTypeRegistry.StaticTypeRegistry.ConstructComponentFromBuffer(typeIndex & ClearFlagsMask, data);
         }
 
         /// <summary>
@@ -966,6 +986,25 @@ namespace Unity.Entities
             return (value & (value - 1)) == 0;
         }
 
+        // TODO: Fix our wild alignment requirements for chunk memory (easier said than done)
+        /// <summary>
+        /// Our alignment calculations for types are taken from the perspective of the alignment of the type _specifically_ when
+        /// stored in chunk memory. This means a type's natural alignment may not match the AlignmentInChunk value. Our current scheme is such that
+        /// an alignment of 'MaximumSupportedAlignment' is assumed unless the size of the type is smaller than 'MaximumSupportedAlignment' and is a power of 2.
+        /// In such cases we use the type size directly, thus if you have a type that naturally aligns to 4 bytes and has a size of 8, the AlignmentInChunk will be 8
+        /// as long as 8 is less than 'MaximumSupportedAlignment'.
+        /// </summary>
+        /// <param name="sizeOfTypeInBytes"></param>
+        /// <returns></returns>
+        internal static int CalculateAlignmentInChunk(int sizeOfTypeInBytes)
+        {
+            int alignmentInBytes = MaximumSupportedAlignment;
+            if (sizeOfTypeInBytes < alignmentInBytes && IsPowerOfTwo(sizeOfTypeInBytes))
+                alignmentInBytes = sizeOfTypeInBytes;
+
+            return alignmentInBytes;
+        }
+
 #if !NET_DOTS
         //
         // The reflection-based type registration path that we can't support with tiny csharp profile.
@@ -999,21 +1038,6 @@ namespace Unity.Entities
             }
         }
 
-        // Todo: Replace with code in Entities.BuildUtils
-        static ulong CalculateMemoryOrdering(Type type)
-        {
-            if (type == typeof(Entity))
-                return 0;
-
-            var forcedOrdering = type.GetCustomAttribute<ForcedMemoryOrderingAttribute>();
-            if (forcedOrdering != null)
-                return forcedOrdering.MemoryOrdering;
-
-            var result = CalculateStableTypeHash(type);
-            result = result != 0 ? result : 1;
-            return result;
-        }
-
         private static int CreateTypeIndexThreadSafe(Type type)
         {
             var lockTaken = false;
@@ -1039,28 +1063,6 @@ namespace Unity.Entities
                     s_CreateTypeLock.Exit(true);
                 }
             }
-        }
-
-        private static ulong HashStringWithFNV1A64(string text)
-        {
-            // Using http://www.isthe.com/chongo/tech/comp/fnv/index.html#FNV-1a
-            // with basis and prime:
-            const ulong offsetBasis = 14695981039346656037;
-            const ulong prime = 1099511628211;
-
-            ulong result = offsetBasis;
-            foreach (var c in text)
-            {
-                result = prime * (result ^ (byte)(c & 255));
-                result = prime * (result ^ (byte)(c >> 8));
-            }
-            return result;
-        }
-
-        // Todo: Replace with code in Entities.BuildUtils
-        static ulong CalculateStableTypeHash(Type type)
-        {
-            return HashStringWithFNV1A64(type.AssemblyQualifiedName);
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
@@ -1114,8 +1116,8 @@ namespace Unity.Entities
             EntityOffsetInfo[] entityOffsets = null;
             EntityOffsetInfo[] blobAssetRefOffsets = null;
             int bufferCapacity = -1;
-            var memoryOrdering = CalculateMemoryOrdering(type);
-            var stableTypeHash = CalculateStableTypeHash(type);
+            var memoryOrdering = TypeHash.CalculateMemoryOrdering(type);
+            var stableTypeHash = TypeHash.CalculateStableTypeHash(type);
             var maxChunkCapacity = MaximumChunkCapacity;
 
             var maxCapacityAttribute = type.GetCustomAttribute<MaximumChunkCapacityAttribute>();
@@ -1135,11 +1137,7 @@ namespace Unity.Entities
                 category = TypeCategory.ComponentData;
 
                 int sizeInBytes = UnsafeUtility.SizeOf(type);
-                // TODO: Implement UnsafeUtility.AlignOf(type)
-                // Assume an alignment of 16, unless the type itself is smaller and a power of two
-                alignmentInBytes = MaximumSupportedAlignment;
-                if (sizeInBytes < alignmentInBytes && IsPowerOfTwo(sizeInBytes))
-                    alignmentInBytes = sizeInBytes;
+                alignmentInBytes = CalculateAlignmentInChunk(sizeInBytes);
 
                 if (TypeManager.IsZeroSizeStruct(type))
                     componentSize = 0;
@@ -1158,10 +1156,7 @@ namespace Unity.Entities
 
                 int sizeInBytes = UnsafeUtility.SizeOf(type);
                 // TODO: Implement UnsafeUtility.AlignOf(type)
-                // Assume an alignment of 16, unless the type itself is smaller
-                alignmentInBytes = MaximumSupportedAlignment;
-                if (sizeInBytes < alignmentInBytes && IsPowerOfTwo(sizeInBytes))
-                    alignmentInBytes = sizeInBytes;
+                alignmentInBytes = CalculateAlignmentInChunk(sizeInBytes);
 
                 elementSize = sizeInBytes;
 
@@ -1233,5 +1228,54 @@ namespace Unity.Entities
             throw new ArgumentException("Tried to GetTypeIndex for type that has not been set up by the static registry.");
         }
 #endif
+        public struct FieldInfo
+        {
+            public int componentTypeIndex;
+            public PrimitiveFieldTypes primitiveType;
+            public int byteOffsetInComponent;
+
+            // Syntactic stuff so we can support:
+            //     Add(GetField("TransformLocalScale.scale.y") or
+            //     Add("TransformLocalScale.scale.y")
+            public static implicit operator FieldInfo(string s)
+            {
+                return new FieldInfo();
+            }
+        }
+
+        public static FieldInfo GetField(string name)
+        {
+            throw new Exception("Should be replaced by code-gen.");
+        }
+
+        // Used by code-gen.
+        public static FieldInfo GetFieldArgs(int arg0, int arg1, int arg2)
+        {
+            return new FieldInfo() {componentTypeIndex = arg0, primitiveType = (PrimitiveFieldTypes) arg1, byteOffsetInComponent = arg2};
+        }
+    }
+
+    // This absolutely, positively must match code gen.
+    // See FieldNameToID()
+    // This is not a complete list of types; it is the subset of types that
+    // can be returned and identified by GetField()
+    public enum PrimitiveFieldTypes
+    {
+        Bool          = 0,
+        Byte          = 1,
+        SByte         = 2,
+        Double        = 3,
+        Float         = 4,
+        Int           = 5,
+        UInt          = 6,
+        Long          = 7,
+        Ulong         = 8,
+        Short         = 9,
+        UShort        = 10,
+        Quaternion    = 11,
+        Float2        = 12,
+        Float3        = 13,
+        Float4        = 14,
+        Color         = 15
     }
 }

@@ -47,7 +47,77 @@ namespace Unity.Entities
         {
         }
 
-#if !UNITY_ZEROPLAYER
+#if UNITY_DOTSPLAYER
+        // Methods used so Tiny code will link / compile, but replaced by codegen.
+        //
+        // Code-Gen of Schedule()
+        // ----------------------
+        // Taking the specific example of Schedule(), the steps are:
+        //
+        // T4 operates on .tt files to generate IJobFerEach.gen.cs. This is
+        // done by a developer when the code is written. (T4 is a tool for
+        // generating code variations.)
+        //
+        // A game developer calls job.Schedule(this).Complete() method.
+        //
+        // After the compiler runs, code-gen runs, which operates on the IL code
+        // output from tehe compiler. Code-gen replaces, in IL, the
+        // call to Schedule() with the correct variant (Schedule_rD, for example.)
+        //
+        // Schedule_rD<TJob, T0> would be a job with one read-only Component.
+        //
+        // Schedule_rD is internal by default, so it can't be directly called from user code.
+        // Code gen will also promote it to public.
+        //
+        // For ComponentData with the [DeallocateOnJobCompletion] Attribute, code-gen is
+        // used create the Dispose() calls needed to clean up the resources.
+
+        static internal void DoDeallocateOnJobCompletion(object jobData)
+        {
+            throw new NotImplementedException("This function should have been replaced by codegen");
+        }
+
+        public static JobHandle Schedule<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
+            where T : struct, IBaseJobForEach
+        {
+            throw new NotImplementedException("Schedule<T>(EntityQuery query) should have been replaced by code-gen.");
+        }
+
+        public static JobHandle Run<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
+            where T : struct, IBaseJobForEach
+        {
+            throw new NotImplementedException("Run<T>(EntityQuery query) should have been replaced by code-gen.");
+        }
+
+        public static JobHandle ScheduleSingle<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
+            where T : struct, IBaseJobForEach
+        {
+            throw new NotImplementedException("ScheduleSingle<T>(EntityQuery query) should have been replaced by code-gen.");
+        }
+
+
+        public unsafe static JobHandle Schedule<TJob>(this TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
+            where TJob : struct, IBaseJobForEach
+        {
+            throw new NotImplementedException("Schedule<TJob>(ComponentSystemBase system) should have been replaced by code-gen.");
+        }
+
+        public unsafe static JobHandle Run<TJob>(this TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
+            where TJob : struct, IBaseJobForEach
+        {
+            throw new NotImplementedException("Schedule<TJob>(ComponentSystemBase system) should have been replaced by code-gen.");
+        }
+
+        public unsafe static JobHandle ScheduleSingle<TJob>(this TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
+            where TJob : struct, IBaseJobForEach
+        {
+            throw new NotImplementedException("Schedule<TJob>(ComponentSystemBase system) should have been replaced by code-gen.");
+        }
+
+#endif
+
+
+#if !UNITY_DOTSPLAYER
         static ComponentType[] GetComponentTypes(Type jobType)
         {
             var interfaceType = GetIJobForEachInterface(jobType);

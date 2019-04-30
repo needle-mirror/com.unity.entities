@@ -74,6 +74,18 @@ namespace Unity.Entities
         public EntityQueryOptions Options = EntityQueryOptions.Default;
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        void ValidateComponentTypes(ComponentType[] componentTypes, ref NativeArray<int> allComponentTypeIds, ref int curComponentTypeIndex)
+        {
+            for (int i = 0; i < componentTypes.Length; i++)
+            {
+                var componentType = componentTypes[i];
+                allComponentTypeIds[curComponentTypeIndex++] = componentType.TypeIndex;
+                if (componentType.AccessModeType == ComponentType.AccessMode.Exclude)
+                    throw new ArgumentException("EntityQueryDesc cannot contain Exclude Component types");
+            }
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void Validate()
         {
             // Determine the number of ComponentTypes contained in the filters
@@ -84,28 +96,9 @@ namespace Unity.Entities
 
             var allComponentTypeIds = new NativeArray<int>(itemCount, Allocator.Temp);
             var curComponentTypeIndex = 0;
-
-            for (int i = 0; i < None.Length; i++)
-            {
-                var componentType = None[i];
-                allComponentTypeIds[curComponentTypeIndex++] = componentType.TypeIndex;
-                if (componentType.AccessModeType == ComponentType.AccessMode.Exclude)
-                    throw new ArgumentException("EntityQueryDesc cannot contain Exclude Component types");
-            }
-            for (int i = 0; i < All.Length; i++)
-            {
-                var componentType = All[i];
-                allComponentTypeIds[curComponentTypeIndex++] = componentType.TypeIndex;
-                if (componentType.AccessModeType == ComponentType.AccessMode.Exclude)
-                    throw new ArgumentException("EntityQueryDesc cannot contain Exclude Component types");
-            }
-            for (int i = 0; i < Any.Length; i++)
-            {
-                var componentType = Any[i];
-                allComponentTypeIds[curComponentTypeIndex++] = componentType.TypeIndex;
-                if (componentType.AccessModeType == ComponentType.AccessMode.Exclude)
-                    throw new ArgumentException("EntityQueryDesc cannot contain Exclude Component types");
-            }
+            ValidateComponentTypes(None, ref allComponentTypeIds, ref curComponentTypeIndex);
+            ValidateComponentTypes(All, ref allComponentTypeIds, ref curComponentTypeIndex);
+            ValidateComponentTypes(Any, ref allComponentTypeIds, ref curComponentTypeIndex);
 
             // Check for duplicate, only if necessary
             if (itemCount > 1)
@@ -121,10 +114,12 @@ namespace Unity.Entities
                     if (curId == refId)
                     {
 #if NET_DOTS
-                        throw new EntityQueryDescValidationException($"Cannot create a queryDesc with more than one filter containing the same component type, type index {curId}");
+                        throw new EntityQueryDescValidationException(
+                            $"EntityQuery contains a filter with duplicate component type index {curId}.  Queries can only contain a single component of a given type in a filter.");
 #else
                         var compType = TypeManager.GetType(curId);
-                        throw new EntityQueryDescValidationException($"Cannot create a queryDesc with more than one filter containing the same component type, type name {compType.Name}");
+                        throw new EntityQueryDescValidationException(
+                            $"EntityQuery contains a filter with duplicate component type name {compType.Name}.  Queries can only contain a single component of a given type in a filter.");
 #endif
                     }
 

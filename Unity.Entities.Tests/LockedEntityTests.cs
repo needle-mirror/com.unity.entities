@@ -30,6 +30,45 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
+        public void LockChunkOrderDestroyGroup()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var chunkCapacity = archetype.ChunkCapacity;
+            var entityCount = 10000;
+            var chunkCount = (entityCount + (chunkCapacity-1)) / chunkCapacity;
+            var chunks = new NativeArray<ArchetypeChunk>(chunkCount, Allocator.Persistent);
+
+            m_Manager.CreateChunk(archetype, chunks, entityCount);
+
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            m_Manager.LockChunkOrder(group);
+            m_Manager.DestroyEntity(group);
+            
+            chunks.Dispose();
+            group.Dispose();            
+        }
+        
+        [Test]
+        public void LockChunkOrderDestroyGroupStateTag()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsStateTag1));
+            var chunkCapacity = archetype.ChunkCapacity;
+            var entityCount = 10000;
+            var chunkCount = (entityCount + (chunkCapacity-1)) / chunkCapacity;
+            var chunks = new NativeArray<ArchetypeChunk>(chunkCount, Allocator.Persistent);
+
+            m_Manager.CreateChunk(archetype, chunks, entityCount);
+
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsStateTag1));
+            m_Manager.LockChunkOrder(group);
+            m_Manager.DestroyEntity(group);
+            m_Manager.RemoveComponent(group,typeof(EcsStateTag1));
+            
+            chunks.Dispose();
+            group.Dispose();            
+        }
+        
+        [Test]
         public void LockedEntityChunksNotAddToExistingChunks()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));

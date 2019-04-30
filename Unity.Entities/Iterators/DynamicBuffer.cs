@@ -13,6 +13,9 @@ namespace Unity.Entities
         [NativeDisableUnsafePtrRestriction]
         BufferHeader* m_Buffer;
 
+        // Stores original internal capacity of the buffer header, so heap excess can be removed entirely when trimming.
+        private int m_InternalCapacity;
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
 	    internal AtomicSafetyHandle m_Safety0;
 	    internal AtomicSafetyHandle m_Safety1;
@@ -22,7 +25,7 @@ namespace Unity.Entities
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal DynamicBuffer(BufferHeader* header, AtomicSafetyHandle safety, AtomicSafetyHandle arrayInvalidationSafety, bool isReadOnly)
+        internal DynamicBuffer(BufferHeader* header, AtomicSafetyHandle safety, AtomicSafetyHandle arrayInvalidationSafety, bool isReadOnly, int internalCapacity)
         {
             m_Buffer = header;
             m_Safety0 = safety;
@@ -30,11 +33,13 @@ namespace Unity.Entities
             m_SafetyReadOnlyCount = isReadOnly ? 2 : 0;
             m_SafetyReadWriteCount = isReadOnly ? 0 : 2;
             m_IsReadOnly = isReadOnly;
+            m_InternalCapacity = internalCapacity;
         }
 #else
-        internal DynamicBuffer(BufferHeader* header)
+        internal DynamicBuffer(BufferHeader* header, int internalCapacity)
         {
             m_Buffer = header;
+            m_InternalCapacity = internalCapacity;
         }
 #endif
 
@@ -162,11 +167,25 @@ namespace Unity.Entities
             int elemSize = UnsafeUtility.SizeOf<T>();
             int elemAlign = UnsafeUtility.AlignOf<T>();
 
-            byte* newPtr = (byte*) UnsafeUtility.Malloc((long)elemSize * length, elemAlign, Allocator.Persistent);
+            bool isInternal;
+            byte* newPtr;
+
+            // If the size fits in the internal buffer, prefer to move the elements back there.
+            if (length <= m_InternalCapacity)
+            {
+                newPtr = (byte*) (m_Buffer + 1);
+                isInternal = true;
+            }
+            else
+            {
+                newPtr = (byte*) UnsafeUtility.Malloc((long) elemSize * length, elemAlign, Allocator.Persistent);
+                isInternal = false;
+            }
+
             UnsafeUtility.MemCpy(newPtr, oldPtr, (long)elemSize * length);
 
-            m_Buffer->Capacity = length;
-            m_Buffer->Pointer = newPtr;
+            m_Buffer->Capacity = Math.Max(length, m_InternalCapacity);
+            m_Buffer->Pointer = isInternal ? null : newPtr;
 
             UnsafeUtility.Free(oldPtr, Allocator.Persistent);
         }
@@ -232,10 +251,12 @@ namespace Unity.Entities
             if (UnsafeUtility.SizeOf<U>() != UnsafeUtility.SizeOf<T>())
                 throw new InvalidOperationException($"Types {typeof(U)} and {typeof(T)} are of different sizes; cannot reinterpret");
 #endif
+            // NOTE: We're forwarding the internal capacity along to this aliased, type-punned buffer.
+            // That's OK, because if mutating operations happen they are all still the same size.
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new DynamicBuffer<U>(m_Buffer, m_Safety0, m_Safety1, m_IsReadOnly);
+            return new DynamicBuffer<U>(m_Buffer, m_Safety0, m_Safety1, m_IsReadOnly, m_InternalCapacity);
 #else
-            return new DynamicBuffer<U>(m_Buffer);
+            return new DynamicBuffer<U>(m_Buffer, m_InternalCapacity);
 #endif
         }
 

@@ -105,7 +105,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityManagerDestructionDetectsUnregisteredJob()
         {
-            #if !UNITY_ZEROPLAYER
+            #if !UNITY_DOTSPLAYER
             LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("job is still running"));
             #endif
 

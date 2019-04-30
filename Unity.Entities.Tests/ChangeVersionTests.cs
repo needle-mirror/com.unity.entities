@@ -6,7 +6,7 @@ namespace Unity.Entities.Tests
 {
     class ChangeVersionTests : ECSTestsFixture
     {
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
         [DisableAutoCreation]
         class BumpVersionSystemInJob : ComponentSystem
         {
@@ -147,7 +147,7 @@ namespace Unity.Entities.Tests
             Assert.AreNotEqual(0, system.LastSystemVersion);
         }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
         [Test]
         public void CHG_SystemVersionJob()
         {

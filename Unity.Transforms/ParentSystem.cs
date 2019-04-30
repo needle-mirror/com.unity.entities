@@ -3,6 +3,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using UnityEngine.Profiling;
 
 namespace Unity.Transforms
 {
@@ -256,11 +257,21 @@ namespace Unity.Transforms
         
         protected override void OnUpdate()
         {
+            Profiler.BeginSample("UpdateDeletedParents");
             UpdateDeletedParents();
-            UpdateRemoveParents();
+            Profiler.EndSample();
             
+            Profiler.BeginSample("UpdateRemoveParents");
+            UpdateRemoveParents();
+            Profiler.EndSample();
+
+            Profiler.BeginSample("UpdateChangeParents");
             UpdateChangeParents();
-            UpdateNewParents();
+            Profiler.EndSample();
+
+            Profiler.BeginSample("UpdateNewParents");
+            UpdateNewParents(); 
+            Profiler.EndSample();
         }
     }
 }

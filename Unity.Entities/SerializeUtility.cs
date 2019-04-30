@@ -1,9 +1,7 @@
-﻿#if !NET_DOTS
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -27,7 +25,15 @@ namespace Unity.Entities.Serialization
             public int BlobDataOffset;
         }
 
-        public static int CurrentFileFormatVersion = 17;
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct SharedComponentRecord
+        {
+            public ulong StableTypeHash;
+            public int HashCode;
+            public int ComponentSize;
+        }
+
+        public static int CurrentFileFormatVersion = 18;
 
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, int numSharedComponents)
         {
@@ -45,8 +51,7 @@ namespace Unity.Entities.Serialization
 
             var types = ReadTypeArray(reader);
             int totalEntityCount;
-            var typeCount = new NativeArray<int>(types.Length, Allocator.Temp);
-            var archetypes = ReadArchetypes(reader, types, manager, out totalEntityCount, typeCount);
+            var archetypes = ReadArchetypes(reader, types, manager, out totalEntityCount);
 
             int sharedComponentArraysLength = reader.ReadInt();
             var sharedComponentArrays = new NativeArray<int>(sharedComponentArraysLength, Allocator.Temp);
@@ -140,7 +145,7 @@ namespace Unity.Entities.Serialization
 
             if (totalBlobAssetSize != 0)
             {
-                manager.DataManager->AddSharedComponent(blobAssetRefChunks, ComponentType.ReadWrite<BlobAssetOwner>(), manager.ArchetypeManager, manager.EntityGroupManager, blobAssetOwnerIndex);
+                manager.DataManager->AddSharedComponent(blobAssetRefChunks, ComponentType.ReadWrite<BlobAssetOwner>(), manager.ArchetypeManager, manager.EntityGroupManager, manager.SharedComponentDataManager, blobAssetOwnerIndex);
                 manager.SharedComponentDataManager.AddReference(blobAssetOwnerIndex, blobAssetRefChunks.Length - 1);
                 blobAssetRefChunks.Dispose();
             }
@@ -156,11 +161,10 @@ namespace Unity.Entities.Serialization
             sharedComponentArrays.Dispose();
             archetypes.Dispose();
             types.Dispose();
-            typeCount.Dispose();
         }
 
         private static unsafe NativeArray<EntityArchetype> ReadArchetypes(BinaryReader reader, NativeArray<int> types, ExclusiveEntityTransaction entityManager,
-            out int totalEntityCount, NativeArray<int> typeCount)
+            out int totalEntityCount)
         {
             int archetypeCount = reader.ReadInt();
             var archetypes = new NativeArray<EntityArchetype>(archetypeCount, Allocator.Temp);
@@ -174,13 +178,12 @@ namespace Unity.Entities.Serialization
                 tempComponentTypes.Clear();
                 for (int iType = 0; iType < archetypeComponentTypeCount; ++iType)
                 {
-                    int typeIndexInFile = reader.ReadInt();
-                    int typeIndexInFileWithoutFlags = typeIndexInFile & TypeManager.ClearFlagsMask;
-                    int typeIndex = types[typeIndexInFileWithoutFlags];
-                    if (TypeManager.IsChunkComponent(typeIndexInFile))
+                    int typeHashIndexInFile = reader.ReadInt();
+                    int typeHashIndexInFileNoFlags = typeHashIndexInFile & TypeManager.ClearFlagsMask;
+                    int typeIndex = types[typeHashIndexInFileNoFlags];
+                    if (TypeManager.IsChunkComponent(typeHashIndexInFile))
                         typeIndex = TypeManager.MakeChunkComponentTypeIndex(typeIndex);
 
-                    typeCount[typeIndexInFileWithoutFlags] += archetypeEntityCount;
                     tempComponentTypes.Add(ComponentType.FromTypeIndex(typeIndex));
                 }
 
@@ -199,35 +202,21 @@ namespace Unity.Entities.Serialization
 
             reader.ReadArray(typeHashBuffer, typeCount);
 
-            int nameBufferSize = reader.ReadInt();
-            var nameBuffer = new NativeArray<byte>(nameBufferSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
-            reader.ReadBytes(nameBuffer, nameBufferSize);
             var types = new NativeArray<int>(typeCount, Allocator.Temp);
-            int offset = 0;
             for (int i = 0; i < typeCount; ++i)
             {
-                string typeName = StringFromNativeBytes(nameBuffer, offset);
-                var type = Type.GetType(typeName);
+                var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(typeHashBuffer[i]);
+                if (typeIndex < 0)
+                    throw new ArgumentException($"Cannot find TypeIndex for type hash '{typeHashBuffer[i]:X8}'. Ensure your runtime depends on all assemblies defining the Component types your data uses.");
 
-                if (type == null)
-                    throw new ArgumentException($"Type no longer exists: '{typeName}'");
-
-                types[i] = TypeManager.GetTypeIndex(type);
-                if (types[i] == 0)
-                    throw new ArgumentException("Unknown type '" + typeName + "'");
-
-                if (typeHashBuffer[i] != TypeManager.GetTypeInfo(types[i]).StableTypeHash)
-                    throw new ArgumentException($"Type layout has changed: '{type.Name}'");
-
-                offset += typeName.Length + 1;
+                types[i] = typeIndex;
             }
 
-            nameBuffer.Dispose();
             typeHashBuffer.Dispose();
             return types;
         }
 
-        internal static unsafe void GetAllArchetypes(ArchetypeManager archetypeManager, out Dictionary<EntityArchetype, int> archetypeToIndex, out EntityArchetype[] archetypeArray)
+        internal static unsafe void GetAllArchetypes(ArchetypeManager archetypeManager, out NativeHashMap<EntityArchetype, int> archetypeToIndex, out EntityArchetype[] archetypeArray)
         {
             var archetypeList = new List<EntityArchetype>();
             for (var i = archetypeManager.m_Archetypes.Count - 1; i >= 0; --i)
@@ -237,10 +226,10 @@ namespace Unity.Entities.Serialization
                     archetypeList.Add(new EntityArchetype{Archetype = archetype});
             }
             //todo: sort archetypes to get deterministic indices
-            archetypeToIndex = new Dictionary<EntityArchetype, int>();
+            archetypeToIndex = new NativeHashMap<EntityArchetype, int>(archetypeList.Count, Allocator.Temp);
             for (int i = 0; i < archetypeList.Count; ++i)
             {
-                archetypeToIndex.Add(archetypeList[i],i);
+                archetypeToIndex.TryAdd(archetypeList[i],i);
             }
 
             archetypeArray = archetypeList.ToArray();
@@ -258,55 +247,36 @@ namespace Unity.Entities.Serialization
             writer.Write(CurrentFileFormatVersion);
             var archetypeManager = entityManager.ArchetypeManager;
 
-            Dictionary<EntityArchetype, int> archetypeToIndex;
+            NativeHashMap<EntityArchetype, int> archetypeToIndex;
             EntityArchetype[] archetypeArray;
             GetAllArchetypes(archetypeManager, out archetypeToIndex, out archetypeArray);
 
-            var typeindices = new HashSet<int>();
+            var typeHashes = new NativeHashMap<ulong, int>(1024, Allocator.Temp);
             foreach (var archetype in archetypeArray)
             {
                 for (int iType = 0; iType < archetype.Archetype->TypesCount; ++iType)
                 {
-                    typeindices.Add(archetype.Archetype->Types[iType].TypeIndex & TypeManager.ClearFlagsMask);
+                    var typeIndex = archetype.Archetype->Types[iType].TypeIndex;
+                    var ti = TypeManager.GetTypeInfo(typeIndex);
+                    var hash = ti.StableTypeHash;
+                    typeHashes.TryAdd(hash, 0);
                 }
             }
+            var typeHashSet = typeHashes.GetKeyArray(Allocator.Temp);
 
-            var typeArray = typeindices.Select(index =>
+            writer.Write(typeHashSet.Length);
+            foreach (ulong hash in typeHashSet)
             {
-                var type = TypeManager.GetType(index);
-                var name = TypeManager.GetType(index).AssemblyQualifiedName;
-                var hash = TypeManager.GetTypeInfo(index).StableTypeHash;
-                return new
-                {
-                    index,
-                    type,
-                    name,
-                    hash,
-                    utf8Name = Encoding.UTF8.GetBytes(name)
-                };
-            }).OrderBy(t => t.name).ToArray();
-
-            int typeNameBufferSize = typeArray.Sum(t => t.utf8Name.Length + 1);
-            writer.Write(typeArray.Length);
-            foreach (var n in typeArray)
-            {
-                writer.Write(n.hash);
+                writer.Write(hash);
             }
 
-            writer.Write(typeNameBufferSize);
-            foreach(var n in typeArray)
+            var typeHashToIndexMap = new NativeHashMap<ulong, int>(typeHashSet.Length, Allocator.Temp);
+            for (int i = 0; i < typeHashes.Length; ++i)
             {
-                writer.Write(n.utf8Name);
-                writer.Write((byte)0);
+                typeHashToIndexMap.TryAdd(typeHashSet[i], i);
             }
 
-            var typeIndexMap = new Dictionary<int, int>();
-            for (int i = 0; i < typeArray.Length; ++i)
-            {
-                typeIndexMap[typeArray[i].index] = i;
-            }
-
-            WriteArchetypes(writer, archetypeArray, typeIndexMap);
+            WriteArchetypes(writer, archetypeArray, typeHashToIndexMap);
             var sharedComponentMapping = GatherSharedComponents(archetypeArray, out var sharedComponentArraysTotalCount);
             var sharedComponentArrays = new NativeArray<int>(sharedComponentArraysTotalCount, Allocator.Temp);
             FillSharedComponentArrays(sharedComponentArrays, archetypeArray, sharedComponentMapping);
@@ -407,11 +377,87 @@ namespace Unity.Entities.Serialization
             bufferPatches.Dispose();
             UnsafeUtility.Free(tempChunk, Allocator.Temp);
 
-            sharedComponentsToSerialize = new int[sharedComponentMapping.Count-1];
+            sharedComponentsToSerialize = new int[sharedComponentMapping.Length-1];
 
-            foreach (var i in sharedComponentMapping)
-                if(i.Key != 0)
-                    sharedComponentsToSerialize[i.Value - 1] = i.Key;
+            using (var keyArray = sharedComponentMapping.GetKeyArray(Allocator.Temp))
+            {
+                foreach (var i in keyArray)
+                {
+                    var key = keyArray[i];
+                    if (key == 0)
+                        continue;
+
+                    if (sharedComponentMapping.TryGetValue(key, out var val))
+                        sharedComponentsToSerialize[val - 1] = key;
+                }
+            }
+
+            archetypeToIndex.Dispose();
+            typeHashes.Dispose();
+            typeHashSet.Dispose();
+            typeHashToIndexMap.Dispose();
+        }
+
+#if !NET_DOTS
+        public static unsafe void SerializeSharedComponents(EntityManager entityManager, BinaryWriter writer, in int[] sharedComponentsToSerialize)
+        {
+            writer.Write(CurrentFileFormatVersion);
+            writer.Write(sharedComponentsToSerialize.Length);
+
+            foreach (var i in sharedComponentsToSerialize)
+            {
+                object obj = entityManager.m_SharedComponentManager.GetSharedComponentDataNonDefaultBoxed(i);
+
+                Type type = obj.GetType();
+                Assert.IsTrue(type.IsValueType, "Trying to serialize a non-value type SharedComponent is not supported");
+
+                var typeIndex = TypeManager.GetTypeIndex(type);
+                var typeInfo = TypeManager.GetTypeInfo(typeIndex);
+                int hash = TypeManager.GetHashCode(obj, typeIndex);
+                int size = UnsafeUtility.SizeOf(type);              
+
+                var record = new SharedComponentRecord() { StableTypeHash = typeInfo.StableTypeHash, HashCode = hash, ComponentSize = size };
+                writer.WriteBytes(&record, sizeof(SharedComponentRecord));
+
+                var dataPtr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(obj, out ulong handle);
+                dataPtr += TypeManager.ObjectOffset;
+
+                writer.WriteBytes(dataPtr, size);
+
+                UnsafeUtility.ReleaseGCObject(handle);
+            }
+        }
+#endif
+
+        public static unsafe int DeserializeSharedComponents(EntityManager entityManager, BinaryReader reader)
+        {
+            int storedVersion = reader.ReadInt();
+            if (storedVersion != CurrentFileFormatVersion)
+            {
+                throw new ArgumentException(
+                    $"Attempting to read a entity scene stored in an old file format version (stored version : {storedVersion}, current version : {CurrentFileFormatVersion})");
+            }
+
+            int numSharedComponents = reader.ReadInt();
+
+            for (int i = 0; i < numSharedComponents; ++i)
+            {
+                SharedComponentRecord record = new SharedComponentRecord();
+                reader.ReadBytes(&record, sizeof(SharedComponentRecord));
+
+                var buffer = new byte[record.ComponentSize];
+                reader.ReadBytes(UnsafeUtility.AddressOf(ref buffer[0]), record.ComponentSize);
+
+                var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(record.StableTypeHash);
+                var data = TypeManager.ConstructComponentFromBuffer(typeIndex, UnsafeUtility.AddressOf(ref buffer[0]));
+
+                // TODO: this recalculation should be removed once we merge the NET_DOTS and non NET_DOTS hashcode calculations
+                var hashCode = TypeManager.GetHashCode(data, typeIndex); // record.hashCode;
+                int index = entityManager.m_SharedComponentManager.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, data);
+                Assert.AreEqual(i + 1, index);
+            }
+
+            return numSharedComponents;
         }
 
         unsafe struct BlobAssetRefKey : IEquatable<BlobAssetRefKey>
@@ -680,7 +726,7 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        private static unsafe void FillSharedComponentArrays(NativeArray<int> sharedComponentArrays, EntityArchetype[] archetypeArray, Dictionary<int, int> sharedComponentMapping)
+        private static unsafe void FillSharedComponentArrays(NativeArray<int> sharedComponentArrays, EntityArchetype[] archetypeArray, NativeHashMap<int, int> sharedComponentMapping)
         {
             int index = 0;
             for (int iArchetype = 0; iArchetype < archetypeArray.Length; ++iArchetype)
@@ -704,11 +750,11 @@ namespace Unity.Entities.Serialization
             Assert.AreEqual(sharedComponentArrays.Length,index);
         }
 
-        private static unsafe Dictionary<int, int> GatherSharedComponents(EntityArchetype[] archetypeArray, out int sharedComponentArraysTotalCount)
+        private static unsafe NativeHashMap<int, int> GatherSharedComponents(EntityArchetype[] archetypeArray, out int sharedComponentArraysTotalCount)
         {
             sharedComponentArraysTotalCount = 0;
-            var sharedIndexToSerialize = new Dictionary<int, int>();
-            sharedIndexToSerialize[0] = 0; // All default values map to 0
+            var sharedIndexToSerialize = new NativeHashMap<int, int>(1024, Allocator.Temp);
+            sharedIndexToSerialize.TryAdd(0, 0); // All default values map to 0
             int nextIndex = 1;
             for (int iArchetype = 0; iArchetype < archetypeArray.Length; ++iArchetype)
             {
@@ -722,9 +768,9 @@ namespace Unity.Entities.Serialization
                     for (int iChunk = 0; iChunk < archetype->Chunks.Count; ++iChunk)
                     {
                         int sharedComponentIndex = sharedComponents[iChunk];
-                        if (!sharedIndexToSerialize.ContainsKey(sharedComponentIndex))
+                        if (!sharedIndexToSerialize.TryGetValue(sharedComponentIndex, out var val))
                         {
-                            sharedIndexToSerialize[sharedComponentIndex] = nextIndex++;
+                            sharedIndexToSerialize.TryAdd(sharedComponentIndex, nextIndex++);
                         }
                     }
                 }
@@ -756,7 +802,7 @@ namespace Unity.Entities.Serialization
             return ((byte*)ptr) + offset;
         }
 
-        static unsafe void WriteArchetypes(BinaryWriter writer, EntityArchetype[] archetypeArray, Dictionary<int, int> typeIndexMap)
+        static unsafe void WriteArchetypes(BinaryWriter writer, EntityArchetype[] archetypeArray, NativeHashMap<ulong, int> typeHashToIndexMap)
         {
             writer.Write(archetypeArray.Length);
 
@@ -768,7 +814,8 @@ namespace Unity.Entities.Serialization
                 {
                     var componentType = archetype.Archetype->Types[i];
                     int flag = componentType.IsChunkComponent ? TypeManager.ChunkComponentTypeFlag : 0;
-                    writer.Write(typeIndexMap[componentType.TypeIndex & TypeManager.ClearFlagsMask] | flag);
+                    var hash = TypeManager.GetTypeInfo(componentType.TypeIndex).StableTypeHash;
+                    writer.Write(typeHashToIndexMap[hash] | flag);
                 }
             }
         }
@@ -797,16 +844,5 @@ namespace Unity.Entities.Serialization
 
             return totalChunkCount;
         }
-
-        static unsafe string StringFromNativeBytes(NativeArray<byte> bytes, int offset = 0)
-        {
-            int len = 0;
-            while (bytes[offset + len] != 0)
-                ++len;
-            return System.Text.Encoding.UTF8.GetString((Byte*) bytes.GetUnsafePtr() + offset, len);
-        }
     }
-
-
 }
-#endif

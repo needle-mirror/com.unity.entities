@@ -1,4 +1,4 @@
-<#/*THIS IS A T4 FILE - see HACKING.md for what it is and how to run codegen*/#>
+<#/*THIS IS A T4 FILE - see t4_text_templating.md for what it is and how to run codegen*/#>
 <#@ assembly name="System.Collections" #>
 <#@ assembly name="System.Core" #>
 <#@ assembly name="System.Linq" #>
@@ -35,7 +35,7 @@ foreach(var combination in combinations) {
         var name = withEntity ? "IJobForEachWithEntity" : "IJobForEach";
 #>
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_<#=comboString#><<#=GetUntypedGenericParams(combination)#>>))]
 #endif
     public interface <#=name#><<#=GenericParams(combination)#>> : JobForEachExtensions.IBaseJobForEach_<#=GetComboString(withEntity, combination)#>
@@ -56,7 +56,7 @@ int [] forEachVals = new int[]{1, -1, -1};
 string[] scheduleMode = new string[]{"ScheduleMode.Batched", "ScheduleMode.Batched", "ScheduleMode.Run"};    
 for(int i=0; i<funcNames.Length; ++i) {
 #>
-#if !UNITY_ZEROPLAYER                           
+#if !UNITY_DOTSPLAYER                           
         public static JobHandle <#=funcNames[i]#><T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
             where T : struct, IBaseJobForEach
         {
@@ -84,7 +84,7 @@ for(int i=0; i<funcNames.Length; ++i) {
 string[] groupFuncNames = new string[]{"Schedule", "ScheduleSingle", "Run"};
 for(int i=0; i<funcNames.Length; ++i) {
 #>
-#if !UNITY_ZEROPLAYER                           
+#if !UNITY_DOTSPLAYER                           
         public static JobHandle <#=groupFuncNames[i]#><T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IBaseJobForEach
         {
@@ -164,7 +164,7 @@ $@"                        var typeLookupCache{i} = 0; "
                 executeParams.Append(", ");
         }
 #>
-#if !UNITY_ZEROPLAYER           
+#if !UNITY_DOTSPLAYER           
         internal static unsafe JobHandle ScheduleInternal_<#=comboString#><T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
         {
@@ -186,7 +186,7 @@ $@"                        var typeLookupCache{i} = 0; "
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
         public interface IBaseJobForEach_<#=comboString#> : IBaseJobForEach {}
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
         [StructLayout(LayoutKind.Sequential)]
         private struct JobStruct_ProcessInfer_<#=comboString#><T> where T : struct
         {
@@ -262,6 +262,77 @@ $@"                        var typeLookupCache{i} = 0; "
     }
 }
 #>
+
+#if UNITY_DOTSPLAYER
+<#
+foreach(var combination in combinations) {
+    foreach (var withEntity in new[] { false, true }) {
+        var comboString         = GetComboString(withEntity, combination);
+        var interfaceName       = withEntity ? "IJobForEachWithEntity" : "IJobForEach";
+        var addFunctionName     = withEntity ? "E" : "";
+        var genericTypes        = "<" + Series("T{0}", combination.Length, ", ") + ">";
+        var genericTypesWithJob = "<TJob, " + Series("T{0}", combination.Length, ", ") + ">";
+        var jobInterface        = withEntity ? "IJobForEachWithEntity" : "IJobForEach";
+        for(int bits=0; bits < (1 << combination.Length); ++bits) {
+            var accessID = "";
+            bool[] readOnly = new bool[combination.Length];
+            for(int i=0; i<combination.Length; ++i) {
+                if ((bits & (1<<i)) != 0) {
+                    accessID += "wD";
+                    readOnly[i] = false;
+                }
+                else {
+                    accessID += "rD";
+                    readOnly[i] = true;
+                }
+            }
+
+        // See "Code-Gen of Schedule()" IJobForEach.cs for an explanation of the code-gen steps and how this works.
+#>
+        internal unsafe static JobHandle Schedule_Query_<#=(addFunctionName + accessID)#><#=genericTypesWithJob#>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
+            where TJob : struct, <#=jobInterface#><#=genericTypes#>
+<#          for(var i=0; i<combination.Length; ++i) {#>
+            where T<#=i#> : struct, IComponentData
+<#          }#>
+        {
+<#          if (withEntity) {#>
+            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
+<#          }#>            
+<#          for(var i=0; i<combination.Length; ++i) {#>
+            ArchetypeChunkComponentType<T<#=i#>> chunkComponentType<#=i#> = World.Active.EntityManager.GetArchetypeChunkComponentType<T<#=i#>>(<#=(readOnly[i] ? "true" : "false")#>);
+<#          }#>
+
+            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+            {
+                foreach (var chunk in chunks)
+                {
+<#                  if (withEntity) {#>
+                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
+<#                  }#>
+<#                  for(var i=0; i<combination.Length; ++i) {#>
+                    var array<#=i#> = chunk.GetNativeArray(chunkComponentType<#=i#>).<#=(readOnly[i] ? "GetUnsafeReadOnlyPtr()" : "GetUnsafePtr()")#>;
+<#                  }#>
+                    for (int i = 0, count = chunk.Count; i < count; ++i)
+                        job.Execute(
+<#                      if (withEntity) { #>
+                            entityArray[i], entityArray[i].Index, 
+<#                      }#>
+<#                      for(int i=0; i<combination.Length; ++i) {#>
+                            ref UnsafeUtilityEx.ArrayElementAsRef<T<#=i#>>(array<#=i#>, i)<#=(i < combination.Length - 1 ? "," : "")#>
+<#                      }#>
+                        );
+                }
+            }
+            DoDeallocateOnJobCompletion(job);
+            return new JobHandle();
+        }
+
+<#
+        }
+    }
+}
+#>
+#endif
     }
 }
 
@@ -333,5 +404,8 @@ string ExecuteParams(bool withEntity, Combination[] combination)
     }
     return executeParams.ToString();
 }
+
+static string Series(string formatString, int count, string separator) =>
+    string.Join(separator, Enumerable.Range(0, count).Select(i => string.Format(formatString, i)));
 
 #>

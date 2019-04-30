@@ -204,6 +204,15 @@ namespace Unity.Entities
             return data;
         }
 
+        internal void* GetComponentDataRawRW(Entity entity, int typeIndex)
+        {
+            CheckAccess();
+
+            m_Entities->AssertEntityHasComponent(entity, typeIndex);
+
+            return m_Entities->GetComponentDataWithTypeRW(entity, typeIndex, m_Entities->GlobalSystemVersion);
+        }
+
         public void SetComponentData<T>(Entity entity, T componentData) where T : struct, IComponentData
         {
             CheckAccess();
@@ -222,6 +231,14 @@ namespace Unity.Entities
 
             var sharedComponentIndex = m_Entities->GetSharedComponentDataIndex(entity, typeIndex);
             return SharedComponentDataManager.GetSharedComponentData<T>(sharedComponentIndex);
+        }
+
+        internal object GetSharedComponentData(Entity entity, int typeIndex)
+        {
+            m_Entities->AssertEntityHasComponent(entity, typeIndex);
+
+            var sharedComponentIndex = m_Entities->GetSharedComponentDataIndex(entity, typeIndex);
+            return SharedComponentDataManager.GetSharedComponentDataBoxed(sharedComponentIndex, typeIndex);
         }
 
         public void SetSharedComponentData<T>(Entity entity, T componentData) where T : struct, ISharedComponentData
@@ -256,10 +273,12 @@ namespace Unity.Entities
 
             BufferHeader* header = (BufferHeader*) m_Entities->GetComponentDataWithTypeRW(entity, typeIndex, m_Entities->GlobalSystemVersion);
 
+            int internalCapacity = TypeManager.GetTypeInfo(typeIndex).BufferCapacity;
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new DynamicBuffer<T>(header, m_Safety, m_Safety, false);
+            return new DynamicBuffer<T>(header, m_Safety, m_Safety, false, internalCapacity);
 #else
-            return new DynamicBuffer<T>(header);
+            return new DynamicBuffer<T>(header, internalCapacity);
 #endif
         }
 

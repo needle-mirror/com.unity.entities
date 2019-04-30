@@ -5,7 +5,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Tests;
 using Unity.Mathematics;
 using Unity.PerformanceTesting;
-using Unity.Profiling;
 
 namespace Unity.Entities.PerformanceTests
 {

@@ -67,7 +67,7 @@ namespace Unity.Entities.Tests
         public virtual void Setup()
         {
             m_PreviousWorld = World.Active;
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
             World = World.Active = new World("Test World");
 #else
             World = DefaultTinyWorldInitialization.Initialize("Test World");
@@ -76,14 +76,14 @@ namespace Unity.Entities.Tests
             m_Manager = World.EntityManager;
             m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
 #if !UNITY_2019_2_OR_NEWER
             // Not raising exceptions can easily bring unity down with massive logging when tests fail.
             // From Unity 2019.2 on this field is always implicitly true and therefore removed.
 
             UnityEngine.Assertions.Assert.raiseExceptions = true;
 #endif  // #if !UNITY_2019_2_OR_NEWER
-#endif  // #if !UNITY_ZEROPLAYER
+#endif  // #if !UNITY_DOTSPLAYER
         }
 
         [TearDown]
@@ -93,9 +93,9 @@ namespace Unity.Entities.Tests
             {
                 // Clean up systems before calling CheckInternalConsistency because we might have filters etc
                 // holding on SharedComponentData making checks fail
-                while (World.Systems.Any())
+                while (World.Systems.ToArray().Length > 0)
                 {
-                    World.DestroySystem(World.Systems.First());
+                    World.DestroySystem(World.Systems.ToArray()[0]);
                 }
 
                 m_ManagerDebug.CheckInternalConsistency();

@@ -11,14 +11,16 @@ namespace Unity.Entities
 
         ComponentSystem m_System;
         ResizableArray64Byte<int> m_Any, m_None, m_All;
+        EntityQueryOptions m_Options;
         EntityQuery m_Query;
 
         internal EntityQueryBuilder(ComponentSystem system)
         {
             m_System = system;
-            m_Any    = new ResizableArray64Byte<int>();
-            m_None   = new ResizableArray64Byte<int>();
-            m_All    = new ResizableArray64Byte<int>();
+            m_Any     = new ResizableArray64Byte<int>();
+            m_None    = new ResizableArray64Byte<int>();
+            m_All     = new ResizableArray64Byte<int>();
+            m_Options = EntityQueryOptions.Default;
             m_Query  = null;
         }
 
@@ -71,6 +73,14 @@ namespace Unity.Entities
             return this;
         }
 
+        public EntityQueryBuilder With(EntityQueryOptions options)
+        {
+            ValidateHasNoQuery();
+            m_Options = options;
+
+            return this;
+        }
+
         EntityQueryDesc ToEntityQueryDesc(int delegateTypeCount)
         {
             ComponentType[] ToComponentTypes(ref ResizableArray64Byte<int> typeIndices, ComponentType.AccessMode mode, int extraCapacity = 0)
@@ -91,6 +101,7 @@ namespace Unity.Entities
                 Any  = ToComponentTypes(ref m_Any,  ComponentType.AccessMode.ReadWrite),
                 None = ToComponentTypes(ref m_None, ComponentType.AccessMode.ReadOnly),
                 All  = ToComponentTypes(ref m_All,  ComponentType.AccessMode.ReadWrite, delegateTypeCount),
+                Options = m_Options
             };
         }
 
@@ -111,9 +122,10 @@ namespace Unity.Entities
         unsafe EntityQuery ResolveEntityQuery(int* delegateTypeIndices, int delegateTypeCount)
         {
             var hash
-                = (uint)m_Any .GetHashCode() * 0xEA928FF9
-                ^ (uint)m_None.GetHashCode() * 0x4B772F25
-                ^ (uint)m_All .GetHashCode() * 0xBAEE8991
+                = (uint)m_Any    .GetHashCode() * 0xEA928FF9
+                ^ (uint)m_None   .GetHashCode() * 0x4B772F25
+                ^ (uint)m_All    .GetHashCode() * 0xBAEE8991
+                ^ (uint)m_Options.GetHashCode() * 0xD3A34ABF
                 ^ math.hash(delegateTypeIndices, sizeof(int) * delegateTypeCount);
 
             var cache = m_System.GetOrCreateEntityQueryCache();

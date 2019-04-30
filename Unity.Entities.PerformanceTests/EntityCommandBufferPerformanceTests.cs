@@ -3,7 +3,6 @@ using System.Threading;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
-using Unity.Properties.Serialization;
 using UnityEngine;
 using Unity.PerformanceTesting;
 using Unity.Entities;

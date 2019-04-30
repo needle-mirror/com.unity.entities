@@ -67,6 +67,13 @@ namespace Unity.Entities.Serialization
             return value;
         }
 
+        public static ulong ReadULong(this BinaryReader reader)
+        {
+            ulong value;
+            reader.ReadBytes(&value, sizeof(ulong));
+            return value;
+        }
+
         public static void ReadBytes(this BinaryReader writer, NativeArray<byte> elements, int count, int offset = 0)
         {
             byte* destination = (byte*)elements.GetUnsafePtr() + offset;

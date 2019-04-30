@@ -240,6 +240,18 @@ namespace Unity.Entities
         static ProfilerMarker m_Diff = new ProfilerMarker("Diff");
         static ProfilerMarker m_ApplyDiff = new ProfilerMarker("ApplyDiff");
 
+        /// <summary>
+        /// Calculate differences between previousStateShadowWorld and newState, and apply them to dstEntityWorld.
+        /// All entities to be considered for diffing must have an EntityGuid component with a unique GUID.
+        /// </summary>
+        /// <remarks>
+        /// previousShadowWorld must be a direct ancestor to the newState world, and must only be updated
+        /// using this call or similar WorldDifffer methods.  No direct changes to previousStateShadowWorld are
+        /// allowed.  After this call, previousShadowWorld will be updated to exactly match newState.
+        /// </remarks>
+        /// <param name="newState">The state to be updated to.</param>
+        /// <param name="previousStateShadowWorld">The shadow world (previous state) of the current state world.</param>
+        /// <param name="dstEntityWorld">The world to which to apply the updates to.</param>
         public static void DiffAndApply(World newState, World previousStateShadowWorld, World dstEntityWorld)
         {
             m_Diff.Begin();
@@ -253,173 +265,251 @@ namespace Unity.Entities
             }
         }
 
-        public static WorldDiff UpdateDiff(World Source, World ShadowWorld, Allocator resultAllocator)
+        /// <summary>
+        /// Create a diff of changes between beforeWorld and afterWorld.  All entities to be considered for diffing
+        /// must have an EntityGuid component with a unique GUID so that they can be matched between worlds.  The
+        /// resulting WorldDiff must be Disposed when no longer needed.
+        /// </summary>
+        /// <param name="afterWorld">The world containing the new state.</param>
+        /// <param name="beforeWorld">The world containing the old state.</param>
+        /// <param name="resultAllocator">The allocator to use when allocating WorldDiff data.</param>
+        /// <returns>A WorldDiff containing the differences between the two worlds.</returns>
+        public static WorldDiff CreateDiff(World afterWorld, World beforeWorld, Allocator resultAllocator)
         {
-            if (Source == null)
-                throw new ArgumentNullException("Source");
+            return CreateDiffAndMaybeUpdate(afterWorld, beforeWorld, calculateDiff: true, updateBeforeWorld: false, resultAllocator);
+        }
 
-            if (ShadowWorld == null)
-                throw new ArgumentNullException("ShadowWorld");
+        /// <summary>
+        /// Create a diff of changes between beforeWorld and afterWorld, and efficiently update beforeWorld to
+        /// match afterWorld.
+        /// </summary>
+        /// <remarks>
+        /// UpdateDiff is only valid if beforeWorld was only ever updated via one of the WorldDiffer
+        /// methods that updates the "before" world and no other changes have been done to it. All entities to be
+        /// considered for diffing must have an EntityGuid component with a unique GUID so that they can be matched
+        /// between worlds.  The resulting WorldDiff must be Disposed when no longer needed.
+        /// </remarks>
+        /// <param name="afterWorld">The world containing the new state.</param>
+        /// <param name="beforeWorld">The world containing the old state.</param>
+        /// <param name="resultAllocator">The allocator to use when allocating WorldDiff data.</param>
+        /// <returns>A WorldDiff containing the differences between the two worlds.</returns>
+        public static WorldDiff UpdateDiff(World afterWorld, World beforeWorld, Allocator resultAllocator)
+        {
+            return CreateDiffAndMaybeUpdate(afterWorld, beforeWorld, true, updateBeforeWorld: true, resultAllocator);
+        }
+
+        internal static WorldDiff CreateDiffPreciselyForEditorUndoRedo(World afterWorld, World beforeWorld, Allocator resultAllocator)
+        {
+            return CreateDiffAndMaybeUpdate(afterWorld, beforeWorld, calculateDiff: true, updateBeforeWorld: false, resultAllocator,
+                preciseModeForEditorUndoRedo: true);
+        }
+
+        // Compute a diff between beforeWorld and afterWorld  (afterWorld == Source, beforeWorld == ShadowWorld/dest)
+        // If updateBeforeWorld is true, beforeWorld must have only ever been updated via UpdateDiff or FastForward.
+        // preciseModeForEditorUndoRedo is a temporary hack -- it adds an assumption that EntityGuids will map to exactly
+        // one entity in both the source and the dst world; it then uses that information to compare internal entity
+        // references in component data by EntityGuid, resulting in more precise diffs (for example, will show no change
+        // if two internal Entity fields have different index/versions but refer to the same EntityGuid).
+        internal static WorldDiff CreateDiffAndMaybeUpdate(World afterWorld, World beforeWorld, bool calculateDiff,
+            bool updateBeforeWorld, Allocator resultAllocator, bool preciseModeForEditorUndoRedo = false)
+        {
+            if (afterWorld == null)
+                throw new ArgumentNullException("afterWorld");
+
+            if (beforeWorld == null)
+                throw new ArgumentNullException("beforeWorld");
 
             if (resultAllocator == Allocator.Temp)
                 throw new ArgumentException("Allocator can not be Allocator.Temp. Use Allocator.TempJob instead.");
 
-            var smgr = Source.EntityManager;
-            var dmgr = ShadowWorld.EntityManager;
+            var afterEM = afterWorld.EntityManager;
+            var beforeEM = beforeWorld.EntityManager;
 
-            var schunks = DiffUtil.GetAllChunks(smgr);
-            var dchunks = DiffUtil.GetAllChunks(dmgr);
+            var afterChunks = DiffUtil.GetAllChunks(afterEM);
+            var beforeChunks = DiffUtil.GetAllChunks(beforeEM);
 
-            var visited = new NativeHashMap<uint, byte>(schunks.Length * 3, Allocator.TempJob);
-            var cloneList = new NativeList<IntPtr>(schunks.Length, Allocator.TempJob);
-            var dropList = new NativeList<IntPtr>(schunks.Length, Allocator.TempJob);
+            var visited = new NativeHashMap<uint, byte>(afterChunks.Length * 3, Allocator.TempJob);
+            var cloneList = new NativeList<IntPtr>(afterChunks.Length, Allocator.TempJob);
+            var dropList = new NativeList<IntPtr>(afterChunks.Length, Allocator.TempJob);
 
-            //@TODO: Consistent naming...
-            // beforeState == dchunk == ShadowWorld
-            var beforeState = new NativeHashMap<EntityGuid, DiffEntityData>(4096, Allocator.TempJob);
-            // afterState == schunk == Source
             var afterState = new NativeHashMap<EntityGuid, DiffEntityData>(4096, Allocator.TempJob);
+            var beforeState = new NativeHashMap<EntityGuid, DiffEntityData>(4096, Allocator.TempJob);
 
-            var SrcWorldEntityToGuid = new NativeHashMap<Entity, EntityGuid>(4096, Allocator.TempJob);
-            var SrcWorldGuidToEntity = new NativeHashMap<EntityGuid, Entity>(4096, Allocator.TempJob);
+            var afterEntityToGuid = new NativeHashMap<Entity, EntityGuid>(4096, Allocator.TempJob);
+            var afterGuidToEntity = new NativeHashMap<EntityGuid, Entity>(4096, Allocator.TempJob);
 
-            for (int i = 0; i < schunks.Length; ++i)
+            var beforeEntityToGuid = preciseModeForEditorUndoRedo
+                ? new NativeHashMap<Entity, EntityGuid>(4096, Allocator.TempJob)
+                : default(NativeHashMap<Entity, EntityGuid>);
+
+            for (int i = 0; i < afterChunks.Length; ++i)
             {
-                Chunk* sourceChunk = schunks[i].m_Chunk;
-                Chunk* destChunk = dmgr.ArchetypeManager.GetChunkBySequenceNumber(sourceChunk->SequenceNumber);
+                Chunk* afterChunk = afterChunks[i].m_Chunk;
+                Chunk* beforeChunk = beforeEM.ArchetypeManager.GetChunkBySequenceNumber(afterChunk->SequenceNumber);
 
-                bool b = visited.TryAdd(sourceChunk->SequenceNumber, 1);
+                bool b = visited.TryAdd(afterChunk->SequenceNumber, 1);
                 UnityEngine.Assertions.Assert.IsTrue(b);
 
-                CreateEntityToGuidLookup(sourceChunk, SrcWorldEntityToGuid);
-                CreateGuidToEntityLookup(sourceChunk, SrcWorldGuidToEntity);
-
-                if (destChunk == null)
+                if (calculateDiff)
                 {
-                    cloneList.Add((IntPtr) sourceChunk);
-                    AddChunkEntitiesToState(sourceChunk, afterState);
+                    CreateEntityToGuidLookup(afterChunk, afterEntityToGuid);
+                    CreateGuidToEntityLookup(afterChunk, afterGuidToEntity);
                 }
-                else if (ChunkChanged(sourceChunk, destChunk))
+
+                if (beforeChunk == null)
                 {
-                    cloneList.Add((IntPtr) sourceChunk);
-                    dropList.Add((IntPtr) destChunk);
-                    AddChunkEntitiesToState(sourceChunk, afterState);
-                    AddChunkEntitiesToState(destChunk, beforeState);
+                    cloneList.Add((IntPtr) afterChunk);
+                    if (calculateDiff)
+                    {
+                        AddChunkEntitiesToState(afterChunk, afterState);
+                    }
+                }
+                else if (ChunkChanged(afterChunk, beforeChunk))
+                {
+                    cloneList.Add((IntPtr) afterChunk);
+                    dropList.Add((IntPtr) beforeChunk);
+                    if (calculateDiff)
+                    {
+                        AddChunkEntitiesToState(afterChunk, afterState);
+                        AddChunkEntitiesToState(beforeChunk, beforeState);
+                    }
                 }
             }
 
-            for (int i = 0; i < dchunks.Length; ++i)
+            for (int i = 0; i < beforeChunks.Length; ++i)
             {
-                Chunk* destChunk = dchunks[i].m_Chunk;
+                Chunk* beforeChunk = beforeChunks[i].m_Chunk;
+
+                if (calculateDiff && preciseModeForEditorUndoRedo)
+                {
+                    CreateEntityToGuidLookup(beforeChunk, beforeEntityToGuid);
+                }
 
                 byte ignored;
-                if (!visited.TryGetValue(destChunk->SequenceNumber, out ignored))
+                if (!visited.TryGetValue(beforeChunk->SequenceNumber, out ignored))
                 {
-                    dropList.Add((IntPtr) destChunk);
-                    AddChunkEntitiesToState(destChunk, beforeState);
+                    dropList.Add((IntPtr) beforeChunk);
+                    if (calculateDiff)
+                    {
+                        AddChunkEntitiesToState(beforeChunk, beforeState);
+                    }
                 }
             }
 
-            var removedEntities = new NativeList<EntityGuid>(1, Allocator.TempJob);
-            var createdEntities = new NativeList<DiffCreationData>(1, Allocator.TempJob);
-            var modifiedEntities = new NativeList<DiffModificationData>(1, Allocator.TempJob);
+            WorldDiff result = default;
 
-            ComputeEntityDiff(beforeState, afterState, removedEntities, createdEntities, modifiedEntities);
-
-            var typeHashes = new NativeList<ulong>(1, Allocator.TempJob);
-            var typeHashLookup = new NativeHashMap<int, int>(1, Allocator.TempJob);
-
-            var entityList = new NativeList<EntityGuid>(1, Allocator.TempJob);
-            var entityNameList = new NativeList<NativeString64>(1, Allocator.TempJob);
-            var entityLookup = new NativeHashMap<EntityGuid, int>(1, Allocator.TempJob);
-
-            var removeComponents = new NativeList<ComponentDiff>(1, Allocator.TempJob);
-            var addComponents = new NativeList<ComponentDiff>(1, Allocator.TempJob);
-            var dataDiffs = new NativeList<DataDiff>(1, Allocator.TempJob);
-            var byteDiffs = new NativeList<byte>(1, Allocator.TempJob);
-            var sharedDiffs = new List<SetSharedComponentDiff>();
-            var entityPatches = new NativeList<DiffEntityPatch>(1, Allocator.TempJob);
-            using(var linkedEntityGroupAdds = new NativeList<LinkedEntityGroupAddition>(1, Allocator.TempJob))
-            using(var linkedEntityGroupRemoves = new NativeList<LinkedEntityGroupRemoval>(1, Allocator.TempJob))
+            if (calculateDiff)
             {
+                var removedEntities = new NativeList<EntityGuid>(1, Allocator.TempJob);
+                var createdEntities = new NativeList<DiffCreationData>(1, Allocator.TempJob);
+                var modifiedEntities = new NativeList<DiffModificationData>(1, Allocator.TempJob);
 
-                BuildAddComponents(createdEntities, typeHashes, typeHashLookup, addComponents, dataDiffs, byteDiffs,
-                    entityList, entityLookup, sharedDiffs, smgr.m_SharedComponentManager, entityPatches,
-                    SrcWorldEntityToGuid, linkedEntityGroupAdds);
+                ComputeEntityDiff(beforeState, afterState, removedEntities, createdEntities, modifiedEntities);
 
-                BuildComponentDiff(modifiedEntities, typeHashes, typeHashLookup, removeComponents, addComponents,
-                    linkedEntityGroupAdds, linkedEntityGroupRemoves, dataDiffs, sharedDiffs, byteDiffs, entityList,
-                    entityLookup, smgr.m_SharedComponentManager, dmgr.m_SharedComponentManager, entityPatches,
-                    SrcWorldEntityToGuid);
+                var typeHashes = new NativeList<ulong>(1, Allocator.TempJob);
+                var typeHashLookup = new NativeHashMap<int, int>(1, Allocator.TempJob);
 
-                // Add removed entities to back of entity list
-                entityList.AddRange(removedEntities);
+                var entityList = new NativeList<EntityGuid>(1, Allocator.TempJob);
+                var entityNameList = new NativeList<NativeString64>(1, Allocator.TempJob);
+                var entityLookup = new NativeHashMap<EntityGuid, int>(1, Allocator.TempJob);
 
-                for (var i = 0; i < entityList.Length; ++i)
+                var removeComponents = new NativeList<ComponentDiff>(1, Allocator.TempJob);
+                var addComponents = new NativeList<ComponentDiff>(1, Allocator.TempJob);
+                var dataDiffs = new NativeList<DataDiff>(1, Allocator.TempJob);
+                var byteDiffs = new NativeList<byte>(1, Allocator.TempJob);
+                var sharedDiffs = new List<SetSharedComponentDiff>();
+                var entityPatches = new NativeList<DiffEntityPatch>(1, Allocator.TempJob);
+                using (var linkedEntityGroupAdds = new NativeList<LinkedEntityGroupAddition>(1, Allocator.TempJob))
+                using (var linkedEntityGroupRemoves = new NativeList<LinkedEntityGroupRemoval>(1, Allocator.TempJob))
                 {
-                    SrcWorldGuidToEntity.TryGetValue(entityList[i], out var entity);
-                    var truncatedName = new NativeString64();
+
+                    BuildAddComponents(createdEntities, typeHashes, typeHashLookup, addComponents, dataDiffs, byteDiffs,
+                        entityList, entityLookup, sharedDiffs, afterEM.m_SharedComponentManager, entityPatches,
+                        afterEntityToGuid, linkedEntityGroupAdds);
+
+                    BuildComponentDiff(modifiedEntities, typeHashes, typeHashLookup, removeComponents, addComponents,
+                        linkedEntityGroupAdds, linkedEntityGroupRemoves, dataDiffs, sharedDiffs, byteDiffs, entityList,
+                        entityLookup, afterEM.m_SharedComponentManager, beforeEM.m_SharedComponentManager,
+                        entityPatches,
+                        afterEntityToGuid, preciseModeForEditorUndoRedo, beforeEntityToGuid);
+
+                    // Add removed entities to back of entity list
+                    entityList.AddRange(removedEntities);
+
+                    for (var i = 0; i < entityList.Length; ++i)
+                    {
+                        afterGuidToEntity.TryGetValue(entityList[i], out var entity);
+                        var truncatedName = new NativeString64();
 #if UNITY_EDITOR
-                    var untruncatedName = smgr.GetName(entity);
-                    truncatedName.CopyFrom(untruncatedName);
+                        var untruncatedName = afterEM.GetName(entity);
+                        truncatedName.CopyFrom(untruncatedName);
 #endif
-                    entityNameList.Add(truncatedName);
+                        entityNameList.Add(truncatedName);
+                    }
+
+                    // Build output data
+                    result.TypeHashes = typeHashes.ToArray(resultAllocator);
+                    result.Entities = entityList.ToArray(resultAllocator);
+                    result.EntityNames = entityNameList.ToArray(resultAllocator);
+                    result.NewEntityCount = createdEntities.Length;
+                    result.DeletedEntityCount = removedEntities.Length;
+                    result.AddComponents = addComponents.ToArray(resultAllocator);
+                    result.RemoveComponents = removeComponents.ToArray(resultAllocator);
+                    result.SetCommands = dataDiffs.ToArray(resultAllocator);
+                    result.EntityPatches = entityPatches.ToArray(resultAllocator);
+                    result.ComponentPayload = byteDiffs.ToArray(resultAllocator);
+                    result.SharedSetCommands = sharedDiffs.ToArray();
+                    result.LinkedEntityGroupAdditions = linkedEntityGroupAdds.ToArray(resultAllocator);
+                    result.LinkedEntityGroupRemovals = linkedEntityGroupRemoves.ToArray(resultAllocator);
+
+                    entityPatches.Dispose();
+                    entityLookup.Dispose();
+                    entityNameList.Dispose();
+                    entityList.Dispose();
+                    byteDiffs.Dispose();
+                    dataDiffs.Dispose();
+                    addComponents.Dispose();
+                    removeComponents.Dispose();
+                    typeHashLookup.Dispose();
+                    typeHashes.Dispose();
+                    modifiedEntities.Dispose();
+                    createdEntities.Dispose();
+                    removedEntities.Dispose();
                 }
+            }
 
-                // Build output data
-                WorldDiff result;
-                result.TypeHashes = typeHashes.ToArray(resultAllocator);
-                result.Entities = entityList.ToArray(resultAllocator);
-                result.EntityNames = entityNameList.ToArray(resultAllocator);
-                result.NewEntityCount = createdEntities.Length;
-                result.DeletedEntityCount = removedEntities.Length;
-                result.AddComponents = addComponents.ToArray(resultAllocator);
-                result.RemoveComponents = removeComponents.ToArray(resultAllocator);
-                result.SetCommands = dataDiffs.ToArray(resultAllocator);
-                result.EntityPatches = entityPatches.ToArray(resultAllocator);
-                result.ComponentPayload = byteDiffs.ToArray(resultAllocator);
-                result.SharedSetCommands = sharedDiffs.ToArray();
-                result.LinkedEntityGroupAdditions = linkedEntityGroupAdds.ToArray(resultAllocator);
-                result.LinkedEntityGroupRemovals = linkedEntityGroupRemoves.ToArray(resultAllocator);
-
+            // If we're supposed to do the efficient update of the before world, perform
+            // the chunk-level operations to do so.
+            if (updateBeforeWorld)
+            {
                 // Drop all unused and modified chunks
                 for (int i = 0; i < dropList.Length; ++i)
                 {
-                    dmgr.ArchetypeManager.DestroyChunkForDiffing((Chunk*) dropList[i], dmgr.Entities);
+                    beforeEM.ArchetypeManager.DestroyChunkForDiffing((Chunk*) dropList[i], beforeEM.Entities);
                 }
 
                 // Clone all new and modified chunks
                 for (int i = 0; i < cloneList.Length; ++i)
                 {
-                    dmgr.ArchetypeManager.CloneChunkForDiffing((Chunk*) cloneList[i], dmgr.Entities, dmgr.GroupManager,
-                        smgr.m_SharedComponentManager);
+                    beforeEM.ArchetypeManager.CloneChunkForDiffing((Chunk*) cloneList[i], beforeEM.Entities,
+                        beforeEM.GroupManager,
+                        afterEM.m_SharedComponentManager);
                 }
-
-                entityPatches.Dispose();
-                SrcWorldGuidToEntity.Dispose();
-                SrcWorldEntityToGuid.Dispose();
-                entityLookup.Dispose();
-                entityNameList.Dispose();
-                entityList.Dispose();
-                byteDiffs.Dispose();
-                dataDiffs.Dispose();
-                addComponents.Dispose();
-                removeComponents.Dispose();
-                typeHashLookup.Dispose();
-                typeHashes.Dispose();
-                modifiedEntities.Dispose();
-                createdEntities.Dispose();
-                removedEntities.Dispose();
-                afterState.Dispose();
-                beforeState.Dispose();
-                visited.Dispose();
-                dropList.Dispose();
-                cloneList.Dispose();
-                dchunks.Dispose();
-                schunks.Dispose();
-
-                return result;
             }
+
+            afterGuidToEntity.Dispose();
+            afterEntityToGuid.Dispose();
+            if (preciseModeForEditorUndoRedo)
+                beforeEntityToGuid.Dispose();
+            afterState.Dispose();
+            beforeState.Dispose();
+            visited.Dispose();
+            dropList.Dispose();
+            cloneList.Dispose();
+            beforeChunks.Dispose();
+            afterChunks.Dispose();
+
+            return result;
         }
 
         public static UInt64 Ordinal(Entity e)
@@ -457,7 +547,10 @@ namespace Unity.Entities
             NativeHashMap<EntityGuid, int> guidToIndex,
             SharedComponentDataManager ssharedComponentDataManager,
             SharedComponentDataManager dsharedComponentDataManager,
-            NativeList<DiffEntityPatch> entityPatches, NativeHashMap<Entity, EntityGuid> SrcWorldEntityToGuid)
+            NativeList<DiffEntityPatch> entityPatches,
+            NativeHashMap<Entity, EntityGuid> SrcWorldEntityToGuid,
+            bool preciseModeForEditorUndoRedo,
+            NativeHashMap<Entity, EntityGuid> DstWorldEntityToGuid)
         {
             var LinkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
             for (int i = 0; i < modifiedEntities.Length; ++i)
@@ -553,7 +646,11 @@ namespace Unity.Entities
                         byte* beforeAddress = mod.BeforeChunk->Buffer + beforeArch->Offsets[beforeType] + beforeArch->SizeOfs[beforeType] * mod.BeforeIndex;
                         byte* afterAddress = mod.AfterChunk->Buffer + afterArch->Offsets[afterType] + afterArch->SizeOfs[afterType] * mod.AfterIndex;
 
-                        if (!TypeManager.Equals(beforeAddress, afterAddress, targetTypeIndex))
+                        var equals = preciseModeForEditorUndoRedo
+                            ? ComponentEqualsWithEntityGuids(afterAddress, beforeAddress, targetTypeIndex, SrcWorldEntityToGuid, DstWorldEntityToGuid)
+                            : TypeManager.Equals(beforeAddress, afterAddress, targetTypeIndex);
+
+                        if (!equals)
                         {
                             // For now do full component replacement, because we need to dig into field information to make this work.
                             dataDiffs.Add(new DataDiff
@@ -679,6 +776,97 @@ namespace Unity.Entities
                     }
                 }
             }
+        }
+
+        // Compare two component instances; if they have internal Entity fields,
+        // compare those by GUID to see if they point to the same entity or not.
+        private static bool ComponentEqualsWithEntityGuids(
+            byte* afterCompPtr, byte* beforeCompPtr, int typeIndex,
+            NativeHashMap<Entity, EntityGuid> AfterWorldEntityToGuid,
+            NativeHashMap<Entity, EntityGuid> BeforeWorldEntityToGuid)
+        {
+            // if the type has no entity references, then this is simple
+            if (!TypeManager.HasEntityReferences(typeIndex))
+            {
+                return TypeManager.Equals(afterCompPtr, beforeCompPtr, typeIndex);
+            }
+
+            // If it does have entity references, first compare the data by ignoring the Entity fields.
+            // This is done by saving them to savedEntities and temporarily setting them to null,
+            // then redoing the comparison.
+            var ft = TypeManager.GetTypeInfo(typeIndex);
+            int AfterOffset = 0;
+            int BeforeOffset = ft.EntityOffsetCount;
+
+            var savedEntitiesArray = new NativeArray<Entity>(ft.EntityOffsetCount * 2, Allocator.TempJob);
+            using (savedEntitiesArray)
+            {
+                Entity* savedEntities = (Entity*)savedEntitiesArray.GetUnsafePtr();
+                int runOffset = 0;
+                int lastEntityOffset = 0;
+                int sizeLeft = ft.SizeInChunk;
+                byte* aptr = afterCompPtr;
+                byte* bptr = beforeCompPtr;
+
+                for (int ei = 0; ei < ft.EntityOffsetCount; ++ei)
+                {
+                    var entityOffset = ft.EntityOffsets[ei].Offset;
+                    Assert.IsTrue(entityOffset >= lastEntityOffset);
+
+                    int runSize = entityOffset - runOffset;
+                    if (runSize > 0)
+                    {
+                        if (UnsafeUtility.MemCmp(afterCompPtr + runOffset, beforeCompPtr + runOffset, runSize) != 0)
+                            return false;
+                    }
+
+                    savedEntities[AfterOffset + ei] = *(Entity*) (afterCompPtr + entityOffset);
+                    savedEntities[BeforeOffset + ei] = *(Entity*) (beforeCompPtr + entityOffset);
+
+                    // we just compared a run, plus skip the entity
+                    sizeLeft -= (runSize + sizeof(Entity));
+                    // next run start is just past the Entity field
+                    runOffset = entityOffset + sizeof(Entity);
+                }
+
+                if (sizeLeft > 0)
+                {
+                    if (UnsafeUtility.MemCmp(afterCompPtr + runOffset, beforeCompPtr + runOffset, sizeLeft) != 0)
+                        return false;
+                }
+
+                // everything is equal other than the entities.  Compare guids to see if they actually changed.
+                for (int ei = 0; ei < ft.EntityOffsetCount; ++ei)
+                {
+                    EntityGuid afterGuid = EntityGuid.Null;
+                    EntityGuid beforeGuid = EntityGuid.Null;
+                    var afterEntity = savedEntities[AfterOffset + ei];
+                    var beforeEntity = savedEntities[BeforeOffset + ei];
+
+                    if (afterEntity != Entity.Null)
+                    {
+                        bool srcHasEntity = AfterWorldEntityToGuid.TryGetValue(afterEntity, out afterGuid);
+                        // Bogus internal entity reference.  Return false to indicate a difference.
+                        if (!srcHasEntity)
+                            return false;
+                    }
+
+                    if (beforeEntity != Entity.Null)
+                    {
+                        bool dstHasEntity = BeforeWorldEntityToGuid.TryGetValue(beforeEntity, out beforeGuid);
+                        // Bogus internal entity reference.  Return false to indicate a difference.
+                        if (!dstHasEntity)
+                            return false;
+                    }
+
+                    if (!afterGuid.Equals(beforeGuid))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
         }
 
         private static void ExtractGuidPatches(NativeList<DiffEntityPatch> entityPatches, NativeHashMap<Entity, EntityGuid> allEntities, ComponentTypeInArchetype at, byte* afterAddress, int elementCount, int entityIndex, int typeHashIndex)
@@ -1091,7 +1279,7 @@ namespace Unity.Entities
             }
         }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
         [DebuggerTypeProxy(typeof(DiffApplierDebugView))]
 #endif
         internal struct DiffApplier : IDisposable
@@ -1328,8 +1516,8 @@ namespace Unity.Entities
                 s_BuildDiffToDestWorldLookups.Begin();
                 for (var i = 0; i < diff.TypeHashes.Length; ++i)
                 {
-                    var memoryOrdering = diff.TypeHashes[i];
-                    var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(memoryOrdering);
+                    var stableTypeHash = diff.TypeHashes[i];
+                    var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(stableTypeHash);
                     var type = TypeManager.GetType(typeIndex);
                     DiffIndexToDestWorldTypes[i] = new ComponentType(type);
                 }
@@ -1347,7 +1535,7 @@ namespace Unity.Entities
                     {
                         DiffIndexToDestWorldEntities.Add(i, NewEntities[i]);
 #if LOG_DIFF_ALL
-                        Debug.Log($"CreateEntity({diff.Entities[i]})");
+                        Debug.Log($"CreateEntity({diff.Entities[i]}) -> {NewEntities[i]}");
 #endif
                     }
                 }
@@ -1373,22 +1561,23 @@ namespace Unity.Entities
             void DestroyEntities()
             {
                 s_DestroyEntities.Begin();
+                int firstIndex = diff.Entities.Length - diff.DeletedEntityCount;
                 for (var i = 0; i < diff.DeletedEntityCount; ++i)
                 {
-                    if (DiffIndexToDestWorldEntities.TryGetFirstValue(diff.NewEntityCount + i, out var entity, out var iterator))
+                    if (DiffIndexToDestWorldEntities.TryGetFirstValue(firstIndex + i, out var entity, out var iterator))
                     {
                         do
                         {
                             if (DestWorldManager.Entities->Exists(entity))
                             {
 #if LOG_DIFF_ALL
-                                Debug.Log($"DestroyEntity({diff.Entities[diff.NewEntityCount + i]})");
+                                Debug.Log($"DestroyEntity({diff.Entities[firstIndex + i]})");
 #endif
                                 DestWorldManager.DestroyEntity(entity);
                             }
                             else
                             {
-                                Debug.LogWarning($"DestroyEntity({diff.Entities[diff.NewEntityCount + i]}) but it does not exist.");
+                                Debug.LogWarning($"DestroyEntity({diff.Entities[firstIndex + i]}) but it does not exist.");
                             }
                         } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref iterator));
                     }
@@ -1423,7 +1612,7 @@ namespace Unity.Entities
                             else
                                 Debug.LogWarning($"AddComponent({diff.Entities[addition.EntityIndex]}, {componentType}) but the component already exists.");
 #if LOG_DIFF_ALL
-                            Debug.Log($"AddComponent<{componentType}>({diff.Entities[addition.EntityIndex]}, {Manager.Debug.GetComponentBoxed(entity, componentType)})");
+                            Debug.Log($"AddComponent<{componentType}>({diff.Entities[addition.EntityIndex]}, {DestWorldManager.Debug.GetComponentBoxed(entity, componentType)})");
 #endif
                         } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref iterator));
                     }
@@ -1499,7 +1688,11 @@ namespace Unity.Entities
                                 Debug.LogWarning($"SetComponent<{componentType}>({diff.Entities[setting.EntityIndex]}) but component does not exist.");
                             else
                             {
-                                if (!ctia.IsBuffer)
+                                if (ctia.IsZeroSized)
+                                {
+                                    // Nothing to set.
+                                }
+                                else if (!ctia.IsBuffer)
                                 {
                                     var target = (byte*)DestWorldManager.GetComponentDataRawRW(entity, componentType.TypeIndex);
                                     UnsafeUtility.MemCpy(target + setting.Offset, data, size);
@@ -1513,7 +1706,7 @@ namespace Unity.Entities
                                     BufferHeader.Assign(header, data, lengthInElements, elementSize, 16);
                                 }
 #if LOG_DIFF_ALL
-                                Debug.Log($"SetComponent<{componentType}>({diff.Entities[setting.EntityIndex]}, {Manager.Debug.GetComponentBoxed(entity, componentType)})");
+                                Debug.Log($"SetComponent<{componentType}>({diff.Entities[setting.EntityIndex]}, {DestWorldManager.Debug.GetComponentBoxed(entity, componentType)})");
 #endif
                             }
                         } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref iterator));
@@ -1591,7 +1784,7 @@ namespace Unity.Entities
                                     UnsafeUtility.MemCpy(pointer + byteOffsetInComponent, &entityToPatchTo, sizeof(Entity));
                                 }
 #if LOG_DIFF_ALL
-                                Debug.Log($"SetComponent_EntityPatch<{componentType}>({diff.Entities[patch.EntityIndex]}, {Manager.Debug.GetComponentBoxed(entity, componentType)})");
+                                Debug.Log($"SetComponent_EntityPatch<{typeOfComponentToPatch}>({diff.Entities[patch.EntityIndex]}, {DestWorldManager.Debug.GetComponentBoxed(entityWhereComponentToPatchIs, typeOfComponentToPatch)})");
 #endif
                             }
                         } while (DiffIndexToDestWorldEntities.TryGetNextValue(out entityWhereComponentToPatchIs, ref patchDestinationIterator));

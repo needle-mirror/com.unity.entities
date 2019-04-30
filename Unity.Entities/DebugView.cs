@@ -469,7 +469,7 @@ namespace Unity.Entities
     }
 #endif
     
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     sealed class DiffApplierDebugView
     {
         private WorldDiffer.DiffApplier target;

@@ -13,6 +13,8 @@ using UnityEngine.Scripting;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid")]
 [assembly: InternalsVisibleTo("Unity.Entities.Properties")]
+[assembly: InternalsVisibleTo("Unity.Tiny.Core")]
+[assembly: InternalsVisibleTo("Unity.Editor")]
 
 namespace Unity.Entities
 {
@@ -267,7 +269,7 @@ namespace Unity.Entities
     /// </remarks>
     [Preserve]
     [DebuggerTypeProxy(typeof(EntityManagerDebugView))]
-    public sealed unsafe partial class EntityManager
+    public sealed unsafe partial class EntityManager : EntityManagerBaseInterfaceForObsolete
     {
         EntityDataManager* m_Entities;
         ComponentJobSafetyManager* m_ComponentJobSafetyManager;
@@ -309,7 +311,7 @@ namespace Unity.Entities
         {
             get { return m_Entities; }
         }
-        
+
         internal ComponentJobSafetyManager* ComponentJobSafetyManager
         {
             get { return m_ComponentJobSafetyManager; }
@@ -394,10 +396,10 @@ namespace Unity.Entities
             m_World = world;
 
             m_Entities = (EntityDataManager*) UnsafeUtility.Malloc(sizeof(EntityDataManager), 64, Allocator.Persistent);
-            m_Entities->OnCreate();                     
+            m_Entities->OnCreate();
 
             m_SharedComponentManager = new SharedComponentDataManager();
-            
+
             m_ComponentJobSafetyManager = (ComponentJobSafetyManager*) UnsafeUtility.Malloc(sizeof(ComponentJobSafetyManager), 64, Allocator.Persistent);
             m_ComponentJobSafetyManager->OnCreate();
 
@@ -975,7 +977,12 @@ namespace Unity.Entities
         /// <param name="componentType">The type of component to add.</param>
         public void AddComponent(Entity entity, ComponentType componentType)
         {
-            if (componentType.IgnoreDuplicateAdd && HasComponent(entity, componentType))
+            AddComponent(entity, componentType, true);
+        }
+
+        internal void AddComponent(Entity entity, ComponentType componentType, bool ignoreDuplicateAdd)
+        {
+            if (ignoreDuplicateAdd && HasComponent(entity, componentType))
                 return;
 
             BeforeStructuralChange();
@@ -1007,7 +1014,7 @@ namespace Unity.Entities
                     return;
                 BeforeStructuralChange();
                 Entities->AssertCanAddComponent(chunks, componentType);
-                Entities->AddComponent(chunks, componentType, ArchetypeManager, m_GroupManager);
+                Entities->AddComponent(chunks, componentType, ArchetypeManager, m_GroupManager, m_SharedComponentManager);
             }
         }
 
@@ -1177,7 +1184,7 @@ namespace Unity.Entities
         public void AddComponentData<T>(Entity entity, T componentData) where T : struct, IComponentData
         {
             var type = ComponentType.ReadWrite<T>();
-            AddComponent(entity, type);
+            AddComponent(entity, type, type.IgnoreDuplicateAdd);
             if (!type.IsZeroSized)
                 SetComponentData(entity, componentData);
         }
@@ -1252,7 +1259,7 @@ namespace Unity.Entities
                     return;
                 BeforeStructuralChange();
                 Entities->AssertCanAddChunkComponent(chunks, ComponentType.ChunkComponent<T>());
-                Entities->AddChunkComponent<T>(chunks, componentData, ArchetypeManager, m_GroupManager);
+                Entities->AddChunkComponent<T>(chunks, componentData, ArchetypeManager, m_GroupManager, m_SharedComponentManager);
             }
         }
 
@@ -1619,7 +1626,7 @@ namespace Unity.Entities
         public void AddSharedComponentData<T>(Entity entity, T componentData) where T : struct, ISharedComponentData
         {
             //TODO: optimize this (no need to move the entity to a new chunk twice)
-            AddComponent(entity, ComponentType.ReadWrite<T>());
+            AddComponent(entity, ComponentType.ReadWrite<T>(), false);
             SetSharedComponentData(entity, componentData);
         }
 
@@ -1651,7 +1658,7 @@ namespace Unity.Entities
                 BeforeStructuralChange();
                 var newSharedComponentDataIndex = m_SharedComponentManager.InsertSharedComponent(componentData);
                 Entities->AssertCanAddComponent(chunks, componentType);
-                Entities->AddSharedComponent(chunks, componentType, ArchetypeManager, m_GroupManager, newSharedComponentDataIndex);
+                Entities->AddSharedComponent(chunks, componentType, ArchetypeManager, m_GroupManager, m_SharedComponentManager, newSharedComponentDataIndex);
                 m_SharedComponentManager.AddReference(newSharedComponentDataIndex, chunks.Length-1);
             }
         }
@@ -1736,10 +1743,12 @@ namespace Unity.Entities
 
             BufferHeader* header = (BufferHeader*) Entities->GetComponentDataWithTypeRW(entity, typeIndex, Entities->GlobalSystemVersion);
 
+            int internalCapacity = TypeManager.GetTypeInfo(typeIndex).BufferCapacity;
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new DynamicBuffer<T>(header, ComponentJobSafetyManager->GetSafetyHandle(typeIndex, false), ComponentJobSafetyManager->GetBufferSafetyHandle(typeIndex), false);
+            return new DynamicBuffer<T>(header, ComponentJobSafetyManager->GetSafetyHandle(typeIndex, false), ComponentJobSafetyManager->GetBufferSafetyHandle(typeIndex), false, internalCapacity);
 #else
-            return new DynamicBuffer<T>(header);
+            return new DynamicBuffer<T>(header, internalCapacity);
 #endif
         }
 

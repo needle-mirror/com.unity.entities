@@ -5,7 +5,8 @@
         "Unity.Mathematics",
         "Unity.Properties",
         "Unity.Jobs",
-        "Unity.Entities.Properties"
+        "Unity.Entities.Properties",
+        "Unity.Properties.Reflection"
     ],
     "optionalUnityReferences": [
         "TestAssemblies"
@@ -13,5 +14,11 @@
     "includePlatforms": [
         "Editor"
     ],
-    "allowUnsafeCode": true
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": []
 }

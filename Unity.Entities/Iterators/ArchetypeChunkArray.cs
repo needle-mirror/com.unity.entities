@@ -271,11 +271,13 @@ namespace Unity.Entities
             if (typeIndexInArchetype == -1)
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                return new BufferAccessor<T>(null, 0, 0, true, bufferComponentType.m_Safety0, bufferComponentType.m_Safety1);
+                return new BufferAccessor<T>(null, 0, 0, true, bufferComponentType.m_Safety0, bufferComponentType.m_Safety1, 0);
 #else
-                return new BufferAccessor<T>(null, 0, 0);
+                return new BufferAccessor<T>(null, 0, 0, 0);
 #endif
             }
+
+            int internalCapacity = archetype->BufferCapacities[typeIndexInArchetype];
 
             if (!bufferComponentType.IsReadOnly)
                 m_Chunk->SetChangeVersion(typeIndexInArchetype, bufferComponentType.GlobalSystemVersion);
@@ -285,9 +287,9 @@ namespace Unity.Entities
             var startOffset = archetype->Offsets[typeIndexInArchetype];
             int stride = archetype->SizeOfs[typeIndexInArchetype];
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new BufferAccessor<T>(buffer + startOffset, length, stride, bufferComponentType.IsReadOnly, bufferComponentType.m_Safety0, bufferComponentType.m_Safety1);
+            return new BufferAccessor<T>(buffer + startOffset, length, stride, bufferComponentType.IsReadOnly, bufferComponentType.m_Safety0, bufferComponentType.m_Safety1, internalCapacity);
 #else
-            return new BufferAccessor<T>(buffer + startOffset, length, stride);
+            return new BufferAccessor<T>(buffer + startOffset, length, stride, internalCapacity);
 #endif
         }
     }
@@ -306,6 +308,7 @@ namespace Unity.Entities
         private byte* m_BasePointer;
         private int m_Length;
         private int m_Stride;
+        private int m_InternalCapacity;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         private bool m_IsReadOnly;
 #endif
@@ -324,7 +327,7 @@ namespace Unity.Entities
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        public BufferAccessor(byte* basePointer, int length, int stride, bool readOnly, AtomicSafetyHandle safety, AtomicSafetyHandle arrayInvalidationSafety)
+        public BufferAccessor(byte* basePointer, int length, int stride, bool readOnly, AtomicSafetyHandle safety, AtomicSafetyHandle arrayInvalidationSafety, int internalCapacity)
         {
             m_BasePointer = basePointer;
             m_Length = length;
@@ -334,13 +337,15 @@ namespace Unity.Entities
             m_IsReadOnly = readOnly;
             m_SafetyReadOnlyCount = readOnly ? 2 : 0;
             m_SafetyReadWriteCount = readOnly ? 0 : 2;
+            m_InternalCapacity = internalCapacity;
         }
 #else
-        public BufferAccessor(byte* basePointer, int length, int stride)
+        public BufferAccessor(byte* basePointer, int length, int stride, int internalCapacity)
         {
             m_BasePointer = basePointer;
             m_Length = length;
             m_Stride = stride;
+            m_InternalCapacity = internalCapacity;
         }
 #endif
 
@@ -357,9 +362,9 @@ namespace Unity.Entities
                 BufferHeader* hdr = (BufferHeader*) (m_BasePointer + index * m_Stride);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                return new DynamicBuffer<T>(hdr, m_Safety0, m_ArrayInvalidationSafety, m_IsReadOnly);
+                return new DynamicBuffer<T>(hdr, m_Safety0, m_ArrayInvalidationSafety, m_IsReadOnly, m_InternalCapacity);
 #else
-                return new DynamicBuffer<T>(hdr);
+                return new DynamicBuffer<T>(hdr, m_InternalCapacity);
 #endif
             }
         }

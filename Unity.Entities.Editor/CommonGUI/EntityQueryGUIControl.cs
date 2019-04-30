@@ -8,7 +8,7 @@ namespace Unity.Entities.Editor
 {
     internal class EntityQueryGUIControl
     {
-        private List<GUIStyle> styles;
+        internal List<GUIStyle> styles;
         private List<GUIContent> names;
         private List<Rect> rects;
         private float height;
@@ -41,22 +41,22 @@ namespace Unity.Entities.Editor
                 GUIStyle style = null;
                 if (readWriteTypes != null)
                 {
-                    foreach (var readWriteType in readWriteTypes)
+                    if (type.AccessModeType == ComponentType.AccessMode.Exclude)
                     {
-                        if (readWriteType.TypeIndex == type.TypeIndex)
-                        {
-                            style = EntityQueryGUI.StyleForAccessMode(readWriteType.AccessModeType, archetypeQueryMode);
-                            break;
-                        }
+                        style = EntityDebuggerStyles.ComponentExclude;
                     }
-
-                    if (style == null)
+                    else
                     {
-                        if (type.AccessModeType == ComponentType.AccessMode.Exclude)
+                        foreach (var readWriteType in readWriteTypes)
                         {
-                            style = EntityDebuggerStyles.ComponentExclude;
+                            if (readWriteType.TypeIndex == type.TypeIndex)
+                            {
+                            style = EntityQueryGUI.StyleForAccessMode(readWriteType.AccessModeType, archetypeQueryMode);
+                                break;
+                            }
                         }
-                        else
+
+                        if (style == null)
                         {
                             style = EntityDebuggerStyles.ComponentRequired;
                         }

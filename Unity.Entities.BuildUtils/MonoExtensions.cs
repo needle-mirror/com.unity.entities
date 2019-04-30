@@ -272,5 +272,10 @@ namespace Unity.Entities.BuildUtils
         {
             return TypeHash.CalculateStableTypeHash(typeDef);
         }
+
+        public static ulong CalculateMemoryOrdering(this TypeDefinition typeDef)
+        {
+            return TypeHash.CalculateMemoryOrdering(typeDef);
+        }
     }
 }

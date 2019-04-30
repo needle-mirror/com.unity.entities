@@ -5,9 +5,15 @@
         "Unity.Mathematics",
         "Unity.Properties",
         "Unity.Jobs",
-        "Unity.Transforms"
+        "Unity.Transforms",
+        "Unity.Properties.Reflection"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
-    "allowUnsafeCode": true
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": []
 }

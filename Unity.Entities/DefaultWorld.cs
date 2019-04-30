@@ -1,5 +1,9 @@
 using System.Collections.Generic;
+#if UNITY_2019_3_OR_NEWER
+using UnityEngine.PlayerLoop;
+#else
 using UnityEngine.Experimental.PlayerLoop;
+#endif
 using UnityEngine.Scripting;
 
 namespace Unity.Entities

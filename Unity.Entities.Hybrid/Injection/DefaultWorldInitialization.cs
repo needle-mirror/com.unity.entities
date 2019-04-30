@@ -3,8 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+#if UNITY_2019_3_OR_NEWER
+using UnityEngine.LowLevel;
+using UnityEngine.PlayerLoop;
+#else
 using UnityEngine.Experimental.LowLevel;
 using UnityEngine.Experimental.PlayerLoop;
+#endif
 
 namespace Unity.Entities
 {
@@ -176,7 +181,7 @@ namespace Unity.Entities
                     typeof(ICustomBootstrap).IsAssignableFrom(t) &&
                     !t.IsAbstract &&
                     !t.ContainsGenericParameters);
-                
+
                 // TODO: should multiple bootstrap classes be allowed?
                 foreach (var boot in bootstrapTypes)
                 {
@@ -190,15 +195,15 @@ namespace Unity.Entities
 
                 bool FilterSystemType(Type type)
                 {
-                    if (!type.IsSubclassOf(typeof(ComponentSystemBase)) || type.IsAbstract || type.ContainsGenericParameters) 
+                    if (!type.IsSubclassOf(typeof(ComponentSystemBase)) || type.IsAbstract || type.ContainsGenericParameters)
                         return false;
 
                     if (type.GetCustomAttribute<DisableAutoCreationAttribute>(true) != null)
                         return false;
-                    
+
                     var systemFlags = WorldSystemFilterFlags.Default;
                     var attrib = type.GetCustomAttribute<WorldSystemFilterAttribute>(true);
-                    if (attrib != null) 
+                    if (attrib != null)
                         systemFlags = attrib.FilterFlags;
 
                     return (filterFlags & systemFlags) != 0;

@@ -1,9 +1,15 @@
 using System;
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
 using System.Collections.Generic;
 using System.Linq;
+
+#if  UNITY_2019_3_OR_NEWER
+using UnityEngine.LowLevel;
+using UnityEngine.PlayerLoop;
+#else
 using UnityEngine.Experimental.LowLevel;
 using UnityEngine.Experimental.PlayerLoop;
+#endif
 #endif
 
 namespace Unity.Entities
@@ -49,7 +55,7 @@ namespace Unity.Entities
         public Type GroupType { get; }
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     public static class ScriptBehaviourUpdateOrder
     {
         private static void InsertManagerIntoSubsystemList<T>(PlayerLoopSystem[] subsystemList, int insertIndex, T mgr)

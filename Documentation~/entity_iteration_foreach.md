@@ -10,7 +10,7 @@ __Important:__ Making structural changes forces the completion of all Jobs. This
 
 ## Iterating with ForEach delegates
 
-The ComponentSystem provides a Entities.ForEach function that simplifies the task of iterating over a set of entities. Call ForEach in the system’s OnUpdate() function passing in a lambda function that takes the relevant components as parameters and whose function body performs the necessary work.
+The ComponentSystem provides an Entities.ForEach function that simplifies the task of iterating over a set of entities. Call ForEach in the system’s OnUpdate() function passing in a lambda function that takes the relevant components as parameters and whose function body performs the necessary work.
 
 The following example, from the HelloCube_01_ForEach sample, animates the rotation for any entities that have both a RotationQuaternion and a RotationSpeed component:
 
@@ -28,7 +28,7 @@ The following example, from the HelloCube_01_ForEach sample, animates the rotati
 
 You can use ForEach lambda functions with up to six types of components.
 
-If you need to make structural changes to existing entities, you can add an Entity component to your lambda function parameters and use it to add the commands to the ComponentSystem post-update command buffer. (If you were allowed to make structural changes inside the lambda function, you might change the layout of the data in the arrays you are iterating over, leading to bugs or other undefined behavior.) 
+If you need to make structural changes to existing entities, you can add an Entity component to your lambda function parameters and use it to add the commands to your `ComponentSystem`'s `PostUpdateCommands` buffer. (If you were allowed to make structural changes inside the lambda function, you might change the layout of the data in the arrays you are iterating over, leading to bugs or other undefined behavior.)
 
 For example, if you wanted to remove the RotationSpeed component form any entities whose rotation speed is currently zero, you could alter your ForEach function as follows:
 
@@ -46,3 +46,64 @@ Entities.ForEach( (Entity entity, ref RotationSpeed rotationSpeed, ref RotationQ
 
 The system executes the commands in the post-update buffer after the OnUpdate() function is finished.
 
+## Fluent Queries
+
+You can use a [fluent-style](https://en.wikipedia.org/wiki/Fluent_interface) query to constrain a ForEach lambda such that it executes on a specific set of entities satisfying some constraints. These queries can specify whether the work should be done on entities that have any, all or none of a set of components. Constraints can be chained together and should look very familiar to users of C#'s LINQ system.
+
+Note that any components passed as parameters to the ForEach lambda function are automatically included in the WithAll set and must not be included explicitly in the WithAll, WithAny, or WithNone portions of the query.
+
+A **WithAll** constraint allows you to specify that an entity have all of a set of components. For example, with the following query, the ComponentSystem executes a lambda function for all entities that have the Rotation and Scale component:
+
+```csharp
+Entities.WithAll<Rotation, Scale>().ForEach( (Entity e) =>
+{
+    // do stuff
+});
+```
+
+Use WithAll for components that must exist on an entity, but which you do not need to read or write (add components that you want to access, as parameters of the ForEach lambda function). For example:
+
+```csharp
+Entities.WithAll<SpinningTag>().ForEach( (Entity e, ref Rotation r) =>
+{
+    // do stuff
+});
+```
+
+A **WithAny** constraint allows you to specify that an entity must have at least one of a set of components. The ComponentSystem executes the following lambda function for all entities that have both Rotation and Scale, AND either RenderDataA or RenderDataB (or both):
+
+```csharp
+Entities.WithAll<Rotation, Scale>().WithAny<RenderDataA, RenderDataB>().ForEach( (Entity e) =>
+{
+    // do stuff
+});
+```
+
+Note that there is no way to know which components in the WithAny set exist for a specific entity. If you need to treat entities differently depending on which of these components exist, you must either create a specific query for each situation, or use a JobComponentSystem with [IJobChunk](chunk_iteration_job.md).
+
+A **WithNone** constraint allows you to exclude entities that have at least one of a set of components. The ComponentSystem executes the following lambda function for all entities that do not have a Rotation component:
+
+```csharp
+Entities.WithNone<Rotation>().ForEach( (Entity e) =>
+{
+    // do stuff
+});
+```
+
+You can also specify a number of options for a query using **With**:
+
+| Option | Description |
+|---|---|
+| Default | No options specified. |
+| IncludePrefab | The query does not implicitly exclude entities with the special Prefab component. |
+| IncludeDisabled | The query does not implicitly exclude entities with the special Disabled component. |
+| FilterWriteGroup | The query should filter selected entities based on the WriteGroupAttribute settings of the components specified in the query. |
+
+The ComponentSystem executes the following lambda function for all entities that do not have a Rotation component, including those that do have the special Disabled component:
+
+```csharp
+Entities.WithNone<Rotation>().With(EntityQueryOptions.IncludeDisabled).ForEach( (Entity e) =>
+{
+    // do stuff
+});
+```

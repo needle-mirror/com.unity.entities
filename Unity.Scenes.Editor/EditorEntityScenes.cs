@@ -10,6 +10,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.SceneManagement;
+using UnityEditor.VersionControl;
 using static Unity.Entities.GameObjectConversionUtility;
 using Hash128 = Unity.Entities.Hash128;
 using Object = UnityEngine.Object;
@@ -279,6 +280,15 @@ namespace Unity.Scenes.Editor
             var sharedDataPath = EntityScenesPaths.GetPathAndCreateDirectory(sceneGUID, EntityScenesPaths.PathType.EntitiesSharedComponents, subsection);
 
             GameObject sharedComponents;
+
+            // We're going to do file writing manually, so make sure to do version control dance if needed
+            if (Provider.isActive && !AssetDatabase.IsOpenForEdit(entitiesBinaryPath, StatusQueryOptions.UseCachedIfPossible))
+            {
+                var task = Provider.Checkout(entitiesBinaryPath, CheckoutMode.Asset);
+                task.Wait();
+                if (!task.success)
+                    throw new System.Exception($"Failed to checkout entity cache file {entitiesBinaryPath}");
+            }
     
             // Write binary entity file
             int entitySceneFileSize = 0;

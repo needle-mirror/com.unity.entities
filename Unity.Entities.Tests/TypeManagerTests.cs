@@ -32,6 +32,11 @@ namespace Unity.Entities.Tests
             char empty;
         }
 
+        struct GenericComponent<T> : IComponentData
+        {
+            T value;
+        }
+
         [Test]
         public void CreateArchetypes()
         {
@@ -51,6 +56,18 @@ namespace Unity.Entities.Tests
         {
             Assert.AreEqual(1, TypeManager.GetTypeInfo<TestTypeWithBool>().SizeInChunk);
             Assert.AreEqual(2, TypeManager.GetTypeInfo<TestTypeWithChar>().SizeInChunk);
+        }
+
+        // We need to decide whether this should actually be allowed; for now, add a test to make sure
+        // we don't break things more than they already are.
+        [Test]
+        [StandaloneFixme] // dots runtime doesn't support generic components
+        public void TestGenericComponents()
+        {
+            var index1 = TypeManager.GetTypeIndex<GenericComponent<int>>();
+            var index2 = TypeManager.GetTypeIndex<GenericComponent<short>>();
+
+            Assert.AreNotEqual(index1, index2);
         }
 
         [InternalBufferCapacity(99)]
@@ -86,7 +103,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(typeof(Entity), entityType.GetManagedType());
         }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
         struct NonBlittableComponentData : IComponentData
         {
             string empty;

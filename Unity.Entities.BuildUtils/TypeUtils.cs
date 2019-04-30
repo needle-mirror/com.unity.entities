@@ -267,7 +267,8 @@ namespace Unity.Entities.BuildUtils
             ValueTypeIsComplex[bits].Add(valuetype, isComplex);
         }
 
-        internal static void GetFieldOffsetsOfRecurse(string queryFullTypeName, int offset, TypeDefinition type, List<int> l, int bits)
+        internal static void GetFieldOffsetsOfRecurse(string queryFullTypeName, string fieldName,
+            int offset, TypeDefinition type, List<int> l, int bits)
         {
             int in_type_offset = 0;
             foreach (var f in type.Fields)
@@ -284,19 +285,23 @@ namespace Unity.Entities.BuildUtils
                 var tinfo = resize(TypeUtils.AlignAndSizeOfType(f.FieldType, bits));
                 in_type_offset = (int)alignUp((uint)in_type_offset, (uint)tinfo.align);
 
-                if (f.FieldType.IsDynamicArray() && f.FieldType.DynamicArrayElementType().Resolve().FullName == queryFullTypeName)
+                if (f.FieldType.IsDynamicArray() &&
+                    (f.FieldType.DynamicArrayElementType().Resolve().FullName == queryFullTypeName ||
+                     f.Name == fieldName)
+                   )
                 {
                     // +1 so that we have a way to indicate an Array<Entity> at position 0
                     // fixup code subtracts 1
                     l.Add(-(offset + in_type_offset + 1));
                 }
-                else if (f.FieldType.Resolve().FullName == queryFullTypeName)
+                else if (f.FieldType.Resolve().FullName == queryFullTypeName || f.Name == fieldName)
                 {
                     l.Add(offset + in_type_offset);
                 }
                 else if (f.FieldType.IsValueType && !f.FieldType.IsPrimitive)
                 {
-                    GetFieldOffsetsOfRecurse(queryFullTypeName, offset + in_type_offset, f.FieldType.Resolve(), l, bits);
+                    GetFieldOffsetsOfRecurse(queryFullTypeName, fieldName,
+                        offset + in_type_offset, f.FieldType.Resolve(), l, bits);
                 }
                 in_type_offset += tinfo.size;
             }
@@ -308,7 +313,7 @@ namespace Unity.Entities.BuildUtils
 
             if (typeToLookIn != null)
             {
-                GetFieldOffsetsOfRecurse(typeToFind.FullName, 0, typeToLookIn, offsets, archBits);
+                GetFieldOffsetsOfRecurse(typeToFind.FullName, "<invalid>", 0, typeToLookIn, offsets, archBits);
             }
 
             return offsets;
@@ -320,7 +325,19 @@ namespace Unity.Entities.BuildUtils
 
             if (typeToLookIn != null)
             {
-                GetFieldOffsetsOfRecurse(queryFullTypeName, 0, typeToLookIn, offsets, archBits);
+                GetFieldOffsetsOfRecurse(queryFullTypeName, "<invalid>", 0, typeToLookIn, offsets, archBits);
+            }
+
+            return offsets;
+        }
+
+        public static List<int> GetFieldOffsetsOfByFieldName(string fieldName, TypeDefinition typeToLookIn, int archBits)
+        {
+            var offsets = new List<int>();
+
+            if (typeToLookIn != null)
+            {
+                GetFieldOffsetsOfRecurse("<invalid>", fieldName, 0, typeToLookIn, offsets, archBits);
             }
 
             return offsets;

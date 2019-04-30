@@ -6,7 +6,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobChunkExtensions.JobChunk_Process<>))]
 #endif
     public interface IJobChunk
@@ -52,7 +52,7 @@ namespace Unity.Entities
             ScheduleInternal(ref jobData, query, default(JobHandle), ScheduleMode.Run);
         }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
         internal static unsafe JobHandle ScheduleInternal<T>(ref T jobData, EntityQuery query, JobHandle dependsOn, ScheduleMode mode)
             where T : struct, IJobChunk
         {

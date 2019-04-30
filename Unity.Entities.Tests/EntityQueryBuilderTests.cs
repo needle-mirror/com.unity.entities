@@ -159,6 +159,7 @@ namespace Unity.Entities.Tests
                 .WithAll<EcsTestTag>()
                 .WithAny<EcsTestData, EcsTestData2>()
                 .WithNone<EcsTestData3, EcsTestData4, EcsTestData5>()
+                .With(EntityQueryOptions.Default)
                 .ToEntityQueryDesc();
 
             CollectionAssert.AreEqual(
@@ -207,6 +208,34 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(
                 new[] { ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>() },
                 eaq.All);
+        }
+
+        [Test]
+        public void ForEach_WithIncludeDisabledOptions_ReturnsEntityWithDisabled()
+        {
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(entity, new EcsTestData(0));
+            m_Manager.AddComponentData(entity, new Disabled());
+
+            var query = TestSystem.Entities.WithAny<EcsTestData>().With(EntityQueryOptions.IncludeDisabled);
+
+            bool entityFound = false;
+            query.ForEach((Entity id) => { entityFound = true; });
+            Assert.IsTrue(entityFound);
+        }
+
+        [Test]
+        public void ForEach_WithoutIncludeDisabledOptions_ReturnsNoEntityWithDisabled()
+        {
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(entity, new EcsTestData(0));
+            m_Manager.AddComponentData(entity, new Disabled());
+
+            var query = TestSystem.Entities.WithAny<EcsTestData>().With(EntityQueryOptions.Default);
+
+            bool entityFound = false;
+            query.ForEach((Entity id) => { entityFound = true; });
+            Assert.IsFalse(entityFound);
         }
     }
 }

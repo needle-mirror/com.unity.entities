@@ -1,4 +1,4 @@
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
 using System;
 using System.Linq;
 using System.Reflection;
@@ -9,7 +9,7 @@ namespace Unity.Entities.Tests.ForEach
 {
     class ForEachMemoryTestFixtureBase : EntityQueryBuilderTestFixture
     {
-        // TODO: implement equivalent in DOTS runtime and remove #if !UNITY_ZEROPLAYER from all ForEach memory tests
+        // TODO: implement equivalent in DOTS runtime and remove #if !UNITY_DOTSPLAYER from all ForEach memory tests
         Recorder m_AllocRecorder;
 
         protected int m_Field;
@@ -59,4 +59,4 @@ namespace Unity.Entities.Tests.ForEach
         }
     }
 }
-#endif // !UNITY_ZEROPLAYER
+#endif // !UNITY_DOTSPLAYER

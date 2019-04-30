@@ -1,4 +1,4 @@
-<#/*THIS IS A T4 FILE - see HACKING.md for what it is and how to run codegen*/#>
+<#/*THIS IS A T4 FILE - see t4_text_templating.md for what it is and how to run codegen*/#>
 <#@ assembly name="System.Collections" #>
 <#@ assembly name="System.Core" #>
 <#@ assembly name="System.Linq" #>
@@ -39,7 +39,6 @@ foreach (var categories in combinations) {
         var genericConstraints  = GetGenericConstraints(categories);
         var actionParams        = GetActionParams(categories, hasEntity);
 #>
-
         public delegate void <#=delegateName#><#=genericTypes#>(<#=delegateParameters#>)<#=categories.Any() ? "" : ";"#>
 <#      foreach (var constraint in Smart(genericConstraints)) {#>
             <#=constraint.Value#><#=constraint.IfLast(";")#>
@@ -58,10 +57,12 @@ foreach (var categories in combinations) {
                 if (query == null)
                 {
 <#          if (categories.Any()) {#>
-                    var delegateTypes = stackalloc int[<#=categories.Length#>];
-<#              foreach (var (c, i) in mappedCategories) { /*TODO: when tiny on c# 7.3 switch to initializer syntax */#>
-                    delegateTypes[<#=i#>] = TypeManager.GetTypeIndex<T<#=i#>>();
+                    var delegateTypes = stackalloc[]
+                    {
+<#              foreach (var (c, i) in mappedCategories) { #>
+                        TypeManager.GetTypeIndex<T<#=i#>>(),
 <#              }#>
+                    };
 
 <#          }#>
                     query = ResolveEntityQuery(<#=categories.Any() ? "delegateTypes" : "null"#>, <#=categories.Length#>);
@@ -95,21 +96,14 @@ foreach (var categories in combinations) {
 <#}}#>
     }
 
-
     // Schedule() implementation for DOTS-standalone.
     // The IDE calls Schedule(), and then code-gen is used to
     // replace the call to the correct Schedule_D method, With
     // known types.
 
-#if UNITY_ZEROPLAYER
-	public static partial class JobForEachExtensions {
-
-        // This method is used by the IDE, and is what will be replaced by one of the Schedule_D methods below.
-        public unsafe static JobHandle Schedule<TJob>(this TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IBaseJobForEach
-        {
-            throw new NotImplementedException("Schedule<TJob>() should have been replaced by code-gen.");
-        }
+#if UNITY_DOTSPLAYER
+    public static partial class JobForEachExtensions
+    {
 <#
 
 string GetScheduleParams(Category[] categories, bool hasEntity)
@@ -135,67 +129,123 @@ foreach (var categories in combinations) {
         var actionParams        = GetScheduleParams(categories, hasEntity);
         var dName               = (hasEntity ? "E" : "") + Series("D", categories.Length, "");
         var jobInterface        = hasEntity ? "IJobForEachWithEntity" : "IJobForEach";
-#>
-<#   if (categories.Any() && !categories.Any(c => c != Category.D)) { #>
 
+        // See "Code-Gen of Schedule()" IJobForEach.cs for an explanation of the code-gen steps and how this works.
+#>
+<#      if (categories.Any() && !categories.Any(c => c != Category.D)) { #>
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public unsafe static JobHandle Schedule_<#=dName#><#=genericTypesWithJob#>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
+        internal unsafe static void Execute_<#=dName#><#=genericTypesWithJob#>(TJob job, ComponentSystemBase system, EntityQuery query, JobHandle dependsOn = default(JobHandle))
+            where TJob : struct, <#=jobInterface#><#=genericTypes#>
+<#          foreach (var constraint in genericConstraints) {#>
+            <#=constraint#>
+<#          }#>
+        {
+<#      if (hasEntity) {#>
+            var entityType = system.GetArchetypeChunkEntityType();
+<#      }#>
+<#      foreach (var (c, i) in mappedCategories) {#>
+            var chunkComponentType<#=i#> = system.<#=AccessFunction[c]#><T<#=i#>>(<#=IsReadOnly[c]#>);
+<#      }#>
+
+            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+            {
+                foreach (var chunk in chunks)
+                {
+<#          foreach (var (c, i) in mappedCategories) {#>
+                    var array<#=i#> = chunk.<#=string.Format(ChunkGetArray[c], i)#>;
+<#          }#>
+<#          if (hasEntity) {#>
+                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
+<#          }#>
+
+                    for (int i = 0, count = chunk.Count; i < count; ++i)
+                        job.Execute(<#=actionParams#>);
+                }
+            }
+            DoDeallocateOnJobCompletion(job);
+        }
+<#
+        for(int bits=0; bits < (1 << categories.Length); ++bits) {
+            var accessID = hasEntity ? "E" : "";
+            String[] accessName = new String[categories.Length];
+            for(int i=0; i<categories.Length; ++i) {
+                if ((bits & (1<<i)) != 0) {
+                    accessID += "wD";
+                    accessName[i] = "ReadWrite";
+                }
+                else {
+                    accessID += "rD";
+                    accessName[i] = "ReadOnly";
+                }
+            }
+#>
+<#      // See "Code-Gen of Schedule()" IJobForEach.cs for an explanation of the code-gen steps and how this works. 
+#>
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        internal unsafe static JobHandle Schedule_<#=accessID#><#=genericTypesWithJob#>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
             where TJob : struct, <#=jobInterface#><#=genericTypes#>
 <#      foreach (var constraint in genericConstraints) {#>
             <#=constraint#>
 <#      }#>
         {
             {
-                EntityQuery query = null;
-                if (query== null)
-                {
 <#          if (categories.Any()) {#>
-                    var delegateTypes = stackalloc ComponentType[<#=categories.Length#>];
-<#              foreach (var (c, i) in mappedCategories) { /*TODO: when tiny on c# 7.3 switch to initializer syntax */#>
-                    delegateTypes[<#=i#>] = ComponentType.ReadWrite<T<#=i#>>();
-<#              }#>
-
-<#          }#>
-                    query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(<#=categories.Any() ? "delegateTypes" : "null"#>, <#=categories.Length#>);
-                }
-
-<#      if (hasEntity) {#>
-                var entityType = system.GetArchetypeChunkEntityType();
-<#      }#>
-<#      foreach (var (c, i) in mappedCategories) {#>
-                var chunkComponentType<#=i#> = system.<#=AccessFunction[c]#><T<#=i#>>(<#=IsReadOnly[c]#>);
-<#      }#>
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                var delegateTypes = stackalloc ComponentType[<#=categories.Length#>]
                 {
-                    foreach (var chunk in chunks)
-                    {
-<#      foreach (var (c, i) in mappedCategories) {#>
-                        var array<#=i#> = chunk.<#=string.Format(ChunkGetArray[c], i)#>;
-<#      }#>
-<#      if (hasEntity) {#>
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-<#      }#>
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            job.Execute(<#=actionParams#>);
-                    }
-                }
+<#              foreach (var (c, i) in mappedCategories) { #>
+                    ComponentType.<#=accessName[i]#><T<#=i#>>(),
+<#              }#>
+                };
+<#          }#>
+                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(<#=categories.Any() ? "delegateTypes" : "null"#>, <#=categories.Length#>);
+                Execute_<#=dName#><#=genericTypesWithJob#>(job, system, query, dependsOn);
             }
             return new JobHandle();
         }
-
+<#
+        }
+#>        
 <#   } #>
 <#}}#>
     }
-#endif // UNITY_ZEROPLAYER
+#endif // UNITY_DOTSPLAYER
+
+    // BACK-COMPAT
+
+    public partial class ComponentSystem
+    {
+<#
+foreach (var categories in combinations) {
+    foreach (var hasEntity in new[] { true, false }) {
+        if (!categories.Any() && !hasEntity)
+            continue;
+        var delegateName        = GetDelegateName(categories, hasEntity);
+        var genericTypes        = categories.Any() ? ("<" + Series("T{0}", categories.Length, ", ") + ">") : "";
+        var genericConstraints  = GetGenericConstraints(categories);
+#>
+        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
+        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+        public unsafe void ForEach<#=genericTypes#>(EntityQueryBuilder.<#=delegateName#><#=genericTypes#> action, EntityQuery query = null)
+            <#=string.Join(" ", genericConstraints)#>
+        {
+            var q = Entities;
+            if (query != null)
+                q = q.With(query);
+            q.ForEach(action);
+        }
+
+<#}}#>
+    }
 
 } // namespace Unity.Entities
 
 <#+
 enum Category
 {
-    D, // ComponentData
+    // note: 'in' is broken in c# (very easy for user to accidentally cause a copy) so we do not
+    // include it in the combos we support yet.
+
+    D, // ref ComponentData
     I, // in ComponentData
     C, // class
     B, // IBufferElementData
@@ -211,22 +261,22 @@ static string GetDelegateName(Category[] categories, bool hasEntity)
 
 string[] Param =
 {
-    "ref T{0} c{0}",               // ComponentData
-    "in T{0} c{0}",                // in ComponentData
+    "ref T{0} d{0}",               // ref ComponentData
+    "in T{0} i{0}",                // in ComponentData
     "T{0} c{0}",                   // class
-    "DynamicBuffer<T{0}> c{0}",    // IBufferElementData
-    "in DynamicBuffer<T{0}> c{0}", // in IBufferElementData
-    "T{0} c{0}",                   // ISharedComponentData
+    "DynamicBuffer<T{0}> b{0}",    // IBufferElementData
+    "in DynamicBuffer<T{0}> k{0}", // in IBufferElementData
+    "T{0} s{0}",                   // ISharedComponentData
 };
 
 string[] FwdParam =
 {
-    "ref c{0}", // ComponentData
-    "c{0}",		// in ComponentData
+    "ref d{0}", // ref ComponentData
+    "i{0}",		// in ComponentData
     "c{0}",		// class
-    "c{0}",     // IBufferElementData
-    "c{0}",		// in IBufferElementData
-    "c{0}",     // ISharedComponentData
+    "b{0}",     // IBufferElementData
+    "k{0}",		// in IBufferElementData
+    "s{0}",     // ISharedComponentData
 };
 
 string GetDelegateParameters(Category[] categories, bool hasEntity)
@@ -239,7 +289,7 @@ string GetDelegateParameters(Category[] categories, bool hasEntity)
 
 string[] GenericConstraints =
 {
-    "where T{0} : struct, IComponentData",       // ComponentData
+    "where T{0} : struct, IComponentData",       // ref ComponentData
     "where T{0} : struct, IComponentData",       // in ComponentData
     "where T{0} : class",                        // class
     "where T{0} : struct, IBufferElementData",   // IBufferElementData
@@ -252,7 +302,7 @@ IEnumerable<string> GetGenericConstraints(Category[] categories) =>
 
 string[] AccessFunction =
 {
-    "GetArchetypeChunkComponentType",       // ComponentData
+    "GetArchetypeChunkComponentType",       // ref ComponentData
     "GetArchetypeChunkComponentType",       // in ComponentData
     "GetArchetypeChunkComponentType",       // class
     "GetArchetypeChunkBufferType",          // IBufferElementData
@@ -262,7 +312,7 @@ string[] AccessFunction =
 
 static string[] IsReadOnly=
 {
-    "false", // ComponentData
+    "false", // ref ComponentData
     "true",  // in ComponentData
     "",      // class
     "false", // IBufferElementData
@@ -272,7 +322,7 @@ static string[] IsReadOnly=
 
 string[] ChunkGetArray =
 {
-    "GetNativeArray(chunkComponentType{0}).GetUnsafePtr()",                  // ComponentData
+    "GetNativeArray(chunkComponentType{0}).GetUnsafePtr()",                  // ref ComponentData
     "GetNativeArray(chunkComponentType{0}).GetUnsafeReadOnlyPtr()",          // in ComponentData
     "GetComponentObjects(chunkComponentType{0}, m_System.EntityManager)",    // class
     "GetBufferAccessor(chunkComponentType{0})",                              // IBufferElementData
@@ -282,7 +332,7 @@ string[] ChunkGetArray =
 
 string[] ArrayAccess =
 {
-    "ref UnsafeUtilityEx.ArrayElementAsRef<T{0}>(array{0}, i)", // ComponentData
+    "ref UnsafeUtilityEx.ArrayElementAsRef<T{0}>(array{0}, i)", // ref ComponentData
     "in UnsafeUtilityEx.ArrayElementAsRef<T{0}>(array{0}, i)",  // in ComponentData
     "array{0}[i]",                                              // class
     "array{0}[i]",                                              // IBufferElementData
