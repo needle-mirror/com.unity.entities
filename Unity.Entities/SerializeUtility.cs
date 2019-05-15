@@ -33,11 +33,11 @@ namespace Unity.Entities.Serialization
             public int ComponentSize;
         }
 
-        public static int CurrentFileFormatVersion = 18;
+        public static int CurrentFileFormatVersion = 19;
 
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, int numSharedComponents)
         {
-            if (manager.ArchetypeManager.CountEntities() != 0)
+            if (manager.EntityComponentStore->CountEntities() != 0)
             {
                 throw new ArgumentException(
                     $"DeserializeWorld can only be used on completely empty EntityManager. Please create a new empty World and use EntityManager.MoveEntitiesFrom to move the loaded entities into the destination world instead.");
@@ -71,7 +71,7 @@ namespace Unity.Entities.Serialization
             {
                 allBlobAssetData = (byte*)UnsafeUtility.Malloc(totalBlobAssetSize, 16, Allocator.Persistent);
                 reader.ReadBytes(allBlobAssetData, totalBlobAssetSize);
-                blobAssetOwnerIndex = manager.SharedComponentDataManager.InsertSharedComponent(new BlobAssetOwner(allBlobAssetData, totalBlobAssetSize));
+                blobAssetOwnerIndex = manager.ManagedComponentStore.InsertSharedComponent(new BlobAssetOwner(allBlobAssetData, totalBlobAssetSize));
                 blobAssetRefChunks = new NativeList<ArchetypeChunk>(32, Allocator.Temp);
                 var end = allBlobAssetData + totalBlobAssetSize;
                 var header = (BlobAssetHeader*)allBlobAssetData;
@@ -130,31 +130,31 @@ namespace Unity.Entities.Serialization
 
                 if (totalBlobAssetSize != 0 && archetype->ContainsBlobAssetRefs)
                 {
-                    blobAssetRefChunks.Add(new ArchetypeChunk {m_Chunk = chunk});
+                    blobAssetRefChunks.Add(new ArchetypeChunk(chunk, manager.EntityComponentStore));
                     PatchBlobAssetsInChunkAfterLoad(chunk, allBlobAssetData);
                 }
-
-                manager.AddExistingChunk(chunk, remapedSharedComponentValues);
+                
+                EntityManagerMoveEntitiesUtility.AddExistingChunk(chunk, remapedSharedComponentValues,
+                    manager.EntityComponentStore, manager.ManagedComponentStore);
 
                 if (chunk->metaChunkEntity != Entity.Null)
                 {
-                    chunksWithMetaChunkEntities.Add(new ArchetypeChunk{ m_Chunk = chunk});
+                    chunksWithMetaChunkEntities.Add(new ArchetypeChunk(chunk, manager.EntityComponentStore));
                 }
 
             }
 
             if (totalBlobAssetSize != 0)
             {
-                manager.DataManager->AddSharedComponent(blobAssetRefChunks, ComponentType.ReadWrite<BlobAssetOwner>(), manager.ArchetypeManager, manager.EntityGroupManager, manager.SharedComponentDataManager, blobAssetOwnerIndex);
-                manager.SharedComponentDataManager.AddReference(blobAssetOwnerIndex, blobAssetRefChunks.Length - 1);
+                EntityManagerChangeArchetypeUtility.AddSharedComponent(blobAssetRefChunks, ComponentType.ReadWrite<BlobAssetOwner>(), blobAssetOwnerIndex, manager.EntityComponentStore, manager.ManagedComponentStore, manager.EntityGroupManager);
+                manager.ManagedComponentStore.RemoveReference(blobAssetOwnerIndex);
                 blobAssetRefChunks.Dispose();
             }
 
             for (int i = 0; i < chunksWithMetaChunkEntities.Length; ++i)
             {
                 var chunk = chunksWithMetaChunkEntities[i].m_Chunk;
-                var archetype = chunk->Archetype;
-                manager.SetComponentData(chunk->metaChunkEntity, new ChunkHeader{chunk = chunk});
+                manager.SetComponentData(chunk->metaChunkEntity, new ChunkHeader{ArchetypeChunk = chunksWithMetaChunkEntities[i]});
             }
 
             chunksWithMetaChunkEntities.Dispose();
@@ -216,12 +216,12 @@ namespace Unity.Entities.Serialization
             return types;
         }
 
-        internal static unsafe void GetAllArchetypes(ArchetypeManager archetypeManager, out NativeHashMap<EntityArchetype, int> archetypeToIndex, out EntityArchetype[] archetypeArray)
+        internal static unsafe void GetAllArchetypes(EntityComponentStore* entityComponentStore, out NativeHashMap<EntityArchetype, int> archetypeToIndex, out EntityArchetype[] archetypeArray)
         {
             var archetypeList = new List<EntityArchetype>();
-            for (var i = archetypeManager.m_Archetypes.Count - 1; i >= 0; --i)
+            for (var i = entityComponentStore->m_Archetypes.Count - 1; i >= 0; --i)
             {
-                var archetype = archetypeManager.m_Archetypes.p[i];
+                var archetype = entityComponentStore->m_Archetypes.p[i];
                 if (archetype->EntityCount >= 0)
                     archetypeList.Add(new EntityArchetype{Archetype = archetype});
             }
@@ -245,11 +245,11 @@ namespace Unity.Entities.Serialization
         public static unsafe void SerializeWorld(EntityManager entityManager, BinaryWriter writer, out int[] sharedComponentsToSerialize, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos)
         {
             writer.Write(CurrentFileFormatVersion);
-            var archetypeManager = entityManager.ArchetypeManager;
+            var entityComponentStore = entityManager.EntityComponentStore;
 
             NativeHashMap<EntityArchetype, int> archetypeToIndex;
             EntityArchetype[] archetypeArray;
-            GetAllArchetypes(archetypeManager, out archetypeToIndex, out archetypeArray);
+            GetAllArchetypes(entityComponentStore, out archetypeToIndex, out archetypeArray);
 
             var typeHashes = new NativeHashMap<ulong, int>(1024, Allocator.Temp);
             foreach (var archetype in archetypeArray)
@@ -380,16 +380,13 @@ namespace Unity.Entities.Serialization
             sharedComponentsToSerialize = new int[sharedComponentMapping.Length-1];
 
             using (var keyArray = sharedComponentMapping.GetKeyArray(Allocator.Temp))
+            foreach (var key in keyArray)
             {
-                foreach (var i in keyArray)
-                {
-                    var key = keyArray[i];
-                    if (key == 0)
-                        continue;
+                if (key == 0)
+                    continue;
 
-                    if (sharedComponentMapping.TryGetValue(key, out var val))
-                        sharedComponentsToSerialize[val - 1] = key;
-                }
+                if (sharedComponentMapping.TryGetValue(key, out var val))
+                    sharedComponentsToSerialize[val - 1] = key;
             }
 
             archetypeToIndex.Dispose();
@@ -406,7 +403,7 @@ namespace Unity.Entities.Serialization
 
             foreach (var i in sharedComponentsToSerialize)
             {
-                object obj = entityManager.m_SharedComponentManager.GetSharedComponentDataNonDefaultBoxed(i);
+                object obj = entityManager.ManagedComponentStore.GetSharedComponentDataNonDefaultBoxed(i);
 
                 Type type = obj.GetType();
                 Assert.IsTrue(type.IsValueType, "Trying to serialize a non-value type SharedComponent is not supported");
@@ -453,7 +450,7 @@ namespace Unity.Entities.Serialization
 
                 // TODO: this recalculation should be removed once we merge the NET_DOTS and non NET_DOTS hashcode calculations
                 var hashCode = TypeManager.GetHashCode(data, typeIndex); // record.hashCode;
-                int index = entityManager.m_SharedComponentManager.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, data);
+                int index = entityManager.ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, data);
                 Assert.AreEqual(i + 1, index);
             }
 
@@ -793,7 +790,7 @@ namespace Unity.Entities.Serialization
             var chunkHeaders = (ChunkHeader*)(buffer + startOffset);
             for (int i = 0; i < length; ++i)
             {
-                chunkHeaders[i].chunk = null;
+                chunkHeaders[i] = ChunkHeader.Null;
             }
         }
 

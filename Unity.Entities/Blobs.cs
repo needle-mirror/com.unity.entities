@@ -5,9 +5,9 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.Assertions;
 
-
 namespace Unity.Entities
 {
+    [Obsolete("BlobAllocator is deprecated, please use BlobBuilder instead.")]
     unsafe public struct BlobAllocator : IDisposable
     {
         byte* m_RootPtr;
@@ -99,16 +99,19 @@ namespace Unity.Entities
         }
     }
 
+    [StructLayout(LayoutKind.Explicit, Size = 16)]
     public unsafe struct BlobAssetOwner : ISharedComponentData, IDisposable
     {
+        [FieldOffset(0)]
+        private byte* data;
+        [FieldOffset(8)]
+        private int totalSize;
+
         public BlobAssetOwner(byte* data, int totalSize)
         {
             this.data = data;
             this.totalSize = totalSize;
         }
-
-        private byte* data;
-        private int totalSize;
 
         public void Dispose()
         {
@@ -138,19 +141,32 @@ namespace Unity.Entities
         }
     }
 
+    [StructLayout(LayoutKind.Explicit, Size = 8)]
     internal unsafe struct BlobAssetReferenceData
     {
         [NativeDisableUnsafePtrRestriction]
-        public byte* m_Ptr;
+        [FieldOffset(0)] public byte* m_Ptr;
 
         internal BlobAssetHeader* Header => ((BlobAssetHeader*) m_Ptr) - 1;
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void Validate()
         {
-            if(m_Ptr != null)
-                if(Header->ValidationPtr != m_Ptr)
-                    throw new InvalidOperationException("The BlobAssetReference is not valid. Likely it has already been unloaded or released");
+            if (m_Ptr == null)
+                return;
+
+            void* validationPtr = null;
+            try
+            {
+                // Try to read ValidationPtr, this might throw if the memory has been unmapped
+                validationPtr = Header->ValidationPtr;
+            }
+            catch(Exception)
+            {
+            }
+
+            if(validationPtr != m_Ptr)
+                throw new InvalidOperationException("The BlobAssetReference is not valid. Likely it has already been unloaded or released");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
@@ -261,6 +277,10 @@ namespace Unity.Entities
         {
             get
             {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if(m_OffsetPtr == 0)
+                    throw new System.InvalidOperationException("The accessed BlobPtr hasn't been allocated.");
+#endif
                 fixed (int* thisPtr = &m_OffsetPtr)
                 {
                     return ref UnsafeUtilityEx.AsRef<T>((byte*) thisPtr + m_OffsetPtr);
@@ -270,6 +290,9 @@ namespace Unity.Entities
 
         public void* GetUnsafePtr()
         {
+            if (m_OffsetPtr == 0)
+                return null;
+
             fixed (int* thisPtr = &m_OffsetPtr)
             {
                 return (byte*) thisPtr + m_OffsetPtr;
@@ -289,6 +312,8 @@ namespace Unity.Entities
 
         public void* GetUnsafePtr()
         {
+            // for an unallocated array this will return an invalid pointer which is ok since it
+            // should never be accessed as Length will be 0
             fixed (int* thisPtr = &m_OffsetPtr)
             {
                 return (byte*) thisPtr + m_OffsetPtr;

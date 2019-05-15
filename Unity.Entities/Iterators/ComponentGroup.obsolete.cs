@@ -19,7 +19,7 @@ namespace Unity.Entities
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("CreateComponentGroup has been renamed to CreateEntityQuery. (UnityUpgradable) -> CreateEntityQuery(Unity.Entities.EntityArchetypeQuery[])", true)]
+        [Obsolete("CreateComponentGroup has been renamed to CreateEntityQuery. (UnityUpgradable) -> CreateEntityQuery(Unity.Entities.EntityQueryDesc[])", true)]
         public ComponentGroup CreateComponentGroup(params EntityArchetypeQuery[] queriesDesc)
         {
             throw new NotImplementedException();
@@ -67,21 +67,21 @@ namespace Unity.Entities
     {
         [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("GetComponentGroup has been renamed to GetEntityQuery. (UnityUpgradable) -> GetEntityQuery(Unity.Entities.ComponentType[])", true)]
-        protected internal ComponentGroup GetComponentGroup(params ComponentType[] componentTypes)
+        public ComponentGroup GetComponentGroup(params ComponentType[] componentTypes)
         {
             throw new NotImplementedException();
         }
 
         [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("GetComponentGroup has been renamed to GetEntityQuery. (UnityUpgradable) -> GetEntityQuery(Unity.Collections.NativeArray<ComponentType>)", true)]
-        protected ComponentGroup GetComponentGroup(NativeArray<ComponentType> componentTypes)
+        public ComponentGroup GetComponentGroup(NativeArray<ComponentType> componentTypes)
         {
             throw new NotImplementedException();
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("GetComponentGroup has been renamed to GetEntityQuery. (UnityUpgradable) -> GetEntityQuery(Unity.Entities.EntityArchetypeQuery[])", true)]
-        protected ComponentGroup GetComponentGroup(params EntityArchetypeQuery[] queryDesc)
+        [Obsolete("GetComponentGroup has been renamed to GetEntityQuery. (UnityUpgradable) -> GetEntityQuery(Unity.Entities.EntityQueryDesc[])", true)]
+        public ComponentGroup GetComponentGroup(params EntityArchetypeQuery[] queryDesc)
         {
             throw new NotImplementedException();
         }

@@ -36,7 +36,7 @@ protected override JobHandle OnUpdate(JobHandle inputDependencies)
 }
 ```
 
-Note: this system is part of the HelloCubes_02 example in the  [ECS samples repository](https://github.com/Unity-Technologies/EntityComponentSystemSamples).
+Note: the above system is based on the HelloCube IJobForEach sample in the [ECS Samples repository](https://github.com/Unity-Technologies/EntityComponentSystemSamples).
 
 
 ## Defining the IJobForEach signature
@@ -84,12 +84,12 @@ The Jobs implementing the IJobForEachWithEntity interface behave much the same a
 
 ### Using the Entity parameter
 
-You can use the Entity object to add commands to an EntityCommandBuffer. For example, you can add commands to add or remove components on that entity or to destroy the entity — all operations that cannot be done directly inside a Job to avoid race conditions. Command buffers allow you to perform any, potentially costly, calculations on a worker thread, while queuing up the actual insertions and deletions to be performed later on the main thread. 
+You can use the Entity object to add commands to an EntityCommandBuffer. For example, you can add commands to add or remove components on that entity or to destroy the entity — all operations that cannot be done directly inside a Job to avoid race conditions. Command buffers allow you to perform any, potentially costly, calculations on a worker thread, while queuing up the actual insertions and deletions to be performed later on the main thread.
 
-The following system, from the HelloCube_06_SpawnFromEntity example uses a command buffer to instantiate entities after calculating their positions in a Job:
+The following system, based on the HelloCube SpawnFromEntity sample, uses a command buffer to instantiate entities after calculating their positions in a Job:
 
 ``` c#
-public class HelloSpawnerSystem : JobComponentSystem
+public class SpawnerSystem : JobComponentSystem
 {
    // EndFrameBarrier provides the CommandBuffer
    EndFrameBarrier m_EndFrameBarrier;
@@ -99,15 +99,15 @@ public class HelloSpawnerSystem : JobComponentSystem
        // Cache the EndFrameBarrier in a field, so we don't have to get it every frame
        m_EndFrameBarrier = World.GetOrCreateSystem<EndFrameBarrier>();
    }
-   struct SpawnJob : IJobForEachWithEntity<HelloSpawner, LocalToWorld>
+   struct SpawnJob : IJobForEachWithEntity<Spawner, LocalToWorld>
    {
        public EntityCommandBuffer CommandBuffer;
-       public void Execute(Entity entity, int index, [ReadOnly] ref HelloSpawner spawner,
+       public void Execute(Entity entity, int index, [ReadOnly] ref Spawner spawner,
            [ReadOnly] ref LocalToWorld location)
        {
            for (int x = 0; x < spawner.CountX; x++)
            {
-               for (int y = 0; y < spawner.CountX; y++)
+               for (int y = 0; y < spawner.CountY; y++)
                {
                    var __instance __= CommandBuffer.Instantiate(spawner.Prefab);
                    // Place the instantiated in a grid with some noise

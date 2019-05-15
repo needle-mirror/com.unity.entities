@@ -81,6 +81,7 @@ namespace Unity.Entities
         //and an int: SharedValueCount
         private NativeArray<int> m_WorkingBuffer;
         [ReadOnly] private readonly NativeArray<T> m_SourceBuffer;
+        public NativeArray<T> SourceBuffer => m_SourceBuffer;
         private int m_SortBufferIndex; //0 or 1 (i.e. sortBuffer0 or sortBuffer1)
 
         public NativeArraySharedValues(NativeArray<T> sourceBuffer, Allocator allocator)

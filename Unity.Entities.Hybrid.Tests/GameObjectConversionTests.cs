@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.ComponentModel;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Unity.Entities;
 using Unity.Entities.Tests;
@@ -61,17 +62,17 @@ namespace UnityEngine.Entities.Tests
             Assert.IsTrue(localToWorld.Equals(go.transform.localToWorldMatrix));
             
             // Unload
-            EditorSceneManager.UnloadSceneAsync(scene);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
         }
         
-        [Test, Ignore("Disabled because when the package is published you get a ` Cancelling DisplayDialog: Opening scene in read-only package! It is not allowed to open a scene in a read-only package` error for this test")]
+        [Test]
         public void ConversionIgnoresMissingMonoBehaviour()
         {
             TestTools.LogAssert.Expect(LogType.Warning, new Regex("missing"));
-            var scene = EditorSceneManager.OpenScene("Packages/com.unity.entities/Unity.Entities.Hybrid.Tests/MissingMonoBehaviour.unity");
-            var world = new World("Temp");
-            ConvertScene(scene, default(Unity.Entities.Hash128), world);
-            world.Dispose();
+            
+            var entity = ConvertGameObjectHierarchy(AssetDatabase.LoadAssetAtPath<GameObject>("Packages/com.unity.entities/Unity.Entities.Hybrid.Tests/Conversion_Prefab_MissingMB.prefab"), World);
+
+            Assert.IsTrue(m_Manager.Exists(entity));
         }
         
         [Test]
@@ -81,25 +82,181 @@ namespace UnityEngine.Entities.Tests
             var entity = ConvertGameObjectHierarchy(gameObject, World);
 
             Assert.IsFalse(m_Manager.HasComponent<Prefab>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<Static>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<Disabled>(entity));
+
+            Object.DestroyImmediate(gameObject);
+        }
+        
+        [Test]
+        public void ConversionOfStatic()
+        {
+            var gameObject = new GameObject("", typeof(StaticOptimizeEntity));
+            var entity = ConvertGameObjectHierarchy(gameObject, World);
+
+            Assert.IsTrue(m_Manager.HasComponent<Static>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<Translation>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<Rotation>(entity));
             Object.DestroyImmediate(gameObject);
         }
 
         [Test]
-        public void ConversionOfPrefabIsEntityPrefab()
+        public void ConversionOfComponentDataProxy()
         {
-            var path = "Assets/ConversionOfPrefabIsEntityPrefab.prefab";
             var gameObject = new GameObject();
-            var prefab = PrefabUtility.SaveAsPrefabAsset(gameObject, path);
-            var entity = ConvertGameObjectHierarchy(prefab, World);
+            gameObject.AddComponent<EcsTestProxy>().Value = new EcsTestData(5);
+            
+            var entity = ConvertGameObjectHierarchy(gameObject, World);
 
-            Assert.IsTrue(m_Manager.HasComponent<Prefab>(entity));
-
-            AssetDatabase.DeleteAsset(path);
+            Assert.AreEqual(5, m_Manager.GetComponentData<EcsTestData>(entity).value);
             Object.DestroyImmediate(gameObject);
         }
         
-        //@TODO: Test Prefabs
-        //@TODO: Test GameObject -> Entity ID mapping
+        [Test]
+        public void ConversionOfPrefabIsEntityPrefab()
+        {
+            var entity = ConvertGameObjectHierarchy(AssetDatabase.LoadAssetAtPath<GameObject>("Packages/com.unity.entities/Unity.Entities.Hybrid.Tests/Conversion_Prefab.prefab"), World);
+            Assert.IsTrue(m_Manager.HasComponent<Prefab>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<Disabled>(entity));
+        }
 
+        [Test]
+        public void ConversionOfNullReference()
+        {
+            var go = new GameObject();
+            go.AddComponent<EntityRefTestDataComponent>();
+            
+            var entity = ConvertGameObjectHierarchy(go, World);
+            Assert.AreEqual(Entity.Null, m_Manager.GetComponentData<EntityRefTestData>(entity).Value);
+            
+            Object.DestroyImmediate(go);        
+        }
+
+        [Test]
+        public void ConversionOfPrefabReferenceOtherPrefab()
+        {
+            var go = new GameObject();
+            go.AddComponent<EntityRefTestDataComponent>().Value = AssetDatabase.LoadAssetAtPath<GameObject>("Packages/com.unity.entities/Unity.Entities.Hybrid.Tests/Conversion_Prefab_Reference_Prefab.prefab");
+            
+            var entity = ConvertGameObjectHierarchy(go, World);
+            Assert.IsFalse(m_Manager.HasComponent<Prefab>(entity));
+            var referenced = m_Manager.GetComponentData<EntityRefTestData>(entity).Value;
+            
+            // Conversion_Prefab_Reference_Prefab.prefab
+            Assert.IsTrue(m_Manager.HasComponent<Prefab>(referenced));
+            Assert.AreEqual(1, m_Manager.GetComponentData<MockData>(referenced).Value);
+            
+            // Conversion_Prefab.prefab
+            var referenced2 = m_Manager.GetComponentData<EntityRefTestData>(referenced).Value;
+            Assert.IsTrue(m_Manager.HasComponent<Prefab>(referenced2));
+            Assert.AreEqual(0, m_Manager.GetComponentData<MockData>(referenced2).Value);
+            
+            Object.DestroyImmediate(go);
+        }
+
+        [Test]
+        public void ConversionOfPrefabSelfReference()
+        {
+            var go = new GameObject();
+            go.AddComponent<EntityRefTestDataComponent>().Value = AssetDatabase.LoadAssetAtPath<GameObject>("Packages/com.unity.entities/Unity.Entities.Hybrid.Tests/Conversion_Prefab_Reference_Self.prefab");
+
+            var entity = ConvertGameObjectHierarchy(go, World);
+            var referenced = m_Manager.GetComponentData<EntityRefTestData>(entity).Value;
+            Assert.IsTrue(m_Manager.HasComponent<Prefab>(referenced));
+            Assert.AreEqual(referenced, m_Manager.GetComponentData<EntityRefTestData>(referenced).Value);
+                        
+            Object.DestroyImmediate(go);
+        }
+        
+        [Test]
+        public void ReferenceOutsideConvertedGroupWarning()
+        {
+            TestTools.LogAssert.Expect(LogType.Warning, new Regex("not included in the conversion"));
+            var go = new GameObject();
+            
+            var notIncluded = new GameObject();
+            go.AddComponent<EntityRefTestDataComponent>().Value = notIncluded;
+
+            var entity = ConvertGameObjectHierarchy(go, World);
+            
+            Assert.AreEqual(1, m_Manager.Debug.EntityCount);
+            Assert.AreEqual(Entity.Null, m_Manager.GetComponentData<EntityRefTestData>(entity).Value);
+                        
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(notIncluded);
+        }
+
+        [Test]
+        public void SetEnabledOnPrefabOnCompleteSet()
+        {
+            var entity = ConvertGameObjectHierarchy(AssetDatabase.LoadAssetAtPath<GameObject>("Packages/com.unity.entities/Unity.Entities.Hybrid.Tests/Conversion_Prefab_Hierarchy.prefab"), World);
+
+            var mockQuery = m_Manager.CreateEntityQuery(typeof(MockData));
+            var instance = m_Manager.Instantiate(entity);
+            Assert.AreEqual(2, mockQuery.CalculateLength());
+            
+            m_Manager.SetEnabled(instance, false);
+            Assert.AreEqual(0, mockQuery.CalculateLength());
+            
+            m_Manager.SetEnabled(instance, true);
+            Assert.AreEqual(2, mockQuery.CalculateLength());
+        }
+
+        
+        [Test]
+        public void InactiveHierarchyBecomesPartOfLinkedEntityGroupSet()
+        {
+            var go = new GameObject();
+            var child = new GameObject();
+            var childChild = new GameObject();
+
+            child.SetActive(false);
+            go.AddComponent<EntityRefTestDataComponent>().Value = child;
+            child.transform.parent = go.transform;
+            childChild.transform.parent = child.transform;
+            
+            var query = m_Manager.CreateEntityQuery(new EntityQueryDesc());
+            
+            var entity = ConvertGameObjectHierarchy(go, World);
+            
+            Assert.AreEqual(1, query.CalculateLength());
+            // Conversion will automatically add a LinkedEntityGroup to all inactive children
+            // so that when enabling them, the whole hierarchy will get enabled
+            m_Manager.SetEnabled(m_Manager.GetComponentData<EntityRefTestData>(entity).Value, true);
+            Assert.AreEqual(3, query.CalculateLength());
+
+            Object.DestroyImmediate(go);
+        }
+        
+        [Test]
+        public void InactiveConversion()
+        {
+            var gameObject = new GameObject();
+            var child = new GameObject();
+            child.transform.parent = gameObject.transform;
+            gameObject.gameObject.SetActive(false);
+            
+            ConvertGameObjectHierarchy(gameObject, World);
+
+            Assert.AreEqual(0, m_Manager.CreateEntityQuery(typeof(Translation)).CalculateLength());
+            Assert.AreEqual(2, m_Manager.UniversalQuery.CalculateLength());
+            
+            Object.DestroyImmediate(gameObject);
+        }
+
+        [Test]
+        public void DisabledBehaviourStripping()
+        {
+            var gameObject = new GameObject();
+            gameObject.AddComponent<MockDataProxy>().enabled = false;
+            gameObject.AddComponent<EntityRefTestDataComponent>().enabled = false;
+
+            var entity = ConvertGameObjectHierarchy(gameObject, World);
+            Object.DestroyImmediate(gameObject);
+
+            Assert.AreEqual(1, m_Manager.Debug.EntityCount);
+            Assert.IsFalse(m_Manager.HasComponent<EntityRefTestData>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<MockData>(entity));
+        }
     }
 }

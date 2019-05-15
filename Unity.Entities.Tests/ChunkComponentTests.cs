@@ -171,6 +171,7 @@ namespace Unity.Entities.Tests
             struct UpdateChunkBoundsJob : IJobForEach<ChunkBoundsComponent, ChunkHeader>
             {
                 [ReadOnly] public ArchetypeChunkComponentType<BoundsComponent> chunkComponentType;
+                
                 public void Execute(ref ChunkBoundsComponent chunkBounds, [ReadOnly] ref ChunkHeader chunkHeader)
                 {
                     var curBounds = new ChunkBoundsComponent { boundsMin = new float3(1000, 1000, 1000), boundsMax = new float3(-1000, -1000, -1000)};

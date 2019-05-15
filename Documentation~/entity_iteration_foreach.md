@@ -12,7 +12,7 @@ __Important:__ Making structural changes forces the completion of all Jobs. This
 
 The ComponentSystem provides an Entities.ForEach function that simplifies the task of iterating over a set of entities. Call ForEach in the system’s OnUpdate() function passing in a lambda function that takes the relevant components as parameters and whose function body performs the necessary work.
 
-The following example, from the HelloCube_01_ForEach sample, animates the rotation for any entities that have both a RotationQuaternion and a RotationSpeed component:
+The following example, from the HelloCube ForEach sample, animates the rotation for any entities that have both a RotationQuaternion and a RotationSpeed component:
 
     public class RotationSpeedSystem : ComponentSystem
     {
@@ -89,6 +89,10 @@ Entities.WithNone<Rotation>().ForEach( (Entity e) =>
     // do stuff
 });
 ```
+
+Additionally, you can specify `WithAnyReadOnly` and `WithAllReadOnly` to filter for entities with any, or all (respectively) of a set of components; but also ensure that they are queried as read only components.  This will ensure that they are not marked as written and their chunk IDs changed.
+
+### Options
 
 You can also specify a number of options for a query using **With**:
 

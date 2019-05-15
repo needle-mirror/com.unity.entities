@@ -246,7 +246,7 @@ namespace Unity.Entities.Tests
 	            Assert.IsTrue(archetype.Archetype->Chunks.Count == 0);
 	            Assert.AreEqual(0, archetype.Archetype->EntityCount);
 
-	            var archetype2 = m_Manager.Entities->GetArchetype(entity);
+	            var archetype2 = m_Manager.EntityComponentStore->GetArchetype(entity);
 	            Assert.AreEqual(1, archetype2->Chunks.Count);
 	            Assert.AreEqual(1, archetype2->EntityCount);
 	        }
@@ -521,19 +521,21 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddComponentTwiceWithEntityArray()
+        public void AddComponentTagTwiceWithEntityArray()
         {
-            var entities = new NativeArray<Entity>(3, Allocator.Temp);
+            var entities = new NativeArray<Entity>(3, Allocator.TempJob);
 
             entities[0] = m_Manager.CreateEntity();
-            entities[1] = m_Manager.CreateEntity(typeof(EcsTestData));
-            entities[2] = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            entities[1] = m_Manager.CreateEntity(typeof(EcsTestTag));
+            entities[2] = m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsTestData2));
 
-            m_Manager.AddComponent(entities, typeof(EcsTestData));
+            m_Manager.AddComponent(entities, typeof(EcsTestTag));
 
-            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entities[0]));
-            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entities[1]));
-            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entities[2]));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(entities[0]));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(entities[1]));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(entities[2]));
+            
+            entities.Dispose();
         }
 
         [Test]

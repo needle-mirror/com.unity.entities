@@ -11,6 +11,7 @@ namespace Unity.Entities
     [DebuggerTypeProxy(typeof(UintListDebugView))]
     internal unsafe struct UintList
     {
+        [NativeDisableUnsafePtrRestriction]
         public uint* p;
         public int Count;
         public int Capacity;

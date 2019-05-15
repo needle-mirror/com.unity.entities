@@ -49,14 +49,26 @@ namespace Unity.Entities
     {
     }
 
+    /// <summary>
+    /// Disables the entity. By default EntityQuery does not include entities containing the Disabled component.
+    /// </summary>
     public struct Disabled : IComponentData
     {
     }
     
+    /// <summary>
+    /// Marks the entity as a prefab, which implicitly disables the entity. By default EntityQuery does not include entities containing the Prefab component.
+    /// </summary>
     public struct Prefab : IComponentData
     {
     }
     
+    /// <summary>
+    /// The LinkedEntityGroup buffer makes the entity be the root of a set of connected entities.
+    /// Referenced Prefabs automatically add a LinkedEntityGroup with the complete child hierarchy. 
+    /// EntityManager.Instantiate uses LinkedEntityGroup to instantiate the whole set of entities automatically.
+    /// EntityManager.SetEnabled uses LinkedEntityGroup to enable the whole set of entities. 
+    /// </summary>
     public struct LinkedEntityGroup : IBufferElementData
     {
         public Entity Value;

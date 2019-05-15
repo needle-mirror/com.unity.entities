@@ -23,13 +23,33 @@ namespace Unity.Entities.Tests
         {
             int empty;
         }
-        struct TestTypeWithBool : IComponentData
+        struct TestTypeWithBool : IComponentData, IEquatable<TestTypeWithBool>
         {
             bool empty;
+
+            public bool Equals(TestTypeWithBool other)
+            {
+                return other.empty == empty;
+            }
+
+            public override int GetHashCode()
+            {
+                return empty.GetHashCode();
+            }
         }
-        struct TestTypeWithChar : IComponentData
+        struct TestTypeWithChar : IComponentData, IEquatable<TestTypeWithChar>
         {
             char empty;
+
+            public bool Equals(TestTypeWithChar other)
+            {
+                return empty == other.empty;
+            }
+
+            public override int GetHashCode()
+            {
+                return empty.GetHashCode();
+            }
         }
 
         struct GenericComponent<T> : IComponentData
@@ -103,12 +123,101 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(typeof(Entity), entityType.GetManagedType());
         }
 
+        [Test]
+        public void TestAlignUp_Align0ToPow2()
+        {
+            Assert.AreEqual(0, TypeManager.AlignUp(0, 1));
+            Assert.AreEqual(0, TypeManager.AlignUp(0, 2));
+            Assert.AreEqual(0, TypeManager.AlignUp(0, 4));
+            Assert.AreEqual(0, TypeManager.AlignUp(0, 8));
+            Assert.AreEqual(0, TypeManager.AlignUp(0, 16));
+            Assert.AreEqual(0, TypeManager.AlignUp(0, 32));
+            Assert.AreEqual(0, TypeManager.AlignUp(0, 64));
+            Assert.AreEqual(0, TypeManager.AlignUp(0, 128));
+        }
+        
+        [Test]
+        public void TestAlignUp_AlignMultipleOfAlignment()
+        {
+            Assert.AreEqual(2, TypeManager.AlignUp(2, 1));
+            Assert.AreEqual(4, TypeManager.AlignUp(4, 2));
+            Assert.AreEqual(8, TypeManager.AlignUp(8, 4));
+            Assert.AreEqual(16, TypeManager.AlignUp(16, 8));
+            Assert.AreEqual(32, TypeManager.AlignUp(32, 16));
+            Assert.AreEqual(64, TypeManager.AlignUp(64, 32));
+            Assert.AreEqual(128, TypeManager.AlignUp(128, 64));
+            Assert.AreEqual(256, TypeManager.AlignUp(256, 128));
+        }
+        
+        [Test]
+        public void TestAlignUp_Align1ToPow2()
+        {
+            Assert.AreEqual(1, TypeManager.AlignUp(1, 1));
+            Assert.AreEqual(2, TypeManager.AlignUp(1, 2));
+            Assert.AreEqual(4, TypeManager.AlignUp(1, 4));
+            Assert.AreEqual(8, TypeManager.AlignUp(1, 8));
+            Assert.AreEqual(16, TypeManager.AlignUp(1, 16));
+            Assert.AreEqual(32, TypeManager.AlignUp(1, 32));
+            Assert.AreEqual(64, TypeManager.AlignUp(1, 64));
+            Assert.AreEqual(128, TypeManager.AlignUp(1, 128));
+        }
+        
+        [Test]
+        public void TestAlignUp_Align3ToPow2()
+        {
+            Assert.AreEqual(3, TypeManager.AlignUp(3, 1));
+            Assert.AreEqual(4, TypeManager.AlignUp(3, 2));
+            Assert.AreEqual(4, TypeManager.AlignUp(3, 4));
+            Assert.AreEqual(8, TypeManager.AlignUp(3, 8));
+            Assert.AreEqual(16, TypeManager.AlignUp(3, 16));
+            Assert.AreEqual(32, TypeManager.AlignUp(3, 32));
+            Assert.AreEqual(64, TypeManager.AlignUp(3, 64));
+            Assert.AreEqual(128, TypeManager.AlignUp(3, 128));
+        }
+        
+        [Test]
+        public void TestAlignUp_Align15ToPow2()
+        {
+            Assert.AreEqual(15, TypeManager.AlignUp(15, 1));
+            Assert.AreEqual(16, TypeManager.AlignUp(15, 2));
+            Assert.AreEqual(16, TypeManager.AlignUp(15, 4));
+            Assert.AreEqual(16, TypeManager.AlignUp(15, 8));
+            Assert.AreEqual(16, TypeManager.AlignUp(15, 16));
+            Assert.AreEqual(32, TypeManager.AlignUp(15, 32));
+            Assert.AreEqual(64, TypeManager.AlignUp(15, 64));
+            Assert.AreEqual(128, TypeManager.AlignUp(15, 128));
+        }
+        
+        [Test]
+        public void TestAlignUp_Align63ToPow2()
+        {
+            Assert.AreEqual(63, TypeManager.AlignUp(63, 1));
+            Assert.AreEqual(64, TypeManager.AlignUp(63, 2));
+            Assert.AreEqual(64, TypeManager.AlignUp(63, 4));
+            Assert.AreEqual(64, TypeManager.AlignUp(63, 8));
+            Assert.AreEqual(64, TypeManager.AlignUp(63, 16));
+            Assert.AreEqual(64, TypeManager.AlignUp(63, 32));
+            Assert.AreEqual(64, TypeManager.AlignUp(63, 64));
+            Assert.AreEqual(128, TypeManager.AlignUp(63, 128));
+        }
+        
+        [Test]
+        public void TestAlignUp_ZeroAlignment()
+        {
+            for (int value = 0; value < 512; ++value)
+            {
+                Assert.AreEqual(value, TypeManager.AlignUp(value, 0));
+            }
+        }
+
 #if !UNITY_DOTSPLAYER
+        [DisableAutoTypeRegistration]
         struct NonBlittableComponentData : IComponentData
         {
             string empty;
         }
 
+        [DisableAutoTypeRegistration]
         struct NonBlittableComponentData2 : IComponentData
         {
             IComponentData empty;
@@ -122,6 +231,7 @@ namespace Unity.Entities.Tests
         {
         }
 
+        [DisableAutoTypeRegistration]
         struct NonBlittableBuffer: IBufferElementData
         {
             string empty;
@@ -165,6 +275,17 @@ namespace Unity.Entities.Tests
                 Throws.ArgumentException.With.Message.Matches(keywordPattern)
             );
         }
+
+        [Test]
+        public void ManagedFieldLayoutWorks()
+        {
+            var t  = TypeManager.GetTypeInfo<EcsStringSharedComponent>();
+            var layout = t.FastEqualityTypeInfo;
+            Assert.IsNull(layout.Layouts);
+            Assert.IsNotNull(layout.GetHashFn);
+            Assert.IsNotNull(layout.EqualFn);
+        }
+
 
         [TestCase(typeof(UnityEngine.Transform))]
         [TestCase(typeof(TypeManagerTests))]

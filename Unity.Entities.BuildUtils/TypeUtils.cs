@@ -115,13 +115,17 @@ namespace Unity.Entities.BuildUtils
             // Handle the case where we have a fixed buffer. Cecil will name it: "<MyMemberName>e_FixedBuffer"
             if(type.ClassSize != -1 && type.Name.Contains(">e__FixedBuffer"))
             {
-                // Fixed buffers can only be of primitive types so inspect the fields if the buffer (there should only be one)
+                // Fixed buffers can only be of primitive types so inspect the fields of the buffer (there should only be one)
                 // and determine the packing requirement for the type
                 if (type.Fields.Count() != 1)
                     throw new ArgumentException("A FixedBuffer type contains more than one field, this should not happen");
 
                 var fieldAlignAndSize = AlignAndSizeOfType(type.Fields[0].FieldType.MetadataType, bits);
                 return new AlignAndSize(fieldAlignAndSize.align, type.ClassSize);
+            }
+            else if(type.IsExplicitLayout && type.ClassSize > 0 && type.PackingSize > 0)
+            {
+                return new AlignAndSize(type.PackingSize, type.ClassSize);
             }
 
             if (ValueTypeAlignment[bits].ContainsKey(type))
@@ -250,7 +254,12 @@ namespace Unity.Entities.BuildUtils
                 size = AlignUp(size, sz.align);
                 //Console.WriteLine($"  Field: {fs.Name} ({fs.GetType()}) - offset: {size} alignment {sz.align} sz {sz.size}");
                 StructFieldAlignment[bits].Add(fs /*VERIFY*/, new AlignAndSize(sz.align, sz.size, size));
-                size += sz.size;
+
+                int offset = fs.Offset;
+                if (offset >= 0)
+                    size = offset + sz.size;
+                else
+                    size += sz.size;
             }
             // same min size for outer struct
             size = Math.Max(size, 1);
@@ -258,8 +267,16 @@ namespace Unity.Entities.BuildUtils
             // C++ aligns struct sizes up to the highest alignment required
             size = AlignUp(size, highestFieldAlignment);
 
+            // If an explicit size have been provided use that instead
+            if (valuetype.IsExplicitLayout && valuetype.ClassSize > 0)
+                size = valuetype.ClassSize;
+
             // Alignment requirements are > 0
             highestFieldAlignment = Math.Max(highestFieldAlignment, 1);
+
+            // If an explict alignment has been provided use that instead
+            if (valuetype.IsExplicitLayout && valuetype.PackingSize > 0)
+                size = valuetype.PackingSize;
 
             ValueTypeAlignment[bits].Remove(valuetype);
             ValueTypeAlignment[bits].Add(valuetype, new AlignAndSize(highestFieldAlignment, size, 0, valuetype.Fields.Count == 0));
@@ -283,7 +300,10 @@ namespace Unity.Entities.BuildUtils
                     valueOr1(s.size));
 
                 var tinfo = resize(TypeUtils.AlignAndSizeOfType(f.FieldType, bits));
-                in_type_offset = (int)alignUp((uint)in_type_offset, (uint)tinfo.align);
+                if (f.Offset != -1)
+                    in_type_offset = f.Offset;
+                else
+                    in_type_offset = (int)alignUp((uint)in_type_offset, (uint)tinfo.align);
 
                 if (f.FieldType.IsDynamicArray() &&
                     (f.FieldType.DynamicArrayElementType().Resolve().FullName == queryFullTypeName ||

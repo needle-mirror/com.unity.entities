@@ -161,5 +161,67 @@ namespace Unity.Entities.Tests
         }
 
         //@TODO: Test for adding a manager from one world to another.
+        
+        [Test]
+        [StandaloneFixme]
+        public unsafe void WorldNoOverlappingChunkSequenceNumbers()
+        {
+            var worldA = new World("WorldA");
+            var worldB = new World("WorldB");
+
+            World.Active = worldB;
+
+            worldA.EntityManager.CreateEntity();
+            worldB.EntityManager.CreateEntity();
+
+            var worldAChunks = worldA.EntityManager.GetAllChunks();
+            var worldBChunks = worldB.EntityManager.GetAllChunks();
+
+            for (int i = 0; i < worldAChunks.Length; i++)
+            {
+                var chunkA = worldAChunks[i].m_Chunk;
+                for (int j = 0; j < worldBChunks.Length; j++)
+                {
+                    var chunkB = worldBChunks[i].m_Chunk;
+                    var sequenceNumberDiff = chunkA->SequenceNumber - chunkB->SequenceNumber;
+                    
+                    // Any chunk sequence numbers in different worlds should be separated by at least 32 bits
+                    Assert.IsTrue(sequenceNumberDiff > 1<<32 );
+                }
+            }
+
+            worldAChunks.Dispose();
+            worldBChunks.Dispose();
+        }
+        
+        [Test]
+        [StandaloneFixme]
+        public unsafe void WorldChunkSequenceNumbersNotReused()
+        {
+            var worldA = new World("WorldA");
+
+            ulong lastChunkSequenceNumber = 0;
+            {
+                var entity = worldA.EntityManager.CreateEntity();
+                var chunk = worldA.EntityManager.GetChunk(entity);
+                lastChunkSequenceNumber = chunk.m_Chunk->SequenceNumber;
+                                
+                worldA.EntityManager.DestroyEntity(entity);
+            }
+            
+            for (int i = 0; i < 1000; i++)
+            {
+                var entity = worldA.EntityManager.CreateEntity();
+                var chunk = worldA.EntityManager.GetChunk(entity);
+                var chunkSequenceNumber = chunk.m_Chunk->SequenceNumber;
+                
+                // Sequence numbers should be increasing and should not be reused when chunk is re-used (after zero count)
+                Assert.IsTrue(chunkSequenceNumber > lastChunkSequenceNumber );
+                lastChunkSequenceNumber = chunkSequenceNumber;
+                
+                worldA.EntityManager.DestroyEntity(entity);
+            }
+
+        }
     }
 }

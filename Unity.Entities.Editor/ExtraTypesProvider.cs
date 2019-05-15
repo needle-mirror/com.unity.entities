@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Unity.Entities;
 using UnityEditor;
 using UnityEditor.Build.Player;
 using Unity.Jobs.LowLevel.Unsafe;
@@ -55,6 +56,18 @@ namespace Unity.Entities.Editor
                         }
                     }
                 }
+
+                TypeManager.Initialize();
+
+                foreach (var typeInfo in TypeManager.AllTypes)
+                {
+                    if (typeInfo.Type != null)
+                    {
+                        FastEquality.AddExtraAOTTypes(typeInfo.Type, extraTypes);
+                    }
+                }
+
+                TypeManager.Shutdown();
 
                 return extraTypes;
             };

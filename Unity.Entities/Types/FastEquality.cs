@@ -14,10 +14,72 @@ namespace Unity.Entities
 #if !NET_DOTS
         internal static TypeInfo CreateTypeInfo<T>() where T : struct
         {
-            return CreateTypeInfo(typeof(T));
+            if (TypeUsesDelegates(typeof(T)))
+                return CreateManagedTypeInfo(typeof(T));
+            else
+                return CreateTypeInfoBlittable(typeof(T));
         }
 
         internal static TypeInfo CreateTypeInfo(Type type)
+        {
+            if (TypeUsesDelegates(type))
+                return CreateManagedTypeInfo(type);
+            else
+                return CreateTypeInfoBlittable(type);
+        }
+
+        private struct Dummy : IEquatable<Dummy>
+        {
+            public bool Equals(Dummy other)
+            {
+                return true;
+            }
+        }
+
+        private struct CompareImpl<T> where T : struct, IEquatable<T>
+        {
+            public static unsafe bool CompareFunc(void* lhs, void* rhs)
+            {
+                return UnsafeUtilityEx.AsRef<T>(lhs).Equals(UnsafeUtilityEx.AsRef<T>(rhs));
+            }
+        }
+
+        private struct GetHashCodeImpl<T> where T : struct, IEquatable<T>
+        {
+            public static unsafe int GetHashCodeFunc(void* lhs)
+            {
+                return UnsafeUtilityEx.AsRef<T>(lhs).GetHashCode();
+            }
+        }
+
+        private unsafe static TypeInfo CreateManagedTypeInfo(Type t)
+        {
+            // Type must implement IEquatable<T>
+            if (!typeof(IEquatable<>).MakeGenericType(t).IsAssignableFrom(t))
+            {
+                throw new ArgumentException($"type {t} is a ISharedComponentData and has managed references, you must implement IEquatable<T>");
+            }
+
+            // Type must override GetHashCode()
+            var ghcMethod = t.GetMethod(nameof(GetHashCode));
+            if (ghcMethod.DeclaringType != t)
+            {
+                throw new ArgumentException($"type {t} is has managed references or implements IEquatable<T>, you must also override GetHashCode()");
+            }
+
+            var compareMethod = typeof(CompareImpl<>).MakeGenericType(t).GetMethod(nameof(CompareImpl<Dummy>.CompareFunc));
+            var getHashMethod = typeof(GetHashCodeImpl<>).MakeGenericType(t).GetMethod(nameof(GetHashCodeImpl<Dummy>.GetHashCodeFunc));
+
+            return new TypeInfo
+            {
+                Layouts = null,
+                EqualFn = (TypeInfo.CompareEqualDelegate) Delegate.CreateDelegate(typeof(TypeInfo.CompareEqualDelegate), compareMethod),
+                GetHashFn = (TypeInfo.GetHashCodeDelegate) Delegate.CreateDelegate(typeof(TypeInfo.GetHashCodeDelegate), getHashMethod),
+                Hash = 0,
+            };
+        }
+
+        private static TypeInfo CreateTypeInfoBlittable(Type type)
         {
             var begin = 0;
             var end = 0;
@@ -57,8 +119,17 @@ namespace Unity.Entities
 
         public struct TypeInfo
         {
+#if !NET_DOTS
+            public unsafe delegate bool CompareEqualDelegate(void* lhs, void* rhs);
+            public unsafe delegate int GetHashCodeDelegate(void* obj);
+#endif
+
             public Layout[] Layouts;
             public int Hash;
+#if !NET_DOTS
+            public CompareEqualDelegate EqualFn;
+            public GetHashCodeDelegate GetHashFn;
+#endif
 
             public static TypeInfo Null => new TypeInfo();
         }
@@ -138,7 +209,7 @@ namespace Unity.Entities
 
                     if (end != offset)
                     {
-                        layouts.Add(new Layout {offset = begin, count = end - begin, Aligned4 = false});
+                        layouts.Add(new Layout {offset = begin, count = end - begin, Aligned4 = false });
                         begin = offset;
                         end = offset + sizeOf;
                     }
@@ -170,6 +241,13 @@ namespace Unity.Entities
 
         public static unsafe int GetHashCode(void* dataPtr, TypeInfo typeInfo)
         {
+#if !NET_DOTS
+            if (typeInfo.GetHashFn != null)
+            {
+                return typeInfo.GetHashFn(dataPtr);
+            }
+#endif
+
             var layout = typeInfo.Layouts;
             var data = (byte*) dataPtr;
             uint hash = 0;
@@ -211,6 +289,13 @@ namespace Unity.Entities
 
         public static unsafe bool Equals(void* lhsPtr, void* rhsPtr, TypeInfo typeInfo)
         {
+#if !NET_DOTS
+            if (typeInfo.EqualFn != null)
+            {
+                return typeInfo.EqualFn(lhsPtr, rhsPtr);
+            }
+#endif
+
             var layout = typeInfo.Layouts;
             var lhs = (byte*) lhsPtr;
             var rhs = (byte*) rhsPtr;
@@ -239,5 +324,29 @@ namespace Unity.Entities
 
             return same;
         }
+
+#if !NET_DOTS
+        private static bool TypeUsesDelegates(Type t)
+        {
+            // Ignore classes. Our delegates use pointers and will freak out.
+            if (!t.IsValueType)
+                return false;
+
+            // Things with managed references must use delegate comparison.
+            if (!UnsafeUtility.IsUnmanaged(t))
+                return true;
+
+            return typeof(IEquatable<>).MakeGenericType(t).IsAssignableFrom(t);
+        }
+
+        public static void AddExtraAOTTypes(Type type, HashSet<String> output)
+        {
+            if (!TypeUsesDelegates(type))
+                return;
+
+            output.Add(typeof(CompareImpl<>).MakeGenericType(type).ToString());
+            output.Add(typeof(GetHashCodeImpl<>).MakeGenericType(type).ToString());
+        }
+#endif
     }
 }

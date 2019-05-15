@@ -1,3 +1,5 @@
+using System;
+
 namespace Unity.Entities.Tests
 {
     public struct EcsTestData : IComponentData
@@ -144,6 +146,30 @@ namespace Unity.Entities.Tests
     }
 
     [InternalBufferCapacity(8)]
+    public struct EcsIntElement2 : IBufferElementData
+    {
+        public int Value0;
+        public int Value1;
+    }
+
+    [InternalBufferCapacity(8)]
+    public struct EcsIntElement3 : IBufferElementData
+    {
+        public int Value0;
+        public int Value1;
+        public int Value2;
+    }
+
+    [InternalBufferCapacity(8)]
+    public struct EcsIntElement4 : IBufferElementData
+    {
+        public int Value0;
+        public int Value1;
+        public int Value2;
+        public int Value3;
+    }
+
+    [InternalBufferCapacity(8)]
     public struct EcsIntStateElement : ISystemStateBufferElementData
     {
         public static implicit operator int(EcsIntStateElement e)
@@ -170,8 +196,44 @@ namespace Unity.Entities.Tests
     {
     }
 
-    public struct EcsTestComponentWithBool : IComponentData
+    public struct EcsTestComponentWithBool : IComponentData, IEquatable<EcsTestComponentWithBool>
     {
         public bool value;
+
+        public override int GetHashCode()
+        {
+            return value ? 0x11001100 : 0x22112211;
+        }
+
+        public bool Equals(EcsTestComponentWithBool other)
+        {
+            return other.value == value;
+        }
+    }
+
+    public struct EcsStringSharedComponent : ISharedComponentData, IEquatable<EcsStringSharedComponent>
+    {
+        public string Value;
+
+        public bool Equals(EcsStringSharedComponent other)
+        {
+            return Value == other.Value;
+        }
+
+        public override int GetHashCode()
+        {
+            return Value.GetHashCode();
+        }
+    }
+
+    public struct EcsTestGeneric<T> : IComponentData
+        where T : struct
+    {
+        public T value;
+    }
+
+    public struct EcsTestGenericTag<T> : IComponentData
+        where T : struct
+    {
     }
 }

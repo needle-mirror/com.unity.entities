@@ -321,6 +321,16 @@ namespace Unity.Entities
                     }
             }
 
+            iterator.m_BufferSafety0 = iterator.m_BufferSafety1 = iterator.m_BufferSafety2 = iterator.m_BufferSafety3 = iterator.m_BufferSafety4 =
+                iterator.m_BufferSafety5 = default(AtomicSafetyHandle);
+
+            fixed (AtomicSafetyHandle* safety = &iterator.m_BufferSafety0)
+            {
+                for (var i = 0; i != cache.ProcessTypesCount; i++)
+                    if(cache.Types[i].IsBuffer)
+                        safety[i] = query.GetBufferSafetyHandle(query.GetIndexInEntityQuery(cache.Types[i].TypeIndex));
+            }
+
             Assert.AreEqual(cache.ProcessTypesCount, iterator.m_SafetyReadWriteCount + iterator.m_SafetyReadOnlyCount);
 #endif
         }
@@ -377,6 +387,13 @@ namespace Unity.Entities
             public AtomicSafetyHandle m_Safety3;
             public AtomicSafetyHandle m_Safety4;
             public AtomicSafetyHandle m_Safety5;
+
+            public AtomicSafetyHandle m_BufferSafety0;
+            public AtomicSafetyHandle m_BufferSafety1;
+            public AtomicSafetyHandle m_BufferSafety2;
+            public AtomicSafetyHandle m_BufferSafety3;
+            public AtomicSafetyHandle m_BufferSafety4;
+            public AtomicSafetyHandle m_BufferSafety5;
 #pragma warning restore
 #endif
         }

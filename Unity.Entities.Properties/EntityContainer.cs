@@ -16,13 +16,15 @@ namespace Unity.Entities
 
         internal readonly EntityManager EntityManager;
         internal readonly Entity Entity;
+        internal readonly bool IsReadOnly;
 
         public int GetComponentCount() => EntityManager.GetComponentCount(Entity);
 
-        public EntityContainer(EntityManager entityManager, Entity entity)
+        public EntityContainer(EntityManager entityManager, Entity entity, bool readOnly = true)
         {
             EntityManager = entityManager;
             Entity = entity;
+            IsReadOnly = readOnly;
         }
     }
 
@@ -61,7 +63,7 @@ namespace Unity.Entities
 
                 public void Invoke<TComponent>()
                 {
-                    Callback.VisitProperty<ComponentDataProperty<TComponent>, TComponent>(new ComponentDataProperty<TComponent>(Index, TypeIndex), ref Container);
+                    Callback.VisitProperty<ComponentDataProperty<TComponent>, TComponent>(new ComponentDataProperty<TComponent>(Index, TypeIndex, Container.IsReadOnly), ref Container);
                 }
             }
 
@@ -98,17 +100,19 @@ namespace Unity.Entities
             {
                 private readonly int m_Index;
                 private readonly int m_TypeIndex;
+                private readonly bool m_IsReadOnly;
 
                 public string GetName() => typeof(TValue).Name;
-                public bool IsReadOnly => TypeManager.GetTypeInfo(m_TypeIndex).IsZeroSized;
+                public bool IsReadOnly => TypeManager.GetTypeInfo(m_TypeIndex).IsZeroSized || m_IsReadOnly;
                 public bool IsContainer => true;
                 public IPropertyAttributeCollection Attributes => null;
                 public int Index => m_Index;
 
-                public ComponentDataProperty(int index, int typeIndex)
+                public ComponentDataProperty(int index, int typeIndex, bool isReadOnly)
                 {
                     m_Index = index;
                     m_TypeIndex = typeIndex;
+                    m_IsReadOnly = isReadOnly;
                 }
 
                 public unsafe TValue GetValue(ref EntityContainer container)

@@ -58,12 +58,12 @@ namespace Unity.Entities
 
         internal override int InsertSharedComponent(EntityManager manager)
         {
-            return manager.m_SharedComponentManager.InsertSharedComponent(m_SerializedData);
+            return manager.ManagedComponentStore.InsertSharedComponent(m_SerializedData);
         }
 
         internal override void UpdateSerializedData(EntityManager manager, int sharedComponentIndex)
         {
-            m_SerializedData = manager.m_SharedComponentManager.GetSharedComponentData<T>(sharedComponentIndex);
+            m_SerializedData = manager.ManagedComponentStore.GetSharedComponentData<T>(sharedComponentIndex);
         }
     }
 }

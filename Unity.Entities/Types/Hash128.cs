@@ -62,7 +62,8 @@ namespace Unity.Entities
 
         public override int GetHashCode()
         {
-            return Value.GetHashCode();
+            uint4 primes = new uint4(863, 5471887, 13143149, 15485291);
+            return (int)math.csum(Value * primes);
         }
         
         #if UNITY_EDITOR

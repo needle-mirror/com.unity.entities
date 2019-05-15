@@ -28,9 +28,10 @@ namespace Unity.Entities
 #endif
 
         private EntityManager m_EntityManager;
+        ulong m_SequenceNumber;
 
         static int ms_SystemIDAllocator = 0;
-
+        static ulong ms_NextSequenceNumber = 0;
 
         public string Name { get; }
 
@@ -45,8 +46,13 @@ namespace Unity.Entities
 
         public bool IsCreated => m_Systems != null;
 
+        public ulong SequenceNumber => m_SequenceNumber;
+
         public World(string name)
         {
+            m_SequenceNumber = ms_NextSequenceNumber;
+            ms_NextSequenceNumber++;
+
             // Debug.LogError("Create World "+ name + " - " + GetHashCode());
             Name = name;
             allWorlds.Add(this);

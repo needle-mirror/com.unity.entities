@@ -37,6 +37,11 @@ namespace Unity.Entities
         public Type TargetType;
     }
 
+    [AttributeUsage(AttributeTargets.Struct)]
+    public class DisableAutoTypeRegistration : Attribute
+    {
+    }
+
     public static unsafe class TypeManager
     {
         [AttributeUsage(AttributeTargets.Struct)]
@@ -465,7 +470,7 @@ namespace Unity.Entities
 #if !NET_DOTS
         static void ClearStaticTypeLookup()
         {
-            var staticLookupGenericType = Type.GetType("Unity.Entities.TypeManager+StaticTypeLookup`1");
+            var staticLookupGenericType = typeof(StaticTypeLookup<>);
             for (int i = 1; i < s_Count; ++i)
             {
                 var type = s_TypeInfos[i].Type;
@@ -535,6 +540,9 @@ namespace Unity.Entities
                         if (type.ContainsGenericParameters)
                             continue;
 
+                        if (type.GetCustomAttribute(typeof(DisableAutoTypeRegistration)) != null)
+                            continue;
+
                         // XXX There's a bug in the Unity Mono scripting backend where if the
                         // Mono type hasn't been initialized, the IsUnmanaged result is wrong.
                         // We force it to be fully initialized by creating an instance until
@@ -547,13 +555,11 @@ namespace Unity.Entities
                             // ignored
                         }
 
-                        if (!UnsafeUtility.IsUnmanaged(type))
-                            continue;
-
                         if (typeof(IComponentData).IsAssignableFrom(type) ||
                             typeof(ISharedComponentData).IsAssignableFrom(type) ||
                             typeof(IBufferElementData).IsAssignableFrom(type))
                         {
+                            ValidateType(type);
                             componentTypeSet.Add(type);
                         }
                     }
@@ -589,6 +595,32 @@ namespace Unity.Entities
                     s_CreateTypeLock.Exit(true);
                 }
             }
+        }
+
+        private static void EnsureExplictLayoutIfContainsPointerFields(Type type)
+        {
+            foreach(var field in type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
+            {
+                if (field.IsStatic) continue;
+
+                if (field.FieldType.IsPointer)
+                {
+                    // If 'Size' is left uninitialized it will be <= 0
+                    if (!type.Attributes.HasFlag(TypeAttributes.ExplicitLayout) || (type.StructLayoutAttribute.Size % 8) != 0)
+                        throw new ArgumentException($"All component types containing pointers must use a [StructLayout(LayoutKind.Explicit, Size = <multiple of 8>)] " +
+                            $"attribute such that the type's size is the same on both 32-bit and 64-bit platforms. " +
+                            $"Type '{type.FullName}' is missing a this attribute due to pointer field '{field.Name}'");
+                }
+                else if (field.FieldType.IsValueType && !field.FieldType.IsPrimitive && !field.FieldType.IsEnum)
+                {
+                    EnsureExplictLayoutIfContainsPointerFields(field.FieldType);
+                }
+            }
+        }
+
+        private static void ValidateType(Type type)
+        {
+            EnsureExplictLayoutIfContainsPointerFields(type);
         }
 
         private static void AddAllComponentTypes(Type[] componentTypes, int startTypeIndex, Dictionary<int, HashSet<int>> writeGroupByType)
@@ -703,12 +735,15 @@ namespace Unity.Entities
 
         public static bool Equals<T>(ref T left, ref T right) where T : struct
         {
-            #if !NET_DOTS
-                var typeInfo = TypeManager.GetTypeInfo<T>().FastEqualityTypeInfo;
+#if !NET_DOTS
+            var typeInfo = TypeManager.GetTypeInfo<T>().FastEqualityTypeInfo;
+            if (typeInfo.Layouts != null || typeInfo.EqualFn != null)
                 return FastEquality.Equals(ref left, ref right, typeInfo);
-            #else
-                return EqualityHelper<T>.Equals(ref left, ref right);
-            #endif
+            else
+                return left.Equals(right);
+#else
+            return EqualityHelper<T>.Equals(ref left, ref right);
+#endif
         }
 
         public static bool Equals(void* left, void* right, int typeIndex)
@@ -973,12 +1008,10 @@ namespace Unity.Entities
             return n + 1;
         }
 
-        internal static int AlignUp(int value, int alignment)
+        internal static int AlignUp(int value, int pow2_alignment)
         {
-            int mask = alignment - 1;
-            if ((value & ~mask) == 0)
-                return value;
-            return (value + mask) & ~mask;
+            int mask = pow2_alignment - 1;
+            return pow2_alignment <= 0 ? value : (value + mask) & ~mask;
         }
 
         internal static bool IsPowerOfTwo(int value)

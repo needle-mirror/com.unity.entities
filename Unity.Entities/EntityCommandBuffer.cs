@@ -56,6 +56,24 @@ namespace Unity.Entities
         public int ComponentSize;
         public BufferHeader TempBuffer;
     }
+    
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct EntityQueryCommand
+    {
+        public BasicCommand Header;
+        public unsafe EntityGroupData* GroupData;
+        public EntityQueryFilter EntityQueryFilter;
+    }
+    
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct EntityQueryComponentCommand
+    {
+        public EntityQueryCommand Header;
+        public int ComponentTypeIndex;
+
+        public int ComponentSize;
+        // Data follows if command has an associated component payload
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct EntitySharedComponentCommand
@@ -211,7 +229,10 @@ namespace Unity.Entities
         SetBufferWithEntityFixUp,
 
         AddSharedComponentData,
-        SetSharedComponentData
+        SetSharedComponentData,
+        
+        AddComponentEntityQuery,
+        RemoveComponentEntityQuery
     }
 
     /// <summary>
@@ -430,12 +451,12 @@ namespace Unity.Entities
             {
                 if (op == ECBCommand.AddBuffer)
                 {
-                    m_BufferWithFixupsCount++;
+                    Interlocked.Increment(ref m_BufferWithFixupsCount);
                     cmd->Header.Header.CommandType = (int) ECBCommand.AddBufferWithEntityFixUp;
                 }
                 else if (op == ECBCommand.SetBuffer)
                 {
-                    m_BufferWithFixupsCount++;
+                    Interlocked.Increment(ref m_BufferWithFixupsCount);
                     cmd->Header.Header.CommandType = (int) ECBCommand.SetBufferWithEntityFixUp;
                 }
             }
@@ -470,7 +491,7 @@ namespace Unity.Entities
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (TypeManager.GetTypeInfo<T>().EntityOffsets != null)
-                throw new System.ArgumentException("EntityCommandBuffer.AddSharedComponentData does not support shared componenents with Entity fields.");
+                throw new System.ArgumentException("EntityCommandBuffer.AddSharedComponentData does not support shared components with Entity fields.");
 #endif
 
             ResetCommandBatching(chain);
@@ -494,6 +515,23 @@ namespace Unity.Entities
             {
                 data->BoxedObject = new GCHandle();
             }
+        }
+        
+        internal void AddEntityComponentTypeCommand(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, EntityQuery entityQuery, ComponentType t)
+        {
+            var sizeNeeded = Align(sizeof(EntityQueryComponentCommand), 8);
+            
+            var iterator = entityQuery.GetComponentChunkIterator();
+
+            ResetCommandBatching(chain);
+            var data = (EntityQueryComponentCommand*)Reserve(chain, jobIndex, sizeNeeded);
+
+            data->Header.Header.CommandType = (int)op;
+            data->Header.Header.TotalSize = sizeNeeded;
+            data->Header.Header.SortIndex = chain->m_LastSortIndex;
+            data->Header.GroupData = entityQuery.m_GroupData;
+            data->Header.EntityQueryFilter = iterator.m_Filter;
+            data->ComponentTypeIndex = t.TypeIndex;
         }
 
         internal byte* Reserve(EntityCommandBufferChain* chain, int jobIndex, int size)
@@ -581,6 +619,13 @@ namespace Unity.Entities
         private int m_SafetyReadWriteCount;
 
         [NativeSetClassTypeToNullOnSchedule] private DisposeSentinel m_DisposeSentinel;
+
+        internal void WaitForWriterJobs()
+        {
+            AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_Safety0);
+            AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_BufferSafety);
+            AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_ArrayInvalidationSafety);
+        }
 
         internal int SystemID;
 #endif
@@ -756,6 +801,11 @@ namespace Unity.Entities
 
         public Entity Instantiate(Entity e)
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (e == Entity.Null)
+                throw new ArgumentNullException(nameof(e));
+#endif
+
             EnforceSingleThreadOwnership();
             int index = --m_Data->m_Entity.Index;
             m_Data->AddEntityCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.InstantiateEntity,
@@ -834,6 +884,18 @@ namespace Unity.Entities
         {
             EnforceSingleThreadOwnership();
             m_Data->AddEntityComponentTypeCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.RemoveComponent, e, componentType);
+        }
+        
+        public void AddComponent(EntityQuery entityQuery, ComponentType componentType)
+        {
+            m_Data->AddEntityComponentTypeCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex,
+                ECBCommand.AddComponentEntityQuery, entityQuery, componentType);
+        }
+        
+        public void RemoveComponent(EntityQuery entityQuery, ComponentType componentType)
+        {
+            m_Data->AddEntityComponentTypeCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex,
+                ECBCommand.RemoveComponentEntityQuery, entityQuery, componentType);
         }
 
 
@@ -1145,8 +1207,10 @@ namespace Unity.Entities
                                 }
 
                                 int index = -cmd->IdentityIndex -1;
-                                mgr.CreateEntityInternal(at, playbackState.CreateEntityBatch + index,
-                                    cmd->BatchCount);
+                                
+                                EntityManagerCreateDestroyEntitiesUtility.CreateEntities(at.Archetype,
+                                    playbackState.CreateEntityBatch + index, cmd->BatchCount, mgr.EntityComponentStore,
+                                     mgr.ManagedComponentStore, mgr.EntityGroupManager);
                             }
                             break;
 
@@ -1247,6 +1311,22 @@ namespace Unity.Entities
                                 mgr.SetSharedComponentDataBoxed(entity, cmd->ComponentTypeIndex, cmd->HashCode,
                                     cmd->GetBoxedObject());
                             }
+                            break;
+                        
+                        case ECBCommand.AddComponentEntityQuery:
+                            {
+                                var cmd = (EntityQueryComponentCommand*) header;
+                                var componentType = (ComponentType)TypeManager.GetType(cmd->ComponentTypeIndex);
+                                mgr.AddComponent(cmd->Header.GroupData->MatchingArchetypes, cmd->Header.EntityQueryFilter, componentType);
+                            }
+                            break;
+                        
+                        case ECBCommand.RemoveComponentEntityQuery:
+                        {
+                            var cmd = (EntityQueryComponentCommand*) header;
+                            var componentType = (ComponentType)TypeManager.GetType(cmd->ComponentTypeIndex);
+                            mgr.RemoveComponent(cmd->Header.GroupData->MatchingArchetypes, cmd->Header.EntityQueryFilter, componentType);
+                        }
                             break;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -1364,6 +1444,11 @@ namespace Unity.Entities
 
             public Entity Instantiate(int jobIndex, Entity e)
             {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (e == Entity.Null)
+                    throw new ArgumentNullException(nameof(e));
+#endif
+
                 CheckWriteAccess();
                 var chain = ThreadChain;
                 int index = Interlocked.Decrement(ref m_Data->m_Entity.Index);

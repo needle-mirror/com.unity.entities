@@ -286,6 +286,71 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(typeof(SharedData1), sharedComponentValue.GetType());
             Assert.AreEqual(17, ((SharedData1)sharedComponentValue).value);
         }
+
+        [Test]
+        public void Case1085730()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsStringSharedComponent), typeof(EcsTestData));
+
+            m_Manager.AddSharedComponentData(m_Manager.CreateEntity(), new EcsStringSharedComponent { Value = "1" });
+            m_Manager.AddSharedComponentData(m_Manager.CreateEntity(), new EcsStringSharedComponent { Value = 1.ToString() });
+
+            List<EcsStringSharedComponent> uniques = new List<EcsStringSharedComponent>();
+            m_Manager.GetAllUniqueSharedComponentData(uniques);
+
+            Assert.AreEqual(2, uniques.Count);
+        }
+
+        [Test]
+        public void Case1085730_HashCode()
+        {
+            var a = new EcsStringSharedComponent { Value = "1" };
+            var b = new EcsStringSharedComponent { Value = 1.ToString() };
+            int ahash = TypeManager.GetHashCode(ref a);
+            int bhash = TypeManager.GetHashCode(ref b);
+
+            Assert.AreEqual(ahash, bhash);
+        }
+
+        [Test]
+        public void Case1085730_Equals()
+        {
+            var a = new EcsStringSharedComponent { Value = "1" };
+            var b = new EcsStringSharedComponent { Value = 1.ToString() };
+            bool iseq = TypeManager.Equals(ref a, ref b);
+
+            Assert.IsTrue(iseq);
+        }
+
+        public struct CustomEquality : ISharedComponentData, IEquatable<CustomEquality>
+        {
+            public int Foo;
+
+            public bool Equals(CustomEquality other)
+            {
+                return (Foo & 0xff) == (other.Foo & 0xff);
+            }
+
+            public override int GetHashCode()
+            {
+                return Foo & 0xff;
+            }
+        }
+
+        [Test]
+        public void BlittableComponentCustomEquality()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(CustomEquality), typeof(EcsTestData));
+
+            m_Manager.AddSharedComponentData(m_Manager.CreateEntity(), new CustomEquality { Foo = 0x01 });
+            m_Manager.AddSharedComponentData(m_Manager.CreateEntity(), new CustomEquality { Foo = 0x2201 });
+            m_Manager.AddSharedComponentData(m_Manager.CreateEntity(), new CustomEquality { Foo = 0x3201 });
+
+            List<CustomEquality> uniques = new List<CustomEquality>();
+            m_Manager.GetAllUniqueSharedComponentData(uniques);
+
+            Assert.AreEqual(2, uniques.Count);
+        }
 #endif
     }
 }

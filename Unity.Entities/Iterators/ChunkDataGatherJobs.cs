@@ -11,6 +11,7 @@ namespace Unity.Entities
     [BurstCompile]
     unsafe struct GatherChunks : IJobParallelFor
     {
+        [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
         [NativeDisableUnsafePtrRestriction] public MatchingArchetype** MatchingArchetypes;
         [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<int> Offsets;
         [NativeDisableParallelForRestriction] public NativeArray<ArchetypeChunk> Chunks;
@@ -20,8 +21,11 @@ namespace Unity.Entities
             var archetype = MatchingArchetypes[index]->Archetype;
             var chunkCount = archetype->Chunks.Count;
             var offset = Offsets[index];
-            var dstChunksPtr = (Chunk**) Chunks.GetUnsafePtr();
-            UnsafeUtility.MemCpy(dstChunksPtr + offset, archetype->Chunks.p, chunkCount * sizeof(Chunk*));
+            for (int i = 0; i < chunkCount; i++)
+            {
+                var srcChunk = archetype->Chunks.p[i];
+                Chunks[offset+i] = new ArchetypeChunk(srcChunk,entityComponentStore);
+            }
         }
     }
 
@@ -29,6 +33,7 @@ namespace Unity.Entities
     internal unsafe struct GatherChunksAndOffsetsJob : IJob
     {
         public MatchingArchetypeList Archetypes;
+        [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
 
         [NativeDisableUnsafePtrRestriction]
         public void* PrefilterData;
@@ -54,7 +59,7 @@ namespace Unity.Entities
 
                 for (int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex)
                 {
-                    chunks[chunkCounter] = new ArchetypeChunk {m_Chunk = archetype->Chunks.p[chunkIndex]};
+                    chunks[chunkCounter] = new ArchetypeChunk(archetype->Chunks.p[chunkIndex], entityComponentStore);
                     entityIndices[chunkCounter++] = entityOffsetPrefixSum;
                     entityOffsetPrefixSum += chunkEntityCountArray[chunkIndex];
                 }
@@ -68,6 +73,7 @@ namespace Unity.Entities
     [BurstCompile]
     unsafe struct GatherChunksWithFiltering : IJobParallelFor
     {
+        [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
         [NativeDisableUnsafePtrRestriction] public MatchingArchetype** MatchingArchetypes;
         public EntityQueryFilter Filter;
 
@@ -97,8 +103,9 @@ namespace Unity.Entities
                 {
                     for (var i = 0; i < chunkCount; ++i)
                     {
-                        if(sharedComponents1[i] == sharedComponentIndex1)
-                            SparseChunks[writeIndex + filteredCount++] = new ArchetypeChunk { m_Chunk = archetypeChunks[i] };
+                        if (sharedComponents1[i] == sharedComponentIndex1)
+                            SparseChunks[writeIndex + filteredCount++] =
+                                new ArchetypeChunk(archetypeChunks[i], entityComponentStore);
                     }
                 }
                 else
@@ -111,8 +118,10 @@ namespace Unity.Entities
                     for (var i = 0; i < chunkCount; ++i)
                     {
 
-                        if(sharedComponents1[i] == sharedComponentIndex1 && sharedComponents2[i] == sharedComponentIndex2)
-                            SparseChunks[writeIndex + filteredCount++] = new ArchetypeChunk { m_Chunk = archetypeChunks[i] };
+                        if (sharedComponents1[i] == sharedComponentIndex1 &&
+                            sharedComponents2[i] == sharedComponentIndex2)
+                            SparseChunks[writeIndex + filteredCount++] =
+                                new ArchetypeChunk(archetypeChunks[i], entityComponentStore);
                     }
                 }
             }
@@ -127,8 +136,9 @@ namespace Unity.Entities
                 {
                     for (var i = 0; i < chunkCount; ++i)
                     {
-                        if(ChangeVersionUtility.DidChange(changeVersions1[i], requiredVersion))
-                            SparseChunks[writeIndex + filteredCount++] = new ArchetypeChunk { m_Chunk = archetypeChunks[i] };
+                        if (ChangeVersionUtility.DidChange(changeVersions1[i], requiredVersion))
+                            SparseChunks[writeIndex + filteredCount++] =
+                                new ArchetypeChunk(archetypeChunks[i], entityComponentStore);
                     }
                 }
                 else
@@ -140,8 +150,10 @@ namespace Unity.Entities
                     for (var i = 0; i < chunkCount; ++i)
                     {
 
-                        if(ChangeVersionUtility.DidChange(changeVersions1[i], requiredVersion) || ChangeVersionUtility.DidChange(changeVersions2[i], requiredVersion))
-                            SparseChunks[writeIndex + filteredCount++] = new ArchetypeChunk { m_Chunk = archetypeChunks[i] };
+                        if (ChangeVersionUtility.DidChange(changeVersions1[i], requiredVersion) ||
+                            ChangeVersionUtility.DidChange(changeVersions2[i], requiredVersion))
+                            SparseChunks[writeIndex + filteredCount++] =
+                                new ArchetypeChunk(archetypeChunks[i], entityComponentStore);
                     }
                 }
             }
@@ -194,8 +206,8 @@ namespace Unity.Entities
                         {
                             if (sharedComponents0[i] == sharedComponentIndex0)
                             {
-                                chunks[filteredChunkCount] = new ArchetypeChunk
-                                    {m_Chunk = archetype->Chunks.p[i]};
+                                chunks[filteredChunkCount] =
+                                    new ArchetypeChunk(archetype->Chunks.p[i], Archetypes.entityComponentStore);
                                 entityIndices[filteredChunkCount++] = filteredEntityOffset;
                                 filteredEntityOffset += chunkEntityCountArray[i];
                             }
@@ -215,8 +227,8 @@ namespace Unity.Entities
                             if (sharedComponents0[i] == sharedComponentIndex0 &&
                                 sharedComponents1[i] == sharedComponentIndex1)
                             {
-                                chunks[filteredChunkCount] = new ArchetypeChunk
-                                    {m_Chunk = archetype->Chunks.p[i]};
+                                chunks[filteredChunkCount] =
+                                    new ArchetypeChunk(archetype->Chunks.p[i], Archetypes.entityComponentStore);
                                 entityIndices[filteredChunkCount++] = filteredEntityOffset;
                                 filteredEntityOffset += chunkEntityCountArray[i];
                             }
@@ -236,8 +248,8 @@ namespace Unity.Entities
                         {
                             if (ChangeVersionUtility.DidChange(changeVersions0[i], requiredVersion))
                             {
-                                chunks[filteredChunkCount] = new ArchetypeChunk
-                                    {m_Chunk = archetype->Chunks.p[i]};
+                                chunks[filteredChunkCount] =
+                                    new ArchetypeChunk(archetype->Chunks.p[i], Archetypes.entityComponentStore);
                                 entityIndices[filteredChunkCount++] = filteredEntityOffset;
                                 filteredEntityOffset += chunkEntityCountArray[i];
                             }
@@ -255,8 +267,8 @@ namespace Unity.Entities
                             if (ChangeVersionUtility.DidChange(changeVersions0[i], requiredVersion) ||
                                 ChangeVersionUtility.DidChange(changeVersions1[i], requiredVersion))
                             {
-                                chunks[filteredChunkCount] = new ArchetypeChunk
-                                    {m_Chunk = archetype->Chunks.p[i]};
+                                chunks[filteredChunkCount] =
+                                    new ArchetypeChunk(archetype->Chunks.p[i], Archetypes.entityComponentStore);
                                 entityIndices[filteredChunkCount++] = filteredEntityOffset;
                                 filteredEntityOffset += chunkEntityCountArray[i];
                             }

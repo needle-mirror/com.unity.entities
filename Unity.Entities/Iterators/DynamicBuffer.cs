@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Unity.Collections;
@@ -277,25 +278,40 @@ namespace Unity.Entities
             return shadow;
         }
 
-        [Obsolete("Use AsNativeArray")]
+        public NativeArray<T> ToNativeArray(Allocator allocator)
+        {
+            return new NativeArray<T>(AsNativeArray(), allocator);
+        }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [Obsolete("Use AsNativeArray or ToNativeArray with specific allocator", true)]
         public NativeArray<T> ToNativeArray()
         {
             return AsNativeArray();
         }
 
-        public NativeArray<T> ToNativeArray(Allocator allocator)
-        {
-            return new NativeArray<T>(AsNativeArray(), allocator);
-        }
-        
         public void CopyFrom(NativeArray<T> v)
         {
             ResizeUninitialized(v.Length);
             AsNativeArray().CopyFrom(v);
         }
 
+        public void CopyFrom(DynamicBuffer<T> v)
+        {
+            ResizeUninitialized(v.Length);
+
+            v.CheckReadAccess();
+            CheckWriteAccess();
+
+            UnsafeUtility.MemCpy(BufferHeader.GetElementPointer(m_Buffer),
+                BufferHeader.GetElementPointer(v.m_Buffer), Length * UnsafeUtility.SizeOf<T>());
+        }
+
         public void CopyFrom(T[] v)
         {
+            if(v == null)
+                throw new ArgumentNullException(nameof(v));
+
 #if NET_DOTS
             Clear();
             foreach (var d in v)
@@ -304,7 +320,14 @@ namespace Unity.Entities
             }
 #else
             ResizeUninitialized(v.Length);
-            AsNativeArray().CopyFrom(v);
+            CheckWriteAccess();
+
+            GCHandle gcHandle = GCHandle.Alloc((object) v, GCHandleType.Pinned);
+            IntPtr num = gcHandle.AddrOfPinnedObject();
+
+            UnsafeUtility.MemCpy(BufferHeader.GetElementPointer(m_Buffer),
+                (void*)num, Length * UnsafeUtility.SizeOf<T>());
+            gcHandle.Free();
 #endif
         }
     }

@@ -8,6 +8,7 @@ using Unity.Assertions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 using Unity.Profiling;
 
 namespace Unity.Entities
@@ -138,18 +139,7 @@ namespace Unity.Entities
                 new EntityQueryDesc
                 {
                     All = new ComponentType[] {typeof(EntityGuid)},
-                },
-                new EntityQueryDesc
-                {
-                    All = new ComponentType[] {typeof(EntityGuid), typeof(Disabled)},
-                },
-                new EntityQueryDesc
-                {
-                    All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab)},
-                },
-                new EntityQueryDesc
-                {
-                    All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab), typeof(Disabled)},
+                    Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
                 }
             };
 
@@ -298,20 +288,10 @@ namespace Unity.Entities
             return CreateDiffAndMaybeUpdate(afterWorld, beforeWorld, true, updateBeforeWorld: true, resultAllocator);
         }
 
-        internal static WorldDiff CreateDiffPreciselyForEditorUndoRedo(World afterWorld, World beforeWorld, Allocator resultAllocator)
-        {
-            return CreateDiffAndMaybeUpdate(afterWorld, beforeWorld, calculateDiff: true, updateBeforeWorld: false, resultAllocator,
-                preciseModeForEditorUndoRedo: true);
-        }
-
         // Compute a diff between beforeWorld and afterWorld  (afterWorld == Source, beforeWorld == ShadowWorld/dest)
         // If updateBeforeWorld is true, beforeWorld must have only ever been updated via UpdateDiff or FastForward.
-        // preciseModeForEditorUndoRedo is a temporary hack -- it adds an assumption that EntityGuids will map to exactly
-        // one entity in both the source and the dst world; it then uses that information to compare internal entity
-        // references in component data by EntityGuid, resulting in more precise diffs (for example, will show no change
-        // if two internal Entity fields have different index/versions but refer to the same EntityGuid).
         internal static WorldDiff CreateDiffAndMaybeUpdate(World afterWorld, World beforeWorld, bool calculateDiff,
-            bool updateBeforeWorld, Allocator resultAllocator, bool preciseModeForEditorUndoRedo = false)
+            bool updateBeforeWorld, Allocator resultAllocator)
         {
             if (afterWorld == null)
                 throw new ArgumentNullException("afterWorld");
@@ -328,7 +308,7 @@ namespace Unity.Entities
             var afterChunks = DiffUtil.GetAllChunks(afterEM);
             var beforeChunks = DiffUtil.GetAllChunks(beforeEM);
 
-            var visited = new NativeHashMap<uint, byte>(afterChunks.Length * 3, Allocator.TempJob);
+            var visited = new NativeHashMap<ulong, byte>(afterChunks.Length * 3, Allocator.TempJob);
             var cloneList = new NativeList<IntPtr>(afterChunks.Length, Allocator.TempJob);
             var dropList = new NativeList<IntPtr>(afterChunks.Length, Allocator.TempJob);
 
@@ -338,14 +318,20 @@ namespace Unity.Entities
             var afterEntityToGuid = new NativeHashMap<Entity, EntityGuid>(4096, Allocator.TempJob);
             var afterGuidToEntity = new NativeHashMap<EntityGuid, Entity>(4096, Allocator.TempJob);
 
-            var beforeEntityToGuid = preciseModeForEditorUndoRedo
-                ? new NativeHashMap<Entity, EntityGuid>(4096, Allocator.TempJob)
-                : default(NativeHashMap<Entity, EntityGuid>);
+            var beforeEntityToGuid = new NativeHashMap<Entity, EntityGuid>(4096, Allocator.TempJob);
+            var beforeChunkBySequenceNumber = new NativeHashMap<ulong, ArchetypeChunk>(4096, Allocator.TempJob);
+            for (int i = 0; i < beforeChunks.Length; ++i)
+            {
+                beforeChunkBySequenceNumber.TryAdd(beforeChunks[i].m_Chunk->SequenceNumber, beforeChunks[i]);
+            }
 
             for (int i = 0; i < afterChunks.Length; ++i)
             {
                 Chunk* afterChunk = afterChunks[i].m_Chunk;
-                Chunk* beforeChunk = beforeEM.ArchetypeManager.GetChunkBySequenceNumber(afterChunk->SequenceNumber);
+                
+                ArchetypeChunk beforeArchetypeChunk;
+                beforeChunkBySequenceNumber.TryGetValue(afterChunk->SequenceNumber, out beforeArchetypeChunk);
+                Chunk* beforeChunk = beforeArchetypeChunk.m_Chunk;
 
                 bool b = visited.TryAdd(afterChunk->SequenceNumber, 1);
                 UnityEngine.Assertions.Assert.IsTrue(b);
@@ -375,12 +361,14 @@ namespace Unity.Entities
                     }
                 }
             }
+            
+            beforeChunkBySequenceNumber.Dispose();
 
             for (int i = 0; i < beforeChunks.Length; ++i)
             {
                 Chunk* beforeChunk = beforeChunks[i].m_Chunk;
 
-                if (calculateDiff && preciseModeForEditorUndoRedo)
+                if (calculateDiff)
                 {
                     CreateEntityToGuidLookup(beforeChunk, beforeEntityToGuid);
                 }
@@ -424,14 +412,14 @@ namespace Unity.Entities
                 {
 
                     BuildAddComponents(createdEntities, typeHashes, typeHashLookup, addComponents, dataDiffs, byteDiffs,
-                        entityList, entityLookup, sharedDiffs, afterEM.m_SharedComponentManager, entityPatches,
+                        entityList, entityLookup, sharedDiffs, afterEM.ManagedComponentStore, entityPatches,
                         afterEntityToGuid, linkedEntityGroupAdds);
 
                     BuildComponentDiff(modifiedEntities, typeHashes, typeHashLookup, removeComponents, addComponents,
                         linkedEntityGroupAdds, linkedEntityGroupRemoves, dataDiffs, sharedDiffs, byteDiffs, entityList,
-                        entityLookup, afterEM.m_SharedComponentManager, beforeEM.m_SharedComponentManager,
+                        entityLookup, afterEM.ManagedComponentStore, beforeEM.ManagedComponentStore,
                         entityPatches,
-                        afterEntityToGuid, preciseModeForEditorUndoRedo, beforeEntityToGuid);
+                        afterEntityToGuid, beforeEntityToGuid);
 
                     // Add removed entities to back of entity list
                     entityList.AddRange(removedEntities);
@@ -485,22 +473,24 @@ namespace Unity.Entities
                 // Drop all unused and modified chunks
                 for (int i = 0; i < dropList.Length; ++i)
                 {
-                    beforeEM.ArchetypeManager.DestroyChunkForDiffing((Chunk*) dropList[i], beforeEM.Entities);
+                    EntityManagerMoveEntitiesUtility.DestroyChunkForDiffing((Chunk*) dropList[i],
+                        beforeEM.EntityComponentStore, beforeEM.ManagedComponentStore,
+                        beforeEM.EntityGroupManager);
                 }
 
                 // Clone all new and modified chunks
                 for (int i = 0; i < cloneList.Length; ++i)
                 {
-                    beforeEM.ArchetypeManager.CloneChunkForDiffing((Chunk*) cloneList[i], beforeEM.Entities,
-                        beforeEM.GroupManager,
-                        afterEM.m_SharedComponentManager);
+                    EntityManagerMoveEntitiesUtility.CloneChunkForDiffing((Chunk*) cloneList[i],
+                        afterEM.ManagedComponentStore,
+                        beforeEM.EntityComponentStore, beforeEM.ManagedComponentStore,
+                        beforeEM.EntityGroupManager);                    
                 }
             }
 
             afterGuidToEntity.Dispose();
             afterEntityToGuid.Dispose();
-            if (preciseModeForEditorUndoRedo)
-                beforeEntityToGuid.Dispose();
+            beforeEntityToGuid.Dispose();
             afterState.Dispose();
             beforeState.Dispose();
             visited.Dispose();
@@ -545,11 +535,10 @@ namespace Unity.Entities
             NativeList<byte> byteDiffs,
             NativeList<EntityGuid> guidList,
             NativeHashMap<EntityGuid, int> guidToIndex,
-            SharedComponentDataManager ssharedComponentDataManager,
-            SharedComponentDataManager dsharedComponentDataManager,
+            ManagedComponentStore ssharedComponentStore,
+            ManagedComponentStore dsharedComponentStore,
             NativeList<DiffEntityPatch> entityPatches,
             NativeHashMap<Entity, EntityGuid> SrcWorldEntityToGuid,
-            bool preciseModeForEditorUndoRedo,
             NativeHashMap<Entity, EntityGuid> DstWorldEntityToGuid)
         {
             var LinkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
@@ -577,7 +566,7 @@ namespace Unity.Entities
                         if (at.IsSharedComponent)
                         {
                             // Also push through initial data wholesale.
-                            object afterObject = GetSharedComponentObject(ssharedComponentDataManager, mod.AfterChunk, afterType, targetTypeIndex);
+                            object afterObject = GetSharedComponentObject(ssharedComponentStore, mod.AfterChunk, afterType, targetTypeIndex);
                             sharedComponentDiffs.Add(new SetSharedComponentDiff
                             {
                                 BoxedSharedValue = afterObject,
@@ -646,9 +635,7 @@ namespace Unity.Entities
                         byte* beforeAddress = mod.BeforeChunk->Buffer + beforeArch->Offsets[beforeType] + beforeArch->SizeOfs[beforeType] * mod.BeforeIndex;
                         byte* afterAddress = mod.AfterChunk->Buffer + afterArch->Offsets[afterType] + afterArch->SizeOfs[afterType] * mod.AfterIndex;
 
-                        var equals = preciseModeForEditorUndoRedo
-                            ? ComponentEqualsWithEntityGuids(afterAddress, beforeAddress, targetTypeIndex, SrcWorldEntityToGuid, DstWorldEntityToGuid)
-                            : TypeManager.Equals(beforeAddress, afterAddress, targetTypeIndex);
+                        var equals = ComponentEqualsWithEntityGuids(afterAddress, beforeAddress, targetTypeIndex, SrcWorldEntityToGuid, DstWorldEntityToGuid);
 
                         if (!equals)
                         {
@@ -671,8 +658,8 @@ namespace Unity.Entities
 
                     if (at.IsSharedComponent)
                     {
-                        object beforeObject = GetSharedComponentObject(dsharedComponentDataManager, mod.BeforeChunk, beforeType, targetTypeIndex);
-                        object afterObject = GetSharedComponentObject(ssharedComponentDataManager, mod.AfterChunk, afterType, targetTypeIndex);
+                        object beforeObject = GetSharedComponentObject(dsharedComponentStore, mod.BeforeChunk, beforeType, targetTypeIndex);
+                        object afterObject = GetSharedComponentObject(ssharedComponentStore, mod.AfterChunk, afterType, targetTypeIndex);
 
                         if (!TypeManager.Equals(beforeObject, afterObject, targetTypeIndex))
                         {
@@ -746,7 +733,7 @@ namespace Unity.Entities
                             var bytesPerElement = TypeManager.GetTypeInfo(at.TypeIndex).ElementSize;
                             var afterElementBytes = afterElements * bytesPerElement;
                             if (beforeElements != afterElements ||
-                                !SharedComponentDataManager.FastEquality_CompareElements(beforeElementPointer,
+                                !ManagedComponentStore.FastEquality_CompareElements(beforeElementPointer,
                                     afterElementPointer, afterElements, at.TypeIndex))
                             {
                                 dataDiffs.Add(new DataDiff
@@ -798,10 +785,9 @@ namespace Unity.Entities
             int AfterOffset = 0;
             int BeforeOffset = ft.EntityOffsetCount;
 
-            var savedEntitiesArray = new NativeArray<Entity>(ft.EntityOffsetCount * 2, Allocator.TempJob);
-            using (savedEntitiesArray)
+            var savedEntitiesArray = stackalloc Entity[ft.EntityOffsetCount * 2];
             {
-                Entity* savedEntities = (Entity*)savedEntitiesArray.GetUnsafePtr();
+                Entity* savedEntities = (Entity*) savedEntitiesArray;
                 int runOffset = 0;
                 int lastEntityOffset = 0;
                 int sizeLeft = ft.SizeInChunk;
@@ -912,15 +898,15 @@ namespace Unity.Entities
 
 
 #if !NET_DOTS
-        static object GetSharedComponentObject(SharedComponentDataManager sharedComponentDataManager, Chunk* chunk, int typeIndexInArchetype, int targetTypeIndex)
+        static object GetSharedComponentObject(ManagedComponentStore managedComponentStore, Chunk* chunk, int typeIndexInArchetype, int targetTypeIndex)
         {
             int off = typeIndexInArchetype - chunk->Archetype->FirstSharedComponent;
             Assert.IsTrue((0 <= off) && (off < chunk->Archetype->NumSharedComponents));
             int sharedComponentIndex = chunk->GetSharedComponentValue(off);
-            return sharedComponentDataManager.GetSharedComponentDataBoxed(sharedComponentIndex, targetTypeIndex);
+            return managedComponentStore.GetSharedComponentDataBoxed(sharedComponentIndex, targetTypeIndex);
         }
 #else
-        static object GetSharedComponentObject(SharedComponentDataManager sharedComponentDataManager, Chunk* chunk, int typeIndexInArchetype, int targetTypeIndex)
+        static object GetSharedComponentObject(ManagedComponentStore managedComponentStore, Chunk* chunk, int typeIndexInArchetype, int targetTypeIndex)
         {
             return null;
         }
@@ -935,7 +921,7 @@ namespace Unity.Entities
             NativeList<EntityGuid> guidList,
             NativeHashMap<EntityGuid, int> guidToIndex,
             List<SetSharedComponentDiff> sharedDiffs,
-            SharedComponentDataManager sharedComponentDataManager,
+            ManagedComponentStore managedComponentStore,
             NativeList<DiffEntityPatch> entityPatches,
             NativeHashMap<Entity, EntityGuid> SrcWorldEntityToGuid,
             NativeList<LinkedEntityGroupAddition> LinkedEntityGroupAdds)
@@ -978,7 +964,7 @@ namespace Unity.Entities
                     }
                     else if (at.IsSharedComponent)
                     {
-                        object o = GetSharedComponentObject(sharedComponentDataManager, ent.Chunk, afterType, targetTypeIndex);
+                        object o = GetSharedComponentObject(managedComponentStore, ent.Chunk, afterType, targetTypeIndex);
                         sharedDiffs.Add(new SetSharedComponentDiff
                         {
                             EntityIndex = entityIndex,
@@ -1061,8 +1047,8 @@ namespace Unity.Entities
             Assert.AreEqual(beforeGuids.Length, beforeState.Length);
             Assert.AreEqual(afterGuids.Length, afterState.Length);
 
-            NativeSortExtension.Sort(beforeGuids);
-            NativeSortExtension.Sort(afterGuids);
+            beforeGuids.Sort();
+            afterGuids.Sort();
 
             int ai = 0;
             int bi = 0;
@@ -1393,81 +1379,41 @@ namespace Unity.Entities
             void BuildDestWorldLookups()
             {
                 s_BuildDestWorldLookups.Begin();
-                // wow, this is confusing. to get all chunks with guids, we can't just ask for guids.
-                // we need to ask for guids, guids and disabled, guids and prefab, and guids/prefab/disabled.
-                var guidQuery = new[]
+                var guidQuery = new EntityQueryDesc
                 {
-                    new EntityQueryDesc
-                    {
-                        All = new ComponentType[] {typeof(EntityGuid)}
-                    },
-                    new EntityQueryDesc
-                    {
-                        All = new ComponentType[] {typeof(EntityGuid), typeof(Disabled)}
-                    },
-                    new EntityQueryDesc
-                    {
-                        All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab)}
-                    },
-                    new EntityQueryDesc
-                    {
-                        All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab), typeof(Disabled)}
-                    }
+                    All = new ComponentType[] {typeof(EntityGuid)},
+                    Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
                 };
-                // wow, this is confusing. to get all chunks with linkedentitygroups, we can't just ask for linkedentitygroups.
-                // we need to ask for linkedentitygroups, linkedentitygroups and disabled, linkedentitygroups and prefab, and linkedentitygroups/prefab/disabled.
-                var linkedEntityGroupQuery = new[]
+                
+                var linkedEntityGroupQuery = new EntityQueryDesc
                 {
-                    new EntityQueryDesc
-                    {
-                        All = new ComponentType[] {typeof(LinkedEntityGroup)}
-                    },
-                    new EntityQueryDesc
-                    {
-                        All = new ComponentType[] {typeof(LinkedEntityGroup), typeof(Disabled)}
-                    },
-                    new EntityQueryDesc
-                    {
-                        All = new ComponentType[] {typeof(LinkedEntityGroup), typeof(Prefab)}
-                    },
-                    new EntityQueryDesc
-                    {
-                        All = new ComponentType[] {typeof(LinkedEntityGroup), typeof(Prefab), typeof(Disabled)}
-                    }
+                    All = new ComponentType[] {typeof(EntityGuid), typeof(LinkedEntityGroup)},
+                    Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
                 };
-                // this is for finding entities that have GUIDs, and which are Prefabs.
-                var guidPrefabQuery = new[]
+
+                var guidPrefabQuery = new EntityQueryDesc
                 {
-                    new EntityQueryDesc
-                    {
-                        All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab)}
-                    },
-                    new EntityQueryDesc
-                    {
-                        All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab), typeof(Disabled)}
-                    }
+                    All = new ComponentType[] {typeof(EntityGuid), typeof(Prefab)},
+                    Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
                 };
-                using (EntityQuery DestChunksWithGuids = DestWorldManager.CreateEntityQuery(guidQuery))
-                using (EntityQuery DestChunksWithLinkedEntityGroups = DestWorldManager.CreateEntityQuery(linkedEntityGroupQuery))
-                using (EntityQuery DestchunksWithGuidAndPrefab = DestWorldManager.CreateEntityQuery(guidPrefabQuery))
+                
+                using (EntityQuery destChunksWithGuids = DestWorldManager.CreateEntityQuery(guidQuery))
+                using (EntityQuery destChunksWithLinkedEntityGroups = DestWorldManager.CreateEntityQuery(linkedEntityGroupQuery))
+                using (EntityQuery destchunksWithGuidAndPrefab = DestWorldManager.CreateEntityQuery(guidPrefabQuery))
                 {
-                    DestWorldEntitiesWithGuids = DestChunksWithGuids.CalculateLength();
-                    DestWorldEntitiesWithLinkedEntityGroups = DestChunksWithLinkedEntityGroups.CalculateLength();
+                    DestWorldEntitiesWithGuids = destChunksWithGuids.CalculateLength();
+                    DestWorldEntitiesWithLinkedEntityGroups = destChunksWithLinkedEntityGroups.CalculateLength();
 
                     DestWorldEntityToGuid.Dispose();
                     GuidToDestWorldEntity.Dispose();
                     GuidToDestWorldPrefabEntity.Dispose();
                     DestWorldEntityToRootEntity.Dispose();
                     var factor = 4;
-                    DestWorldEntityToGuid =
-                        new NativeHashMap<Entity, EntityGuid>(DestWorldEntitiesWithGuids * factor, Allocator.TempJob);
-                    GuidToDestWorldEntity =
-                        new NativeMultiHashMap<EntityGuid, Entity>(DestWorldEntitiesWithGuids * factor,
-                            Allocator.TempJob);
+                    DestWorldEntityToGuid = new NativeHashMap<Entity, EntityGuid>(DestWorldEntitiesWithGuids * factor, Allocator.TempJob);
+                    GuidToDestWorldEntity = new NativeMultiHashMap<EntityGuid, Entity>(DestWorldEntitiesWithGuids * factor, Allocator.TempJob);
                     GuidToDestWorldPrefabEntity = new NativeHashMap<EntityGuid, Entity>(DestWorldEntitiesWithGuids * factor, Allocator.TempJob);
-                    DestWorldEntityToRootEntity =
-                        new NativeHashMap<Entity, Entity>(DestWorldEntitiesWithLinkedEntityGroups * factor,
-                            Allocator.TempJob);
+                    DestWorldEntityToRootEntity = new NativeHashMap<Entity, Entity>(DestWorldEntitiesWithGuids * factor, Allocator.TempJob);
+
                     var buildDestWorldGuidLookups = new BuildDestWorldGuidLookups
                     {
                         GuidToDestWorldEntity = GuidToDestWorldEntity.ToConcurrent(),
@@ -1475,23 +1421,24 @@ namespace Unity.Entities
                         Entity = DestWorldManager.GetArchetypeChunkEntityType(),
                         EntityGUID = DestWorldManager.GetArchetypeChunkComponentType<EntityGuid>(true)
                     };
-                    var handle = buildDestWorldGuidLookups.Schedule(DestChunksWithGuids);
-                    handle.Complete();
+                    var handle0 = buildDestWorldGuidLookups.Schedule(destChunksWithGuids);
                     var buildDestWorldGuidPrefabLookups = new BuildDestWorldPrefabLookups
                     {
                         GuidToDestWorldPrefabEntity = GuidToDestWorldPrefabEntity.ToConcurrent(),
                         Entity = DestWorldManager.GetArchetypeChunkEntityType(),
                         EntityGUID = DestWorldManager.GetArchetypeChunkComponentType<EntityGuid>(true)
                     };
-                    handle = buildDestWorldGuidPrefabLookups.Schedule(DestchunksWithGuidAndPrefab);
-                    handle.Complete();
+                    var handle1 = buildDestWorldGuidPrefabLookups.Schedule(destchunksWithGuidAndPrefab);
                     var buildEntityToRootEntityLookup = new BuildEntityToRootEntityLookup
                     {
                         EntityToRootEntity = DestWorldEntityToRootEntity.ToConcurrent(),
                         LinkedEntityGroup = DestWorldManager.GetArchetypeChunkBufferType<LinkedEntityGroup>(true)
                     };
-                    handle = buildEntityToRootEntityLookup.Schedule(DestChunksWithLinkedEntityGroups);
-                    handle.Complete();
+                    var handle2 = buildEntityToRootEntityLookup.Schedule(destChunksWithLinkedEntityGroups);
+
+                    handle0.Complete();
+                    handle1.Complete();
+                    handle2.Complete();
                 }
                 DiffIndexToDestWorldEntities.Clear();
                 for(var i = 0; i < diff.Entities.Length; ++i)
@@ -1568,7 +1515,7 @@ namespace Unity.Entities
                     {
                         do
                         {
-                            if (DestWorldManager.Entities->Exists(entity))
+                            if (DestWorldManager.EntityComponentStore->Exists(entity))
                             {
 #if LOG_DIFF_ALL
                                 Debug.Log($"DestroyEntity({diff.Entities[firstIndex + i]})");
@@ -1597,7 +1544,7 @@ namespace Unity.Entities
                     {
                         do
                         {
-                            if (!DestWorldManager.Entities->HasComponent(entity, componentType))
+                            if (!DestWorldManager.EntityComponentStore->HasComponent(entity, componentType))
                             {
                                 DestWorldManager.AddComponent(entity, componentType);
                                 // magic is required to force the first entity in the LinkedEntityGroup to be the entity
@@ -1733,8 +1680,7 @@ namespace Unity.Entities
                         var guidToPatchToExistsInDestWorld = GuidToDestWorldEntity.TryGetFirstValue(guidToPatchTo, out entityToPatchTo, out var patchSourceIterator);
                         if (!guidToPatchToExistsInDestWorld)
                         {
-                            Debug.LogWarning(
-                                $"PatchEntities<{typeOfComponentToPatch}>({diff.Entities[patch.EntityIndex]}) but entity with guid-to-patch-to does not exist.");
+                            Debug.LogWarning($"PatchEntities<{typeOfComponentToPatch}>({diff.Entities[patch.EntityIndex]}) but entity with guid-to-patch-to does not exist.");
                             continue;
                         }
                         multipleEntitiesWithGuidToPatchToExistInDest = GuidToDestWorldEntity.TryGetNextValue(out _, ref patchSourceIterator);
@@ -1846,8 +1792,7 @@ namespace Unity.Entities
                         // from GUID to Prefab entity before, we can use it to find the specific entity we want.
                         if (GuidToDestWorldPrefabEntity.TryGetValue(add.ChildGuid, out var prefabEntityToInstantiate))
                         {
-                            if (GuidToDestWorldEntity.TryGetFirstValue(add.RootGuid, out var rootEntity,
-                                out var iterator))
+                            if (GuidToDestWorldEntity.TryGetFirstValue(add.RootGuid, out var rootEntity, out var iterator))
                             {
                                 do
                                 {
@@ -1897,8 +1842,7 @@ namespace Unity.Entities
                     for (var r = 0; r < diff.LinkedEntityGroupRemovals.Length; ++r)
                     {
                         var remove = diff.LinkedEntityGroupRemovals[r];
-                        if (GuidToDestWorldEntity.TryGetFirstValue(remove.RootGuid, out var rootEntity,
-                            out var iterator))
+                        if (GuidToDestWorldEntity.TryGetFirstValue(remove.RootGuid, out var rootEntity, out var iterator))
                         {
                             do
                             {

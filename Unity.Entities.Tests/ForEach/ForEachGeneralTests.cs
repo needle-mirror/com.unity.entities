@@ -125,6 +125,118 @@ namespace Unity.Entities.Tests.ForEach
         }
     }
 
+    class ForEachGenericTests : EntityQueryBuilderTestFixture
+    {
+        // $ currently instantiations of generic types are not discovered by static type registry tooling
+
+        #if !NET_DOTS
+        [Test]
+        public void GenericComponentData()
+        {
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(entity, new EcsTestGeneric<int> { value = 10 });
+            m_Manager.AddComponentData(entity, new EcsTestData { value = 11 });
+
+            {
+                var counter = 0;
+                TestSystem.Entities.WithAll<EcsTestGeneric<int>>().ForEach(e => ++counter);
+                Assert.AreEqual(1, counter);
+            }
+
+            {
+                var counter = 0;
+                TestSystem.Entities.WithAll<EcsTestGeneric<float>>().ForEach(e => ++counter);
+                Assert.AreEqual(0, counter);
+            }
+
+            {
+                var counter = 0;
+                TestSystem.Entities.WithAll<EcsTestData>().ForEach((ref EcsTestGeneric<int> data) =>
+                {
+                    Assert.AreEqual(10, data.value);
+                    ++counter;
+                });
+                Assert.AreEqual(1, counter);
+            }
+
+            {
+                var counter = 0;
+                TestSystem.Entities.WithAll<EcsTestGeneric<int>>().ForEach((ref EcsTestData data) =>
+                {
+                    Assert.AreEqual(11, data.value);
+                    ++counter;
+                });
+                Assert.AreEqual(1, counter);
+            }
+        }
+        #endif // !NET_DOTS
+
+        #if !NET_DOTS
+        [Test]
+        public void GenericTag()
+        {
+            m_Manager.CreateEntity(typeof(EcsTestGenericTag<int>));
+
+            {
+                var counter = 0;
+                TestSystem.Entities.WithAll<EcsTestGenericTag<int>>().ForEach(e => ++counter);
+                Assert.AreEqual(1, counter);
+            }
+
+            {
+                var counter = 0;
+                TestSystem.Entities.WithAll<EcsTestGenericTag<float>>().ForEach(e => ++counter);
+                Assert.AreEqual(0, counter);
+            }
+        }
+        #endif // !NET_DOTS
+
+        #if !NET_DOTS
+        [Test]
+        public void GenericValueMethod()
+        {
+            void Func<T>(T value) where T : struct
+            {
+                var entity = m_Manager.CreateEntity();
+                m_Manager.AddComponentData(entity, new EcsTestGeneric<T> { value = value });
+
+                {
+                    var counter = 0;
+                    TestSystem.Entities.WithAll<EcsTestGeneric<T>>().ForEach(e => ++counter);
+                    Assert.AreEqual(1, counter);
+                }
+
+                {
+                    var counter = 0;
+                    TestSystem.Entities.ForEach((ref EcsTestGeneric<T> data) =>
+                    {
+                        Assert.AreEqual(value, data.value);
+                        ++counter;
+                    });
+                    Assert.AreEqual(1, counter);
+                }
+            }
+
+            Func(10);
+        }
+        #endif // !NET_DOTS
+
+        [Test]
+        public void GenericTagMethod()
+        {
+            void Func<T>()
+                where T : struct, IComponentData
+            {
+                var counter = 0;
+                TestSystem.Entities.WithAll<T>().ForEach(e => ++counter);
+                Assert.AreEqual(1, counter);
+            }
+
+            m_Manager.CreateEntity(typeof(EcsTestTag));
+            Func<EcsTestTag>();
+        }
+    }
+
     class ForEachTests : EntityQueryBuilderTestFixture
     {
         [Test]
@@ -149,18 +261,6 @@ namespace Unity.Entities.Tests.ForEach
                 counter++;
             });
             Assert.AreEqual(1, counter);
-        }
-
-        [Test]
-        public void MixingWithAllAndForEach_Throws()
-        {
-            Assert.Throws<EntityQueryDescValidationException>(() =>
-            {
-                TestSystem.Entities.WithAll<EcsTestData2>().ForEach((Entity e, ref EcsTestData2 t1) =>
-                {
-                    Assert.Fail();
-                });
-            });
         }
 
         [Test]
@@ -223,9 +323,10 @@ namespace Unity.Entities.Tests.ForEach
             {
                 TestSystem.Entities.ForEach((Entity e, ref EcsTestData t0) => throw new ArgumentException());
             });
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+
+            #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.IsFalse(m_Manager.IsInsideForEach);
-#endif
+            #endif
         }
 
         //@TODO: Class iterator test coverage...

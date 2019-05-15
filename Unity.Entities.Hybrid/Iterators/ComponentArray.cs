@@ -24,7 +24,7 @@ namespace Unity.Entities
                 if (i < cache.CachedBeginIndex || i >= cache.CachedEndIndex)
                     iterator.MoveToEntityIndexAndUpdateCache(i, out cache, true);
 
-                arr[i] = (T)iterator.GetManagedObject(group.ArchetypeManager, cache.CachedBeginIndex, i);
+                arr[i] = (T)iterator.GetManagedObject(group.ManagedComponentStore, cache.CachedBeginIndex, i);
             }
 
             return arr;

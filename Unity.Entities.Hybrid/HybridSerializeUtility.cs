@@ -36,7 +36,7 @@ namespace Unity.Entities.Serialization
             // so remove the ref that was added on deserialization
             for (int i = 0; i < sharedComponentCount; ++i)
             {
-                transaction.SharedComponentDataManager.RemoveReference(i+1);
+                transaction.ManagedComponentStore.RemoveReference(i+1);
             }
         }
 
@@ -50,7 +50,7 @@ namespace Unity.Entities.Serialization
 
             for (int i = 0; i != sharedComponentIndices.Length; i++)
             {
-                var sharedData = manager.m_SharedComponentManager.GetSharedComponentDataNonDefaultBoxed(sharedComponentIndices[i]);
+                var sharedData = manager.ManagedComponentStore.GetSharedComponentDataNonDefaultBoxed(sharedComponentIndices[i]);
 
                 var proxyType = TypeUtility.GetProxyForDataType(sharedData.GetType());
                 if (proxyType == null)
@@ -75,7 +75,7 @@ namespace Unity.Entities.Serialization
             if (gameobject == null)
                 return 0;
 
-            manager.m_SharedComponentManager.PrepareForDeserialize();
+            manager.ManagedComponentStore.PrepareForDeserialize();
 
             var sharedData = gameobject.GetComponents<ComponentDataProxyBase>();
 
@@ -92,7 +92,7 @@ namespace Unity.Entities.Serialization
                     object existingComponent = null;
                     if (index != 0)
                     {
-                        existingComponent = manager.m_SharedComponentManager.GetSharedComponentDataNonDefaultBoxed(index);
+                        existingComponent = manager.ManagedComponentStore.GetSharedComponentDataNonDefaultBoxed(index);
                         throw new ArgumentException($"While loading {debugSceneName}. Shared Component {i} was inserted but got a different index {index} at load time than at build time. \n{newComponent} vs {existingComponent}");
                     }
                     else

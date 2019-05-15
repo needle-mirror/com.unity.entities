@@ -10,21 +10,37 @@ namespace Unity.Entities
     public static class DefaultTinyWorldInitialization
     {
         /// <summary>
-        /// Initialize the DOTS-RT World with all the boilerplate that needs to be done.
+        /// Initialize the Tiny World with all the boilerplate that needs to be done.
         /// ComponentSystems will be created and sorted into the high level ComponentSystemGroups.
         /// </summary>
-        /// <param name="worldName"></param>
-        /// <returns></returns>
-        /// <exception cref="InvalidOperationException"></exception>
-        /// <exception cref="Exception"></exception>
+        /// <remarks>
+        /// The simple use case is:
+        /// <code>
+        /// world = DefaultTinyWorldInitialization.InitializeWorld("main");
+        /// </code>
+        /// However, it's common to need to set initialization data. That can be
+        /// done with the following code:
+        ///
+        /// <code>
+        ///   world = DefaultTinyWorldInitialization.InitializeWorld("main");
+        ///   TinyEnvironment env = world.TinyEnvironment();
+        ///   // set configuration variables...
+        ///   DefaultTinyWorldInitialization.InitializeSystems(world);
+        /// </code>
+        /// </remarks>
+        /// <seealso cref="InitializeWorld"/>
+        /// <seealso cref="InitializeSystems"/>
         public static World Initialize(string worldName)
         {
             World world = InitializeWorld(worldName);
             InitializeSystems(world);
-            SortSystems(world);
+            // Note that System sorting is done by the individual ComponentSystemGroups, as needed.
             return world;
         }
 
+        /// <summary>
+        /// Initialize the World object. See <see cref="Initialize"/> for use.
+        /// </summary>
         public static World InitializeWorld(string worldName)
         {
             var world = new World(worldName);
@@ -32,6 +48,9 @@ namespace Unity.Entities
             return world;
         }
 
+        /// <summary>
+        /// Initialize the ComponentSystems. See <see cref="Initialize"/> for use.
+        /// </summary>
         public static void InitializeSystems(World world)
         {
             var allSystemTypes = TypeManager.GetSystems();
@@ -68,8 +87,15 @@ namespace Unity.Entities
                     continue;
                 }
 
-                if (world.GetExistingSystem(allSystemTypes[i]) != null)
+                // Subtle issue. If the System was created by GetOrCreateSystem at the "right" time
+                // before its own initialization, then it will exist. GetExistingSystem will return a valid
+                // object. BUT, that object will not have been put into a SystemGroup.
+                var sys = world.GetExistingSystem(allSystemTypes[i]);
+                if (sys != null)
+                {
+                    AddSystemToGroup(world, sys);
                     continue;
+                }
 
 #if WRITE_LOG
                 Console.WriteLine(allSystemNames[i]);
@@ -78,67 +104,37 @@ namespace Unity.Entities
             }
         }
 
-        public static void SortSystems(World world)
-        {
-            var initializationSystemGroup = world.GetExistingSystem<InitializationSystemGroup>();
-            var simulationSystemGroup = world.GetExistingSystem<SimulationSystemGroup>();
-            var presentationSystemGroup = world.GetExistingSystem<PresentationSystemGroup>();
-
-            initializationSystemGroup.SortSystemUpdateList();
-            simulationSystemGroup.SortSystemUpdateList();
-            presentationSystemGroup.SortSystemUpdateList();
-
-#if WRITE_LOG
-#if UNITY_DOTSPLAYER
-            Console.WriteLine("** Sorted: initializationSystemGroup **");
-            initializationSystemGroup.RecursiveLogToConsole();
-            Console.WriteLine("** Sorted: simulationSystemGroup **");
-            simulationSystemGroup.RecursiveLogToConsole();
-            Console.WriteLine("** Sorted: presentationSystemGroup **");
-            presentationSystemGroup.RecursiveLogToConsole();
-            Console.WriteLine("** Sorted done. **");
-#endif
-#endif
-        }
-
         /// <summary>
         /// Call this to add a System that was manually constructed; normally these
-        /// Systems are marked with [DisableAutoCreation]
+        /// Systems are marked with [DisableAutoCreation].
         /// </summary>
         public static void AddSystem(World world, ComponentSystemBase system)
         {
-            AddSystem(world, new [] {system});
+            if (world.GetExistingSystem(system.GetType()) != null)
+                throw new ArgumentException("AddSystem: Error to add a duplicate system.");
+
+            world.AddSystem(system);
+            AddSystemToGroup(world, system);
         }
 
-        /// <summary>
-        /// Call this to add a System that was manually constructed; normally these
-        /// Systems are marked with [DisableAutoCreation]
-        /// </summary>
-        public static void AddSystem(World world, ComponentSystemBase[] systems)
+
+        private static void AddSystemToGroup(World world, ComponentSystemBase system)
         {
-            foreach(ComponentSystemBase system in systems)
+            var groups = TypeManager.GetSystemAttributes(system.GetType(), typeof(UpdateInGroupAttribute));
+            if (groups.Length == 0)
             {
-                if (world.GetExistingSystem(system.GetType()) != null)
-                    throw new ArgumentException("AddAndSortSystem: Error to add a duplicate system.");
+                var simulationSystemGroup = world.GetExistingSystem<SimulationSystemGroup>();
+                simulationSystemGroup.AddSystemToUpdateList(system);
+            }
 
-                world.AddSystem(system);
+            for (int g = 0; g < groups.Length; ++g)
+            {
+                var groupType = groups[g] as UpdateInGroupAttribute;
+                var groupSystem = world.GetExistingSystem(groupType.GroupType) as ComponentSystemGroup;
+                if (groupSystem == null)
+                    throw new Exception("AddSystem failed to find existing SystemGroup.");
 
-                var groups = TypeManager.GetSystemAttributes(system.GetType(), typeof(UpdateInGroupAttribute));
-                if (groups.Length == 0)
-                {
-                    var simulationSystemGroup = world.GetExistingSystem<SimulationSystemGroup>();
-                    simulationSystemGroup.AddSystemToUpdateList(system);
-                }
-
-                for (int g = 0; g < groups.Length; ++g)
-                {
-                    var groupType = groups[g] as UpdateInGroupAttribute;
-                    var groupSystem = world.GetExistingSystem(groupType.GroupType) as ComponentSystemGroup;
-                    if (groupSystem == null)
-                        throw new Exception("AddAndSortSystem failed to find existing SystemGroup.");
-
-                    groupSystem.AddSystemToUpdateList(system);
-                }
+                groupSystem.AddSystemToUpdateList(system);
             }
         }
     }

@@ -17,6 +17,17 @@ namespace Unity.Entities
 
             return -1;
         }
+        public static int GetTypeIndexFromType(Archetype* archetype, Type componentType)
+        {
+            var types = archetype->Types;
+            var typeCount = archetype->TypesCount;
+            for (var i = 0; i != typeCount; i++)
+                if (componentType.IsAssignableFrom(TypeManager.GetType(types[i].TypeIndex)))
+                    return types[i].TypeIndex;
+
+            return -1;
+        }
+
 
         public static void GetIndexInTypeArray(Archetype* archetype, int typeIndex, ref int typeLookupCache)
         {
@@ -483,53 +494,11 @@ namespace Unity.Entities
             UnsafeUtilityEx.MemSet(buffer + lastStartOffset, value, bufferSize - lastStartOffset);
         }
 
-        public static void CopyManagedObjects(ArchetypeManager typeMan, Chunk* srcChunk, int srcStartIndex,
-            Chunk* dstChunk, int dstStartIndex, int count)
-        {
-            var srcArch = srcChunk->Archetype;
-            var dstArch = dstChunk->Archetype;
-
-            var srcI = 0;
-            var dstI = 0;
-            while (srcI < srcArch->TypesCount && dstI < dstArch->TypesCount)
-                if (srcArch->Types[srcI] < dstArch->Types[dstI])
-                {
-                    ++srcI;
-                }
-                else if (srcArch->Types[srcI] > dstArch->Types[dstI])
-                {
-                    ++dstI;
-                }
-                else
-                {
-                    if (srcArch->ManagedArrayOffset[srcI] >= 0)
-                        for (var i = 0; i < count; ++i)
-                        {
-                            var obj = typeMan.GetManagedObject(srcChunk, srcI, srcStartIndex + i);
-                            typeMan.SetManagedObject(dstChunk, dstI, dstStartIndex + i, obj);
-                        }
-
-                    ++srcI;
-                    ++dstI;
-                }
-        }
-
-        public static void ClearManagedObjects(ArchetypeManager typeMan, Chunk* chunk, int index, int count)
-        {
-            var arch = chunk->Archetype;
-
-            for (var type = 0; type < arch->TypesCount; ++type)
-            {
-                if (arch->ManagedArrayOffset[type] < 0)
-                    continue;
-
-                for (var i = 0; i < count; ++i)
-                    typeMan.SetManagedObject(chunk, type, index + i, null);
-            }
-        }
-
         public static bool AreLayoutCompatible(Archetype* a, Archetype* b)
         {
+            if ((a == null) || (b == null))
+                return false;
+
             var typeCount = a->NonZeroSizedTypesCount;
             if (typeCount != b->NonZeroSizedTypesCount)
                 return false;
@@ -558,6 +527,28 @@ namespace Unity.Entities
                 Assert.AreEqual(a->SizeOfs[i], b->SizeOfs[i]);
                 Assert.AreEqual(a->Offsets[i], b->Offsets[i]);
                 Assert.AreEqual(a->BufferCapacities[i], b->BufferCapacities[i]);
+            }
+        }
+        
+        public static void DeallocateBuffers(Chunk* chunk)
+        {
+            var archetype = chunk->Archetype;
+
+            for (var ti = 0; ti < archetype->TypesCount; ++ti)
+            {
+                var type = archetype->Types[ti];
+
+                if (!type.IsBuffer)
+                    continue;
+
+                var basePtr = chunk->Buffer + archetype->Offsets[ti];
+                var stride = archetype->SizeOfs[ti];
+
+                for (int i = 0; i < chunk->Count; ++i)
+                {
+                    byte* bufferPtr = basePtr + stride * i;
+                    BufferHeader.Destroy((BufferHeader*) bufferPtr);
+                }
             }
         }
     }

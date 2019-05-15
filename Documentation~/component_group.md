@@ -199,7 +199,7 @@ A EntityQuery executes its query when you use the EntityQuery in a Job or you ca
 
 ### In Jobs
 
-In a JobComponentSystem, pass the EntityQuery object to the system's `Schedule()` method. In the following example, from the HelloCube_03_IJobChunk sample, the `m_Group` argument is the EntityQuery object 
+In a JobComponentSystem, pass the EntityQuery object to the system's `Schedule()` method. In the following example, from the HelloCube IJobChunk sample, the `m_Group` argument is the EntityQuery object 
 
 ``` c#
 // OnUpdate runs on the main thread.

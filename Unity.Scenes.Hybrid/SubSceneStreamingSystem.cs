@@ -3,6 +3,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine;
+using UnityEngine.Assertions;
 #if UNITY_2019_3_OR_NEWER
 using UnityEngine.PlayerLoop;
 #else
@@ -191,6 +192,8 @@ namespace Unity.Scenes
                     return false;
             }
 
+
+            var startCapacity = srcManager.EntityCapacity;
             using (m_AddSceneSharedComponents.Auto())
             {
 #if UNITY_EDITOR
@@ -204,7 +207,11 @@ namespace Unity.Scenes
 
                 srcManager.AddSharedComponentData(srcManager.UniversalQuery, new SceneTag { SceneEntity = sceneEntity});
             }
-
+            var endCapacity = srcManager.EntityCapacity;
+            
+            // ExtractEntityRemapRefs gathers entityRemapping based on Entities Capacity. 
+            // MoveEntitiesFrom below assumes that AddSharedComponentData on srcManager.UniversalQuery does not affect capacity.
+            Assert.AreEqual(startCapacity, endCapacity);
 
             using (m_MoveEntitiesFrom.Auto())
             {

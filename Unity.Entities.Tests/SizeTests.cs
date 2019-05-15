@@ -15,8 +15,8 @@ namespace Unity.Entities.Tests
 
             unsafe {
                 // a system ran, the version should match the global
-                var chunk0 = m_Manager.Entities->GetComponentChunk(entity0);
-                var chunk1 = m_Manager.Entities->GetComponentChunk(entity1);
+                var chunk0 = m_Manager.EntityComponentStore->GetChunk(entity0);
+                var chunk1 = m_Manager.EntityComponentStore->GetChunk(entity1);
                 var archetype0 = chunk0->Archetype;
                 var archetype1 = chunk1->Archetype;
 
@@ -33,7 +33,7 @@ namespace Unity.Entities.Tests
 
             unsafe {
                 // a system ran, the version should match the global
-                var chunk0 = m_Manager.Entities->GetComponentChunk(entity0);
+                var chunk0 = m_Manager.EntityComponentStore->GetChunk(entity0);
                 var archetype0 = chunk0->Archetype;
                 var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(chunk0->Archetype, TypeManager.GetTypeIndex<EcsTestTag>());
 

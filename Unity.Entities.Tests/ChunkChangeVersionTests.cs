@@ -116,6 +116,23 @@ namespace Unity.Entities.Tests
             AssertHasVersion<EcsTestData2>(e1, NewVersion);
             AssertHasVersion<EcsTestData3>(e1, NewVersion);
         }
+        
+        [Test]
+        public void AddComponentWithDefaultValueMarksSrcAndDestChunkAsChangedEntityArray()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            BumpGlobalSystemVersion();
+            var entities = new NativeArray<Entity>(1, Allocator.TempJob);
+            entities[0] = e1;
+            m_Manager.AddComponent(entities, typeof(EcsTestData3));
+            AssertHasVersion<EcsTestData>(e0, NewVersion);
+            AssertHasVersion<EcsTestData2>(e0, NewVersion);
+            AssertHasVersion<EcsTestData>(e1, NewVersion);
+            AssertHasVersion<EcsTestData2>(e1, NewVersion);
+            AssertHasVersion<EcsTestData3>(e1, NewVersion);
+            entities.Dispose();
+        }
 
         [Test]
         public void SetComponentDataMarksOnlySetTypeAsChanged()

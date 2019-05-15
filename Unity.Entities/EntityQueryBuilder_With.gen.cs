@@ -21,6 +21,15 @@ namespace Unity.Entities
         {
             ValidateHasNoQuery();
             m_Any.Add(TypeManager.GetTypeIndex<T0>());
+            m_AnyWritableBitField |= (((1U << (m_Any.Length)) - 1) ^ ((1U << (m_Any.Length - 1)) - 1));
+            return this;
+        }
+
+        public EntityQueryBuilder WithAny(ComponentType type0)
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(type0.TypeIndex);
+            m_AnyWritableBitField |= (((1U << (m_Any.Length)) - 1) ^ ((1U << (m_Any.Length - 1)) - 1));
             return this;
         }
 
@@ -29,6 +38,16 @@ namespace Unity.Entities
             ValidateHasNoQuery();
             m_Any.Add(TypeManager.GetTypeIndex<T0>());
             m_Any.Add(TypeManager.GetTypeIndex<T1>());
+            m_AnyWritableBitField |= (((1U << (m_Any.Length)) - 1) ^ ((1U << (m_Any.Length - 2)) - 1));
+            return this;
+        }
+
+        public EntityQueryBuilder WithAny(ComponentType type0, ComponentType type1)
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(type0.TypeIndex);
+            m_Any.Add(type1.TypeIndex);
+            m_AnyWritableBitField |= (((1U << (m_Any.Length)) - 1) ^ ((1U << (m_Any.Length - 2)) - 1));
             return this;
         }
 
@@ -38,6 +57,17 @@ namespace Unity.Entities
             m_Any.Add(TypeManager.GetTypeIndex<T0>());
             m_Any.Add(TypeManager.GetTypeIndex<T1>());
             m_Any.Add(TypeManager.GetTypeIndex<T2>());
+            m_AnyWritableBitField |= (((1U << (m_Any.Length)) - 1) ^ ((1U << (m_Any.Length - 3)) - 1));
+            return this;
+        }
+
+        public EntityQueryBuilder WithAny(ComponentType type0, ComponentType type1, ComponentType type2)
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(type0.TypeIndex);
+            m_Any.Add(type1.TypeIndex);
+            m_Any.Add(type2.TypeIndex);
+            m_AnyWritableBitField |= (((1U << (m_Any.Length)) - 1) ^ ((1U << (m_Any.Length - 3)) - 1));
             return this;
         }
 
@@ -48,6 +78,18 @@ namespace Unity.Entities
             m_Any.Add(TypeManager.GetTypeIndex<T1>());
             m_Any.Add(TypeManager.GetTypeIndex<T2>());
             m_Any.Add(TypeManager.GetTypeIndex<T3>());
+            m_AnyWritableBitField |= (((1U << (m_Any.Length)) - 1) ^ ((1U << (m_Any.Length - 4)) - 1));
+            return this;
+        }
+
+        public EntityQueryBuilder WithAny(ComponentType type0, ComponentType type1, ComponentType type2, ComponentType type3)
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(type0.TypeIndex);
+            m_Any.Add(type1.TypeIndex);
+            m_Any.Add(type2.TypeIndex);
+            m_Any.Add(type3.TypeIndex);
+            m_AnyWritableBitField |= (((1U << (m_Any.Length)) - 1) ^ ((1U << (m_Any.Length - 4)) - 1));
             return this;
         }
 
@@ -59,6 +101,109 @@ namespace Unity.Entities
             m_Any.Add(TypeManager.GetTypeIndex<T2>());
             m_Any.Add(TypeManager.GetTypeIndex<T3>());
             m_Any.Add(TypeManager.GetTypeIndex<T4>());
+            m_AnyWritableBitField |= (((1U << (m_Any.Length)) - 1) ^ ((1U << (m_Any.Length - 5)) - 1));
+            return this;
+        }
+
+        public EntityQueryBuilder WithAny(ComponentType type0, ComponentType type1, ComponentType type2, ComponentType type3, ComponentType type4)
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(type0.TypeIndex);
+            m_Any.Add(type1.TypeIndex);
+            m_Any.Add(type2.TypeIndex);
+            m_Any.Add(type3.TypeIndex);
+            m_Any.Add(type4.TypeIndex);
+            m_AnyWritableBitField |= (((1U << (m_Any.Length)) - 1) ^ ((1U << (m_Any.Length - 5)) - 1));
+            return this;
+        }
+
+        public EntityQueryBuilder WithAnyReadOnly<T0>()
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(TypeManager.GetTypeIndex<T0>());
+            return this;
+        }
+
+        public EntityQueryBuilder WithAnyReadOnly(ComponentType type0)
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(type0.TypeIndex);
+            return this;
+        }
+
+        public EntityQueryBuilder WithAnyReadOnly<T0, T1>()
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(TypeManager.GetTypeIndex<T0>());
+            m_Any.Add(TypeManager.GetTypeIndex<T1>());
+            return this;
+        }
+
+        public EntityQueryBuilder WithAnyReadOnly(ComponentType type0, ComponentType type1)
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(type0.TypeIndex);
+            m_Any.Add(type1.TypeIndex);
+            return this;
+        }
+
+        public EntityQueryBuilder WithAnyReadOnly<T0, T1, T2>()
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(TypeManager.GetTypeIndex<T0>());
+            m_Any.Add(TypeManager.GetTypeIndex<T1>());
+            m_Any.Add(TypeManager.GetTypeIndex<T2>());
+            return this;
+        }
+
+        public EntityQueryBuilder WithAnyReadOnly(ComponentType type0, ComponentType type1, ComponentType type2)
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(type0.TypeIndex);
+            m_Any.Add(type1.TypeIndex);
+            m_Any.Add(type2.TypeIndex);
+            return this;
+        }
+
+        public EntityQueryBuilder WithAnyReadOnly<T0, T1, T2, T3>()
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(TypeManager.GetTypeIndex<T0>());
+            m_Any.Add(TypeManager.GetTypeIndex<T1>());
+            m_Any.Add(TypeManager.GetTypeIndex<T2>());
+            m_Any.Add(TypeManager.GetTypeIndex<T3>());
+            return this;
+        }
+
+        public EntityQueryBuilder WithAnyReadOnly(ComponentType type0, ComponentType type1, ComponentType type2, ComponentType type3)
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(type0.TypeIndex);
+            m_Any.Add(type1.TypeIndex);
+            m_Any.Add(type2.TypeIndex);
+            m_Any.Add(type3.TypeIndex);
+            return this;
+        }
+
+        public EntityQueryBuilder WithAnyReadOnly<T0, T1, T2, T3, T4>()
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(TypeManager.GetTypeIndex<T0>());
+            m_Any.Add(TypeManager.GetTypeIndex<T1>());
+            m_Any.Add(TypeManager.GetTypeIndex<T2>());
+            m_Any.Add(TypeManager.GetTypeIndex<T3>());
+            m_Any.Add(TypeManager.GetTypeIndex<T4>());
+            return this;
+        }
+
+        public EntityQueryBuilder WithAnyReadOnly(ComponentType type0, ComponentType type1, ComponentType type2, ComponentType type3, ComponentType type4)
+        {
+            ValidateHasNoQuery();
+            m_Any.Add(type0.TypeIndex);
+            m_Any.Add(type1.TypeIndex);
+            m_Any.Add(type2.TypeIndex);
+            m_Any.Add(type3.TypeIndex);
+            m_Any.Add(type4.TypeIndex);
             return this;
         }
 
@@ -69,11 +214,26 @@ namespace Unity.Entities
             return this;
         }
 
+        public EntityQueryBuilder WithNone(ComponentType type0)
+        {
+            ValidateHasNoQuery();
+            m_None.Add(type0.TypeIndex);
+            return this;
+        }
+
         public EntityQueryBuilder WithNone<T0, T1>()
         {
             ValidateHasNoQuery();
             m_None.Add(TypeManager.GetTypeIndex<T0>());
             m_None.Add(TypeManager.GetTypeIndex<T1>());
+            return this;
+        }
+
+        public EntityQueryBuilder WithNone(ComponentType type0, ComponentType type1)
+        {
+            ValidateHasNoQuery();
+            m_None.Add(type0.TypeIndex);
+            m_None.Add(type1.TypeIndex);
             return this;
         }
 
@@ -86,6 +246,15 @@ namespace Unity.Entities
             return this;
         }
 
+        public EntityQueryBuilder WithNone(ComponentType type0, ComponentType type1, ComponentType type2)
+        {
+            ValidateHasNoQuery();
+            m_None.Add(type0.TypeIndex);
+            m_None.Add(type1.TypeIndex);
+            m_None.Add(type2.TypeIndex);
+            return this;
+        }
+
         public EntityQueryBuilder WithNone<T0, T1, T2, T3>()
         {
             ValidateHasNoQuery();
@@ -93,6 +262,16 @@ namespace Unity.Entities
             m_None.Add(TypeManager.GetTypeIndex<T1>());
             m_None.Add(TypeManager.GetTypeIndex<T2>());
             m_None.Add(TypeManager.GetTypeIndex<T3>());
+            return this;
+        }
+
+        public EntityQueryBuilder WithNone(ComponentType type0, ComponentType type1, ComponentType type2, ComponentType type3)
+        {
+            ValidateHasNoQuery();
+            m_None.Add(type0.TypeIndex);
+            m_None.Add(type1.TypeIndex);
+            m_None.Add(type2.TypeIndex);
+            m_None.Add(type3.TypeIndex);
             return this;
         }
 
@@ -107,10 +286,30 @@ namespace Unity.Entities
             return this;
         }
 
+        public EntityQueryBuilder WithNone(ComponentType type0, ComponentType type1, ComponentType type2, ComponentType type3, ComponentType type4)
+        {
+            ValidateHasNoQuery();
+            m_None.Add(type0.TypeIndex);
+            m_None.Add(type1.TypeIndex);
+            m_None.Add(type2.TypeIndex);
+            m_None.Add(type3.TypeIndex);
+            m_None.Add(type4.TypeIndex);
+            return this;
+        }
+
         public EntityQueryBuilder WithAll<T0>()
         {
             ValidateHasNoQuery();
             m_All.Add(TypeManager.GetTypeIndex<T0>());
+            m_AllWritableBitField |= (((1U << (m_All.Length)) - 1) ^ ((1U << (m_All.Length - 1)) - 1));
+            return this;
+        }
+
+        public EntityQueryBuilder WithAll(ComponentType type0)
+        {
+            ValidateHasNoQuery();
+            m_All.Add(type0.TypeIndex);
+            m_AllWritableBitField |= (((1U << (m_All.Length)) - 1) ^ ((1U << (m_All.Length - 1)) - 1));
             return this;
         }
 
@@ -119,6 +318,16 @@ namespace Unity.Entities
             ValidateHasNoQuery();
             m_All.Add(TypeManager.GetTypeIndex<T0>());
             m_All.Add(TypeManager.GetTypeIndex<T1>());
+            m_AllWritableBitField |= (((1U << (m_All.Length)) - 1) ^ ((1U << (m_All.Length - 2)) - 1));
+            return this;
+        }
+
+        public EntityQueryBuilder WithAll(ComponentType type0, ComponentType type1)
+        {
+            ValidateHasNoQuery();
+            m_All.Add(type0.TypeIndex);
+            m_All.Add(type1.TypeIndex);
+            m_AllWritableBitField |= (((1U << (m_All.Length)) - 1) ^ ((1U << (m_All.Length - 2)) - 1));
             return this;
         }
 
@@ -128,6 +337,17 @@ namespace Unity.Entities
             m_All.Add(TypeManager.GetTypeIndex<T0>());
             m_All.Add(TypeManager.GetTypeIndex<T1>());
             m_All.Add(TypeManager.GetTypeIndex<T2>());
+            m_AllWritableBitField |= (((1U << (m_All.Length)) - 1) ^ ((1U << (m_All.Length - 3)) - 1));
+            return this;
+        }
+
+        public EntityQueryBuilder WithAll(ComponentType type0, ComponentType type1, ComponentType type2)
+        {
+            ValidateHasNoQuery();
+            m_All.Add(type0.TypeIndex);
+            m_All.Add(type1.TypeIndex);
+            m_All.Add(type2.TypeIndex);
+            m_AllWritableBitField |= (((1U << (m_All.Length)) - 1) ^ ((1U << (m_All.Length - 3)) - 1));
             return this;
         }
 
@@ -138,6 +358,18 @@ namespace Unity.Entities
             m_All.Add(TypeManager.GetTypeIndex<T1>());
             m_All.Add(TypeManager.GetTypeIndex<T2>());
             m_All.Add(TypeManager.GetTypeIndex<T3>());
+            m_AllWritableBitField |= (((1U << (m_All.Length)) - 1) ^ ((1U << (m_All.Length - 4)) - 1));
+            return this;
+        }
+
+        public EntityQueryBuilder WithAll(ComponentType type0, ComponentType type1, ComponentType type2, ComponentType type3)
+        {
+            ValidateHasNoQuery();
+            m_All.Add(type0.TypeIndex);
+            m_All.Add(type1.TypeIndex);
+            m_All.Add(type2.TypeIndex);
+            m_All.Add(type3.TypeIndex);
+            m_AllWritableBitField |= (((1U << (m_All.Length)) - 1) ^ ((1U << (m_All.Length - 4)) - 1));
             return this;
         }
 
@@ -149,6 +381,109 @@ namespace Unity.Entities
             m_All.Add(TypeManager.GetTypeIndex<T2>());
             m_All.Add(TypeManager.GetTypeIndex<T3>());
             m_All.Add(TypeManager.GetTypeIndex<T4>());
+            m_AllWritableBitField |= (((1U << (m_All.Length)) - 1) ^ ((1U << (m_All.Length - 5)) - 1));
+            return this;
+        }
+
+        public EntityQueryBuilder WithAll(ComponentType type0, ComponentType type1, ComponentType type2, ComponentType type3, ComponentType type4)
+        {
+            ValidateHasNoQuery();
+            m_All.Add(type0.TypeIndex);
+            m_All.Add(type1.TypeIndex);
+            m_All.Add(type2.TypeIndex);
+            m_All.Add(type3.TypeIndex);
+            m_All.Add(type4.TypeIndex);
+            m_AllWritableBitField |= (((1U << (m_All.Length)) - 1) ^ ((1U << (m_All.Length - 5)) - 1));
+            return this;
+        }
+
+        public EntityQueryBuilder WithAllReadOnly<T0>()
+        {
+            ValidateHasNoQuery();
+            m_All.Add(TypeManager.GetTypeIndex<T0>());
+            return this;
+        }
+
+        public EntityQueryBuilder WithAllReadOnly(ComponentType type0)
+        {
+            ValidateHasNoQuery();
+            m_All.Add(type0.TypeIndex);
+            return this;
+        }
+
+        public EntityQueryBuilder WithAllReadOnly<T0, T1>()
+        {
+            ValidateHasNoQuery();
+            m_All.Add(TypeManager.GetTypeIndex<T0>());
+            m_All.Add(TypeManager.GetTypeIndex<T1>());
+            return this;
+        }
+
+        public EntityQueryBuilder WithAllReadOnly(ComponentType type0, ComponentType type1)
+        {
+            ValidateHasNoQuery();
+            m_All.Add(type0.TypeIndex);
+            m_All.Add(type1.TypeIndex);
+            return this;
+        }
+
+        public EntityQueryBuilder WithAllReadOnly<T0, T1, T2>()
+        {
+            ValidateHasNoQuery();
+            m_All.Add(TypeManager.GetTypeIndex<T0>());
+            m_All.Add(TypeManager.GetTypeIndex<T1>());
+            m_All.Add(TypeManager.GetTypeIndex<T2>());
+            return this;
+        }
+
+        public EntityQueryBuilder WithAllReadOnly(ComponentType type0, ComponentType type1, ComponentType type2)
+        {
+            ValidateHasNoQuery();
+            m_All.Add(type0.TypeIndex);
+            m_All.Add(type1.TypeIndex);
+            m_All.Add(type2.TypeIndex);
+            return this;
+        }
+
+        public EntityQueryBuilder WithAllReadOnly<T0, T1, T2, T3>()
+        {
+            ValidateHasNoQuery();
+            m_All.Add(TypeManager.GetTypeIndex<T0>());
+            m_All.Add(TypeManager.GetTypeIndex<T1>());
+            m_All.Add(TypeManager.GetTypeIndex<T2>());
+            m_All.Add(TypeManager.GetTypeIndex<T3>());
+            return this;
+        }
+
+        public EntityQueryBuilder WithAllReadOnly(ComponentType type0, ComponentType type1, ComponentType type2, ComponentType type3)
+        {
+            ValidateHasNoQuery();
+            m_All.Add(type0.TypeIndex);
+            m_All.Add(type1.TypeIndex);
+            m_All.Add(type2.TypeIndex);
+            m_All.Add(type3.TypeIndex);
+            return this;
+        }
+
+        public EntityQueryBuilder WithAllReadOnly<T0, T1, T2, T3, T4>()
+        {
+            ValidateHasNoQuery();
+            m_All.Add(TypeManager.GetTypeIndex<T0>());
+            m_All.Add(TypeManager.GetTypeIndex<T1>());
+            m_All.Add(TypeManager.GetTypeIndex<T2>());
+            m_All.Add(TypeManager.GetTypeIndex<T3>());
+            m_All.Add(TypeManager.GetTypeIndex<T4>());
+            return this;
+        }
+
+        public EntityQueryBuilder WithAllReadOnly(ComponentType type0, ComponentType type1, ComponentType type2, ComponentType type3, ComponentType type4)
+        {
+            ValidateHasNoQuery();
+            m_All.Add(type0.TypeIndex);
+            m_All.Add(type1.TypeIndex);
+            m_All.Add(type2.TypeIndex);
+            m_All.Add(type3.TypeIndex);
+            m_All.Add(type4.TypeIndex);
             return this;
         }
 

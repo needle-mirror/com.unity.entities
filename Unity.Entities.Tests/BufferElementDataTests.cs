@@ -868,7 +868,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(8, buffer.Capacity);
             Assert.AreEqual(3, buffer.Length);
         }
-
     }
 }
 

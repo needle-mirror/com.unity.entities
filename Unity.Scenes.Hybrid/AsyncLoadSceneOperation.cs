@@ -55,26 +55,6 @@ namespace Unity.Scenes
             }
         }
 
-        public class MemoryBinaryReader : BinaryReader
-        {
-            byte* content;
-
-            public MemoryBinaryReader(byte* content)
-            {
-                this.content = content;
-            }
-
-            public void Dispose()
-            {
-            }
-
-            public void ReadBytes(void* data, int bytes)
-            {
-                UnsafeUtility.MemCpy(data, content, bytes);
-                content += bytes;
-            }
-        }
-
         struct AsyncLoadSceneJob : IJob
         {
             public GCHandle                     LoadingOperationHandle;

@@ -26,7 +26,7 @@ namespace Unity.Entities
         public static unsafe TransformAccessArray GetTransformAccessArray(this EntityQuery group)
         {
             var state = (TransformAccessArrayState?)group.m_CachedState ?? new TransformAccessArrayState();
-            var orderVersion = group.EntityDataManager->GetComponentTypeOrderVersion(TypeManager.GetTypeIndex<Transform>());
+            var orderVersion = group.EntityComponentStore->GetComponentTypeOrderVersion(TypeManager.GetTypeIndex<Transform>());
 
             if (state.Data.isCreated && orderVersion == state.OrderVersion)
                 return state.Data;

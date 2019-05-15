@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using NUnit.Framework;
 using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
+using System;
 
 namespace Unity.Entities.Tests
 {
@@ -59,9 +60,22 @@ namespace Unity.Entities.Tests
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        struct ClassInStruct
+        struct ClassInStruct : IEquatable<ClassInStruct>
         {
             string blah;
+
+            public bool Equals(ClassInStruct other)
+            {
+                return blah == other.blah;
+            }
+
+            public override int GetHashCode()
+            {
+                if (blah != null)
+                    return blah.GetHashCode();
+                else
+                    return 0;
+            }
         }
 
         [StructLayout((LayoutKind.Sequential))]
@@ -104,9 +118,10 @@ namespace Unity.Entities.Tests
         [Test]
         public void ClassLayout()
         {
-            var layout = FastEquality.CreateTypeInfo(typeof(ClassInStruct)).Layouts;
-            Assert.AreEqual(1, layout.Length);
-            Assert.AreEqual(new FastEquality.Layout {offset = 0, count = PtrAligned4Count, Aligned4 = true }, layout[0]);
+            var ti = FastEquality.CreateTypeInfo(typeof(ClassInStruct));
+            Assert.AreEqual(null, ti.Layouts);
+            Assert.IsNotNull(ti.GetHashFn);
+            Assert.IsNotNull(ti.EqualFn);
         }
 
         [Test]
@@ -167,19 +182,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void GetHashCodeInt4()
-        {
-            var typeInfo = FastEquality.CreateTypeInfo(typeof(int4));
-            Assert.AreEqual(-270419516, FastEquality.GetHashCode(new int4(1, 2, 3, 4), typeInfo));
-            Assert.AreEqual(-270419517, FastEquality.GetHashCode(new int4(1, 2, 3, 3), typeInfo));
-            Assert.AreEqual(1, FastEquality.GetHashCode(new int4(0, 0, 0, 1), typeInfo));
-            Assert.AreEqual(16777619, FastEquality.GetHashCode(new int4(0, 0, 1, 0), typeInfo));
-            Assert.AreEqual(0, FastEquality.GetHashCode(new int4(0, 0, 0, 0), typeInfo));
-
-            // Note, builtin .GetHashCode() returns different values even for all zeros...
-        }
-
-        [Test]
         public unsafe void EqualsFixedArray()
         {
             var typeInfo = FastEquality.CreateTypeInfo(typeof(FixedArrayStruct));
@@ -229,6 +231,55 @@ namespace Unity.Entities.Tests
             };
 
             Assert.AreEqual(hashes.Distinct().Count(), hashes.Length);
+        }
+
+        [DisableAutoTypeRegistration]
+        struct TypeWithoutHashCodeOverride : ISharedComponentData, IEquatable<TypeWithoutHashCodeOverride>
+        {
+#pragma warning disable 649
+            public string Foo;
+#pragma warning restore 649
+
+            public bool Equals(TypeWithoutHashCodeOverride other)
+            {
+                return Foo == other.Foo;
+            }
+        }
+
+        [Test]
+        public void ForgettingGetHashCodeIsAnError()
+        {
+            var ex = Assert.Throws<ArgumentException>(() => FastEquality.CreateTypeInfo(typeof(TypeWithoutHashCodeOverride)));
+            Assert.IsTrue(ex.Message.Contains("GetHashCode"));
+        }
+
+        struct DoubleEquals : ISharedComponentData, IEquatable<DoubleEquals>
+        {
+            public bool Equals(DoubleEquals other)
+            {
+                return true;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return false;
+            }
+
+            public override int GetHashCode()
+            {
+                return 0;
+            }
+        }
+
+        [Test]
+        public void CorrectEqualsIsUsed()
+        {
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(DoubleEquals));
+            var a = new DoubleEquals { };
+            var b = new DoubleEquals { };
+            bool iseq = FastEquality.Equals<DoubleEquals>(a, b, typeInfo);
+
+            Assert.IsTrue(iseq);
         }
     }
 }

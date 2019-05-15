@@ -247,6 +247,8 @@ namespace Unity.Entities
                     return false;
                 if (!CompareQueryArray(queryDesc[i].Any, groupData->ArchetypeQuery[i].Any, groupData->ArchetypeQuery[i].AnyAccessMode, groupData->ArchetypeQuery[i].AnyCount))
                     return false;
+                if (queryDesc[i].Options != groupData->ArchetypeQuery[i].Options)
+                    return false;
             }
 
             return true;
@@ -361,7 +363,7 @@ namespace Unity.Entities
             return outRequiredComponents;
         }
 
-        public EntityQuery CreateEntityGroup(ArchetypeManager typeMan, EntityDataManager* entityDataManager, EntityQueryDesc[] queryDesc)
+        public EntityQuery CreateEntityGroup(EntityComponentStore* entityComponentStore, ManagedComponentStore managedComponentStore, EntityQueryDesc[] queryDesc)
         {
             //@TODO: Support for CreateEntityGroup with queryDesc but using ComponentDataArray etc
             var buffer = stackalloc byte[1024];
@@ -370,10 +372,10 @@ namespace Unity.Entities
 
             var outRequiredComponents = CalculateRequiredComponentsFromQuery(ref scratchAllocator, archetypeQuery, queryDesc.Length, out var outRequiredComponentsCount);
 
-            return CreateEntityGroup(typeMan, entityDataManager, archetypeQuery, queryDesc.Length, outRequiredComponents, outRequiredComponentsCount);
+            return CreateEntityGroup(entityComponentStore, managedComponentStore, archetypeQuery, queryDesc.Length, outRequiredComponents, outRequiredComponentsCount);
         }
 
-        public EntityQuery CreateEntityGroup(ArchetypeManager typeMan, EntityDataManager* entityDataManager, ComponentType* inRequiredComponents, int inRequiredComponentsCount)
+        public EntityQuery CreateEntityGroup(EntityComponentStore* entityComponentStore, ManagedComponentStore managedComponentStore, ComponentType* inRequiredComponents, int inRequiredComponentsCount)
         {
             var buffer = stackalloc byte[1024];
             var scratchAllocator = new ScratchAllocator(buffer, 1024);
@@ -383,7 +385,7 @@ namespace Unity.Entities
             for (int i = 0; i != inRequiredComponentsCount; i++)
                 SortingUtilities.InsertSorted(outRequiredComponents + 1, i, inRequiredComponents[i]);
             var outRequiredComponentsCount = inRequiredComponentsCount + 1;
-            return CreateEntityGroup(typeMan, entityDataManager, archetypeQuery, 1, outRequiredComponents, outRequiredComponentsCount);
+            return CreateEntityGroup(entityComponentStore, managedComponentStore, archetypeQuery, 1, outRequiredComponents, outRequiredComponentsCount);
         }
 
         bool Matches(EntityGroupData* grp, ArchetypeQuery* archetypeQueries, int archetypeFiltersCount,
@@ -412,7 +414,7 @@ namespace Unity.Entities
             return pointer;
         }
 
-        public EntityQuery CreateEntityGroup(ArchetypeManager typeMan, EntityDataManager* entityDataManager,
+        public EntityQuery CreateEntityGroup(EntityComponentStore* entityComponentStore, ManagedComponentStore managedComponentStore,
             ArchetypeQuery* query, int queryCount, ComponentType* component, int componentCount)
         {
             //@TODO: Validate that required types is subset of archetype filters all...
@@ -451,10 +453,10 @@ namespace Unity.Entities
                     cachedGroup->ArchetypeQuery[i].AnyAccessMode = (byte*)ChunkAllocate<byte>(cachedGroup->ArchetypeQuery[i].AnyCount,query[i].AnyAccessMode);
                     cachedGroup->ArchetypeQuery[i].NoneAccessMode = (byte*)ChunkAllocate<byte>(cachedGroup->ArchetypeQuery[i].NoneCount,query[i].NoneAccessMode);
                 }
-                cachedGroup->MatchingArchetypes = new MatchingArchetypeList();
-                for (var i = typeMan.m_Archetypes.Count - 1; i >= 0; --i)
+                cachedGroup->MatchingArchetypes = new MatchingArchetypeList(entityComponentStore);
+                for (var i = entityComponentStore->m_Archetypes.Count - 1; i >= 0; --i)
                 {
-                    var archetype = typeMan.m_Archetypes.p[i];
+                    var archetype = entityComponentStore->m_Archetypes.p[i];
                     AddArchetypeIfMatching(archetype, cachedGroup);
                 }
 
@@ -462,7 +464,7 @@ namespace Unity.Entities
                m_EntityGroupDatasUnsafePtrList.Add(cachedGroup);
             }
 
-            return new EntityQuery(cachedGroup, m_JobSafetyManager, typeMan, entityDataManager);
+            return new EntityQuery(cachedGroup, m_JobSafetyManager, entityComponentStore, managedComponentStore);
         }
 
         void InitializeReaderWriter(EntityGroupData* grp, ComponentType* requiredTypes, int requiredCount)
@@ -668,6 +670,16 @@ namespace Unity.Entities
         [NativeDisableUnsafePtrRestriction] public MatchingArchetype** p;
         public int Count;
         public int Capacity;
+        
+        [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
+
+        public MatchingArchetypeList(EntityComponentStore* entityComponentStore)
+        {
+            this.entityComponentStore = entityComponentStore;
+            Count = 0;
+            Capacity = 0;
+            p = null;
+        }
     }
 
     unsafe struct ArchetypeQuery : IEquatable<ArchetypeQuery>

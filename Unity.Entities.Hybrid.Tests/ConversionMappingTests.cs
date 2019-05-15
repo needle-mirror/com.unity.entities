@@ -31,6 +31,8 @@ namespace UnityEngine.Entities.Tests
         {
             var go = new GameObject(TestContext.CurrentContext.Test.Name);
 
+            
+            mappingSystem.CreatePrimaryEntity(go);
             var entity = mappingSystem.GetPrimaryEntity(go);
             Assert.AreEqual(entity, mappingSystem.GetPrimaryEntity(go));
             
@@ -39,7 +41,6 @@ namespace UnityEngine.Entities.Tests
             Assert.AreEqual(entity, array[0]);
             
             GameObject.DestroyImmediate(go);
-
         }
 
         [Test]
@@ -48,6 +49,9 @@ namespace UnityEngine.Entities.Tests
             var go = new GameObject(TestContext.CurrentContext.Test.Name);
             var go2 = new GameObject(TestContext.CurrentContext.Test.Name);
 
+            mappingSystem.CreatePrimaryEntity(go);
+            mappingSystem.CreatePrimaryEntity(go2);
+            
             var entity = mappingSystem.GetPrimaryEntity(go);
             var entity2 = mappingSystem.GetPrimaryEntity(go2);
             var additional0 = mappingSystem.CreateAdditionalEntity(go);

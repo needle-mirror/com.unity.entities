@@ -51,6 +51,10 @@ namespace Unity.Entities
         {
             if (sys != null)
             {
+                // Check for duplicate Systems. Also see issue #1792
+                if (m_systemsToUpdate.IndexOf(sys) >= 0)
+                    return;
+
                 m_systemsToUpdate.Add(sys);
                 m_systemSortDirty = true;
             }

@@ -1,6 +1,7 @@
 ﻿using System;
 using Unity.Collections;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
@@ -122,6 +123,37 @@ namespace Unity.Entities.Tests
             Assert.AreNotEqual(version, version2);
         }
 
+
+        interface TestInterface
+        {
+        }
+
+        struct TestInterfaceComponent : TestInterface, IComponentData
+        {
+            public int Value;
+        }
+        
+        [Test]
+        [StandaloneFixme]
+        public void GetComponentBoxedSupportsInterface()
+        {
+            var entity = m_Manager.CreateEntity();
+            
+            m_Manager.AddComponentData(entity, new TestInterfaceComponent {Value = 5});
+            var obj = m_Manager.Debug.GetComponentBoxed(entity, typeof(TestInterface));
+
+            Assert.AreEqual(typeof(TestInterfaceComponent), obj.GetType());
+            Assert.AreEqual(5, ((TestInterfaceComponent)obj).Value);
+        }
+
+        [Test]
+        [StandaloneFixme]
+        public void GetComponentBoxedThrowsWhenInterfaceNotFound()
+        {
+            var entity = m_Manager.CreateEntity();
+            Assert.Throws<ArgumentException>(() => m_Manager.Debug.GetComponentBoxed(entity, typeof(TestInterface)));
+        }
+        
         [Test]
         [Ignore("NOT IMPLEMENTED")]
         public void UsingComponentGroupOrArchetypeorEntityFromDifferentEntityManagerGivesExceptions()

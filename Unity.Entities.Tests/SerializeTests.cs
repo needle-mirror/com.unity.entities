@@ -465,7 +465,7 @@ namespace Unity.Entities.Tests
             var values = new ExternalSharedComponentValue[indices.Length];
             for (int i = 0; i < indices.Length; ++i)
             {
-                object value = manager.m_SharedComponentManager.GetSharedComponentDataNonDefaultBoxed(indices[i]);
+                object value = manager.ManagedComponentStore.GetSharedComponentDataNonDefaultBoxed(indices[i]);
                 int typeIndex = TypeManager.GetTypeIndex(value.GetType());
                 int hash = TypeManager.GetHashCode(value, typeIndex);
                 values[i] = new ExternalSharedComponentValue {obj = value, hashcode = hash, typeIndex = typeIndex};
@@ -478,7 +478,7 @@ namespace Unity.Entities.Tests
             for (int i = 0; i < values.Length; ++i)
             {
                 ExternalSharedComponentValue value = values[i];
-                int index = manager.m_SharedComponentManager.InsertSharedComponentAssumeNonDefault(value.typeIndex,
+                int index = manager.ManagedComponentStore.InsertSharedComponentAssumeNonDefault(value.typeIndex,
                     value.hashcode, value.obj);
                 Assert.AreEqual(i+1, index);
             }
@@ -491,17 +491,17 @@ namespace Unity.Entities.Tests
             var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestSharedComp2), typeof(EcsTestData2));
             var dummyEntity = CreateEntityWithDefaultData(0); //To ensure entity indices are offset
 
-            var allocator = new BlobAllocator(-1);
-            ref var blobArray = ref allocator.ConstructRoot<BlobArray<float>>();
-            allocator.Allocate(5, ref blobArray);
-            blobArray[0] = 1.7f;
-            blobArray[1] = 2.6f;
-            blobArray[2] = 3.5f;
-            blobArray[3] = 4.4f;
-            blobArray[4] = 5.3f;
+            var builder = new BlobBuilder(Allocator.Temp);
+            ref var blobArray = ref builder.ConstructRoot<BlobArray<float>>();
+            var array = builder.Allocate(5, ref blobArray);
+            array[0] = 1.7f;
+            array[1] = 2.6f;
+            array[2] = 3.5f;
+            array[3] = 4.4f;
+            array[4] = 5.3f;
 
-            var arrayComponent = new EcsTestDataBlobAssetArray {array = allocator.CreateBlobAssetReference<BlobArray<float>>(Allocator.Temp)};
-            allocator.Dispose();
+            var arrayComponent = new EcsTestDataBlobAssetArray {array = builder.CreateBlobAssetReference<BlobArray<float>>(Allocator.Temp)};
+            builder.Dispose();
 
             const int entityCount = 1000;
             var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
@@ -551,9 +551,9 @@ namespace Unity.Entities.Tests
             SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, sharedData.Length);
             entityManager.EndExclusiveEntityTransaction();
             for (int i = 0; i < sharedData.Length; ++i)
-                entityManager.m_SharedComponentManager.RemoveReference(i+1);
+                entityManager.ManagedComponentStore.RemoveReference(i+1);
 
-            Assert.IsTrue(entityManager.m_SharedComponentManager.AllSharedComponentReferencesAreFromChunks(entityManager.ArchetypeManager));
+            Assert.IsTrue(entityManager.ManagedComponentStore.AllSharedComponentReferencesAreFromChunks(entityManager.EntityComponentStore));
 
             try
             {

@@ -69,7 +69,56 @@ namespace Unity.Entities.Tests
                 dst1.value1 = dst2.value2 = dst3.value3 = src.value + index + entity.Index;
             }
         }
-        
+
+        struct Process1Buffer : IJobForEach_B<EcsIntElement>
+        {
+            public void Execute(DynamicBuffer<EcsIntElement> value)
+            {
+                value.Add(new EcsIntElement {Value = 1});
+            }
+        }
+
+        struct Process2Buffer : IJobForEach_BB<EcsIntElement, EcsIntElement2>
+        {
+            public void Execute(DynamicBuffer<EcsIntElement> v0, DynamicBuffer<EcsIntElement2> v1)
+            {
+                v0.Add(new EcsIntElement { Value = 1 });
+                v1.Add(new EcsIntElement2 { Value0 = 1, Value1 = 1});
+            }
+        }
+
+        struct Process3Buffer : IJobForEach_BBB<EcsIntElement, EcsIntElement2, EcsIntElement3>
+        {
+            public void Execute(DynamicBuffer<EcsIntElement> v0, DynamicBuffer<EcsIntElement2> v1, DynamicBuffer<EcsIntElement3> v2)
+            {
+                v0.Add(new EcsIntElement { Value = 1 });
+                v1.Add(new EcsIntElement2 { Value0 = 1, Value1 = 1 });
+                v2.Add(new EcsIntElement3 { Value0 = 1, Value1 = 1, Value2 = 1 });
+            }
+        }
+
+        struct Process4Buffer : IJobForEach_BBBB<EcsIntElement, EcsIntElement2, EcsIntElement3, EcsIntElement4>
+        {
+            public void Execute(DynamicBuffer<EcsIntElement> v0, DynamicBuffer<EcsIntElement2> v1, DynamicBuffer<EcsIntElement3> v2, DynamicBuffer<EcsIntElement4> v3)
+            {
+                v0.Add(new EcsIntElement { Value = 1 });
+                v1.Add(new EcsIntElement2 { Value0 = 1, Value1 = 1 });
+                v2.Add(new EcsIntElement3 { Value0 = 1, Value1 = 1, Value2 = 1 });
+                v3.Add(new EcsIntElement4 { Value0 = 1, Value1 = 1, Value2 = 1, Value3 = 1});
+            }
+        }
+
+        struct Process6Mixed : IJobForEachWithEntity_EBBBCCC<EcsIntElement, EcsIntElement2, EcsIntElement3, EcsTestData, EcsTestData2, EcsTestData3>
+        {
+            public void Execute(Entity entity, int index, DynamicBuffer<EcsIntElement> v0, DynamicBuffer<EcsIntElement2> v1, DynamicBuffer<EcsIntElement3> v2, ref EcsTestData v3, ref EcsTestData2 v4, ref EcsTestData3 v5)
+            {
+                v0.Add(new EcsIntElement { Value = 1 });
+                v1.Add(new EcsIntElement2 { Value0 = 1, Value1 = 1 });
+                v2.Add(new EcsIntElement3 { Value0 = 1, Value1 = 1, Value2 = 1 });
+                v3.value = v4.value1 = v5.value2 = index + entity.Index;
+            }
+        }
+
         public enum ProcessMode
         {
             Single,
@@ -108,6 +157,16 @@ namespace Unity.Entities.Tests
             return entities;
         }
 
+        NativeArray<Entity> PrepareData_Buffer(int entityCount)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsIntElement), typeof(EcsIntElement2), typeof(EcsIntElement3), typeof(EcsIntElement4));
+
+            var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
+            m_Manager.CreateEntity(archetype, entities);
+
+            return entities;
+        }
+
         EntityQuery PrepareQuery(int entityCount)
         {
             switch (entityCount)
@@ -120,6 +179,23 @@ namespace Unity.Entities.Tests
                     return m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
                 case 4:
                     return m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4));
+                default:
+                    throw new Exception("Test case setup error.");
+            }
+        }
+
+        EntityQuery PrepareQuery_Buffer(int entityCount)
+        {
+            switch (entityCount)
+            {
+                case 1:
+                    return m_Manager.CreateEntityQuery(typeof(EcsIntElement));
+                case 2:
+                    return m_Manager.CreateEntityQuery(typeof(EcsIntElement), typeof(EcsIntElement2));
+                case 3:
+                    return m_Manager.CreateEntityQuery(typeof(EcsIntElement), typeof(EcsIntElement2), typeof(EcsIntElement3));
+                case 4:
+                    return m_Manager.CreateEntityQuery(typeof(EcsIntElement), typeof(EcsIntElement2), typeof(EcsIntElement3), typeof(EcsIntElement4));
                 default:
                     throw new Exception("Test case setup error.");
             }
@@ -152,6 +228,33 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(expectedResult, m_Manager.GetComponentData<EcsTestData3>(entities[i]).value2);
                 if (processCount >= 4)
                     Assert.AreEqual(expectedResult, m_Manager.GetComponentData<EcsTestData4>(entities[i]).value3);
+            }
+
+            entities.Dispose();
+        }
+
+        void CheckResultsAndDispose_Buffer(NativeArray<Entity> entities, int processCount)
+        {
+            m_Manager.CreateArchetype(typeof(EcsIntElement), typeof(EcsIntElement2), typeof(EcsIntElement3), typeof(EcsIntElement4));
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                // These values should remain untouched...
+                if (processCount < 4)
+                    Assert.AreEqual(0, m_Manager.GetBuffer<EcsIntElement4>(entities[i]).Length);
+                if (processCount < 3)
+                    Assert.AreEqual(0, m_Manager.GetBuffer<EcsIntElement3>(entities[i]).Length);
+                if (processCount < 2)
+                    Assert.AreEqual(0, m_Manager.GetBuffer<EcsIntElement2>(entities[i]).Length);
+
+                var expectedResult = 1;
+
+                if (processCount >= 4)
+                    Assert.AreEqual(expectedResult, m_Manager.GetBuffer<EcsIntElement4>(entities[i]).Length);
+                if (processCount >= 3)
+                    Assert.AreEqual(expectedResult, m_Manager.GetBuffer<EcsIntElement3>(entities[i]).Length);
+                if (processCount >= 2)
+                    Assert.AreEqual(expectedResult, m_Manager.GetBuffer<EcsIntElement2>(entities[i]).Length);
             }
 
             entities.Dispose();
@@ -390,5 +493,175 @@ namespace Unity.Entities.Tests
             }
             CheckResultsAndDispose(entities, 4, true);
         }
+
+#if !UNITY_ZEROPLAYER
+        [Test]
+        public void JobProcessBufferStress_1([Values]CallMode call, [Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
+        {
+            var entities = PrepareData_Buffer(entityCount);
+
+            if (call == CallMode.System)
+            {
+                if (mode == ProcessMode.Parallel)
+                    (new Process1Buffer()).Schedule(EmptySystem).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process1Buffer()).Run(EmptySystem);
+                else
+                    (new Process1Buffer()).ScheduleSingle(EmptySystem).Complete();
+            }
+            else
+            {
+                var query = PrepareQuery_Buffer(1);
+                if (mode == ProcessMode.Parallel)
+                    (new Process1Buffer()).Schedule(query).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process1Buffer()).Run(query);
+                else
+                    (new Process1Buffer()).ScheduleSingle(query).Complete();
+            }
+
+            for (int i = 0; i < entities.Length; i++)
+                Assert.AreEqual(1, m_Manager.GetBuffer<EcsIntElement>(entities[i]).Length);
+
+            entities.Dispose();
+        }
+
+        [Test]
+        public void JobProcessBufferStress_2([Values]CallMode call, [Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
+        {
+            var entities = PrepareData_Buffer(entityCount);
+
+            if (call == CallMode.System)
+            {
+                if (mode == ProcessMode.Parallel)
+                    (new Process2Buffer()).Schedule(EmptySystem).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process2Buffer()).Run(EmptySystem);
+                else
+                    (new Process2Buffer()).ScheduleSingle(EmptySystem).Complete();
+            }
+            else
+            {
+                var query = PrepareQuery_Buffer(2);
+                if (mode == ProcessMode.Parallel)
+                    (new Process2Buffer()).Schedule(query).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process2Buffer()).Run(query);
+                else
+                    (new Process2Buffer()).ScheduleSingle(query).Complete();
+            }
+
+            CheckResultsAndDispose_Buffer(entities, 2);
+
+            entities.Dispose();
+        }
+
+        [Test]
+        public void JobProcessBufferStress_3([Values]CallMode call, [Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
+        {
+            var entities = PrepareData_Buffer(entityCount);
+
+            if (call == CallMode.System)
+            {
+                if (mode == ProcessMode.Parallel)
+                    (new Process3Buffer()).Schedule(EmptySystem).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process3Buffer()).Run(EmptySystem);
+                else
+                    (new Process3Buffer()).ScheduleSingle(EmptySystem).Complete();
+            }
+            else
+            {
+                var query = PrepareQuery_Buffer(3);
+                if (mode == ProcessMode.Parallel)
+                    (new Process3Buffer()).Schedule(query).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process3Buffer()).Run(query);
+                else
+                    (new Process3Buffer()).ScheduleSingle(query).Complete();
+            }
+
+            CheckResultsAndDispose_Buffer(entities, 3);
+
+            entities.Dispose();
+        }
+
+        [Test]
+        public void JobProcessBufferStress_4([Values]CallMode call, [Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
+        {
+            var entities = PrepareData_Buffer(entityCount);
+
+            if (call == CallMode.System)
+            {
+                if (mode == ProcessMode.Parallel)
+                    (new Process4Buffer()).Schedule(EmptySystem).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process4Buffer()).Run(EmptySystem);
+                else
+                    (new Process4Buffer()).ScheduleSingle(EmptySystem).Complete();
+            }
+            else
+            {
+                var query = PrepareQuery_Buffer(4);
+                if (mode == ProcessMode.Parallel)
+                    (new Process4Buffer()).Schedule(query).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process4Buffer()).Run(query);
+                else
+                    (new Process4Buffer()).ScheduleSingle(query).Complete();
+            }
+
+            CheckResultsAndDispose_Buffer(entities, 4);
+
+            entities.Dispose();
+        }
+
+        [Test]
+        public void JobProcessMixedStress_6([Values]CallMode call, [Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsIntElement), typeof(EcsIntElement2), typeof(EcsIntElement3), typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
+
+            var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
+            m_Manager.CreateEntity(archetype, entities);
+
+            if (call == CallMode.System)
+            {
+                if (mode == ProcessMode.Parallel)
+                    (new Process6Mixed()).Schedule(EmptySystem).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process6Mixed()).Run(EmptySystem);
+                else
+                    (new Process6Mixed()).ScheduleSingle(EmptySystem).Complete();
+            }
+            else
+            {
+                var query = m_Manager.CreateEntityQuery(typeof(EcsIntElement), typeof(EcsIntElement2), typeof(EcsIntElement3), typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
+                if (mode == ProcessMode.Parallel)
+                    (new Process6Mixed()).Schedule(query).Complete();
+                else if (mode == ProcessMode.Run)
+                    (new Process6Mixed()).Run(query);
+                else
+                    (new Process6Mixed()).ScheduleSingle(query).Complete();
+            }
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                {
+                    var expectedResult = 1;
+                    Assert.AreEqual(expectedResult, m_Manager.GetBuffer<EcsIntElement>(entities[i]).Length);
+                    Assert.AreEqual(expectedResult, m_Manager.GetBuffer<EcsIntElement2>(entities[i]).Length);
+                    Assert.AreEqual(expectedResult, m_Manager.GetBuffer<EcsIntElement3>(entities[i]).Length);
+                }
+
+                {
+                    var expectedResult = entities[i].Index + i;
+                    Assert.AreEqual(expectedResult, m_Manager.GetComponentData<EcsTestData>(entities[i]).value);
+                    Assert.AreEqual(expectedResult, m_Manager.GetComponentData<EcsTestData2>(entities[i]).value1);
+                    Assert.AreEqual(expectedResult, m_Manager.GetComponentData<EcsTestData3>(entities[i]).value2);
+                }
+            }
+            entities.Dispose();
+        }
+#endif
     }
 }

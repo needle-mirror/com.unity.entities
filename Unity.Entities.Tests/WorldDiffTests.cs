@@ -314,7 +314,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [Ignore("Disabled components are currently not included in GetAllEntities. That seems like wrong behaviour.")]
         public void CreateWithPrefabAndDisabledComponent()
         {
             var guid = GenerateEntityGuid(0);
@@ -905,7 +904,7 @@ namespace Unity.Entities.Tests
             m_DstWorld.EntityManager.DestroyEntity(e);
 
             // create and apply a diff of two entities being created with inner references
-            var diff = WorldDiffer.CreateDiffPreciselyForEditorUndoRedo(m_After, m_Shadow, Allocator.TempJob);
+            var diff = WorldDiffer.CreateDiff(m_After, m_Shadow, Allocator.TempJob);
             using (diff)
             {
                 WorldDiffer.ApplyDiff(m_DstWorld, diff);
@@ -913,7 +912,7 @@ namespace Unity.Entities.Tests
 
             // The diff between m_DstWorld and m_After should be empty, even though internally
             // they refer to different Entity index/version values (but the guids are the same).
-            diff = WorldDiffer.CreateDiffPreciselyForEditorUndoRedo(m_DstWorld, m_After, Allocator.TempJob);
+            diff = WorldDiffer.CreateDiff(m_DstWorld, m_After, Allocator.TempJob);
             using (diff)
             {
                 Assert.IsFalse(diff.HasChanges);

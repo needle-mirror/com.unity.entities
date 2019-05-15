@@ -189,7 +189,7 @@ namespace Unity.Entities
             components.name = m.GetName(e);            
             components.components.Add(components.name);  
 #endif
-            m.Entities->GetComponentChunk(e, out var chunk, out var chunkIndex);
+            m.EntityComponentStore->GetChunk(e, out var chunk, out var chunkIndex);
             if (chunk == null)
                 return components;
             var archetype = chunk->Archetype;
@@ -381,14 +381,19 @@ namespace Unity.Entities
             m_EntityArchetype = entityArchetype;
         }
 
-        unsafe public List<ArchetypeChunk> Chunks
+        public unsafe struct ChunkPtr
+        {
+            public Chunk* m_Chunk;
+        }
+
+        unsafe public List<ChunkPtr> Chunks
         {
             get
             {
-                List<ArchetypeChunk> result = new List<ArchetypeChunk>();
+                List<ChunkPtr> result = new List<ChunkPtr>();
                 var archetype = m_EntityArchetype.Archetype;
                 for (var i = 0; i < archetype->Chunks.Count; ++i)
-                    result.Add(new ArchetypeChunk{m_Chunk = archetype->Chunks.p[i]});
+                    result.Add(new ChunkPtr{m_Chunk = archetype->Chunks.p[i]});
                 return result;
             }
         }
@@ -511,7 +516,7 @@ namespace Unity.Entities
                     do
                     {
 #if UNITY_EDITOR                        
-                        var name = target.DestWorldManager.Entities->GetName(entity);
+                        var name = target.DestWorldManager.EntityComponentStore->GetName(entity);
                         entitiesForOneGuid.Add(DebugViewUtility.GetComponents(target.DestWorldManager,entity));
 #endif                        
                     } while (target.DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref it));

@@ -13,7 +13,7 @@ The steps involved in implementing an IJobChunk Job include:
 3. Instantiating the Job struct and scheduling the Job in the system OnUpdate() function.
 4. In the Execute() function, getting the NativeArray instances for the components the Job reads or writes and, finally, iterating over the current chunk to perform the desired work.
 
-The [ECS samples repository](https://github.com/Unity-Technologies/EntityComponentSystemSamples) contains a simple example, HelloCube_03_IJobChunk, that uses IJobChunk.
+The [ECS samples repository](https://github.com/Unity-Technologies/EntityComponentSystemSamples) contains a simple HelloCube example that demonstrates how to use IJobChunk.
 
 ## Query for data with a EntityQuery
 
@@ -85,7 +85,7 @@ The IJobChunk struct defines fields for the data the Job needs when it runs, as 
 
 In order to access the component arrays inside the chunks that the system passes to your Execute() method, you must create an ArchetypeChunkComponentType<T> object for each type of component that the Job reads or writes. These objects allow you to get instances of the NativeArrays providing access to the components of an entity. Include all the components referenced in the Job’s EntityQuery that the Execute method reads or writes. You can also provide ArchetypeChunkComponentType variables for optional component types that you do not include in the EntityQuery. (You must check to make sure that the current chunk has an optional component before trying to access it.)
 
-For example, the HelloCube_03_IJobChunk example declares a Job struct that defines ArchetypeChunkComponentType<T> variables for two components, RotationQuaternion and RotationSpeed:
+For example, the HelloCube IJobChunk example declares a Job struct that defines ArchetypeChunkComponentType<T> variables for two components, RotationQuaternion and RotationSpeed:
 
 ``` c#
 [BurstCompile]

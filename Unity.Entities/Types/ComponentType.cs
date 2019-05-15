@@ -196,7 +196,7 @@ namespace Unity.Entities
     }
     
     
-    [Obsolete("SubtractiveComponent has been renamed. Use ExcludeComponent instead (UnityUpgradable) -> ExcludeComponent", true)]
+    [Obsolete("SubtractiveComponent has been renamed. Use ExcludeComponent instead (UnityUpgradable) -> ExcludeComponent<T>", true)]
     [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
     public struct SubtractiveComponent<T>
     {
@@ -204,14 +204,14 @@ namespace Unity.Entities
 
     public partial struct ComponentType
     {
-        [Obsolete("ComponentType.Subtractive has been renamed. Use Exclude instead (UnityUpgradable) -> Exclude()", true)]
+        [Obsolete("ComponentType.Subtractive has been renamed. Use Exclude instead (UnityUpgradable) -> Exclude(*)", true)]
         [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
         public static ComponentType Subtractive(Type type)
         {
             return Exclude(type);
         }
 
-        [Obsolete("ComponentType.Subtractive has been renamed. Use ExcludeComponent instead (UnityUpgradable) -> Exclude()", true)]
+        [Obsolete("ComponentType.Subtractive has been renamed. Use ExcludeComponent instead (UnityUpgradable) -> Exclude<T>()", true)]
         [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
         public static ComponentType Subtractive<T>()
         {

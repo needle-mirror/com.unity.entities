@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using Unity.Collections;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -9,16 +11,23 @@ namespace Unity.Entities
 {
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
-    class GameObjectConversionInitializationGroup : ComponentSystemGroup
+    public class GameObjectConversionDeclarePrefabsGroup : ComponentSystemGroup
     {
-        
+
     }
-    
+
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
-    class GameObjectConversionGroup : ComponentSystemGroup
+    public class GameObjectBeforeConversionGroup : ComponentSystemGroup
     {
-        
+
+    }
+
+    [DisableAutoCreation]
+    [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
+    public class GameObjectConversionGroup : ComponentSystemGroup
+    {
+
     }
 
     [DisableAutoCreation]
@@ -50,7 +59,7 @@ namespace Unity.Entities
         {
             return GameObjectConversionMappingSystem.GetEntityGuid(gameObject, index);
         }
-    
+
         internal  static World CreateConversionWorld(World dstEntityWorld, Hash128 sceneGUID, ConversionFlags conversionFlags)
         {
             m_CreateConversionWorld.Begin();
@@ -64,7 +73,54 @@ namespace Unity.Entities
 
             return gameObjectWorld;
         }
-        
+
+        struct DeclaredReferencePrefabsTag : IComponentData { }
+
+        static void DeclareReferencesPrefabs(World gameObjectWorld, GameObjectConversionMappingSystem mappingSystem)
+        {
+            var newEntitiesQuery = mappingSystem.Entities
+                .WithNone<DeclaredReferencePrefabsTag>()
+                .WithAll<Transform>()
+                .ToEntityQuery();
+
+            var declares = new List<IDeclareReferencedPrefabs>();
+            var prefabs = new List<GameObject>();
+
+            // we loop until there's nothing more to do (i.e. no new entities created during prefab declaration system updates)
+            while (!newEntitiesQuery.IsEmptyIgnoreFilter)
+            {
+                using (var newEntities = newEntitiesQuery.ToEntityArray(Allocator.TempJob))
+                {
+                    // fetch components that know how to declare ref'd prefabs
+                    foreach (var newEntity in newEntities)
+                    {
+                        gameObjectWorld.EntityManager.GetComponentObject<Transform>(newEntity).GetComponents(declares);
+
+                        // discover and declare by component
+                        foreach (var declare in declares)
+                            declare.DeclareReferencedPrefabs(prefabs);
+                        
+                        declares.Clear();
+                    }
+                }
+
+                // mark as seen for next loop
+                gameObjectWorld.EntityManager.AddComponent(newEntitiesQuery, typeof(DeclaredReferencePrefabsTag));
+
+                foreach (var prefab in prefabs)
+                    mappingSystem.DeclareReferencedPrefab(prefab);
+                prefabs.Clear();
+
+                // discover and declare by system
+
+                gameObjectWorld.GetExistingSystem<GameObjectConversionDeclarePrefabsGroup>().Update();
+            }
+
+            // clean up the markers
+            gameObjectWorld.EntityManager.RemoveComponent<DeclaredReferencePrefabsTag>(gameObjectWorld.EntityManager.UniversalQuery);
+        }
+
+
         
         internal static void Convert(World gameObjectWorld, World dstEntityWorld)
         {
@@ -72,15 +128,20 @@ namespace Unity.Entities
 
             using (m_UpdateSystems.Auto())
             {
+
+                DeclareReferencesPrefabs(gameObjectWorld, mappingSystem);
+
                 // Convert all the data into dstEntityWorld
-                gameObjectWorld.GetExistingSystem<GameObjectConversionInitializationGroup>().Update();
+                mappingSystem.CreatePrimaryEntities();
+
+                gameObjectWorld.GetExistingSystem<GameObjectBeforeConversionGroup>().Update();
                 gameObjectWorld.GetExistingSystem<GameObjectConversionGroup>().Update();
                 gameObjectWorld.GetExistingSystem<GameObjectAfterConversionGroup>().Update();
             }
 
             using (m_AddPrefabComponentDataTag.Auto())
             {
-                mappingSystem.AddPrefabComponentDataTag();    
+                mappingSystem.AddPrefabComponentDataTag();
             }
         }
 
@@ -94,7 +155,7 @@ namespace Unity.Entities
         public static Entity ConvertGameObjectHierarchy(GameObject root, World dstEntityWorld)
         {
             m_ConvertScene.Begin();
-            
+
             Entity convertedEntity;
             using (var gameObjectWorld = CreateConversionWorld(dstEntityWorld, default(Hash128), 0))
             {
@@ -102,7 +163,7 @@ namespace Unity.Entities
 
                 using (m_CreateEntitiesForGameObjects.Auto())
                 {
-                    mappingSystem.AddGameObjectOrPrefabAsGroup(root);
+                    mappingSystem.AddGameObjectOrPrefab(root);
                 }
 
                 Convert(gameObjectWorld, dstEntityWorld);
@@ -111,43 +172,41 @@ namespace Unity.Entities
                 m_DestroyConversionWorld.Begin();
             }
             m_DestroyConversionWorld.End();
-            
+
             m_ConvertScene.End();
 
             return convertedEntity;
         }
-    
+
         public static void ConvertScene(Scene scene, Hash128 sceneHash, World dstEntityWorld, ConversionFlags conversionFlags = 0)
-        {    
+        {
             m_ConvertScene.Begin();
 
             using (var gameObjectWorld = CreateConversionWorld(dstEntityWorld, sceneHash, conversionFlags))
-            {                
+            {
                 using (m_CreateEntitiesForGameObjects.Auto())
                 {
-                    GameObjectConversionMappingSystem.CreateEntitiesForGameObjects(scene, gameObjectWorld);
+                    gameObjectWorld.GetExistingSystem<GameObjectConversionMappingSystem>().CreateEntitiesForGameObjects(scene, gameObjectWorld);
                 }
-                
+
                 Convert(gameObjectWorld, dstEntityWorld);
-                
+
                 m_DestroyConversionWorld.Begin();
             }
             m_DestroyConversionWorld.End();
-            
+
             m_ConvertScene.End();
         }
-        
+
         static void AddConversionSystems(World gameObjectWorld)
         {
-            var init = gameObjectWorld.GetOrCreateSystem<GameObjectConversionInitializationGroup>();
+            var declareConvert = gameObjectWorld.GetOrCreateSystem<GameObjectConversionDeclarePrefabsGroup>();
+            var earlyConvert = gameObjectWorld.GetOrCreateSystem<GameObjectBeforeConversionGroup>();
             var convert = gameObjectWorld.GetOrCreateSystem<GameObjectConversionGroup>();
-            var afterConvert = gameObjectWorld.GetOrCreateSystem<GameObjectAfterConversionGroup>();
-
-            // Ensure the following systems run first in this order...
-            init.AddSystemToUpdateList(gameObjectWorld.GetOrCreateSystem<ConvertGameObjectToEntitySystemDeclarePrefabs>());
-            init.AddSystemToUpdateList(gameObjectWorld.GetOrCreateSystem<ComponentDataProxyToEntitySystem>());
+            var lateConvert = gameObjectWorld.GetOrCreateSystem<GameObjectAfterConversionGroup>();
 
             var systems = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.GameObjectConversion);
+
             foreach (var system in systems)
             {
                 var attributes = system.GetCustomAttributes(typeof(UpdateInGroupAttribute), true);
@@ -161,13 +220,21 @@ namespace Unity.Entities
                     {
                         var groupType = (attribute as UpdateInGroupAttribute)?.GroupType;
 
-                        if (groupType == convert.GetType())
+                        if (groupType == declareConvert.GetType())
+                        {
+                            AddSystemAndLogException(gameObjectWorld, declareConvert, system);
+                        }
+                        else if (groupType == earlyConvert.GetType())
+                        {
+                            AddSystemAndLogException(gameObjectWorld, earlyConvert, system);
+                        }
+                        else if (groupType == convert.GetType())
                         {
                             AddSystemAndLogException(gameObjectWorld, convert, system);
                         }
-                        else if (groupType == afterConvert.GetType())
+                        else if (groupType == lateConvert.GetType())
                         {
-                            AddSystemAndLogException(gameObjectWorld, afterConvert, system);
+                            AddSystemAndLogException(gameObjectWorld, lateConvert, system);
                         }
                         else
                         {
@@ -177,10 +244,12 @@ namespace Unity.Entities
                 }
             }
 
+            declareConvert.SortSystemUpdateList();
+            earlyConvert.SortSystemUpdateList();
             convert.SortSystemUpdateList();
-            afterConvert.SortSystemUpdateList();
+            lateConvert.SortSystemUpdateList();
         }
-    
+
         static void AddSystemAndLogException(World world, ComponentSystemGroup group, Type type)
         {
             try
@@ -192,5 +261,5 @@ namespace Unity.Entities
                 Debug.LogException(e);
             }
         }
-    }    
+    }
 }

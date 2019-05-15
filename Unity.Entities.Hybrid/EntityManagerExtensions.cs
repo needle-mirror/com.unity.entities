@@ -42,12 +42,12 @@ namespace Unity.Entities
         public static unsafe T GetComponentObject<T>(this EntityManager entityManager, Entity entity) where T : Component
         {
             var componentType = ComponentType.ReadWrite<T>();
-            entityManager.Entities->AssertEntityHasComponent(entity, componentType.TypeIndex);
+            entityManager.EntityComponentStore->AssertEntityHasComponent(entity, componentType.TypeIndex);
 
             Chunk* chunk;
             int chunkIndex;
-            entityManager.Entities->GetComponentChunk(entity, out chunk, out chunkIndex);
-            return entityManager.ArchetypeManager.GetManagedObject(chunk, componentType, chunkIndex) as T;
+            entityManager.EntityComponentStore->GetChunk(entity, out chunk, out chunkIndex);
+            return entityManager.ManagedComponentStore.GetManagedObject(chunk, componentType, chunkIndex) as T;
         }
     }
 }

@@ -84,7 +84,6 @@ namespace Unity.Entities
 
         [NativeDisableUnsafePtrRestriction] private Chunk** m_CurrentChunk;
 
-
         private int m_CurrentArchetypeEntityIndex;
         private int m_CurrentChunkEntityIndex;
 
@@ -120,22 +119,22 @@ namespace Unity.Entities
             m_Filter = filter;
         }
 
-        public object GetManagedObject(ArchetypeManager typeMan, int typeIndexInArchetype, int cachedBeginIndex,
+        public object GetManagedObject(ManagedComponentStore managedComponentStore, int typeIndexInArchetype, int cachedBeginIndex,
             int index)
         {
-            return typeMan.GetManagedObject(*m_CurrentChunk, typeIndexInArchetype, index - cachedBeginIndex);
+            return managedComponentStore.GetManagedObject(*m_CurrentChunk, typeIndexInArchetype, index - cachedBeginIndex);
         }
 
-        public object GetManagedObject(ArchetypeManager typeMan, int cachedBeginIndex, int index)
+        public object GetManagedObject(ManagedComponentStore managedComponentStore, int cachedBeginIndex, int index)
         {
-            return typeMan.GetManagedObject(*m_CurrentChunk,
+            return managedComponentStore.GetManagedObject(*m_CurrentChunk,
                 m_CurrentMatchingArchetype->IndexInArchetype[IndexInEntityQuery], index - cachedBeginIndex);
         }
 
-        public object[] GetManagedObjectRange(ArchetypeManager typeMan, int cachedBeginIndex, int index,
+        public object[] GetManagedObjectRange(ManagedComponentStore managedComponentStore, int cachedBeginIndex, int index,
             out int rangeStart, out int rangeLength)
         {
-            var objs = typeMan.GetManagedObjectRange(*m_CurrentChunk,
+            var objs = managedComponentStore.GetManagedObjectRange(*m_CurrentChunk,
                 m_CurrentMatchingArchetype->IndexInArchetype[IndexInEntityQuery], out rangeStart,
                 out rangeLength);
             rangeStart += index - cachedBeginIndex;
@@ -192,6 +191,7 @@ namespace Unity.Entities
                 var gatherChunksJob = new GatherChunks
                 {
                     MatchingArchetypes = matchingArchetypes.p,
+                    entityComponentStore = matchingArchetypes.entityComponentStore,
                     Offsets = offsets,
                     Chunks = chunks
                 };
@@ -210,7 +210,8 @@ namespace Unity.Entities
                     Filter = filter,
                     Offsets = offsets,
                     FilteredCounts = filteredCounts,
-                    SparseChunks = sparseChunks
+                    SparseChunks = sparseChunks,
+                    entityComponentStore = matchingArchetypes.entityComponentStore
                 };
                 gatherChunksJob.Schedule(archetypeCount,1, dependsOn).Complete();
 
@@ -591,6 +592,30 @@ namespace Unity.Entities
             endIndex = beginIndex + (*m_CurrentChunk)->Count;
         }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        internal static BufferAccessor<T> GetChunkBufferAccessor<T>(Chunk* chunk, bool isWriting, int typeIndexInArchetype, uint systemVersion, AtomicSafetyHandle safety0, AtomicSafetyHandle safety1)
+#else
+        internal static BufferAccessor<T> GetChunkBufferAccessor<T>(Chunk* chunk, bool isWriting, int typeIndexInArchetype, uint systemVersion)
+#endif
+            where T : struct, IBufferElementData
+        {
+            var archetype = chunk->Archetype;
+            int internalCapacity = archetype->BufferCapacities[typeIndexInArchetype];
+
+            if (isWriting)
+                chunk->SetChangeVersion(typeIndexInArchetype, systemVersion);
+
+            var buffer = chunk->Buffer;
+            var length = chunk->Count;
+            var startOffset = archetype->Offsets[typeIndexInArchetype];
+            int stride = archetype->SizeOfs[typeIndexInArchetype];
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            return new BufferAccessor<T>(buffer + startOffset, length, stride, !isWriting, safety0, safety1, internalCapacity);
+#else
+            return new BufferAccessor<T>(buffer + startOffset, length, stride, internalCapacity);
+#endif
+        }
+
         internal static void* GetChunkComponentDataPtr(Chunk* chunk, bool isWriting, int indexInArchetype, uint systemVersion)
         {
             var archetype = chunk->Archetype;
@@ -622,10 +647,7 @@ namespace Unity.Entities
 
         internal ArchetypeChunk GetCurrentChunk()
         {
-            return new ArchetypeChunk
-            {
-                m_Chunk = (*m_CurrentChunk)
-            };
+            return new ArchetypeChunk(*m_CurrentChunk, m_MatchingArchetypeList.entityComponentStore);
         }
 
         // Determines how many chunks of a particular archetype we must iterate through while filtering
@@ -712,7 +734,7 @@ namespace Unity.Entities
             return index;
         }
 
-        internal static JobHandle PreparePrefilteredChunkLists(int unfilteredChunkCount, MatchingArchetypeList archetypes, EntityQueryFilter filter,  JobHandle dependsOn, ScheduleMode mode, out NativeArray<byte> prefilterDataArray, out void* deferredCountData)
+        internal static JobHandle PreparePrefilteredChunkLists(int unfilteredChunkCount, MatchingArchetypeList archetypes, EntityQueryFilter filter, JobHandle dependsOn, ScheduleMode mode, out NativeArray<byte> prefilterDataArray, out void* deferredCountData)
         {
             // Allocate one buffer for all prefilter data and distribute it
             // We keep the full buffer as a "dummy array" so we can deallocate it later with [DeallocateOnJobCompletion]
@@ -749,7 +771,8 @@ namespace Unity.Entities
                 {
                     Archetypes = archetypes,
                     PrefilterData = prefilterData,
-                    UnfilteredChunkCount = unfilteredChunkCount
+                    UnfilteredChunkCount = unfilteredChunkCount,
+                    entityComponentStore = archetypes.entityComponentStore
                 };
                 if (mode == ScheduleMode.Batched)
                     prefilterHandle = gatherJob.Schedule(dependsOn);

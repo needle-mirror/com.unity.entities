@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 // TEMPORARY HACK
 //using JetBrains.Annotations;
 using NUnit.Framework;
@@ -101,6 +101,17 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void Equals_WithDifferentWritePermissionBuilders_ReturnsFalse()
+        {
+            var builder0 = TestSystem.Entities
+                .WithAll<EcsTestTag>();
+            var builder1 = new EntityQueryBuilder(TestSystem)
+                .WithAllReadOnly<EcsTestTag>();
+
+            Assert.IsFalse(builder0.ShallowEquals(ref builder1));
+        }
+
+        [Test]
         public void ObjectGetHashCode_Throws()
         {
             // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
@@ -174,6 +185,23 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void ToEntityArchetypeQuery_WithFluentSpec_ReturnsReadOnlyQueryAsSpecified()
+        {
+            var eaq = TestSystem.Entities
+                .WithAllReadOnly<EcsTestTag>()
+                .WithAnyReadOnly<EcsTestData2>()
+                .With(EntityQueryOptions.Default)
+                .ToEntityQueryDesc();
+
+            CollectionAssert.AreEqual(
+                new[] { ComponentType.ReadOnly<EcsTestTag>() },
+                eaq.All);
+            CollectionAssert.AreEqual(
+                new[] { ComponentType.ReadOnly<EcsTestData2>() },
+                eaq.Any);
+        }
+
+        [Test]
         public void ToComponentGroup_OnceCached_StaysCached()
         {
             // this will cause the group to get cached in the query
@@ -192,7 +220,7 @@ namespace Unity.Entities.Tests
             m_Manager.AddComponentData(entity, new EcsTestData2(1));
             m_Manager.AddComponentData(entity, new EcsTestData3(2));
 
-            var query = TestSystem.Entities.WithAll<EcsTestData, EcsTestData2>();
+            var query = TestSystem.Entities.WithAllReadOnly<EcsTestData, EcsTestData2>();
             var oldQuery = query;
 
             // validate that each runs with a different componentgroup (if the second shared the first, we'd get a null ref)
@@ -236,6 +264,156 @@ namespace Unity.Entities.Tests
             bool entityFound = false;
             query.ForEach((Entity id) => { entityFound = true; });
             Assert.IsFalse(entityFound);
+        }
+
+        [Test]
+        public void ForEach_WithAllReadOnlyAndWrite_Throws() =>
+            Assert.Throws<EntityQueryDescValidationException>(() => 
+            {
+                var query = TestSystem.Entities.WithAll<EcsTestData>().WithAllReadOnly<EcsTestData>();
+                query.ForEach((Entity id) => {});
+            });
+
+        [Test]
+        public void ForEach_WithAllTypeInForEach_DoesNotThrow() =>
+            Assert.DoesNotThrow(() => 
+            {
+                var query = TestSystem.Entities.WithAll<EcsTestData>();
+                query.ForEach((Entity id, ref EcsTestData data) => {});
+            });
+        
+        [Test]
+        public void ForEach_WithAllReadOnlyTypeInForEach_DoesNotThrow() =>
+            Assert.DoesNotThrow(() => 
+            {
+                var query = TestSystem.Entities.WithAllReadOnly<EcsTestData>();
+                query.ForEach((Entity id, ref EcsTestData data) => {});
+            });
+        
+        [Test]
+        public void ForEach_WithAllReadOnlyTypeInForEach_OnlyHasReadOnlyType()
+        {
+            var query = TestSystem.Entities.WithAllReadOnly<EcsTestData>();
+            query.ForEach((Entity id, ref EcsTestData data) => {});
+
+            // validate that We only have EcsTestData as a ReadOnly type (WithAllReadOnly changes type to RO)
+            var eaq = query.ToEntityQueryDesc();
+            CollectionAssert.AreEqual(
+                new[] { ComponentType.ReadOnly<EcsTestData>() },
+                eaq.All);
+        }
+
+        [Test]
+        public void ForEach_WithAllTypeNotInForEachDelegate_OnlyHasReadOnlyType()
+        {
+            var query = TestSystem.Entities.WithAll<EcsTestData>();
+            query.ForEach((Entity id) => {});
+
+            // validate that We only have EcsTestData as a ReadOnly type (changed to ReadOnly as not in delegate)
+            var eaq = query.ToEntityQueryDesc();
+            CollectionAssert.AreEqual(
+                new[] { ComponentType.ReadOnly<EcsTestData>() },
+                eaq.All);
+        }
+
+		[Test]
+        public void ForEach_WithIncludeDisabledOptionsAsSecondQuery_ReturnsEntityWithDisabled()
+        {
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(entity, new EcsTestData(0));
+            m_Manager.AddComponentData(entity, new Disabled());
+
+            var queryWithNoOptions = TestSystem.Entities.WithAny<EcsTestData>();
+            queryWithNoOptions.ForEach((Entity id) => { });
+
+            var queryWithIncludeDisabled = TestSystem.Entities.WithAny<EcsTestData>().With(EntityQueryOptions.IncludeDisabled);
+            bool entityFound = false;
+            queryWithIncludeDisabled.ForEach((Entity id) => { entityFound = true; });
+            Assert.IsTrue(entityFound);
+        }
+
+        [Test]
+        public void ForEach_WithAllTypes_HasCorrectAccessType([Values(1, 2, 3)] int readOnlyIndex)
+        {
+            ComponentType[] allComponentTypes = new ComponentType[3];
+            var query = TestSystem.Entities;
+            if (readOnlyIndex == 1)
+            {
+                query.WithAllReadOnly<EcsTestData>();
+                allComponentTypes[0] = ComponentType.ReadOnly<EcsTestData>();
+            }
+            else
+            {
+                query.WithAll<EcsTestData>();
+                allComponentTypes[0] = ComponentType.ReadWrite<EcsTestData>();
+            }
+            if (readOnlyIndex == 2)
+            {
+                query.WithAllReadOnly<EcsTestData2>();
+                allComponentTypes[1] = ComponentType.ReadOnly<EcsTestData2>();
+            }
+            else
+            {
+                query.WithAll<EcsTestData2>();
+                allComponentTypes[1] = ComponentType.ReadWrite<EcsTestData2>();
+            }
+            if (readOnlyIndex == 3)
+            {
+                query.WithAllReadOnly<EcsTestData3>();
+                allComponentTypes[2] = ComponentType.ReadOnly<EcsTestData3>();
+            }
+            else
+            {
+                query.WithAll<EcsTestData3>();
+                allComponentTypes[2] = ComponentType.ReadWrite<EcsTestData3>();
+            }
+            query.ForEach((Entity id, ref EcsTestData d1, ref EcsTestData2 d2, ref EcsTestData3 d3) => {});
+
+            var eaq = query.ToEntityQueryDesc();
+
+            CollectionAssert.AreEqual(allComponentTypes, eaq.All);
+        }
+
+        [Test]
+        public void ForEach_WithAnyTypes_HasCorrectAccessType([Values(1, 2, 3)] int readOnlyIndex)
+        {
+            ComponentType[] anyComponentTypes = new ComponentType[3];
+            var query = TestSystem.Entities;
+            if (readOnlyIndex == 1)
+            {
+                query.WithAnyReadOnly<EcsTestData>();
+                anyComponentTypes[0] = ComponentType.ReadOnly<EcsTestData>();
+            }
+            else
+            {
+                query.WithAny<EcsTestData>();
+                anyComponentTypes[0] = ComponentType.ReadWrite<EcsTestData>();
+            }
+            if (readOnlyIndex == 2)
+            {
+                query.WithAnyReadOnly<EcsTestData2>();
+                anyComponentTypes[1] = ComponentType.ReadOnly<EcsTestData2>();
+            }
+            else
+            {
+                query.WithAny<EcsTestData2>();
+                anyComponentTypes[1] = ComponentType.ReadWrite<EcsTestData2>();
+            }
+            if (readOnlyIndex == 3)
+            {
+                query.WithAnyReadOnly<EcsTestData3>();
+                anyComponentTypes[2] = ComponentType.ReadOnly<EcsTestData3>();
+            }
+            else
+            {
+                query.WithAny<EcsTestData3>();
+                anyComponentTypes[2] = ComponentType.ReadWrite<EcsTestData3>();
+            }
+            query.ForEach((Entity id) => {});
+
+            var eaq = query.ToEntityQueryDesc();
+
+            CollectionAssert.AreEqual(anyComponentTypes, eaq.Any);
         }
     }
 }

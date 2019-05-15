@@ -185,9 +185,10 @@ namespace Unity.Entities
     public unsafe class EntityQuery : IDisposable
     {
         readonly ComponentJobSafetyManager* m_SafetyManager;
-        readonly EntityGroupData*           m_GroupData;
-        readonly EntityDataManager*         m_EntityDataManager;
+        internal readonly EntityGroupData*  m_GroupData;
+        readonly EntityComponentStore*      m_EntityComponentStore;
         EntityQueryFilter                   m_Filter;
+        private ManagedComponentStore       m_ManagedComponentStore;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         internal string                    DisallowDisposing = null;
@@ -196,19 +197,19 @@ namespace Unity.Entities
         // TODO: this is temporary, used to cache some state to avoid recomputing the TransformAccessArray. We need to improve this.
         internal IDisposable               m_CachedState;
 
-        internal EntityQuery(EntityGroupData* groupData, ComponentJobSafetyManager* safetyManager, ArchetypeManager typeManager, EntityDataManager* entityDataManager)
+        internal EntityComponentStore* EntityComponentStore => m_EntityComponentStore;
+        internal ManagedComponentStore ManagedComponentStore => m_ManagedComponentStore;
+        internal ComponentJobSafetyManager* SafetyManager => m_SafetyManager;
+        
+        internal EntityQuery(EntityGroupData* groupData, ComponentJobSafetyManager* safetyManager, EntityComponentStore* entityComponentStore, ManagedComponentStore managedComponentStore)
         {
             m_GroupData = groupData;
-            m_EntityDataManager = entityDataManager;
             m_Filter = default(EntityQueryFilter);
-            m_SafetyManager = safetyManager;
-            ArchetypeManager = typeManager;
-            EntityDataManager = entityDataManager;
+            m_SafetyManager = safetyManager;            
+            m_EntityComponentStore = entityComponentStore;
+            m_ManagedComponentStore = managedComponentStore;
         }
-
-        internal EntityDataManager* EntityDataManager { get; }
-        internal ComponentJobSafetyManager* SafetyManager => m_SafetyManager;
-
+        
         /// <summary>
         ///      Ignore this EntityQuery if it has no entities in any of its archetypes.
         /// </summary>
@@ -311,8 +312,6 @@ namespace Unity.Entities
             return types;
         }
 
-        internal ArchetypeManager ArchetypeManager { get; }
-
         public void Dispose()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -377,7 +376,7 @@ namespace Unity.Entities
         /// <returns>ComponentChunkIterator for this EntityQuery</returns>
         internal ComponentChunkIterator GetComponentChunkIterator()
         {
-            return new ComponentChunkIterator(m_GroupData->MatchingArchetypes, m_EntityDataManager->GlobalSystemVersion, ref m_Filter);
+            return new ComponentChunkIterator(m_GroupData->MatchingArchetypes, m_EntityComponentStore->GlobalSystemVersion, ref m_Filter);
         }
 
         /// <summary>
@@ -499,9 +498,9 @@ namespace Unity.Entities
             where T : struct,IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), true), true, EntityDataManager->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), true), true, EntityComponentStore->GlobalSystemVersion);
 #else
-            var componentType = new ArchetypeChunkComponentType<T>(true, EntityDataManager->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(true, EntityComponentStore->GlobalSystemVersion);
 #endif
             return ComponentChunkIterator.CreateComponentDataArray(m_GroupData->MatchingArchetypes, allocator, componentType, this, ref m_Filter, out jobhandle, GetDependency());
         }
@@ -519,9 +518,9 @@ namespace Unity.Entities
             where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), true), true, EntityDataManager->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), true), true, EntityComponentStore->GlobalSystemVersion);
 #else
-            var componentType = new ArchetypeChunkComponentType<T>(true, EntityDataManager->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(true, EntityComponentStore->GlobalSystemVersion);
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -545,9 +544,9 @@ namespace Unity.Entities
             var entityCount = CalculateLength();
             if (entityCount != componentDataArray.Length)
                 throw new ArgumentException($"Length of input array ({componentDataArray.Length}) does not match length of EntityQuery ({entityCount})");
-            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, EntityDataManager->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, EntityComponentStore->GlobalSystemVersion);
 #else
-            var componentType = new ArchetypeChunkComponentType<T>(false, EntityDataManager->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(false, EntityComponentStore->GlobalSystemVersion);
 #endif
 
             ComponentChunkIterator.CopyFromComponentDataArray(m_GroupData->MatchingArchetypes, componentDataArray, componentType, this, ref m_Filter, out var job, GetDependency());
@@ -565,9 +564,9 @@ namespace Unity.Entities
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, EntityDataManager->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, EntityComponentStore->GlobalSystemVersion);
 #else
-            var componentType = new ArchetypeChunkComponentType<T>(false, EntityDataManager->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(false, EntityComponentStore->GlobalSystemVersion);
 #endif
 
             ComponentChunkIterator.CopyFromComponentDataArray(m_GroupData->MatchingArchetypes, componentDataArray, componentType, this, ref m_Filter, out jobhandle, GetDependency());
@@ -724,7 +723,7 @@ namespace Unity.Entities
             {
                 var filteredCount = m_Filter.Shared.Count;
 
-                var sm = ArchetypeManager.GetSharedComponentDataManager();
+                var sm = ManagedComponentStore;
                 fixed (int* sharedComponentIndexPtr = m_Filter.Shared.SharedComponentIndex)
                 {
                     for (var i = 0; i < filteredCount; ++i)
@@ -760,7 +759,7 @@ namespace Unity.Entities
         public void SetFilter<SharedComponent1>(SharedComponent1 sharedComponent1)
             where SharedComponent1 : struct, ISharedComponentData
         {
-            var sm = ArchetypeManager.GetSharedComponentDataManager();
+            var sm = ManagedComponentStore;
 
             var filter = new EntityQueryFilter();
             filter.Type = FilterType.SharedComponent;
@@ -789,7 +788,7 @@ namespace Unity.Entities
             where SharedComponent1 : struct, ISharedComponentData
             where SharedComponent2 : struct, ISharedComponentData
         {
-            var sm = ArchetypeManager.GetSharedComponentDataManager();
+            var sm = ManagedComponentStore;
 
             var filter = new EntityQueryFilter();
             filter.Type = FilterType.SharedComponent;
@@ -887,7 +886,7 @@ namespace Unity.Entities
             var version = 0;
 
             for (var i = 0; i < m_GroupData->RequiredComponentsCount; ++i)
-                version += m_EntityDataManager->GetComponentTypeOrderVersion(m_GroupData->RequiredComponents[i].TypeIndex);
+                version += m_EntityComponentStore->GetComponentTypeOrderVersion(m_GroupData->RequiredComponents[i].TypeIndex);
 
             return version;
         }

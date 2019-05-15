@@ -25,15 +25,38 @@ namespace Unity.Entities
         // ** FLUENT QUERY **
 
 <#
-foreach (var (name, count) in new[] { ("Any", 5), ( "None", 5), ("All", 5) }) {
+foreach (var (name, count, memberName) in new[] { 
+    ( "Any",            5, "m_Any" ), 
+    ( "AnyReadOnly",    5, "m_Any" ), 
+    ( "None",           5, "m_None" ), 
+    ( "All",            5, "m_All" ), 
+    ( "AllReadOnly",    5, "m_All" ) 
+    }) {
     for (var it = 1; it <= count; ++it) {
 #>
         public EntityQueryBuilder With<#=name#><<#=Series("T{0}", it, ", ")#>>()
         {
             ValidateHasNoQuery();
 <#      for (var ia = 0; ia < it; ++ia) {#>
-            m_<#=name#>.Add(TypeManager.GetTypeIndex<T<#=ia#>>());
+            <#=memberName#>.Add(TypeManager.GetTypeIndex<T<#=ia#>>());
 <#      }#>
+<#          if (name.Equals("Any") || name.Equals("All")) {#>
+<#/*This bit-mask craziness toggles the appropriate bit masks on for as writable for a given range of types.*/#>
+            <#=memberName#>WritableBitField |= (((1U << (m_<#=name#>.Length)) - 1) ^ ((1U << (m_<#=name#>.Length - <#=it#>)) - 1));
+<#          }#>
+            return this;
+        }
+
+        public EntityQueryBuilder With<#=name#>(<#=Series("ComponentType type{0}", it, ", ")#>)
+        {
+            ValidateHasNoQuery();
+<#      for (var ia = 0; ia < it; ++ia) {#>
+            <#=memberName#>.Add(type<#=ia#>.TypeIndex);
+<#      }#>
+<#          if (name.Equals("Any") || name.Equals("All")) {#>
+<#/*This bit-mask craziness toggles the appropriate bit masks on for as writable for a given range of types.*/#>
+            <#=memberName#>WritableBitField |= (((1U << (m_<#=name#>.Length)) - 1) ^ ((1U << (m_<#=name#>.Length - <#=it#>)) - 1));
+<#          }#>
             return this;
         }
 

@@ -157,7 +157,46 @@ namespace Unity.Entities.Serialization
 
         public long Length => stream.Length;
     }
-    
 #endif
+
+    public unsafe class MemoryBinaryWriter : Entities.Serialization.BinaryWriter
+    {
+        NativeList<byte> content = new NativeList<byte>(Allocator.Temp);
+        public byte* Data => (byte*)content.GetUnsafePtr();
+        public int Length => content.Length;
+
+        public void Dispose()
+        {
+            content.Dispose();
+        }
+
+        public void WriteBytes(void* data, int bytes)
+        {
+            int length = content.Length;
+            content.ResizeUninitialized(length + bytes);
+            UnsafeUtility.MemCpy((byte*)content.GetUnsafePtr() + length, data, bytes);
+        }
+
+    }
+
+    public unsafe class MemoryBinaryReader : BinaryReader
+    {
+        byte* content;
+
+        public MemoryBinaryReader(byte* content)
+        {
+            this.content = content;
+        }
+
+        public void Dispose()
+        {
+        }
+
+        public void ReadBytes(void* data, int bytes)
+        {
+            UnsafeUtility.MemCpy(data, content, bytes);
+            content += bytes;
+        }
+    }
 }
 

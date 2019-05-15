@@ -1,6 +1,6 @@
 {
     "displayName": "Entities", 
-    "version": "0.0.12-preview.31", 
+    "version": "0.0.12-preview.32", 
     "description": "Unity Entity Component System - Core Entity Component System, New Transform components, basic Instance Mesh Renderer", 
     "unity": "2019.1", 
     "dependencies": {
@@ -8,9 +8,9 @@
         "com.unity.test-framework.performance": "1.0.6-preview", 
         "com.unity.properties": "0.5.0-preview", 
         "com.unity.mathematics": "1.0.1", 
-        "com.unity.collections": "0.0.9-preview.18", 
-        "com.unity.burst": "1.0.0", 
-        "com.unity.jobs": "0.0.7-preview.11"
+        "com.unity.collections": "0.0.9-preview.19", 
+        "com.unity.burst": "1.0.4", 
+        "com.unity.jobs": "0.0.7-preview.12"
     }, 
     "unityRelease": "0f1", 
     "keywords": [
