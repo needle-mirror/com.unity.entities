@@ -16,10 +16,10 @@ apiRules:
         uid: System.ObsoleteAttribute
       type: Type
   - include:
-      uidRegex: IJobForEach`6
+      uidRegex: IJobForEach`1
       type: Interface
   - include:
-      uidRegex: IJobForEachWithEntity`6
+      uidRegex: IJobForEachWithEntity`1
       type: Interface
   - exclude:
       uidRegex: IJobForEach

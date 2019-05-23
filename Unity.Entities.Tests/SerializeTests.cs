@@ -3,15 +3,17 @@ using Unity.Collections;
 using System;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Serialization;
+using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
-    public unsafe class TestBinaryReader : BinaryReader
+    public unsafe struct TestBinaryReader : BinaryReader
     {
         NativeList<byte> content;
-        int position = 0;
+        int position;
         public TestBinaryReader(TestBinaryWriter writer)
         {
+            position = 0;
             content = writer.content;
             writer.content = new NativeList<byte>();
 
@@ -31,7 +33,7 @@ namespace Unity.Entities.Tests
 
     public unsafe class TestBinaryWriter : BinaryWriter
     {
-        internal NativeList<byte> content = new NativeList<byte>(Allocator.Temp);
+        internal NativeList<byte> content = new NativeList<byte>(Allocator.TempJob);
 
         public void Dispose()
         {
@@ -47,6 +49,19 @@ namespace Unity.Entities.Tests
 
     }
 
+    struct DeserializeJob : IJob
+    {
+        public ExclusiveEntityTransaction Transaction;
+        public TestBinaryReader Reader { get; set; }
+        public int SharedCount;
+
+        public void Execute()
+        {
+            SerializeUtility.DeserializeWorld(Transaction, Reader, SharedCount);
+            for (int i = 0; i < SharedCount; ++i)
+                Transaction.ManagedComponentStore.RemoveReference(i+1);
+        }
+    }
 
     class SerializeTests : ECSTestsFixture
     {
@@ -75,6 +90,7 @@ namespace Unity.Entities.Tests
         {
             m_Manager.CreateEntity(typeof(EcsTestData));
 
+            // disposed via reader
             var writer = new TestBinaryWriter();
             int[] sharedData;
             SerializeUtility.SerializeWorld(m_Manager, writer, out sharedData);
@@ -113,6 +129,7 @@ namespace Unity.Entities.Tests
             ebuf.Add(new EcsComplexEntityRefElement { Entity = e3, Dummy = 3 });
 
             m_Manager.DestroyEntity(dummyEntity);
+            // disposed via reader
             var writer = new TestBinaryWriter();
 
             int[] sharedData;
@@ -242,6 +259,7 @@ namespace Unity.Entities.Tests
             var e1 = m_Manager.CreateEntity();
             m_Manager.AddComponentData(e1, new 测试{ value = 7 });
 
+            // disposed via reader
             var writer = new TestBinaryWriter();
             int[] sharedData;
             SerializeUtility.SerializeWorld(m_Manager, writer, out sharedData);
@@ -300,6 +318,7 @@ namespace Unity.Entities.Tests
                 buffer2.Add(new TestBufferElement {entity = e1, value = 1});
 
             m_Manager.DestroyEntity(dummyEntity);
+            // disposed via reader
             var writer = new TestBinaryWriter();
 
             int[] sharedData;
@@ -368,6 +387,7 @@ namespace Unity.Entities.Tests
             m_Manager.SetChunkComponentData(m_Manager.GetChunk(e2), new EcsTestData3(57));
 
             m_Manager.DestroyEntity(dummyEntity);
+            // disposed via reader
             var writer = new TestBinaryWriter();
 
             int[] sharedData;
@@ -431,6 +451,7 @@ namespace Unity.Entities.Tests
                 buffer2.Add(new TestBufferElement {entity = e1, value = 1});
 
             m_Manager.DestroyEntity(dummyEntity);
+            // disposed via reader
             var writer = new TestBinaryWriter();
 
             int[] sharedData;
@@ -528,6 +549,7 @@ namespace Unity.Entities.Tests
             }
 
             m_Manager.DestroyEntity(dummyEntity);
+            // disposed via reader
             var writer = new TestBinaryWriter();
 
             int[] sharedData;
@@ -548,11 +570,11 @@ namespace Unity.Entities.Tests
 
             InsertSharedComponentValues(sharedComponents, entityManager);
 
-            SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, sharedData.Length);
+            var job = new DeserializeJob {Transaction = entityManager.BeginExclusiveEntityTransaction(), Reader = reader, SharedCount = sharedData.Length};
+            job.Schedule().Complete();
             entityManager.EndExclusiveEntityTransaction();
-            for (int i = 0; i < sharedData.Length; ++i)
-                entityManager.ManagedComponentStore.RemoveReference(i+1);
 
+            entityManager.Debug.CheckInternalConsistency();
             Assert.IsTrue(entityManager.ManagedComponentStore.AllSharedComponentReferencesAreFromChunks(entityManager.EntityComponentStore));
 
             try
@@ -591,6 +613,111 @@ namespace Unity.Entities.Tests
             Assert.Throws<InvalidOperationException>(() => f = arrayComponent.array.Value[0]);
         }
 
+        public unsafe struct ComponentWithPointer : IComponentData
+        {
+            int m_Pad;
+            byte* m_Data;
+        }
+
+        [Test]
+        public void SerializeComponentWithPointerField()
+        {
+            var e1 = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(e1, new ComponentWithPointer());
+
+            using (var writer = new TestBinaryWriter())
+            {
+                int[] sharedData;
+                Assert.Throws<ArgumentException>(() =>
+                    SerializeUtility.SerializeWorld(m_Manager, writer, out sharedData)
+                );
+            }
+        }
+
+        public struct ComponentWithIntPtr : IComponentData
+        {
+            int m_Pad;
+            IntPtr m_Data;
+        }
+
+        [Test]
+        public void SerializeComponentWithIntPtrField()
+        {
+            var e1 = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(e1, new ComponentWithIntPtr());
+
+            using (var writer = new TestBinaryWriter())
+            {
+                int[] sharedData;
+                Assert.Throws<ArgumentException>(() =>
+                    SerializeUtility.SerializeWorld(m_Manager, writer, out sharedData)
+                );
+            }
+        }
+
+        public unsafe struct TypeWithPointer
+        {
+            int m_Pad;
+            byte* m_Data;
+        }
+
+        public struct TypeWithNestedPointer
+        {
+            int m_Pad;
+            TypeWithPointer m_Data;
+            int m_Pad1;
+        }
+
+        public struct ComponentWithNestedPointer : IComponentData
+        {
+            int m_Pad;
+            TypeWithNestedPointer m_PointerField;
+            int m_Pad1;
+        }
+
+        [Test]
+        public void SerializeComponentWithNestedPointerField()
+        {
+            var e1 = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(e1, new ComponentWithNestedPointer());
+
+            using (var writer = new TestBinaryWriter())
+            {
+                int[] sharedData;
+                Assert.Throws<ArgumentException>(() =>
+                    SerializeUtility.SerializeWorld(m_Manager, writer, out sharedData)
+                );
+            }
+        }
+
+        public struct TypeWithNestedWhiteListType
+        {
+            int m_Pad;
+            ChunkHeader m_Header; // whitelisted pointer type
+            int m_Pad1;
+        }
+
+        public struct ComponentWithNestedPointerAndNestedWhiteListType : IComponentData
+        {
+            TypeWithNestedPointer m_PointerField;
+            TypeWithNestedWhiteListType m_NestedWhitelistField;
+        }
+
+        [Test]
+        public void EnsureSerializationWhitelistingDoesNotTrumpValidation()
+        {
+            var e1 = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(e1, new ComponentWithNestedPointerAndNestedWhiteListType());
+
+            using (var writer = new TestBinaryWriter())
+            {
+                int[] sharedData;
+                Assert.Throws<ArgumentException>(() =>
+                    SerializeUtility.SerializeWorld(m_Manager, writer, out sharedData)
+                );
+            }
+        }
+
         [Test]
         public void DeserializedChunksAreConsideredChangedOnlyOnce()
         {
@@ -600,6 +727,8 @@ namespace Unity.Entities.Tests
                 var manager = world.EntityManager;
                 var entity = manager.CreateEntity();
                 manager.AddComponentData(entity, new EcsTestData(42));
+
+                // owned by caller via reader
                 var writer = new TestBinaryWriter();
                 SerializeUtility.SerializeWorld(manager, writer, out var sharedData);
                 world.Dispose();

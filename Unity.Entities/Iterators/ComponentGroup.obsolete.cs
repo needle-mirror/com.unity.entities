@@ -87,7 +87,7 @@ namespace Unity.Entities
         }
     }
 
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
     // tHe script updater cannot handle interface updates, but we can make things work
     // by inheriting from the new ones (with an obsolete warning)
     [EditorBrowsable(EditorBrowsableState.Never)]

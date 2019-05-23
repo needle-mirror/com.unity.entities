@@ -43,20 +43,28 @@ namespace Unity.Scenes.Editor
             return File.Exists(headerPath);
         }
 
+        static AABB GetBoundsAndDestroy(EntityManager entityManager, EntityQuery query)
+        {
+            var bounds = MinMaxAABB.Empty;
+            using (var allBounds = query.ToComponentDataArray<SceneBoundingVolume>(Allocator.TempJob))
+            {
+                foreach(var b in allBounds)
+                    bounds.Encapsulate(b.Value);
+            }
+
+            entityManager.DestroyEntity(query);
+            
+            return bounds;
+        }
+
         public static SceneData[] WriteEntityScene(Scene scene, Hash128 sceneGUID, ConversionFlags conversionFlags)
         {
             var world = new World("ConversionWorld");
             var entityManager = world.EntityManager;
             
-            var boundsEntity = entityManager.CreateEntity(typeof(SceneBoundingVolume));
-            entityManager.SetComponentData(boundsEntity, new SceneBoundingVolume { Value = MinMaxAABB.Empty } );
-            
             ConvertScene(scene, sceneGUID, world, conversionFlags);
             EntitySceneOptimization.Optimize(world);
 
-            var bounds = entityManager.GetComponentData<SceneBoundingVolume>(boundsEntity).Value;
-            entityManager.DestroyEntity(boundsEntity);
-            
             var sceneSections = new List<SceneData>();
 
             var subSectionList = new List<SceneSection>();
@@ -65,7 +73,7 @@ namespace Unity.Scenes.Editor
 
             NativeArray<Entity> entitiesInMainSection;
             
-            var sectionGrp = entityManager.CreateEntityQuery(
+            var sectionQuery = entityManager.CreateEntityQuery(
                 new EntityQueryDesc
                 {
                     All = new[] {ComponentType.ReadWrite<SceneSection>()},
@@ -73,11 +81,23 @@ namespace Unity.Scenes.Editor
                 }
             );
 
+            var sectionBoundsQuery = entityManager.CreateEntityQuery(
+                new EntityQueryDesc
+                {
+                    All = new[] {ComponentType.ReadWrite<SceneBoundingVolume>(), ComponentType.ReadWrite<SceneSection>()},
+                    Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
+                }
+            );
+            
             {
                 var section = new SceneSection {SceneGUID = sceneGUID, Section = 0};
-                sectionGrp.SetFilter(new SceneSection { SceneGUID = sceneGUID, Section = 0 });
-                entitiesInMainSection = sectionGrp.ToEntityArray(Allocator.TempJob);
+                sectionQuery.SetFilter(new SceneSection { SceneGUID = sceneGUID, Section = 0 });
+                sectionBoundsQuery.SetFilter(new SceneSection { SceneGUID = sceneGUID, Section = 0 });
+                entitiesInMainSection = sectionQuery.ToEntityArray(Allocator.TempJob);
 
+
+                var bounds = GetBoundsAndDestroy(entityManager, sectionBoundsQuery);
+                
                 // Each section will be serialized in its own world, entities that don't have a section are part of the main scene.
                 // An entity that holds the array of external references to the main scene is required for each section.
                 // We need to create them all before we start moving entities to section scenes,
@@ -115,7 +135,7 @@ namespace Unity.Scenes.Editor
                 var sectionManager = sectionWorld.EntityManager;
 
                 var entityRemapping = entityManager.CreateEntityRemapArray(Allocator.TempJob);
-                sectionManager.MoveEntitiesFrom(entityManager, sectionGrp, entityRemapping);
+                sectionManager.MoveEntitiesFrom(entityManager, sectionQuery, entityRemapping);
 
                 // The section component is only there to break the conversion world into different sections
                 // We don't want to store that on the disk
@@ -144,8 +164,12 @@ namespace Unity.Scenes.Editor
                     if (subSection.Section == 0)
                         continue;
 
-                    sectionGrp.SetFilter(subSection);
-                    var entitiesInSection = sectionGrp.ToEntityArray(Allocator.TempJob);
+                    sectionQuery.SetFilter(subSection);
+                    sectionBoundsQuery.SetFilter(subSection);
+
+                    var bounds = GetBoundsAndDestroy(entityManager, sectionBoundsQuery);
+                    
+                    var entitiesInSection = sectionQuery.ToEntityArray(Allocator.TempJob);
 
                     if (entitiesInSection.Length > 0)
                     {
@@ -186,7 +210,7 @@ namespace Unity.Scenes.Editor
                                 new Entity {Index = i + externEntityIndexStart, Version = 1});
                         }
 
-                        sectionManager.MoveEntitiesFrom(entityManager, sectionGrp, entityRemapping);
+                        sectionManager.MoveEntitiesFrom(entityManager, sectionQuery, entityRemapping);
 
                         // Now that all the required entities have been moved over, we can get rid of the gap between
                         // real entities and external references. This allows remapping during load to deal with a
@@ -248,18 +272,19 @@ namespace Unity.Scenes.Editor
             }
 
             {
-                var noSectionGrp = entityManager.CreateEntityQuery(
+                var noSectionQuery = entityManager.CreateEntityQuery(
                     new EntityQueryDesc
                     {
                         None = new[] {ComponentType.ReadWrite<SceneSection>()},
                         Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
                     }
                 );
-                if (noSectionGrp.CalculateLength() != 0)
-                    Debug.LogWarning($"{noSectionGrp.CalculateLength()} entities in the scene '{scene.path}' had no SceneSection and as a result were not serialized at all.");
+                if (noSectionQuery.CalculateLength() != 0)
+                    Debug.LogWarning($"{noSectionQuery.CalculateLength()} entities in the scene '{scene.path}' had no SceneSection and as a result were not serialized at all.");
             }
             
-            sectionGrp.Dispose();
+            sectionQuery.Dispose();
+            sectionBoundsQuery.Dispose();
             entitiesInMainSection.Dispose();
             world.Dispose();
             

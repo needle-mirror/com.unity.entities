@@ -97,7 +97,7 @@ namespace Unity.Entities.BuildUtils
             if (typeRef.IsPointer)
                 return false;
 
-            if (typeRef.IsArray)
+            if (typeRef.IsArray || typeRef.IsGenericParameter)
                 return true;
 
             var type = typeRef.Resolve();

@@ -320,6 +320,7 @@ namespace Unity.Entities
 
             var beforeEntityToGuid = new NativeHashMap<Entity, EntityGuid>(4096, Allocator.TempJob);
             var beforeChunkBySequenceNumber = new NativeHashMap<ulong, ArchetypeChunk>(4096, Allocator.TempJob);
+
             for (int i = 0; i < beforeChunks.Length; ++i)
             {
                 beforeChunkBySequenceNumber.TryAdd(beforeChunks[i].m_Chunk->SequenceNumber, beforeChunks[i]);
@@ -470,12 +471,13 @@ namespace Unity.Entities
             // the chunk-level operations to do so.
             if (updateBeforeWorld)
             {
+                var archetypeChanges =  beforeEM.EntityComponentStore->BeginArchetypeChangeTracking();
+
                 // Drop all unused and modified chunks
                 for (int i = 0; i < dropList.Length; ++i)
                 {
                     EntityManagerMoveEntitiesUtility.DestroyChunkForDiffing((Chunk*) dropList[i],
-                        beforeEM.EntityComponentStore, beforeEM.ManagedComponentStore,
-                        beforeEM.EntityGroupManager);
+                        beforeEM.EntityComponentStore, beforeEM.ManagedComponentStore);
                 }
 
                 // Clone all new and modified chunks
@@ -483,11 +485,13 @@ namespace Unity.Entities
                 {
                     EntityManagerMoveEntitiesUtility.CloneChunkForDiffing((Chunk*) cloneList[i],
                         afterEM.ManagedComponentStore,
-                        beforeEM.EntityComponentStore, beforeEM.ManagedComponentStore,
-                        beforeEM.EntityGroupManager);                    
+                        beforeEM.EntityComponentStore, beforeEM.ManagedComponentStore);
                 }
+                
+                var changedArchetypes =  beforeEM.EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+                beforeEM.EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
             }
-
+            
             afterGuidToEntity.Dispose();
             afterEntityToGuid.Dispose();
             beforeEntityToGuid.Dispose();

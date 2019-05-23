@@ -78,12 +78,12 @@ e.g. In the above, there are two EntityArchetypes:
 1. Position, HitPoints, Mesh = RocketShip
 2. Position, HitPoints, Mesh = Bullet
 
-See: [EntityArchetype in detail](../api/Unity.Entities.EntityArchetype.html)
+See: [EntityArchetype in detail](xref:Unity.Entities.EntityArchetype)
 
 ### ComponentSystem
 Where gameplay/system logic/behavior occurs.
 
-See: [ComponentSystem in detail](ecs_in_detail.md#componentsystem)
+See: [ComponentSystem in detail](ecs_in_detail.md)
 
 ### World
 A unique EntityManager with specific instances of defined ComponentSystems. Multiple Worlds may exist and work on independent data sets.
@@ -98,7 +98,7 @@ See: [SystemStateComponentData in detail](ecs_in_detail.md#systemstatecomponentd
 ### JobComponentSystem
 A type of ComponentSystem where jobs are queued independently of the JobComponentSystem's update, in the background. Those jobs are guaranteed to be completed in the same order as the systems. 
 
-See: [JobComponentSystem in detail](ecs_in_detail.md#jobcomponentsystem)
+See: [JobComponentSystem in detail](xref:Unity.Entities.JobComponentSystem)
 
 ### EntityCommandBuffer
 A list of structural changes to the data in an EntityManager for later completion. Structural changes are:

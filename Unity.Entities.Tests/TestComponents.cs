@@ -1,4 +1,11 @@
 using System;
+using Unity.Entities;
+using Unity.Entities.Tests;
+
+[assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<int>))]
+[assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<float>))]
+[assembly: RegisterGenericComponentType(typeof(EcsTestGenericTag<int>))]
+[assembly: RegisterGenericComponentType(typeof(EcsTestGenericTag<float>))]
 
 namespace Unity.Entities.Tests
 {

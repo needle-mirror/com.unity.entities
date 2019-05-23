@@ -1,4 +1,4 @@
-﻿#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSPLAYER
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
@@ -8,7 +8,6 @@ namespace Unity.Entities.Tests
     class WorldDebuggingToolsTests : ECSTestsFixture
     {
 
-        [DisableAutoCreation]
         class RegularSystem : ComponentSystem
         {
             public EntityQuery entities;
@@ -24,7 +23,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [DisableAutoCreation]
         class ExcludeSystem : ComponentSystem
         {
             public EntityQuery entities;

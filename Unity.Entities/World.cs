@@ -219,10 +219,11 @@ namespace Unity.Entities
             }
             catch (MissingMethodException)
             {
-                Debug.LogError($"[Job]ComponentSystem {type} must be mentioned in a link.xml file, or annotated " +
-                                "with a [Preserve] attribute to prevent its constructor from being stripped.  " +
-                                "See https://docs.unity3d.com/Manual/ManagedCodeStripping.html for more information.");
-                throw;
+                throw new MissingMethodException($"Constructing {type} failed because CreateSystem " +
+                                $"parameters did not match its constructor.  [Job]ComponentSystem {type} must " +
+                                "be mentioned in a link.xml file, or annotated with a [Preserve] attribute to " +
+                                "prevent its constructor from being stripped.  See " +
+                                "https://docs.unity3d.com/Manual/ManagedCodeStripping.html for more information.");
             }
             finally
             {
@@ -250,18 +251,18 @@ namespace Unity.Entities
             return system ?? CreateSystemInternal(type, null);
         }
 
-        public ComponentSystemBase CreateSystem(Type type, params object[] constructorArgumnents)
+        public ComponentSystemBase CreateSystem(Type type, params object[] constructorArguments)
         {
             CheckGetOrCreateSystem();
 
-            return CreateSystemInternal(type, constructorArgumnents);
+            return CreateSystemInternal(type, constructorArguments);
         }
 
-        public T CreateSystem<T>(params object[] constructorArgumnents) where T : ComponentSystemBase
+        public T CreateSystem<T>(params object[] constructorArguments) where T : ComponentSystemBase
         {
             CheckGetOrCreateSystem();
 
-            return (T) CreateSystemInternal(typeof(T), constructorArgumnents);
+            return (T) CreateSystemInternal(typeof(T), constructorArguments);
         }
 
         public T GetOrCreateSystem<T>() where T : ComponentSystemBase

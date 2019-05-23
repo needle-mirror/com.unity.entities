@@ -2,11 +2,13 @@
 using UnityEngine;
 using NUnit.Framework;
 using System;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Entities;
 using Unity.Entities.Tests;
 using Unity.Collections.LowLevel.Unsafe;
+using Assert = NUnit.Framework.Assert;
 
 public class BlobTests : ECSTestsFixture
 {
@@ -56,6 +58,37 @@ public class BlobTests : ECSTestsFixture
 
     static void ValidateBlobData(ref MyData root)
     {
+        // not using Assert.AreEqual here because the asserts have to execute in burst jobs 
+        
+        if (3 != root.floatArray.Length)
+            throw new AssertionException("ValidateBlobData didn't match");
+        if (0 != root.floatArray[0])
+            throw new AssertionException("ValidateBlobData didn't match");
+        if (1 != root.floatArray[1])
+            throw new AssertionException("ValidateBlobData didn't match");
+        if (2 != root.floatArray[2])
+            throw new AssertionException("ValidateBlobData didn't match");
+        
+        if (new Vector3(3, 3, 3) != root.oneVector3.Value)
+            throw new AssertionException("ValidateBlobData didn't match");
+        
+        if (4 != root.embeddedFloat)
+            throw new AssertionException("ValidateBlobData didn't match");
+        
+        if (1 != root.nestedArray[0].Length)
+            throw new AssertionException("ValidateBlobData didn't match");
+        if (2 != root.nestedArray[1].Length)
+            throw new AssertionException("ValidateBlobData didn't match");
+        if (0 != root.nestedArray[0][0])
+            throw new AssertionException("ValidateBlobData didn't match");
+        if (1 != root.nestedArray[1][0])
+            throw new AssertionException("ValidateBlobData didn't match");
+        if (2 != root.nestedArray[1][1])
+            throw new AssertionException("ValidateBlobData didn't match");
+    }
+
+    static void ValidateBlobDataBurst(ref MyData root)
+    {
         Assert.AreEqual(3, root.floatArray.Length);
         Assert.AreEqual(0, root.floatArray[0]);
         Assert.AreEqual(1, root.floatArray[1]);
@@ -87,37 +120,66 @@ public class BlobTests : ECSTestsFixture
         var blob = ConstructBlobData();
         var blobCopy = blob;
         blob.Release();
+        
         Assert.Throws<InvalidOperationException>(() => { blobCopy.GetUnsafePtr(); });
-    }
+        Assert.IsTrue(blob.GetUnsafePtr() == null);
 
-    struct ValidateBlobJob : IJob
-    {
-        public BlobAssetReference<MyData> blob;
+        Assert.Throws<InvalidOperationException>(() => { var p = blobCopy.Value.embeddedFloat; });
+        Assert.Throws<InvalidOperationException>(() => { var p = blobCopy.Value.embeddedFloat; });
 
-        public unsafe void Execute()
-        {
-            ValidateBlobData(ref blob.Value);
-        }
+        Assert.Throws<InvalidOperationException>(() => { blobCopy.Release(); });
+        Assert.Throws<InvalidOperationException>(() => { blob.Release(); });
     }
 
     struct ComponentWithBlobData : IComponentData
     {
+        public bool DidSucceed;
         public BlobAssetReference<MyData> blobAsset;
     }
 
-    [Test]
-    public void ReadBlobDataFromJob()
+
+    [BurstCompile(CompileSynchronously = true)]
+    struct ConstructAccessAndDisposeBlobData : IJob
     {
-        var blob = ConstructBlobData();
-
-        var jobData = new ValidateBlobJob();
-        jobData.blob = blob;
-
-        jobData.Schedule().Complete();
-
-        blob.Release();
+        public void Execute()
+        {
+            var blobData = ConstructBlobData();
+            ValidateBlobData(ref blobData.Value);
+            blobData.Release();            
+        }
     }
 
+    [Ignore("DisposeSentinel in NativeList prevents this. Fix should be in 19.3")]
+    [Test]
+    public  void BurstedConstructionAndAccess()
+    {
+        new ConstructAccessAndDisposeBlobData().Schedule().Complete();
+    }
+
+    [BurstCompile(CompileSynchronously = true)]
+    struct AccessAndDisposeBlobDataBurst : IJobForEach<ComponentWithBlobData>
+    {
+        public void Execute(ref ComponentWithBlobData data)
+        {
+            ValidateBlobData(ref data.blobAsset.Value);
+            data.blobAsset.Release();
+            data.DidSucceed = true;
+        }
+    }
+
+    [Test]
+    public  void ReadAndDestroyBlobDataFromBurstJob()
+    {
+        var entities = CreateUniqueBlob();
+
+        new AccessAndDisposeBlobDataBurst().Schedule(EmptySystem).Complete();
+
+        foreach (var e in entities)
+        {
+            Assert.IsTrue(m_Manager.GetComponentData<ComponentWithBlobData>(e).DidSucceed);
+            Assert.IsFalse(m_Manager.GetComponentData<ComponentWithBlobData>(e).blobAsset.IsCreated);
+        }
+    }
 
     struct ValidateBlobInComponentJob : IJobForEach<ComponentWithBlobData>
     {
@@ -134,27 +196,20 @@ public class BlobTests : ECSTestsFixture
             {
                 ValidateBlobData(ref component.blobAsset.Value);
             }
+
+            component.DidSucceed = true;
         }
     }
 
-    [DisableAutoCreation]
-    class DummySystem : JobComponentSystem
-    {
-        protected override JobHandle OnUpdate(JobHandle inHandle)
-        {
-            return inHandle;
-        }
-    }
 
     [Test]
     public unsafe void ParallelBlobAccessFromEntityJob()
     {
-        var blob = CreateBlobEntities();
+        var blob = CreateSharedBlob();
 
         var jobData = new ValidateBlobInComponentJob();
 
-        var system = World.Active.GetOrCreateSystem<DummySystem>();
-        var jobHandle = jobData.Schedule(system);
+        var jobHandle = jobData.Schedule(EmptySystem);
 
         ValidateBlobData(ref blob.Value);
 
@@ -166,16 +221,13 @@ public class BlobTests : ECSTestsFixture
     [Test]
     public void DestroyedBlobAccessFromEntityJobThrows()
     {
-        var blob = CreateBlobEntities();
+        var blob = CreateSharedBlob();
 
         blob.Release();
 
         var jobData = new ValidateBlobInComponentJob();
         jobData.ExpectException = true;
-        var system = World.Active.GetOrCreateSystem<DummySystem>();
-        var jobHandle = jobData.Schedule(system);
-
-        jobHandle.Complete();
+        jobData.Schedule(EmptySystem).Complete();
     }
 
     [Test]
@@ -196,7 +248,23 @@ public class BlobTests : ECSTestsFixture
         blob1.Release();
         blob2.Release();
     }
+    
+    [Test]
+    public void AllocateThrowsWhenCopiedByValue()
+    {
+        var builder = new BlobBuilder(Allocator.Temp);
 
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            var root = builder.ConstructRoot<MyData>();
+
+            // Throw here because root was copied by value instead of ref
+            builder.Allocate(3, ref root.floatArray);
+        });
+
+        builder.Dispose();
+    }
+    
     [Test]
     public void SourceBlobArrayThrowsOnIndex()
     {
@@ -207,6 +275,8 @@ public class BlobTests : ECSTestsFixture
             //can't access ref variable if it's created outside of the lambda
             ref var root = ref builder.ConstructRoot<MyData>();
             builder.Allocate(3, ref root.floatArray);
+            
+            // Throw on access expected here
             root.floatArray[0] = 7;
         });
 
@@ -223,6 +293,8 @@ public class BlobTests : ECSTestsFixture
             //can't access ref variable if it's created outside of the lambda
             ref var root = ref builder.ConstructRoot<MyData>();
             builder.Allocate(ref root.oneVector3);
+            
+            // Throw on access expected here
             root.oneVector3.Value = Vector3.zero;
         });
 
@@ -360,6 +432,7 @@ public class BlobTests : ECSTestsFixture
         public BlobPtr<int> intPointer;
     }
 
+    
     [Test]
     public void BlobAssetWithRootLargerThanChunkSizeWorks()
     {
@@ -387,7 +460,7 @@ public class BlobTests : ECSTestsFixture
         blob.Release();
     }
 
-    BlobAssetReference<MyData> CreateBlobEntities()
+    BlobAssetReference<MyData> CreateSharedBlob()
     {
         var blob = ConstructBlobData();
 
@@ -397,6 +470,18 @@ public class BlobTests : ECSTestsFixture
             m_Manager.AddComponentData(entity, new ComponentWithBlobData() {blobAsset = blob});
         }
         return blob;
+    }
+    
+    NativeArray<Entity> CreateUniqueBlob()
+    {
+        var entities = new NativeArray<Entity>(32, Allocator.Temp);
+        for (int i = 0; i != entities.Length; i++)
+        {
+            entities[i] = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(entities[i], new ComponentWithBlobData() {blobAsset = ConstructBlobData()});
+        }
+
+        return entities;
     }
 }
 #endif

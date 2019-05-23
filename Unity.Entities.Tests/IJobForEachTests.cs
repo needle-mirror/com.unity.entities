@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
@@ -94,7 +94,6 @@ namespace Unity.Entities.Tests
         }
         
 
-        [DisableAutoCreation]
         class ChainedProcessComponentDataWorks : JobComponentSystem
         {
             protected override JobHandle OnUpdate(JobHandle inputDeps)

@@ -1,4 +1,4 @@
-﻿
+
 using NUnit.Framework;
 using Unity.Jobs;
 
@@ -12,7 +12,6 @@ namespace Unity.Entities.Editor.Tests
         public float Value;
     }
 
-    [DisableAutoCreation]
     public class ExclusionGroupSampleSystem : ComponentSystem
     {
         public Unity.Entities.EntityQuery Group1;

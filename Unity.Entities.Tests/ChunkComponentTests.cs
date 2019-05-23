@@ -164,7 +164,6 @@ namespace Unity.Entities.Tests
         }
 
 #if !UNITY_DOTSPLAYER
-        [DisableAutoCreation]
         [UpdateInGroup(typeof(PresentationSystemGroup))]
         private class ChunkBoundsUpdateSystem : JobComponentSystem
         {

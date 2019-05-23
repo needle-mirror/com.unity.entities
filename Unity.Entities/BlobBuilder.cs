@@ -85,7 +85,7 @@ namespace Unity.Entities
 
             var offsetPtr = (int*)UnsafeUtility.AddressOf(ref ptr.m_OffsetPtr);
 
-            ValidateAllocation(offsetPtr, "The BlobArray passed to Allocate was not allocated by this BlobBuilder");
+            ValidateAllocation(offsetPtr);
 
             var allocation = Allocate(UnsafeUtility.SizeOf<T>() * length, UnsafeUtility.AlignOf<T>());
 
@@ -104,7 +104,7 @@ namespace Unity.Entities
         {
             var offsetPtr = (int*)UnsafeUtility.AddressOf(ref ptr.m_OffsetPtr);
 
-            ValidateAllocation(offsetPtr, "The BlobPtr passed to Allocate was not allocated by this BlobBuilder");
+            ValidateAllocation(offsetPtr);
 
             var allocation = Allocate(UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>());
 
@@ -265,7 +265,7 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        void ValidateAllocation(void* p, string errorMessage)
+        void ValidateAllocation(void* p)
         {
             // ValidateAllocation is most often called with data in recently allocated allocations
             // so this searches backwards
@@ -275,7 +275,7 @@ namespace Unity.Entities
                     return;
             }
 
-            throw new InvalidOperationException(errorMessage);
+            throw new InvalidOperationException("The BlobArray passed to Allocate was not allocated by this BlobBuilder or the struct that embeds it was copied by value instead of by ref.");
         }
 
         public void Dispose()

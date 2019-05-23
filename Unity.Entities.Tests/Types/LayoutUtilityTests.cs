@@ -7,7 +7,7 @@ using Unity.Mathematics;
 
 namespace Unity.Entities.Tests.Types
 {
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
     [TestFixture]
     public class LayoutUtilityManagedTests : ECSTestsFixture
     {

@@ -171,19 +171,22 @@ namespace Unity.Scenes.Editor
         [DrawGizmo(GizmoType.Selected)]
         static void DrawSubsceneBounds(SubScene scene, GizmoType gizmoType)
         {
-            var isEditing = scene.IsLoaded; 
+            var isEditing = scene.IsLoaded;
 
-            var minMax = scene.SceneBoundingVolume;
-
-            if (!minMax.Equals(MinMaxAABB.Empty))
+            if (scene.SceneData == null)
+                return;
+                
+            foreach (var sceneData in scene.SceneData)
             {
-                AABB aabb = minMax;
+                if (sceneData.BoundingVolume.IsEmpty)
+                    continue;
 
                 if (isEditing)
                     Gizmos.color = Color.green;
                 else
                     Gizmos.color = Color.gray;
                 
+                AABB aabb = sceneData.BoundingVolume;
                 Gizmos.DrawWireCube(aabb.Center, aabb.Size);
             }
         }

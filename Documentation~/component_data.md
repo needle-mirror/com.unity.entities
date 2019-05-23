@@ -3,7 +3,7 @@ uid: ecs-component-data
 ---
 # ComponentData
 
-ComponentData in Unity (also known as acomponentin standard ECS terms) is a struct that contains only the instance data for an [entity](entity.md). ComponentData cannot contain methods. To put this in terms of the old Unity system, this is somewhat similar to an old Component class, but one that **only contains variables**.
+ComponentData in Unity (also known as a component in standard ECS terms) is a struct that contains only the instance data for an [entity](entities.md). ComponentData cannot contain methods. To put this in terms of the old Unity system, this is somewhat similar to an old Component class, but one that **only contains variables**.
 
 Unity ECS provides an interface called `IComponentData` that you can implement in your code. 
 

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Unity.Assertions;
 using Unity.Collections;
@@ -51,7 +52,12 @@ namespace Unity.Entities.Serialization
 
             var types = ReadTypeArray(reader);
             int totalEntityCount;
+            var archetypeChanges = manager.EntityComponentStore->BeginArchetypeChangeTracking();
+
             var archetypes = ReadArchetypes(reader, types, manager, out totalEntityCount);
+
+            var changedArchetypes = manager.EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+            manager.EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
 
             int sharedComponentArraysLength = reader.ReadInt();
             var sharedComponentArrays = new NativeArray<int>(sharedComponentArraysLength, Allocator.Temp);
@@ -66,12 +72,12 @@ namespace Unity.Entities.Serialization
             byte* allBlobAssetData = null;
 
             NativeList<ArchetypeChunk> blobAssetRefChunks = new NativeList<ArchetypeChunk>();
-            int blobAssetOwnerIndex = -1;
+            var blobAssetOwner = default(BlobAssetOwner);
             if (totalBlobAssetSize != 0)
             {
                 allBlobAssetData = (byte*)UnsafeUtility.Malloc(totalBlobAssetSize, 16, Allocator.Persistent);
                 reader.ReadBytes(allBlobAssetData, totalBlobAssetSize);
-                blobAssetOwnerIndex = manager.ManagedComponentStore.InsertSharedComponent(new BlobAssetOwner(allBlobAssetData, totalBlobAssetSize));
+                blobAssetOwner = new BlobAssetOwner(allBlobAssetData, totalBlobAssetSize);
                 blobAssetRefChunks = new NativeList<ArchetypeChunk>(32, Allocator.Temp);
                 var end = allBlobAssetData + totalBlobAssetSize;
                 var header = (BlobAssetHeader*)allBlobAssetData;
@@ -141,13 +147,11 @@ namespace Unity.Entities.Serialization
                 {
                     chunksWithMetaChunkEntities.Add(new ArchetypeChunk(chunk, manager.EntityComponentStore));
                 }
-
             }
-
+            
             if (totalBlobAssetSize != 0)
             {
-                EntityManagerChangeArchetypeUtility.AddSharedComponent(blobAssetRefChunks, ComponentType.ReadWrite<BlobAssetOwner>(), blobAssetOwnerIndex, manager.EntityComponentStore, manager.ManagedComponentStore, manager.EntityGroupManager);
-                manager.ManagedComponentStore.RemoveReference(blobAssetOwnerIndex);
+                manager.AddSharedComponent(blobAssetRefChunks.AsArray(), blobAssetOwner);
                 blobAssetRefChunks.Dispose();
             }
 
@@ -156,6 +160,7 @@ namespace Unity.Entities.Serialization
                 var chunk = chunksWithMetaChunkEntities[i].m_Chunk;
                 manager.SetComponentData(chunk->metaChunkEntity, new ChunkHeader{ArchetypeChunk = chunksWithMetaChunkEntities[i]});
             }
+            
 
             chunksWithMetaChunkEntities.Dispose();
             sharedComponentArrays.Dispose();
@@ -235,6 +240,21 @@ namespace Unity.Entities.Serialization
             archetypeArray = archetypeList.ToArray();
         }
 
+        private static void ValidateTypeForSerialization(TypeManager.TypeInfo typeInfo)
+        {
+            // Shared Components are expected to be handled specially and are not requiredto be blittable
+            if (typeInfo.Category == TypeManager.TypeCategory.ISharedComponentData)
+                return;
+
+            if (!typeInfo.IsSerializable)
+            {
+                throw new ArgumentException($"Blittable component type '{typeInfo.Type}' contains a (potentially nested) pointer field. " +
+                    $"Serializing bare pointers will likely lead to runtime errors. Remove this field and consider serializing the data " +
+                    $"it points to another way such as by using a BlobAssetReference or a [Serializable] ISharedComponent. If for whatever " +
+                    $"reason the pointer field should in fact be serialized, add the [ChunkSerializable] attribute to your type to bypass this error.");
+            }
+        }
+
         public static unsafe void SerializeWorld(EntityManager entityManager, BinaryWriter writer, out int[] sharedComponentsToSerialize)
         {
             var entityRemapInfos = new NativeArray<EntityRemapUtility.EntityRemapInfo>(entityManager.EntityCapacity, Allocator.Temp);
@@ -257,8 +277,9 @@ namespace Unity.Entities.Serialization
                 for (int iType = 0; iType < archetype.Archetype->TypesCount; ++iType)
                 {
                     var typeIndex = archetype.Archetype->Types[iType].TypeIndex;
-                    var ti = TypeManager.GetTypeInfo(typeIndex);
-                    var hash = ti.StableTypeHash;
+                    var typeInfo = TypeManager.GetTypeInfo(typeIndex);
+                    var hash = typeInfo.StableTypeHash;
+                    ValidateTypeForSerialization(typeInfo);
                     typeHashes.TryAdd(hash, 0);
                 }
             }

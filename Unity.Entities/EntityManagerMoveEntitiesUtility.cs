@@ -12,7 +12,6 @@ namespace Unity.Entities
     /// Which require more than one of of these, in this order, as last parameters:
     ///     EntityComponentStore* entityComponentStore
     ///     SharedComponentDataManager sharedComponentDataManager
-    ///     EntityGroupManager entityGroupManager
     /// </summary>
     internal static unsafe class EntityManagerMoveEntitiesUtility
     {
@@ -44,10 +43,8 @@ namespace Unity.Entities
             NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping,
             EntityComponentStore* srcEntityComponentStore,
             ManagedComponentStore srcManagedComponentStore,
-            EntityGroupManager srcEntityGroupManager,
             EntityComponentStore* dstEntityComponentStore,
-            ManagedComponentStore dstManagedComponentStore,
-            EntityGroupManager dstEntityGroupManager)
+            ManagedComponentStore dstManagedComponentStore)
         {
             new MoveChunksJob
             {
@@ -67,7 +64,7 @@ namespace Unity.Entities
                 //TODO: this should not be done more than once for each archetype
                 var dstArchetype =
                     EntityManagerCreateArchetypeUtility.GetOrCreateArchetype(archetype->Types, archetype->TypesCount,
-                        dstEntityComponentStore, dstEntityGroupManager);
+                        dstEntityComponentStore);
 
                 remapChunks[i] = new RemapChunk {chunk = chunk, dstArchetype = dstArchetype};
                 chunk->SequenceNumber = dstEntityComponentStore->AssignSequenceNumber(chunk);
@@ -79,8 +76,7 @@ namespace Unity.Entities
 
                     EntityManagerCreateDestroyEntitiesUtility.CreateEntities(dstArchetype->MetaChunkArchetype,
                         &dstEntity, 1,
-                        dstEntityComponentStore, dstManagedComponentStore,
-                        dstEntityGroupManager);
+                        dstEntityComponentStore, dstManagedComponentStore);
 
                     srcEntityComponentStore->GetChunk(srcEntity, out var srcChunk, out var srcIndex);
                     dstEntityComponentStore->GetChunk(dstEntity, out var dstChunk, out var dstIndex);
@@ -90,8 +86,7 @@ namespace Unity.Entities
                     EntityRemapUtility.AddEntityRemapping(ref entityRemapping, srcEntity, dstEntity);
 
                     EntityManagerCreateDestroyEntitiesUtility.DestroyEntities(&srcEntity, 1,
-                        srcEntityComponentStore, srcManagedComponentStore,
-                        srcEntityGroupManager);
+                        srcEntityComponentStore, srcManagedComponentStore);
                 }
             }
 
@@ -126,10 +121,8 @@ namespace Unity.Entities
             NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping,
             EntityComponentStore* srcEntityComponentStore,
             ManagedComponentStore srcManagedComponentStore,
-            EntityGroupManager srcEntityGroupManager,
             EntityComponentStore* dstEntityComponentStore,
-            ManagedComponentStore dstManagedComponentStore,
-            EntityGroupManager dstEntityGroupManager)
+            ManagedComponentStore dstManagedComponentStore)
         {
             var moveChunksJob = new MoveAllChunksJob
             {
@@ -162,7 +155,7 @@ namespace Unity.Entities
                         throw new ArgumentException("MoveEntitiesFrom is not supported with managed arrays");
 
                     var dstArchetype = EntityManagerCreateArchetypeUtility.GetOrCreateArchetype(srcArchetype->Types,
-                        srcArchetype->TypesCount, dstEntityComponentStore, dstEntityGroupManager);
+                        srcArchetype->TypesCount, dstEntityComponentStore);
 
                     remapArchetypes[archetypeIndex] = new RemapArchetype
                         {srcArchetype = srcArchetype, dstArchetype = dstArchetype};
@@ -210,18 +203,16 @@ namespace Unity.Entities
         public static void MoveChunks(
             EntityComponentStore* srcEntityComponentStore,
             ManagedComponentStore srcManagedComponentStore,
-            EntityGroupManager srcEntityGroupManager,
             EntityComponentStore* dstEntityComponentStore,
-            ManagedComponentStore dstManagedComponentStore,
-            EntityGroupManager dstEntityGroupManager)
+            ManagedComponentStore dstManagedComponentStore)
         {
             var entityRemapping =
                 new NativeArray<EntityRemapUtility.EntityRemapInfo>(srcEntityComponentStore->EntitiesCapacity,
                     Allocator.TempJob);
 
             MoveChunks(entityRemapping,
-                srcEntityComponentStore, srcManagedComponentStore, srcEntityGroupManager,
-                dstEntityComponentStore, dstManagedComponentStore, dstEntityGroupManager);
+                srcEntityComponentStore, srcManagedComponentStore,
+                dstEntityComponentStore, dstManagedComponentStore);
 
             entityRemapping.Dispose();
         }
@@ -229,8 +220,7 @@ namespace Unity.Entities
         public static Chunk* CloneChunkForDiffing(Chunk* chunk,
             ManagedComponentStore srcManagedManager,
             EntityComponentStore* dstEntityComponentStore,
-            ManagedComponentStore dstManagedComponentStore,
-            EntityGroupManager dstEntityGroupManager)
+            ManagedComponentStore dstManagedComponentStore)
         {
             int* sharedIndices = stackalloc int[chunk->Archetype->NumSharedComponents];
             chunk->SharedComponentValues.CopyTo(sharedIndices, 0, chunk->Archetype->NumSharedComponents);
@@ -240,10 +230,10 @@ namespace Unity.Entities
 
             // Allocate a new chunk
             Archetype* arch = EntityManagerCreateArchetypeUtility.GetOrCreateArchetype(chunk->Archetype->Types,
-                chunk->Archetype->TypesCount, dstEntityComponentStore, dstEntityGroupManager);
+                chunk->Archetype->TypesCount, dstEntityComponentStore);
 
             Chunk* targetChunk = EntityManagerCreateDestroyEntitiesUtility.GetCleanChunk(arch, sharedIndices,
-                dstEntityComponentStore, dstManagedComponentStore, dstEntityGroupManager);
+                dstEntityComponentStore, dstManagedComponentStore);
 
             // GetCleanChunk & CopySharedComponents both acquire a ref, once chunk owns, release CopySharedComponents ref
             for (int i = 0; i < chunk->Archetype->NumSharedComponents; ++i)
@@ -256,7 +246,7 @@ namespace Unity.Entities
             UnsafeUtility.MemCpy(targetChunk->Buffer, chunk->Buffer, copySize);
 
             EntityManagerCreateDestroyEntitiesUtility.SetChunkCount(targetChunk, chunk->Count,
-                dstEntityComponentStore, dstManagedComponentStore, dstEntityGroupManager);
+                dstEntityComponentStore, dstManagedComponentStore);
 
             targetChunk->Archetype->EntityCount += chunk->Count;
 
@@ -274,14 +264,13 @@ namespace Unity.Entities
 
         public static void DestroyChunkForDiffing(Chunk* chunk,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             chunk->Archetype->EntityCount -= chunk->Count;
             entityComponentStore->FreeEntities(chunk);
 
             EntityManagerCreateDestroyEntitiesUtility.SetChunkCount(chunk, 0,
-                entityComponentStore, managedComponentStore, entityGroupManager);
+                entityComponentStore, managedComponentStore);
         }
 
 

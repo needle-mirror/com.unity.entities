@@ -40,9 +40,14 @@ namespace Unity.Entities
             // Creating an archetype invalidates all iterators / jobs etc
             // because it affects the live iteration linked lists...
             BeforeStructuralChange();
+            var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
 
             entityArchetype.Archetype = EntityManagerCreateArchetypeUtility.GetOrCreateArchetype(typesInArchetype,
-                cachedComponentCount, EntityComponentStore, EntityGroupManager);
+                cachedComponentCount, EntityComponentStore);
+
+            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+            EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
+            
             return entityArchetype;
         }
         
@@ -68,7 +73,5 @@ namespace Unity.Entities
                 ct[i] = ComponentType.FromTypeIndex(typeIndices[i]);
             return CreateArchetype(ct, count);
         }
-        
-        
     }
 }

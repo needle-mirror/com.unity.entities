@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
@@ -270,7 +270,6 @@ namespace Unity.Entities.Tests
 
 #if !UNITY_DOTSPLAYER
 
-        [DisableAutoCreation]
         [AlwaysUpdateSystem]
         public class WriteEcsTestDataSystem : JobComponentSystem
         {

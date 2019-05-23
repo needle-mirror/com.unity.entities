@@ -85,7 +85,7 @@ namespace Unity.Scenes
                 }
                 catch (Exception exc)
                 {
-                    loadingOperation._LoadingFailure = exc.Message;
+                    loadingOperation._LoadingFailure = $"{exc.Message}\n{exc.StackTrace}";
                 }
             }
         }

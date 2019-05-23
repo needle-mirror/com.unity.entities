@@ -11,7 +11,6 @@ namespace Unity.Entities
     /// Which require more than one of of these, in this order, as last parameters:
     ///     EntityComponentStore* entityComponentStore
     ///     SharedComponentDataManager sharedComponentDataManager
-    ///     EntityGroupManager entityGroupManager
     /// </summary>
     internal static unsafe class EntityManagerCreateDestroyEntitiesUtility
     {
@@ -21,11 +20,10 @@ namespace Unity.Entities
 
         public static void CreateMetaEntityForChunk(Chunk* chunk,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             CreateEntities(chunk->Archetype->MetaChunkArchetype, &chunk->metaChunkEntity, 1,
-                entityComponentStore, managedComponentStore, entityGroupManager);
+                entityComponentStore, managedComponentStore);
             
             var typeIndex = TypeManager.GetTypeIndex<ChunkHeader>();
             var chunkHeader =
@@ -36,8 +34,7 @@ namespace Unity.Entities
 
         public static void CreateEntities(Archetype* archetype, Entity* entities, int count,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             var sharedComponentValues = stackalloc int[archetype->NumSharedComponents];
             UnsafeUtility.MemClear(sharedComponentValues, archetype->NumSharedComponents * sizeof(int));
@@ -45,11 +42,11 @@ namespace Unity.Entities
             while (count != 0)
             {
                 var chunk = GetChunkWithEmptySlots(archetype, sharedComponentValues,
-                    entityComponentStore, managedComponentStore, entityGroupManager);
+                    entityComponentStore, managedComponentStore);
                 
                 int allocatedIndex;
                 var allocatedCount = AllocateIntoChunk(chunk, count, out allocatedIndex,
-                    entityComponentStore, managedComponentStore, entityGroupManager);
+                    entityComponentStore, managedComponentStore);
                 entityComponentStore->AllocateEntities(archetype, chunk, allocatedIndex, allocatedCount, entities);
                 ChunkDataUtility.InitializeComponents(chunk, allocatedIndex, allocatedCount);
                 chunk->SetAllChangeVersions(entityComponentStore->GlobalSystemVersion);
@@ -62,22 +59,20 @@ namespace Unity.Entities
         
         public static void DestroyEntities(NativeArray<ArchetypeChunk> chunkArray,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             var chunks = (ArchetypeChunk*) chunkArray.GetUnsafeReadOnlyPtr();
             for (int i = 0; i != chunkArray.Length; i++)
             {
                 var chunk = chunks[i].m_Chunk;
                 DestroyBatch((Entity*) chunk->Buffer, chunk, 0, chunk->Count, 
-                    entityComponentStore, managedComponentStore, entityGroupManager);
+                    entityComponentStore, managedComponentStore);
             }
         }
 
         public static void DestroyEntities(Entity* entities, int count,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             var entityIndex = 0;
 
@@ -103,7 +98,7 @@ namespace Unity.Entities
                     ref minDestroyStride, ref maxDestroyStride);
 
                 DestroyBatch(entities + entityIndex, chunk, indexInChunk, batchCount,
-                    entityComponentStore, managedComponentStore, entityGroupManager);
+                    entityComponentStore, managedComponentStore);
 
                 entityIndex += batchCount;
             }
@@ -130,13 +125,13 @@ namespace Unity.Entities
                     }
 
                     DestroyEntities(reordered, additionalDestroyList.m_size,
-                        entityComponentStore, managedComponentStore, entityGroupManager);
+                        entityComponentStore, managedComponentStore);
                     UnsafeUtility.Free(reordered, Allocator.TempJob);
                 }
                 else
                 {
                     DestroyEntities(additionalDestroyPtr, additionalDestroyList.m_size,
-                        entityComponentStore, managedComponentStore, entityGroupManager);
+                        entityComponentStore, managedComponentStore);
                 }
 
                 UnsafeUtility.Free(additionalDestroyPtr, Allocator.TempJob);
@@ -145,31 +140,28 @@ namespace Unity.Entities
 
         public static void DeleteChunk(Chunk* chunk,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             var entityCount = chunk->Count;
             entityComponentStore->DeallocateDataEntitiesInChunk((Entity*) chunk->Buffer, chunk, 0, chunk->Count);
             managedComponentStore.IncrementComponentOrderVersion(chunk->Archetype, chunk->SharedComponentValues);
             entityComponentStore->IncrementComponentTypeOrderVersion(chunk->Archetype);
             chunk->Archetype->EntityCount -= entityCount;
-            SetChunkCount(chunk, 0, entityComponentStore, managedComponentStore, entityGroupManager);
+            SetChunkCount(chunk, 0, entityComponentStore, managedComponentStore);
         }
 
         public static void DestroyMetaChunkEntity(Entity entity,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             EntityManagerChangeArchetypeUtility.RemoveComponent(entity, ComponentType.ReadWrite<ChunkHeader>(),
-                entityComponentStore, managedComponentStore, entityGroupManager);
-            DestroyEntities(&entity, 1, entityComponentStore, managedComponentStore, entityGroupManager);
+                entityComponentStore, managedComponentStore);
+            DestroyEntities(&entity, 1, entityComponentStore, managedComponentStore);
         }
 
         public static void SetChunkCount(Chunk* chunk, int newCount,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             Assert.AreNotEqual(newCount, chunk->Count);
             Assert.IsFalse(chunk->Locked);
@@ -178,7 +170,7 @@ namespace Unity.Entities
             // Chunk released to empty chunk pool
             if (newCount == 0)
             {
-                ReleaseChunk(chunk, entityComponentStore, managedComponentStore, entityGroupManager);
+                ReleaseChunk(chunk, entityComponentStore, managedComponentStore);
                 return;
             }
 
@@ -203,8 +195,7 @@ namespace Unity.Entities
         
         public static void CreateChunks(Archetype* archetype, ArchetypeChunk* chunks, int entityCount,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             int* sharedComponentValues = stackalloc int[archetype->NumSharedComponents];
             UnsafeUtility.MemClear(sharedComponentValues, archetype->NumSharedComponents * sizeof(int));
@@ -214,11 +205,11 @@ namespace Unity.Entities
             while (entityCount != 0)
             {
                 var chunk = GetCleanChunk(archetype, sharedComponentValues,
-                    entityComponentStore, managedComponentStore, entityGroupManager);
+                    entityComponentStore, managedComponentStore);
                 int allocatedIndex;
                 
                 var allocatedCount = AllocateIntoChunk(chunk, entityCount, out allocatedIndex,
-                    entityComponentStore, managedComponentStore, entityGroupManager);
+                    entityComponentStore, managedComponentStore);
                 
                 entityComponentStore->AllocateEntities(archetype, chunk, allocatedIndex, allocatedCount, null);
                 ChunkDataUtility.InitializeComponents(chunk, allocatedIndex, allocatedCount);
@@ -235,14 +226,13 @@ namespace Unity.Entities
         
         public static Chunk* GetChunkWithEmptySlots(Archetype* archetype, SharedComponentValues sharedComponentValues,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             var chunk = archetype->GetExistingChunkWithEmptySlots(sharedComponentValues);
             if (chunk == null)
             {
                 chunk = GetCleanChunk(archetype, sharedComponentValues,
-                    entityComponentStore, managedComponentStore, entityGroupManager);
+                    entityComponentStore, managedComponentStore);
             }
 
             return chunk;
@@ -250,21 +240,19 @@ namespace Unity.Entities
         
         public static Chunk* GetCleanChunk(Archetype* archetype, SharedComponentValues sharedComponentValues,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             Chunk* newChunk = entityComponentStore->AllocateChunk();
             
             ConstructChunk(archetype, newChunk, sharedComponentValues,
-                entityComponentStore, managedComponentStore, entityGroupManager);
+                entityComponentStore, managedComponentStore);
 
             return newChunk;
         }
   
         public static void InstantiateEntities(Entity srcEntity, Entity* outputEntities, int instanceCount,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             var linkedType = TypeManager.GetTypeIndex<LinkedEntityGroup>();
 
@@ -290,7 +278,7 @@ namespace Unity.Entities
                 }
 #endif
                 InstantiateEntitiesGroup(entityPtr, entityCount, outputEntities, instanceCount,
-                    entityComponentStore, managedComponentStore, entityGroupManager);
+                    entityComponentStore, managedComponentStore);
             }
             else
             {
@@ -304,31 +292,29 @@ namespace Unity.Entities
                         "srcEntity is not instantiable because it has already been destroyed. (Only system state components are left on it)");
 #endif
                 InstantiateEntitiesOne(srcEntity, outputEntities, instanceCount, null, 0,
-                    entityComponentStore, managedComponentStore, entityGroupManager);
+                    entityComponentStore, managedComponentStore);
             }
         }
         
         public static int AllocateIntoChunk(Chunk* chunk,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             int outIndex;
             var res = AllocateIntoChunk(chunk, 1, out outIndex,
-                entityComponentStore, managedComponentStore, entityGroupManager);
+                entityComponentStore, managedComponentStore);
             Assert.AreEqual(1, res);
             return outIndex;
         }
 
         public static int AllocateIntoChunk(Chunk* chunk, int count, out int outIndex,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             var allocatedCount = Math.Min(chunk->Capacity - chunk->Count, count);
             outIndex = chunk->Count;
             SetChunkCount(chunk, chunk->Count + allocatedCount,
-                entityComponentStore, managedComponentStore, entityGroupManager);
+                entityComponentStore, managedComponentStore);
             chunk->Archetype->EntityCount += allocatedCount;
             return allocatedCount;
         }
@@ -376,8 +362,7 @@ namespace Unity.Entities
 
         static void DestroyBatch(Entity* entities, Chunk* chunk, int indexInChunk, int batchCount,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             var archetype = chunk->Archetype;
             if (!archetype->SystemStateCleanupNeeded)
@@ -398,7 +383,7 @@ namespace Unity.Entities
                 }
 
                 chunk->Archetype->EntityCount -= batchCount;
-                SetChunkCount(chunk, chunk->Count - batchCount, entityComponentStore, managedComponentStore, entityGroupManager);
+                SetChunkCount(chunk, chunk->Count - batchCount, entityComponentStore, managedComponentStore);
             }
             else
             {
@@ -424,7 +409,7 @@ namespace Unity.Entities
                     entityComponentStore->IncrementComponentTypeOrderVersion(archetype);
 
                     EntityManagerChangeArchetypeUtility.SetArchetype(chunk, newType, sharedComponentValues,
-                        entityComponentStore, managedComponentStore, entityGroupManager);
+                        entityComponentStore, managedComponentStore);
                 }
                 else
                 {
@@ -435,7 +420,7 @@ namespace Unity.Entities
                             entityComponentStore->GetChunk(entity)->SharedComponentValues);
                         entityComponentStore->IncrementComponentTypeOrderVersion(archetype);
                         EntityManagerChangeArchetypeUtility.SetArchetype(entity, newType, sharedComponentValues,
-                            entityComponentStore, managedComponentStore, entityGroupManager);
+                            entityComponentStore, managedComponentStore);
                     }
                 }
             }
@@ -466,8 +451,7 @@ namespace Unity.Entities
 
         static void ReleaseChunk(Chunk* chunk,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             // Remove references to shared components
             if (chunk->Archetype->NumSharedComponents > 0)
@@ -486,7 +470,7 @@ namespace Unity.Entities
 
             if (chunk->metaChunkEntity != Entity.Null)
                 DestroyMetaChunkEntity(chunk->metaChunkEntity,
-                    entityComponentStore, managedComponentStore, entityGroupManager);
+                    entityComponentStore, managedComponentStore);
 
             // this chunk is going away, so it shouldn't be in the empty slot list.
             if (chunk->Count < chunk->Capacity)
@@ -501,8 +485,7 @@ namespace Unity.Entities
         static int InstantiateEntitiesOne(Entity srcEntity, Entity* outputEntities,
             int instanceCount, InstantiateRemapChunk* remapChunks, int remapChunksCount,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             var src = entityComponentStore->GetEntityInChunk(srcEntity);
             var srcArchetype = src.Chunk->Archetype;
@@ -528,11 +511,11 @@ namespace Unity.Entities
             while (instanceBeginIndex != instanceCount)
             {
                 chunk = GetChunkWithEmptySlots(dstArchetype, sharedComponentValues,
-                    entityComponentStore, managedComponentStore, entityGroupManager);
+                    entityComponentStore, managedComponentStore);
                 
                 int indexInChunk;
                 var allocatedCount = AllocateIntoChunk(chunk, instanceCount - instanceBeginIndex, out indexInChunk,
-                    entityComponentStore, managedComponentStore, entityGroupManager);
+                    entityComponentStore, managedComponentStore);
                 
                 ChunkDataUtility.ReplicateComponents(src.Chunk, src.IndexInChunk, chunk, indexInChunk, allocatedCount);
                 entityComponentStore->AllocateEntities(dstArchetype, chunk, indexInChunk, allocatedCount,
@@ -569,8 +552,7 @@ namespace Unity.Entities
         static void InstantiateEntitiesGroup(Entity* srcEntities, int srcEntityCount,
             Entity* outputRootEntities, int instanceCount,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             int totalCount = srcEntityCount * instanceCount;
 
@@ -601,7 +583,7 @@ namespace Unity.Entities
                 
                 remapChunksCount = InstantiateEntitiesOne(srcEntity,
                     outputEntities, instanceCount, remapChunks, remapChunksCount,
-                    entityComponentStore, managedComponentStore, entityGroupManager);
+                    entityComponentStore, managedComponentStore);
 
                 for (int r = 0; r != instanceCount; r++)
                 {
@@ -640,8 +622,7 @@ namespace Unity.Entities
         static void ConstructChunk(Archetype* archetype, Chunk* chunk,
             SharedComponentValues sharedComponentValues,
             EntityComponentStore* entityComponentStore,
-            ManagedComponentStore managedComponentStore,
-            EntityGroupManager entityGroupManager)
+            ManagedComponentStore managedComponentStore)
         {
             chunk->Archetype = archetype;
             chunk->Count = 0;
@@ -687,7 +668,7 @@ namespace Unity.Entities
 
             if (archetype->MetaChunkArchetype != null)
             {
-                CreateMetaEntityForChunk(chunk, entityComponentStore, managedComponentStore, entityGroupManager);
+                CreateMetaEntityForChunk(chunk, entityComponentStore, managedComponentStore);
             }
         }
     }

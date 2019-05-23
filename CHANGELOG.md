@@ -1,12 +1,38 @@
 # Change log
 
+
+## [0.0.12-preview.33] - 2019-05-24
+
+### New Features
+
+* `[DisableAutoCreation]` can now apply to entire assemblies, which will cause all systems contained within to be excluded from automatic system creation. Useful for test assemblies.
+* Added `ComponentSystemGroup.RemoveSystemFromUpdateList()`
+* `EntityCommandBuffer` has commands for adding/removing components, deleting entities and adding shared components based on an EntityQuery and its filter. Not available in the `Concurrent` version
+
+### Changes
+
+* Generic component data types must now be registered in advance. Use [RegisterGenericComponentType] attribute to register each concrete use. e.g. `[assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<int>))]` 
+* Attempting to call `Playback()` more than once on the same EntityCommandBuffer will now throw an error.
+* Improved error checking for `[UpdateInGroup]`, `[UpdateBefore]`, and `[UpdateAfter]` attributes
+* TypeManager no longer imposes alignment requirements on components containing pointers. Instead, it now throws an exception if you try to serialize a blittable component containing an unmanaged pointer, which suggests different alternatives.
+
+### Fixes
+
+* Fixed regression where accessing and destroying a blob asset in a burst job caused an exception
+* Fixed bug where entities with manually specified `CompositeScale` were not updated by `TRSLocalToWorldSystem`.
+* Error message when passing in invalid parameters to CreateSystem() is improved.
+* Fixed bug where an exception due to aggressive pointer restrictions could leave the `TypeManager` in an invalid state
+* SceneBoundingVolume is now generated seperately for each subsection
+* SceneBoundingVolume no longer throws exceptions in conversion flow
+* Fixed regression where calling AddComponent(NativeArray<Entity> entities, ComponentType componentType) could cause a crash.
+
 ## [0.0.12-preview.32] - 2019-05-16
 
 ### New Features
 
 * Added BlobBuilder which is a new API to build Blob Assets that does not require preallocating one contiguous block of memory. The BlobAllocator is now marked obsolete.
 * Added versions of `IJobForEach` that support `DynamicBuffer`s
-  * Due to C# language contraints, these overloads needed different names. The format for these overloads follows the following structure:
+  * Due to C# language constraints, these overloads needed different names. The format for these overloads follows the following structure:
     * All job names begin with either `IJobForEach` or `IJobForEachEntity`
     * All jobs names are then followed by an underscore `_` and a combination of letter corresponding to the parameter types of the job
       * `B` - `IBufferElementData`
@@ -31,11 +57,13 @@
 ### Upgrade guide
 
 * Usages of BlobAllocator will need to be changed to use BlobBuilder instead. The API is similar but Allocate now returns the data that can be populated:
-```csharp
-  ref var root = ref builder.ConstructRoot<MyData>();
-  var floatArray = builder.Allocate(3, ref root.floatArray);
-  floatArray[0] = 0; // root.floatArray[0] can not be used and will throw on access
-```        
+
+  ```csharp
+    ref var root = ref builder.ConstructRoot<MyData>();
+    var floatArray = builder.Allocate(3, ref root.floatArray);
+    floatArray[0] = 0; // root.floatArray[0] can not be used and will throw on access
+  ```
+
 * ISharedComponentData with managed fields must implement IEquatable and GetHashCode
 * IComponentData and ISharedComponentData implementing IEquatable must also override GetHashCode
 
@@ -49,7 +77,6 @@
 * Disabled components are ignored during conversion process. Behaviour.Enabled has no direct mapping in ECS. It is recommended to Disable whole entities instead
 * Warnings are now issues when asking for a GetPrimaryEntity that is not a game object that is part of the converted group. HasPrimaryEntity can be used to check if the game object is part of the converted group in case that is necessary.
 * Fixed a race condition in `EntityCommandBuffer.AddBuffer()` and `EntityCommandBuffer.SetBuffer()`
-
 
 ## [0.0.12-preview.31] - 2019-05-01
 

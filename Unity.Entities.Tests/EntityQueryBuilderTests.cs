@@ -7,7 +7,6 @@ namespace Unity.Entities.Tests
 {
     class EntityQueryBuilderTestFixture : ECSTestsFixture
     {
-        [DisableAutoCreation]//, UsedImplicitly]
         protected class TestComponentSystem : ComponentSystem
             { protected override void OnUpdate() { } }
 
@@ -16,7 +15,6 @@ namespace Unity.Entities.Tests
 
     class EntityQueryBuilderTests : EntityQueryBuilderTestFixture
     {
-        [DisableAutoCreation]//, UsedImplicitly]
         class TestComponentSystem2 : ComponentSystem
             { protected override void OnUpdate() { } }
 

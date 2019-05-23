@@ -7,7 +7,6 @@ namespace Unity.Entities.Tests
 {
     class ComponentSystemStartStopRunningTests : ECSTestsFixture
     {
-        [DisableAutoCreation]
         class TestSystem : ComponentSystem
         {
             public EntityQuery m_TestGroup;

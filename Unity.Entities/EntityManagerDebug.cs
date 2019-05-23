@@ -235,11 +235,15 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 //@TODO: Validate from perspective of chunkquery...
                 var entityCountByEntity = m_Manager.EntityComponentStore->CheckInternalConsistency();
-                var entityCountByArchetype =
-                    EntityManagerDebugUtility.CheckInternalConsistency(m_Manager.EntityComponentStore);
+                var entityCountByArchetype = EntityManagerDebugUtility.CheckInternalConsistency(m_Manager.EntityComponentStore);
                 Assert.AreEqual(entityCountByEntity, entityCountByArchetype);
                 Assert.IsTrue(m_Manager.ManagedComponentStore.AllSharedComponentReferencesAreFromChunks(m_Manager.EntityComponentStore));
                 m_Manager.ManagedComponentStore.CheckInternalConsistency();
+
+                var chunkQuery = m_Manager.CreateEntityQuery(new EntityQueryDesc { All = new ComponentType[] { typeof(ChunkHeader) } });
+                int totalEntitiesFromQuery = m_Manager.UniversalQuery.CalculateLength() + chunkQuery.CalculateLength();
+                Assert.AreEqual(entityCountByEntity, totalEntitiesFromQuery);
+                chunkQuery.Dispose();
 #endif
             }
         }

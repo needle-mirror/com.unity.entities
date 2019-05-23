@@ -8,7 +8,8 @@ namespace Unity.Entities
     {
         None = 0,
         Locked = 1 << 0,
-        LockedEntityOrder = 1 << 1
+        LockedEntityOrder = 1 << 1,
+        TempAssertWillDestroyAllInLinkedEntityGroup = 1 << 2
     }
 
     [StructLayout(LayoutKind.Explicit)]

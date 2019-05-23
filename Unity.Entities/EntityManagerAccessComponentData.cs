@@ -178,7 +178,7 @@ namespace Unity.Entities
 
             var newSharedComponentDataIndex = m_ManagedComponentStore.InsertSharedComponent(componentData);
             EntityManagerChangeArchetypeUtility.SetSharedComponentDataIndex(entity, typeIndex, newSharedComponentDataIndex,
-                EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                EntityComponentStore, ManagedComponentStore);
             m_ManagedComponentStore.RemoveReference(newSharedComponentDataIndex);
         }
         
@@ -358,7 +358,7 @@ namespace Unity.Entities
 
             EntityManagerChangeArchetypeUtility.SetSharedComponentDataIndex(entity, typeIndex,
                 newSharedComponentDataIndex,
-                EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                EntityComponentStore, ManagedComponentStore);
             
             m_ManagedComponentStore.RemoveReference(newSharedComponentDataIndex);
         }

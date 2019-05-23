@@ -578,5 +578,29 @@ namespace Unity.Entities.Tests
             m_Manager.AddBuffer<EcsIntElement>(entity);
             Assert.DoesNotThrow(() => m_Manager.AddBuffer<EcsIntElement>(entity));
         }
+        
+        
+        [Test]
+        public void DestroyEntityQueryWithLinkedEntityGroupPartialDestroyThrows()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestTag));
+            var child = m_Manager.CreateEntity(typeof(EcsTestData2));
+
+            var group = m_Manager.AddBuffer<LinkedEntityGroup>(entity);
+            group.Add(entity);
+            group.Add(child);
+
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestTag));
+            // we are destroying entity but it has a LinkedEntityGroup and child is not being destroyed. That's an error.
+            Assert.Throws<ArgumentException>(() => m_Manager.DestroyEntity(query));
+            // Just double checking that its a precondition & no leaking state
+            Assert.Throws<ArgumentException>(() => m_Manager.DestroyEntity(query));
+            Assert.AreEqual(2, m_Manager.UniversalQuery.CalculateLength());
+            
+            // And after failed destroy, correct destroys do work
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+            Assert.AreEqual(0, m_Manager.UniversalQuery.CalculateLength());
+        }
 	}
 }

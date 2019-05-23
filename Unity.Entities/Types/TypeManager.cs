@@ -3,13 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
-
+using UnityEngine.Profiling;
 
 namespace Unity.Entities
 {
@@ -93,6 +90,7 @@ namespace Unity.Entities
         private static int s_InitCount = 0;
 #if !NET_DOTS
         private static SpinLock s_CreateTypeLock;
+        private static double s_TypeInitializationTime;
 #endif
         public static int ObjectOffset;
 
@@ -114,6 +112,7 @@ namespace Unity.Entities
 
 #if !UNITY_DOTSPLAYER
         internal static Type UnityEngineComponentType;
+        internal static Type GameObjectEntityType;
 
         public static void RegisterUnityEngineComponentType(Type type)
         {
@@ -154,7 +153,7 @@ namespace Unity.Entities
         public readonly struct TypeInfo
         {
 #if !NET_DOTS
-            public TypeInfo(Type type, int typeIndex, int size, TypeCategory category, FastEquality.TypeInfo typeInfo, EntityOffsetInfo[] entityOffsets, EntityOffsetInfo[] blobAssetRefOffsets, ulong memoryOrdering, int bufferCapacity, int elementSize, int alignmentInBytes, ulong stableTypeHash, int* writeGroups, int writeGroupCount, int maximumChunkCapacity)
+            public TypeInfo(Type type, int typeIndex, int size, TypeCategory category, FastEquality.TypeInfo typeInfo, EntityOffsetInfo[] entityOffsets, EntityOffsetInfo[] blobAssetRefOffsets, ulong memoryOrdering, int bufferCapacity, int elementSize, int alignmentInBytes, ulong stableTypeHash, int* writeGroups, int writeGroupCount, int maximumChunkCapacity, bool isSerializable)
             {
                 Type = type;
                 TypeIndex = typeIndex;
@@ -173,6 +172,7 @@ namespace Unity.Entities
                 WriteGroups = writeGroups;
                 WriteGroupCount = writeGroupCount;
                 MaximumChunkCapacity = maximumChunkCapacity;
+                IsSerializable = isSerializable;
                 // System state shared components are also considered system state components
                 bool isSystemStateSharedComponent = typeof(ISystemStateSharedComponentData).IsAssignableFrom(type);
                 bool isSystemStateBufferElement = typeof(ISystemStateBufferElementData).IsAssignableFrom(type);
@@ -222,6 +222,10 @@ namespace Unity.Entities
                 public readonly int* WriteGroups;
                 public readonly int WriteGroupCount;
                 public readonly int MaximumChunkCapacity;
+                // True when a component is valid to using in world serialization. A component IsSerializable when it is valid to blit 
+                // the data across storage media. Thus components containing pointers have an IsSerializable of false as the component 
+                // is blittable but no longer valid upon deserialization. 
+                public readonly bool IsSerializable;
 
                 // Alignment of this type in a chunk.  Normally the same
                 // as AlignmentInBytes, but that might be less than this
@@ -242,7 +246,7 @@ namespace Unity.Entities
             public TypeInfo(int typeIndex, TypeCategory category, int entityOffsetCount, int entityOffsetStartIndex,
                 ulong memoryOrdering, ulong stableTypeHash, int bufferCapacity, int typeSize, int elementSize,
                 int alignmentInBytes, int maxChunkCapacity, int writeGroupCount, int writeGroupStartIndex,
-                int blobAssetRefOffsetCount, int blobAssetRefOffsetStartIndex, int fastEqualityIndex, bool usesDynamicInfo)
+                int blobAssetRefOffsetCount, int blobAssetRefOffsetStartIndex, int fastEqualityIndex, bool usesDynamicInfo, bool isSerializable)
             {
                 TypeIndex = typeIndex;
                 Category = category;
@@ -261,6 +265,7 @@ namespace Unity.Entities
                 BlobAssetRefOffsetStartIndex = blobAssetRefOffsetStartIndex;
                 FastEqualityIndex = fastEqualityIndex; // Only used for Hybrid types (should be removed once we code gen all equality cases)
                 UsesDynamicInfo = usesDynamicInfo;
+                IsSerializable = isSerializable;
             }
 
             public readonly int TypeIndex;
@@ -297,6 +302,7 @@ namespace Unity.Entities
             public readonly int MaximumChunkCapacity;
             internal readonly int FastEqualityIndex;
             internal readonly bool UsesDynamicInfo;
+            public readonly bool IsSerializable;
 
             public bool IsZeroSized => !UsesDynamicInfo && SizeInChunk == 0;
             public bool HasWriteGroups => WriteGroupCount > 0;
@@ -342,6 +348,38 @@ namespace Unity.Entities
                 }
             }
 #endif
+            /// <summary>
+            /// Provides debug type information. This information may be stripped in non-debug builds
+            /// </summary>
+            /// Note: We create a new instance here since TypeInfoDebug relies on TypeInfo, thus if we were to 
+            /// cache a TypeInfoDebug field here we would have a cyclical defintion. TypeInfoDebug should not be a class
+            /// either as we explicitly want TypeInfo to remain a value type.
+            public TypeInfoDebug Debug => new TypeInfoDebug(this); 
+        }
+
+        public struct TypeInfoDebug
+        {
+            TypeInfo m_TypeInfo;
+
+            public TypeInfoDebug(TypeInfo typeInfo)
+            {
+                m_TypeInfo = typeInfo;
+            }
+
+            public string TypeName
+            {
+                get
+                {
+					#if NET_DOTS
+	                    if (StaticTypeRegistry.StaticTypeRegistry.TypeNames.Length > 0)
+	                        return StaticTypeRegistry.StaticTypeRegistry.TypeNames[m_TypeInfo.TypeIndex & ClearFlagsMask];
+	                    else
+	                        return "<unavailable>";
+					#else
+                    	return m_TypeInfo.Type.FullName;
+					#endif
+                }
+            }
         }
 
         public static unsafe TypeInfo GetTypeInfo(int typeIndex)
@@ -416,7 +454,7 @@ namespace Unity.Entities
             s_Count = 0;
 
             #if !NET_DOTS
-                s_TypeInfos[s_Count++] = new TypeInfo(null, 0, 0, TypeCategory.ComponentData, FastEquality.TypeInfo.Null, null, null, 0, -1, 0, 1, 0, null, 0, int.MaxValue);
+                s_TypeInfos[s_Count++] = new TypeInfo(null, 0, 0, TypeCategory.ComponentData, FastEquality.TypeInfo.Null, null, null, 0, -1, 0, 1, 0, null, 0, int.MaxValue, false);
                 InitializeAllComponentTypes();
             #else
                 s_FastEqualityTypeInfoList = new List<FastEquality.TypeInfo>();
@@ -513,54 +551,124 @@ namespace Unity.Entities
 #endif
 
 #if !NET_DOTS
-
         static void InitializeAllComponentTypes()
         {
             var lockTaken = false;
             try
             {
+                Profiler.BeginSample("InitializeAllComponentTypes");
+
                 s_CreateTypeLock.Enter(ref lockTaken);
-
+                
+                double start = (new TimeSpan(DateTime.Now.Ticks)).TotalMilliseconds;
+                
                 var componentTypeSet = new HashSet<Type>();
+                var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
-                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+                // Inject types needed for Hybrid
+                foreach (var assembly in assemblies)
                 {
-                    if (!IsAssemblyReferencingEntities(assembly))
-                        continue;
-
-                    foreach (var type in assembly.GetTypes())
+                    if (assembly.GetName().Name == "Unity.Entities.Hybrid")
                     {
-                        if (type.IsAbstract || !type.IsValueType)
-                            continue;
+                        GameObjectEntityType = assembly.GetType("Unity.Entities.GameObjectEntity");
+                    }
+                    
+                    if (assembly.GetName().Name == "UnityEngine")
+                    {
+                        UnityEngineComponentType = assembly.GetType("UnityEngine.Component");
+                    }
+                }
+                if ((UnityEngineComponentType == null) || (GameObjectEntityType == null))
+                {
+                    throw new Exception("Required UnityEngine and Unity.Entities.Hybrid types not found.");
+                }
 
-                        // Don't register open generics here.  It's an open question
-                        // on whether we should support them for components at all,
-                        // as with them we can't ever see a full set of component types
-                        // in use.
-                        if (type.ContainsGenericParameters)
-                            continue;
+                foreach (var assembly in assemblies)
+                {
+                    var isAssemblyReferencingUnityEngine = IsAssemblyReferencingUnityEngine(assembly);
+                    var isAssemblyReferencingEntities = IsAssemblyReferencingEntities(assembly);
+                    var isAssemblyRelevant = isAssemblyReferencingEntities || isAssemblyReferencingUnityEngine;
 
-                        if (type.GetCustomAttribute(typeof(DisableAutoTypeRegistration)) != null)
-                            continue;
+                    if (!isAssemblyRelevant)
+                        continue;
+                    
+                    var assemblyTypes = assembly.GetTypes();
 
-                        // XXX There's a bug in the Unity Mono scripting backend where if the
-                        // Mono type hasn't been initialized, the IsUnmanaged result is wrong.
-                        // We force it to be fully initialized by creating an instance until
-                        // that bug is fixed.
-                        try
+                    // Register UnityEngine types (Hybrid)
+                    if (isAssemblyReferencingUnityEngine)
+                    {
+                        foreach (var type in assemblyTypes)
                         {
-                            var inst = Activator.CreateInstance(type);
-                        } catch (Exception)
+                            if (type.ContainsGenericParameters)
+                                continue;
+
+                            if (type.IsAbstract)
+                                continue;
+
+                            if (type.IsClass)
+                            {
+                                if (type == GameObjectEntityType)
+                                    continue;
+
+                                if (!UnityEngineComponentType.IsAssignableFrom(type))
+                                    continue;
+
+                                componentTypeSet.Add(type);
+                            }
+                        }
+                    }
+
+                    if (isAssemblyReferencingEntities)
+                    {
+                        // Register ComponentData types
+                        foreach (var type in assemblyTypes)
                         {
-                            // ignored
+                            if (type.IsAbstract || !type.IsValueType)
+                                continue;
+
+                            // Don't register open generics here.  It's an open question
+                            // on whether we should support them for components at all,
+                            // as with them we can't ever see a full set of component types
+                            // in use.
+                            if (type.ContainsGenericParameters)
+                                continue;
+
+                            if (type.GetCustomAttribute(typeof(DisableAutoTypeRegistration)) != null)
+                                continue;
+
+                            // XXX There's a bug in the Unity Mono scripting backend where if the
+                            // Mono type hasn't been initialized, the IsUnmanaged result is wrong.
+                            // We force it to be fully initialized by creating an instance until
+                            // that bug is fixed.
+                            try
+                            {
+                                var inst = Activator.CreateInstance(type);
+                            }
+                            catch (Exception)
+                            {
+                                // ignored
+                            }
+
+                            if (typeof(IComponentData).IsAssignableFrom(type) ||
+                                typeof(ISharedComponentData).IsAssignableFrom(type) ||
+                                typeof(IBufferElementData).IsAssignableFrom(type))
+                            {
+                                componentTypeSet.Add(type);
+                            }
                         }
 
-                        if (typeof(IComponentData).IsAssignableFrom(type) ||
-                            typeof(ISharedComponentData).IsAssignableFrom(type) ||
-                            typeof(IBufferElementData).IsAssignableFrom(type))
+                        // Register ComponentData concrete generics
+                        foreach (var registerGenericComponentTypeAttribute in
+                            assembly.GetCustomAttributes<RegisterGenericComponentTypeAttribute>())
                         {
-                            ValidateType(type);
-                            componentTypeSet.Add(type);
+                            var type = registerGenericComponentTypeAttribute.ConcreteType;
+
+                            if (typeof(IComponentData).IsAssignableFrom(type) ||
+                                typeof(ISharedComponentData).IsAssignableFrom(type) ||
+                                typeof(IBufferElementData).IsAssignableFrom(type))
+                            {
+                                componentTypeSet.Add(type);
+                            }
                         }
                     }
                 }
@@ -570,7 +678,7 @@ namespace Unity.Entities
                 // This must always be first so that Entity is always first in the archetype
                 AddTypeInfoToTables(new TypeInfo(typeof(Entity), 1, sizeof(Entity), TypeCategory.EntityData,
                     FastEquality.CreateTypeInfo<Entity>(), EntityRemapUtility.CalculateEntityOffsets<Entity>(), null, 0, -1,
-                    sizeof(Entity), CalculateAlignmentInChunk(sizeof(Entity)), TypeHash.CalculateStableTypeHash(typeof(Entity)), null, 0, int.MaxValue));
+                    sizeof(Entity), CalculateAlignmentInChunk(sizeof(Entity)), TypeHash.CalculateStableTypeHash(typeof(Entity)), null, 0, int.MaxValue, true));
 
                 var componentTypeCount = componentTypeSet.Count;
                 var componentTypes = new Type[componentTypeCount];
@@ -587,40 +695,20 @@ namespace Unity.Entities
 
                 GatherWriteGroups(componentTypes, startTypeIndex, typeIndexByType, writeGroupByType);
                 AddAllComponentTypes(componentTypes, startTypeIndex, writeGroupByType);
+                
+                double end = (new TimeSpan(DateTime.Now.Ticks)).TotalMilliseconds;
+                
+                // Save the time since profiler might not catch the first frame.
+                s_TypeInitializationTime = end - start;
             }
             finally
             {
+                Profiler.EndSample();
                 if (lockTaken)
                 {
                     s_CreateTypeLock.Exit(true);
                 }
             }
-        }
-
-        private static void EnsureExplictLayoutIfContainsPointerFields(Type type)
-        {
-            foreach(var field in type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
-            {
-                if (field.IsStatic) continue;
-
-                if (field.FieldType.IsPointer)
-                {
-                    // If 'Size' is left uninitialized it will be <= 0
-                    if (!type.Attributes.HasFlag(TypeAttributes.ExplicitLayout) || (type.StructLayoutAttribute.Size % 8) != 0)
-                        throw new ArgumentException($"All component types containing pointers must use a [StructLayout(LayoutKind.Explicit, Size = <multiple of 8>)] " +
-                            $"attribute such that the type's size is the same on both 32-bit and 64-bit platforms. " +
-                            $"Type '{type.FullName}' is missing a this attribute due to pointer field '{field.Name}'");
-                }
-                else if (field.FieldType.IsValueType && !field.FieldType.IsPrimitive && !field.FieldType.IsEnum)
-                {
-                    EnsureExplictLayoutIfContainsPointerFields(field.FieldType);
-                }
-            }
-        }
-
-        private static void ValidateType(Type type)
-        {
-            EnsureExplictLayoutIfContainsPointerFields(type);
         }
 
         private static void AddAllComponentTypes(Type[] componentTypes, int startTypeIndex, Dictionary<int, HashSet<int>> writeGroupByType)
@@ -687,8 +775,8 @@ namespace Unity.Entities
                 }
             }
         }
-
-        private static int FindTypeIndex(Type type)
+        
+        static int FindTypeIndex(Type type)
         {
             if (type == null)
                 return 0;
@@ -730,7 +818,11 @@ namespace Unity.Entities
         public static int GetTypeIndex(Type type)
         {
             var index = FindTypeIndex(type);
-            return index != -1 ? index : CreateTypeIndexThreadSafe(type);
+            
+            if (index == -1)
+                throw new ArgumentException($"Unknown Type:`{type}` All ComponentType must be known at compile time. For generic components, each concrete type must be registered with [RegisterGenericComponentType].");
+
+            return index;
         }
 
         public static bool Equals<T>(ref T left, ref T right) where T : struct
@@ -839,6 +931,19 @@ namespace Unity.Entities
 
             var referencedAssemblies = assembly.GetReferencedAssemblies();
             foreach(var referenced in referencedAssemblies)
+                if (referenced.Name.Contains(entitiesAssemblyName))
+                    return true;
+            return false;
+        }
+
+        public static bool IsAssemblyReferencingUnityEngine(Assembly assembly)
+        {
+            const string entitiesAssemblyName = "UnityEngine";
+            if (assembly.GetName().Name.Contains(entitiesAssemblyName))
+                return true;
+
+            var referencedAssemblies = assembly.GetReferencedAssemblies();
+            foreach (var referenced in referencedAssemblies)
                 if (referenced.Name.Contains(entitiesAssemblyName))
                     return true;
             return false;
@@ -1071,33 +1176,6 @@ namespace Unity.Entities
             }
         }
 
-        private static int CreateTypeIndexThreadSafe(Type type)
-        {
-            var lockTaken = false;
-            try
-            {
-                s_CreateTypeLock.Enter(ref lockTaken);
-
-                // After taking the lock, make sure the type hasn't been created
-                // after doing the non-atomic FindTypeIndex
-                var index = FindTypeIndex(type);
-                if (index != -1)
-                    return index;
-
-                var componentType = BuildComponentType(type);
-
-                AddTypeInfoToTables(componentType);
-                return componentType.TypeIndex;
-            }
-            finally
-            {
-                if (lockTaken)
-                {
-                    s_CreateTypeLock.Exit(true);
-                }
-            }
-        }
-
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public static void CheckIsAllowedAsComponentData(Type type, string baseTypeDesc)
         {
@@ -1136,6 +1214,29 @@ namespace Unity.Entities
             }
         }
 
+        private static bool IsTypeValidForSerialization(Type type)
+        {
+            if (type.GetCustomAttribute<ChunkSerializableAttribute>() != null)
+                return true;
+
+            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
+            {
+                if (field.IsStatic)
+                    continue;
+
+                if (field.FieldType.IsPointer || (field.FieldType == typeof(UIntPtr) || field.FieldType == typeof(IntPtr)))
+                {
+                    return false;
+                }
+                else if (field.FieldType.IsValueType && !field.FieldType.IsPrimitive && !field.FieldType.IsEnum)
+                {
+                    return IsTypeValidForSerialization(field.FieldType);
+                }
+            }
+
+            return true;
+        }
+
         internal static TypeInfo BuildComponentType(Type type)
         {
             return BuildComponentType(type, null, 0);
@@ -1151,6 +1252,7 @@ namespace Unity.Entities
             int bufferCapacity = -1;
             var memoryOrdering = TypeHash.CalculateMemoryOrdering(type);
             var stableTypeHash = TypeHash.CalculateStableTypeHash(type);
+            bool isSerializable = IsTypeValidForSerialization(type);
             var maxChunkCapacity = MaximumChunkCapacity;
 
             var maxCapacityAttribute = type.GetCustomAttribute<MaximumChunkCapacityAttribute>();
@@ -1238,7 +1340,7 @@ namespace Unity.Entities
 #endif
             int typeIndex = s_Count;
             return new TypeInfo(type, typeIndex, componentSize, category, typeInfo, entityOffsets, blobAssetRefOffsets, memoryOrdering,
-                bufferCapacity, elementSize > 0 ? elementSize : componentSize, alignmentInBytes, stableTypeHash, writeGroups, writeGroupCount, maxChunkCapacity);
+                bufferCapacity, elementSize > 0 ? elementSize : componentSize, alignmentInBytes, stableTypeHash, writeGroups, writeGroupCount, maxChunkCapacity, isSerializable);
         }
 
         public static int CreateTypeIndexForComponent<T>() where T : struct, IComponentData
@@ -1268,8 +1370,8 @@ namespace Unity.Entities
             public int byteOffsetInComponent;
 
             // Syntactic stuff so we can support:
-            //     Add(GetField("TransformLocalScale.scale.y") or
-            //     Add("TransformLocalScale.scale.y")
+            //     Add(GetField("NonUniformScale.scale.y") or
+            //     Add("NonUniformScale.scale.y")
             public static implicit operator FieldInfo(string s)
             {
                 return new FieldInfo();

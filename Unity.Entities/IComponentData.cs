@@ -33,6 +33,15 @@ namespace Unity.Entities
         
     }
 
+    /// <summary>
+    /// Attribute signifying the given type is acceptable for serializing into Chunk storage. 
+    /// Data in Chunk storage is treated as blittable with no special pre or post processing.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
+    public class ChunkSerializableAttribute : Attribute
+    {
+    }
+
     public interface ISharedComponentData
     {
     }

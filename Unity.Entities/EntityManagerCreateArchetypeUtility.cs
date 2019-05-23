@@ -8,7 +8,6 @@ namespace Unity.Entities
     /// Which require more than one of of these, in this order, as last parameters:
     ///     EntityComponentStore* entityComponentStore
     ///     SharedComponentDataManager sharedComponentDataManager
-    ///     EntityGroupManager entityGroupManager
     /// </summary>
     internal static unsafe class EntityManagerCreateArchetypeUtility
     {
@@ -17,16 +16,13 @@ namespace Unity.Entities
         // ----------------------------------------------------------------------------------------------------------
 
         public static Archetype* GetOrCreateArchetype(ComponentTypeInArchetype* inTypesSorted, int count,
-            EntityComponentStore* entityComponentStore,
-            EntityGroupManager entityGroupManager)
+            EntityComponentStore* entityComponentStore)
         {
             var srcArchetype = entityComponentStore->GetExistingArchetype(inTypesSorted, count);
             if (srcArchetype != null)
                 return srcArchetype;
 
             srcArchetype = entityComponentStore->CreateArchetype(inTypesSorted, count);
-            entityGroupManager.AddArchetypeIfMatching(srcArchetype);
-            
             var types = stackalloc ComponentTypeInArchetype[count + 1];
 
             // Setup Instantiable archetype
@@ -57,7 +53,7 @@ namespace Unity.Entities
                 }
                 else if (removedTypes > 0)
                 {
-                    var instantiableArchetype = GetOrCreateArchetype(types, count - removedTypes, entityComponentStore, entityGroupManager);
+                    var instantiableArchetype = GetOrCreateArchetype(types, count - removedTypes, entityComponentStore);
 
                     srcArchetype->InstantiableArchetype = instantiableArchetype;
                     Assert.IsTrue(instantiableArchetype->InstantiableArchetype == instantiableArchetype);
@@ -100,7 +96,7 @@ namespace Unity.Entities
                     types[newTypeCount++] = cleanupEntityType;
                 }
 
-                var systemStateResidueArchetype = GetOrCreateArchetype(types, newTypeCount, entityComponentStore, entityGroupManager);
+                var systemStateResidueArchetype = GetOrCreateArchetype(types, newTypeCount, entityComponentStore);
                 srcArchetype->SystemStateResidueArchetype = systemStateResidueArchetype;
 
                 Assert.IsTrue(systemStateResidueArchetype->SystemStateResidueArchetype == systemStateResidueArchetype);
@@ -129,14 +125,14 @@ namespace Unity.Entities
                 if (metaArchetypeTypeCount > 1)
                 {
                     SortingUtilities.InsertSorted(types, metaArchetypeTypeCount++, new ComponentType(typeof(ChunkHeader)));
-                    srcArchetype->MetaChunkArchetype = GetOrCreateArchetype(types, metaArchetypeTypeCount, entityComponentStore, entityGroupManager);
+                    srcArchetype->MetaChunkArchetype = GetOrCreateArchetype(types, metaArchetypeTypeCount, entityComponentStore);
                 }
             }
             
             return srcArchetype;
         }
 
-        public static Archetype* GetArchetypeWithAddedComponentType(Archetype* archetype, ComponentType addedComponentType, EntityComponentStore* entityComponentStore, EntityGroupManager entityGroupManager, int* indexInTypeArray = null)
+        public static Archetype* GetArchetypeWithAddedComponentType(Archetype* archetype, ComponentType addedComponentType, EntityComponentStore* entityComponentStore, int* indexInTypeArray = null)
         {
             var componentType = new ComponentTypeInArchetype(addedComponentType);
             ComponentTypeInArchetype* newTypes = stackalloc ComponentTypeInArchetype[archetype->TypesCount + 1];
@@ -165,10 +161,10 @@ namespace Unity.Entities
                 ++t;
             }
 
-            return GetOrCreateArchetype(newTypes,archetype->TypesCount + 1, entityComponentStore, entityGroupManager);
+            return GetOrCreateArchetype(newTypes,archetype->TypesCount + 1, entityComponentStore);
         }
 
-        public static Archetype* GetArchetypeWithRemovedComponentType(Archetype* archetype, ComponentType addedComponentType, EntityComponentStore* entityComponentStore, EntityGroupManager entityGroupManager, int* indexInOldTypeArray = null)
+        public static Archetype* GetArchetypeWithRemovedComponentType(Archetype* archetype, ComponentType addedComponentType, EntityComponentStore* entityComponentStore, int* indexInOldTypeArray = null)
         {
             var componentType = new ComponentTypeInArchetype(addedComponentType);
             ComponentTypeInArchetype* newTypes = stackalloc ComponentTypeInArchetype[archetype->TypesCount];
@@ -184,7 +180,7 @@ namespace Unity.Entities
                 else
                     newTypes[t - removedTypes] = archetype->Types[t];
 
-            return GetOrCreateArchetype(newTypes,archetype->TypesCount - removedTypes, entityComponentStore, entityGroupManager);
+            return GetOrCreateArchetype(newTypes,archetype->TypesCount - removedTypes, entityComponentStore);
         }
         
         

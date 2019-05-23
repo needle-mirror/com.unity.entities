@@ -7,7 +7,6 @@ namespace Unity.Entities.Tests
     class ChangeVersionTests : ECSTestsFixture
     {
 #if !UNITY_DOTSPLAYER
-        [DisableAutoCreation]
         class BumpVersionSystemInJob : ComponentSystem
         {
             public EntityQuery m_Group;
@@ -35,7 +34,6 @@ namespace Unity.Entities.Tests
         }
 #endif
 
-        [DisableAutoCreation]
         class BumpVersionSystem : ComponentSystem
         {
             public EntityQuery m_Group;
@@ -66,7 +64,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [DisableAutoCreation]
         class BumpChunkTypeVersionSystem : ComponentSystem
         {
             struct UpdateChunks : IJobParallelFor

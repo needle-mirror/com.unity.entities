@@ -178,7 +178,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [DisableAutoCreation]
         class EntityOnlyDependencySystem : JobComponentSystem
         {
             public JobHandle JobHandle;
@@ -195,7 +194,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [DisableAutoCreation]
         class NoComponentDependenciesSystem : JobComponentSystem
         {
             public JobHandle JobHandle;
@@ -210,7 +208,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [DisableAutoCreation]
         class DestroyAllEntitiesSystem : JobComponentSystem
         {
             protected override JobHandle OnUpdate(JobHandle inputDeps)
@@ -262,7 +259,6 @@ namespace Unity.Entities.Tests
             handle.Complete();
         }
 
-        [DisableAutoCreation]
         class SharedComponentSystem : JobComponentSystem
         {
             EntityQuery group;

@@ -216,10 +216,13 @@ namespace Unity.Entities
         {
             if (!m_EntityOnlyArchetype.Valid)
             {
+                var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
                 ComponentTypeInArchetype entityType = new ComponentTypeInArchetype(ComponentType.ReadWrite<Entity>());
                 var archetype = EntityManagerCreateArchetypeUtility.GetOrCreateArchetype(&entityType,
-                    1, EntityComponentStore, EntityGroupManager);
+                    1, EntityComponentStore);
                 m_EntityOnlyArchetype = new EntityArchetype {Archetype = archetype};
+                var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+                EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
             }
 
             return m_EntityOnlyArchetype;

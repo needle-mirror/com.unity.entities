@@ -7,7 +7,6 @@ namespace Unity.Entities
     /// Which require more than one of of these, in this order, as last parameters:
     ///     EntityComponentStore* entityComponentStore
     ///     SharedComponentDataManager sharedComponentDataManager
-    ///     EntityGroupManager entityGroupManager
     /// </summary>
     internal static unsafe class EntityManagerDebugUtility
     {

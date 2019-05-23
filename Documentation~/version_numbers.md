@@ -42,7 +42,7 @@ Takes the value of `EntityDataManager.GlobalVersion` after every single (job) co
 
 > The purpose of this version number is to be used in conjunction with `Chunk.ChangeVersion[]`.
 
-## Chunk.ChangeVersion[] (ArchetypeChunk.GetComponentVersion)
+## Chunk.ChangeVersion
 
 For each component type in the archetype, this array contains the value of `EntityDataManager.GlobalVersion` at the time the component array was last accessed as writeable within this chunk. This in no way guarantees that anything has effectively changed, only that it could have potentially changed.
 

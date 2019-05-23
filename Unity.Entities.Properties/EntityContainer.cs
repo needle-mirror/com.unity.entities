@@ -92,7 +92,7 @@ namespace Unity.Entities
 
                 public void Invoke<TBuffer>()
                 {
-                    Callback.VisitProperty<DynamicBufferProperty<TBuffer>, DynamicBufferContainer<TBuffer>>(new DynamicBufferProperty<TBuffer>(Index, TypeIndex), ref Container);
+                    Callback.VisitProperty<DynamicBufferProperty<TBuffer>, DynamicBufferContainer<TBuffer>>(new DynamicBufferProperty<TBuffer>(Index, TypeIndex, Container.IsReadOnly), ref Container);
                 }
             }
 
@@ -169,22 +169,26 @@ namespace Unity.Entities
             {
                 private readonly int m_Index;
                 private readonly int m_TypeIndex;
+                private readonly bool m_IsReadOnly;
 
                 public string GetName() => typeof(TValue).Name;
-                public bool IsReadOnly => true;
+                public bool IsReadOnly => m_IsReadOnly;
                 public bool IsContainer => true;
                 public IPropertyAttributeCollection Attributes => null;
                 public int Index => m_Index;
 
-                public DynamicBufferProperty(int index, int typeIndex)
+                public DynamicBufferProperty(int index, int typeIndex, bool isReadOnly)
                 {
                     m_Index = index;
                     m_TypeIndex = typeIndex;
+                    m_IsReadOnly = isReadOnly;
                 }
 
                 public unsafe DynamicBufferContainer<TValue> GetValue(ref EntityContainer container)
                 {
-                    var ptr = container.EntityManager.GetBufferRawRW(container.Entity, m_TypeIndex);
+                    var ptr = m_IsReadOnly 
+                        ? container.EntityManager.GetBufferRawRO(container.Entity, m_TypeIndex)
+                        : container.EntityManager.GetBufferRawRW(container.Entity, m_TypeIndex);
                     var len = container.EntityManager.GetBufferLength(container.Entity, m_TypeIndex);
                     return new DynamicBufferContainer<TValue>(ptr, len, Unsafe.SizeOf<TValue>());
                 }

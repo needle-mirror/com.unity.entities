@@ -64,7 +64,7 @@ namespace Unity.Entities
             var componentCount = EntityManager.FillSortedArchetypeArray(typesInArchetype, types, count);
 
             EntityArchetype type;
-            type.Archetype = EntityManagerCreateArchetypeUtility.GetOrCreateArchetype(typesInArchetype, componentCount, EntityComponentStore, EntityGroupManager);
+            type.Archetype = EntityManagerCreateArchetypeUtility.GetOrCreateArchetype(typesInArchetype, componentCount, EntityComponentStore);
 
             return type;
         }
@@ -82,14 +82,14 @@ namespace Unity.Entities
             CheckAccess();
 
             Entity entity;
-            EntityManagerCreateDestroyEntitiesUtility.CreateEntities(archetype.Archetype,  &entity, 1, EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+            EntityManagerCreateDestroyEntitiesUtility.CreateEntities(archetype.Archetype,  &entity, 1, EntityComponentStore, ManagedComponentStore);
             return entity;
         }
 
         public void CreateEntity(EntityArchetype archetype, NativeArray<Entity> entities)
         {
             CheckAccess();
-            EntityManagerCreateDestroyEntitiesUtility.CreateEntities(archetype.Archetype, (Entity*) entities.GetUnsafePtr(), entities.Length, EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+            EntityManagerCreateDestroyEntitiesUtility.CreateEntities(archetype.Archetype, (Entity*) entities.GetUnsafePtr(), entities.Length, EntityComponentStore, ManagedComponentStore);
         }
 
         public Entity CreateEntity(params ComponentType[] types)
@@ -113,7 +113,7 @@ namespace Unity.Entities
         {
             CheckAccess();
             EntityManagerCreateDestroyEntitiesUtility.InstantiateEntities(srcEntity, outputEntities, count, 
-                EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                EntityComponentStore, ManagedComponentStore);
         }
 
         public void DestroyEntity(NativeArray<Entity> entities)
@@ -135,15 +135,19 @@ namespace Unity.Entities
         {
             CheckAccess();
             m_EntityComponentStore->AssertCanDestroy(entities, count);
-            EntityManagerCreateDestroyEntitiesUtility.DestroyEntities(entities, count, EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+            EntityManagerCreateDestroyEntitiesUtility.DestroyEntities(entities, count, EntityComponentStore, ManagedComponentStore);
         }
 
         public void AddComponent(Entity entity, ComponentType componentType)
         {
             CheckAccess();
-
             m_EntityComponentStore->AssertCanAddComponent(entity, componentType);
-            EntityManagerChangeArchetypeUtility.AddComponent(entity, componentType, EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+            var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
+
+            EntityManagerChangeArchetypeUtility.AddComponent(entity, componentType, EntityComponentStore, ManagedComponentStore); 
+           
+            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+            EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
         }
 
         public DynamicBuffer<T> AddBuffer<T>(Entity entity) where T : struct, IBufferElementData
@@ -155,9 +159,13 @@ namespace Unity.Entities
         public void RemoveComponent(Entity entity, ComponentType type)
         {
             CheckAccess();
-            
+            var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
+
             EntityManagerChangeArchetypeUtility.RemoveComponent(entity, type, 
-                EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                EntityComponentStore, ManagedComponentStore);
+
+            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+            EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
         }
 
         public bool Exists(Entity entity)
@@ -235,11 +243,28 @@ namespace Unity.Entities
             var newSharedComponentDataIndex = ManagedComponentStore.InsertSharedComponent(componentData);
 
             EntityManagerChangeArchetypeUtility.SetSharedComponentDataIndex(entity, typeIndex, newSharedComponentDataIndex,
-                EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                EntityComponentStore, ManagedComponentStore);
             
             ManagedComponentStore.RemoveReference(newSharedComponentDataIndex);
         }
 
+        internal void AddSharedComponent<T>(NativeArray<ArchetypeChunk> chunks, T componentData) where T : struct, ISharedComponentData
+        {
+            CheckAccess();
+
+            var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
+
+            var componentType = ComponentType.ReadWrite<T>();
+            var newSharedComponentDataIndex = ManagedComponentStore.InsertSharedComponent(componentData);
+            EntityComponentStore->AssertCanAddComponent(chunks, componentType);
+            
+            EntityManagerChangeArchetypeUtility.AddSharedComponent(chunks, componentType, newSharedComponentDataIndex, EntityComponentStore, ManagedComponentStore);
+            ManagedComponentStore.RemoveReference(newSharedComponentDataIndex);
+
+            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+            EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
+        }
+        
         public DynamicBuffer<T> GetBuffer<T>(Entity entity) where T : struct, IBufferElementData
         {
             CheckAccess();

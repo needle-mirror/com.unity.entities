@@ -95,7 +95,8 @@ namespace Unity.Entities
         
         int m_NextFreeEntityIndex;
         uint m_GlobalSystemVersion;
-        int m_EntitiesCapacity;
+        int m_EntitiesCapacity; 
+        uint m_ArchetypeTrackingVersion;
 
         const int kMaximumEmptyChunksInPool = 16; // can't alloc forever
         const int kDefaultCapacity = 1024;
@@ -114,6 +115,7 @@ namespace Unity.Entities
             ReallocCapacity(m_EntitiesCapacity * 2);
         }
 
+		// Capacity can never be decreased since entity lookups would start failing as a result
         internal void ReallocCapacity(int value)
         {
             if (value <= m_EntitiesCapacity)
@@ -388,8 +390,7 @@ namespace Unity.Entities
                 throw new ArgumentException(
                     $"All entities created using EntityCommandBuffer.CreateEntity must be realized via playback(). One of the entities is still deferred (Index: {entity.Index}).");
             if ((uint) entity.Index >= (uint) EntitiesCapacity)
-                throw new ArgumentException(
-                    "All entities passed to EntityManager must exist. One of the entities has already been destroyed or was never created.");
+                throw new ArgumentException("An Entity index is larger than the capacity of the EntityManager. This means the entity was created by a different world or the entity.Index got corrupted or incorrectly assigned and it may not be used on this EntityManager.");
         }
         
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
@@ -590,6 +591,61 @@ namespace Unity.Entities
             }
         }
 
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void AssertWillDestroyAllInLinkedEntityGroup(NativeArray<ArchetypeChunk> chunkArray, ArchetypeChunkBufferType<LinkedEntityGroup> linkedGroupType)
+        {
+            var chunks = (ArchetypeChunk*) chunkArray.GetUnsafeReadOnlyPtr();
+            var chunksCount = chunkArray.Length;
+
+            var tempChunkStateFlag = (uint) ChunkFlags.TempAssertWillDestroyAllInLinkedEntityGroup;
+            for (int i = 0; i != chunksCount; i++)
+            {
+                var chunk = chunks[i].m_Chunk;
+                Assert.IsTrue((chunk->Flags & tempChunkStateFlag) == 0);
+                chunk->Flags |= tempChunkStateFlag;
+            }
+
+            string error = null;
+
+            for (int i = 0; i < chunkArray.Length; ++i)
+            {
+                if (!chunks[i].Has(linkedGroupType))
+                    continue;
+
+                var chunk = chunks[i];
+                var buffers = chunk.GetBufferAccessor(linkedGroupType);
+
+                for (int b = 0; b != buffers.Length; b++)
+                {
+                    var buffer = buffers[b];
+                    int entityCount = buffer.Length;
+                    var entities = (Entity*) buffer.GetUnsafePtr();
+                    for (int e = 0; e != entityCount; e++)
+                    {
+                        var referencedEntity = entities[e];
+                        if (Exists(referencedEntity))
+                        {
+                            var referencedChunk = GetChunk(referencedEntity);
+
+                            if ((referencedChunk->Flags & tempChunkStateFlag) == 0)
+                                error = $"DestroyEntity(EntityQuery query) is destroying entity {entities[0]} which contains a LinkedEntityGroup and the entity {entities[e]} in that group is not included in the query. If you want to destroy entities using a query all linked entities must be contained in the query..";
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i != chunksCount; i++)
+            {
+                var chunk = chunks[i].m_Chunk;
+                Assert.IsTrue((chunk->Flags & tempChunkStateFlag) != 0);
+                chunk->Flags &= ~tempChunkStateFlag;
+            }
+
+            if (error != null)
+                throw new ArgumentException(error);
+        }
+        
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void AssertCanAddChunkComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType componentType)
         {
@@ -927,6 +983,7 @@ namespace Unity.Entities
                 m_EntityInChunkByEntity[entity->Index].Chunk = chunk;
                 m_EntityInChunkByEntity[entity->Index].IndexInChunk = iEntity;
                 m_ArchetypeByEntity[entity->Index] = chunk->Archetype;
+                m_VersionByEntity[entity->Index] = entity->Version;
             }
         }
 
@@ -1085,9 +1142,14 @@ namespace Unity.Entities
 
         public NativeList<EntityBatchInChunk> CreateEntityBatchList(NativeArray<Entity> entities)
         {
+            if (entities.Length == 0)
+            {
+                return new NativeList<EntityBatchInChunk>(Allocator.Persistent);
+            }
+
             var entityChunkData = new NativeArray<EntityInChunk>(entities.Length, Allocator.TempJob,
                 NativeArrayOptions.UninitializedMemory);
-            var gatherEntityChunkDataForEntitiesJobHandle =
+                var gatherEntityChunkDataForEntitiesJobHandle =
                 GatherEntityInChunkForEntitiesJob(entities, entityChunkData);
 
             var entityChunkDataShared = new NativeArraySharedValues<EntityInChunk>(entityChunkData, Allocator.TempJob);
@@ -1484,6 +1546,33 @@ namespace Unity.Entities
             }
 
             return entityCount;
+        }
+
+        public struct ArchetypeChanges
+        {
+            public int StartIndex;
+            public uint ArchetypeTrackingVersion;
+        }
+
+        public ArchetypeChanges BeginArchetypeChangeTracking()
+        {
+            m_ArchetypeTrackingVersion++;
+            return new ArchetypeChanges
+            {
+                StartIndex = m_Archetypes.Count,
+                ArchetypeTrackingVersion = m_ArchetypeTrackingVersion
+            };
+        }
+        
+        public ArchetypeList EndArchetypeChangeTracking(ArchetypeChanges changes)
+        {
+            Assert.AreEqual(m_ArchetypeTrackingVersion, changes.ArchetypeTrackingVersion);
+            return new ArchetypeList
+            {
+                p = m_Archetypes.p + changes.StartIndex,
+                Count = m_Archetypes.Count - changes.StartIndex,
+                Capacity = m_Archetypes.Count - changes.StartIndex,
+            };
         }
     }
 }

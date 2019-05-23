@@ -77,11 +77,11 @@ namespace Unity.Entities
         /// <param name="componentType">The type of component to add.</param>
         public void AddComponent(NativeArray<Entity> entities, ComponentType componentType)
         {
-            BeforeStructuralChange();
-            using (var entityBatchList = m_EntityComponentStore->CreateEntityBatchList(entities))
-            {
-                EntityManagerChangeArchetypeUtility.AddComponent(entityBatchList, componentType, 0, EntityComponentStore, ManagedComponentStore, EntityGroupManager);
-            }
+            if (entities.Length == 0)
+                return;
+
+            for (int i = 0; i != entities.Length; i++)
+                AddComponent(entities[i], componentType);
         }
         
         /// <summary>
@@ -106,8 +106,13 @@ namespace Unity.Entities
         public void AddComponents(Entity entity, ComponentTypes types)
         {
             BeforeStructuralChange();
+            var archetypeChanges =  EntityComponentStore->BeginArchetypeChangeTracking();
+
             EntityComponentStore->AssertCanAddComponents(entity, types);
-            EntityManagerChangeArchetypeUtility.AddComponents(entity, types, EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+            EntityManagerChangeArchetypeUtility.AddComponents(entity, types, EntityComponentStore, ManagedComponentStore);
+
+            var changedArchetypes =  EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+            EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
         }
         
         /// <summary>
@@ -127,7 +132,12 @@ namespace Unity.Entities
         public void RemoveComponent(Entity entity, ComponentType type)
         {
             BeforeStructuralChange();
-            EntityManagerChangeArchetypeUtility.RemoveComponent(entity, type, EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+            var archetypeChanges =  EntityComponentStore->BeginArchetypeChangeTracking();
+
+            EntityManagerChangeArchetypeUtility.RemoveComponent(entity, type, EntityComponentStore, ManagedComponentStore);
+
+            var changedArchetypes =  EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+            EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
         }
         
         /// <summary>
@@ -330,7 +340,9 @@ namespace Unity.Entities
             {
                 if (chunks.Length == 0)
                     return;
-                BeforeStructuralChange();
+                BeforeStructuralChange();    
+                var archetypeChanges =  EntityComponentStore->BeginArchetypeChangeTracking();
+
                 EntityComponentStore->AssertCanAddChunkComponent(chunks, ComponentType.ChunkComponent<T>());
                 
                 var type = ComponentType.ReadWrite<T>();
@@ -338,10 +350,13 @@ namespace Unity.Entities
 
                 using (var entityBatchList = m_EntityComponentStore->CreateEntityBatchList(chunks))
                 {
-                    EntityManagerChangeArchetypeUtility.AddComponent(entityBatchList, chunkType, 0, 
-                        EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                    EntityManagerChangeArchetypeUtility.AddComponentFromMainThread(entityBatchList, chunkType, 0, 
+                        EntityComponentStore, ManagedComponentStore);
                     m_EntityComponentStore->SetChunkComponent<T>(entityBatchList, componentData);
                 }
+                
+                var changedArchetypes =  EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+                EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
             }
         }
 
@@ -366,8 +381,13 @@ namespace Unity.Entities
                 if (chunks.Length == 0)
                     return;
                 BeforeStructuralChange();
+                var archetypeChanges =  EntityComponentStore->BeginArchetypeChangeTracking();
+
                 EntityManagerChangeArchetypeUtility.RemoveComponent(chunks, ComponentType.ChunkComponent<T>(), 
-                    EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                    EntityComponentStore, ManagedComponentStore);
+                
+                var changedArchetypes =  EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+                EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
             }
         }
 
@@ -482,11 +502,15 @@ namespace Unity.Entities
                 if (chunks.Length == 0)
                     return;
                 BeforeStructuralChange();
+                var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
+
                 var newSharedComponentDataIndex = m_ManagedComponentStore.InsertSharedComponent(componentData);
                 EntityComponentStore->AssertCanAddComponent(chunks, componentType);
-                EntityManagerChangeArchetypeUtility.AddSharedComponent(chunks, componentType, newSharedComponentDataIndex,
-                    EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                EntityManagerChangeArchetypeUtility.AddSharedComponent(chunks, componentType, newSharedComponentDataIndex, EntityComponentStore, ManagedComponentStore);
                 m_ManagedComponentStore.RemoveReference(newSharedComponentDataIndex);
+
+                var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+                EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
             }
         }    
 
@@ -539,8 +563,13 @@ namespace Unity.Entities
                 return;
 
             BeforeStructuralChange();
+            var archetypeChanges =  EntityComponentStore->BeginArchetypeChangeTracking();
+
             EntityComponentStore->AssertCanAddComponent(entity, componentType);
-            EntityManagerChangeArchetypeUtility.AddComponent(entity, componentType, EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+            EntityManagerChangeArchetypeUtility.AddComponent(entity, componentType, EntityComponentStore, ManagedComponentStore);
+
+            var changedArchetypes =  EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+            EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
         }
         
         internal void AddComponent(MatchingArchetypeList archetypeList, EntityQueryFilter filter,
@@ -554,15 +583,19 @@ namespace Unity.Entities
                     return;
                 
                 BeforeStructuralChange();
+                var archetypeChanges =  EntityComponentStore->BeginArchetypeChangeTracking();
+
                 EntityComponentStore->AssertCanAddComponent(chunks, componentType);
 
                 using (var entityBatchList = m_EntityComponentStore->CreateEntityBatchList(chunks))
                 {
-                    EntityManagerChangeArchetypeUtility.AddComponent(entityBatchList, componentType, 0, 
+                    EntityManagerChangeArchetypeUtility.AddComponentFromMainThread(entityBatchList, componentType, 0,
                         EntityComponentStore,
-                        ManagedComponentStore,
-                        EntityGroupManager);
+                        ManagedComponentStore);
                 }
+                
+                var changedArchetypes =  EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+                EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
             }
         }
         
@@ -572,6 +605,38 @@ namespace Unity.Entities
             AddComponent(entity, ComponentType.FromTypeIndex(typeIndex));
             SetSharedComponentDataBoxed(entity, typeIndex, hashCode, componentData);
         }
+        
+        internal void AddSharedComponentDataBoxed(MatchingArchetypeList archetypeList, EntityQueryFilter filter, int typeIndex, int hashCode, object componentData)
+        {
+            //TODO: optimize this (no need to move the entity to a new chunk twice)
+
+            var newSharedComponentDataIndex = 0;
+            if (componentData != null) // null means default
+                newSharedComponentDataIndex = ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex,
+                    hashCode, componentData);
+            
+            AddSharedComponentData(archetypeList, filter, newSharedComponentDataIndex, ComponentType.FromTypeIndex(typeIndex));
+        }
+        
+        internal void AddSharedComponentData(MatchingArchetypeList archetypeList, EntityQueryFilter filter, int sharedComponentIndex, ComponentType componentType)
+        {
+            var jobHandle = new JobHandle();
+            using (var chunks = ComponentChunkIterator.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, out jobHandle, ref filter))
+            {
+                jobHandle.Complete();
+                if (chunks.Length == 0)
+                    return;
+                BeforeStructuralChange();
+                var archetypeChanges =  EntityComponentStore->BeginArchetypeChangeTracking();
+
+                EntityComponentStore->AssertCanAddComponent(chunks, componentType);
+                EntityManagerChangeArchetypeUtility.AddSharedComponent(chunks, componentType, sharedComponentIndex, EntityComponentStore, ManagedComponentStore);
+                ManagedComponentStore.RemoveReference(sharedComponentIndex);
+
+                var changedArchetypes =  EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+                EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
+            }
+        } 
         
         internal void AddComponentRaw(Entity entity, int typeIndex)
         {
@@ -592,12 +657,17 @@ namespace Unity.Entities
                 jobHandle.Complete();
                 if (chunks.Length == 0)
                     return;
+                
                 BeforeStructuralChange();
+                var archetypeChanges =  EntityComponentStore->BeginArchetypeChangeTracking();
+
                 EntityComponentStore->AssertCanRemoveComponent(chunks, componentType);
                 EntityManagerChangeArchetypeUtility.RemoveComponent(chunks, componentType,
                     EntityComponentStore,
-                    ManagedComponentStore,
-                    EntityGroupManager);
+                    ManagedComponentStore);
+                
+                var changedArchetypes =  EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+                EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
             }
         }
     }

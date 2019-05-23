@@ -44,13 +44,16 @@ namespace Unity.Entities
 
             BeforeStructuralChange();
             srcEntities.BeforeStructuralChange();
+            var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
 
             EntityManagerMoveEntitiesUtility.MoveChunks(entityRemapping,
                 srcEntities.EntityComponentStore, srcEntities.ManagedComponentStore,
-                srcEntities.EntityGroupManager,
-                EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                EntityComponentStore, ManagedComponentStore);
 
             EntityRemapUtility.GetTargets(out output, entityRemapping);
+            
+            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+            EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
 
             //@TODO: Need to increment the component versions based the moved chunks...
         }
@@ -204,11 +207,14 @@ namespace Unity.Entities
 
             BeforeStructuralChange();
             srcEntities.BeforeStructuralChange();
-            
+            var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
+
             EntityManagerMoveEntitiesUtility.MoveChunks(entityRemapping,
                 srcEntities.EntityComponentStore, srcEntities.ManagedComponentStore,
-                srcEntities.EntityGroupManager,
-                EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                EntityComponentStore, ManagedComponentStore);
+
+            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+            EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
 
             //@TODO: Need to increment the component versions based the moved chunks...
         }
@@ -259,11 +265,15 @@ namespace Unity.Entities
 
             BeforeStructuralChange();
             srcEntities.BeforeStructuralChange();
+            var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
 
             EntityManagerMoveEntitiesUtility.MoveChunks(chunks, entityRemapping,
-                srcEntities.EntityComponentStore, srcEntities.ManagedComponentStore, srcEntities.EntityGroupManager,
-                EntityComponentStore, ManagedComponentStore, EntityGroupManager);
-            
+                srcEntities.EntityComponentStore, srcEntities.ManagedComponentStore,
+                EntityComponentStore, ManagedComponentStore);
+
+            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+            EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
+
             EntityRemapUtility.GetTargets(out output, entityRemapping);
         }
 
@@ -286,10 +296,14 @@ namespace Unity.Entities
 
             BeforeStructuralChange();
             srcEntities.BeforeStructuralChange();
-            
+            var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
+          
             EntityManagerMoveEntitiesUtility.MoveChunks(chunks, entityRemapping,
-                srcEntities.EntityComponentStore, srcEntities.ManagedComponentStore, srcEntities.EntityGroupManager,
-                EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                srcEntities.EntityComponentStore, srcEntities.ManagedComponentStore,
+                EntityComponentStore, ManagedComponentStore);
+            
+            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+            EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
         }
     }
 }

@@ -51,6 +51,15 @@ namespace Unity.Entities
         {
             if (sys != null)
             {
+                if (this == sys)
+                {
+#if !NET_DOTS
+                    throw new ArgumentException($"Can't add {GetType()} to its own update list");
+#else
+                    throw new ArgumentException($"Can't add a ComponentSystemGroup to its own update list");
+#endif
+                }
+
                 // Check for duplicate Systems. Also see issue #1792
                 if (m_systemsToUpdate.IndexOf(sys) >= 0)
                     return;
@@ -58,6 +67,13 @@ namespace Unity.Entities
                 m_systemsToUpdate.Add(sys);
                 m_systemSortDirty = true;
             }
+        }
+
+        public void RemoveSystemFromUpdateList(ComponentSystemBase sys)
+        {
+            m_systemsToUpdate.Remove(sys);
+            m_systemSortDirty = true;
+            m_systemSortDirty = true;
         }
 
         class Heap<T>
@@ -244,15 +260,46 @@ namespace Unity.Entities
                 foreach (var attr in before)
                 {
                     var dep = attr as UpdateBeforeAttribute;
+                    if (!typeof(ComponentSystemBase).IsAssignableFrom(dep.SystemType))
+                    {
+#if !NET_DOTS
+                        Debug.LogWarning(
+                            $"Ignoring invalid [UpdateBefore] attribute on {sys.GetType()} because {dep.SystemType} is not a subclass of {nameof(ComponentSystemBase)}.\n"
+                            + $"Set the target parameter of [UpdateBefore] to a system class in the same {nameof(ComponentSystemGroup)} as {sys.GetType()}.");
+#else
+                        Debug.LogWarning($"WARNING: invalid [UpdateBefore] attribute:");
+                        Debug.LogWarning(TypeManager.SystemName(dep.SystemType));
+                        Debug.LogWarning(" is not derived from ComponentSystemBase. Set the target parameter of [UpdateBefore] to a system class in the same ComponentSystemGroup.");
+#endif
+                        continue;
+                    }
+                    if (dep.SystemType == sys.GetType())
+                    {
+#if !NET_DOTS
+                        Debug.LogWarning(
+                            $"Ignoring invalid [UpdateBefore] attribute on {sys.GetType()} because a system cannot be updated before itself.\n"
+                            + $"Set the target parameter of [UpdateBefore] to a different system class in the same {nameof(ComponentSystemGroup)} as {sys.GetType()}.");
+#else
+                        Debug.LogWarning($"WARNING: invalid [UpdateBefore] attribute:");
+                        Debug.LogWarning(TypeManager.SystemName(sys.GetType()));
+                        Debug.LogWarning("  depends on itself. Set the target parameter of [UpdateBefore] to a system class in the same ComponentSystemGroup.");
+#endif
+                        continue;
+                    }
                     int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
                     if (depIndex < 0)
                     {
 #if !NET_DOTS
-                        Debug.LogWarning("Ignoring invalid [UpdateBefore] dependency for " + sys.GetType() + ": " + dep.SystemType + " must be a member of the same ComponentSystemGroup.");
+                        Debug.LogWarning(
+                            $"Ignoring invalid [UpdateBefore] attribute on {sys.GetType()} because {dep.SystemType} belongs to a different {nameof(ComponentSystemGroup)}.\n"
+                            + $"This attribute can only order systems that are children of the same {nameof(ComponentSystemGroup)}.\n"
+                            + $"Make sure that both systems are in the same parent group with [UpdateInGroup(typeof({GetType()})].\n"
+                            + $"You can also change the relative order of groups when appropriate, by using [UpdateBefore] and [UpdateAfter] attributes at the group level.");
 #else
                         Debug.LogWarning("WARNING: invalid [UpdateBefore] dependency:");
                         Debug.LogWarning(TypeManager.SystemName(sys.GetType()));
-                        Debug.LogWarning("  depends on a non-sibling or non-ComponentSystem.");
+                        Debug.LogWarning("  depends on a non-sibling system: ");
+                        Debug.LogWarning(TypeManager.SystemName(dep.SystemType));
 #endif
                         continue;
                     }
@@ -263,15 +310,46 @@ namespace Unity.Entities
                 foreach (var attr in after)
                 {
                     var dep = attr as UpdateAfterAttribute;
+                    if (!typeof(ComponentSystemBase).IsAssignableFrom(dep.SystemType))
+                    {
+#if !NET_DOTS
+                        Debug.LogWarning(
+                            $"Ignoring invalid [UpdateAfter] attribute on {sys.GetType()} because {dep.SystemType} is not a subclass of {nameof(ComponentSystemBase)}.\n"
+                            + $"Set the target parameter of [UpdateAfter] to a system class in the same {nameof(ComponentSystemGroup)} as {sys.GetType()}.");
+#else
+                        Debug.LogWarning($"WARNING: invalid [UpdateAfter] attribute:");
+                        Debug.LogWarning(TypeManager.SystemName(dep.SystemType));
+                        Debug.LogWarning(" is not derived from ComponentSystemBase. Set the target parameter of [UpdateAfter] to a system class in the same ComponentSystemGroup.");
+#endif
+                        continue;
+                    }
+                    if (dep.SystemType == sys.GetType())
+                    {
+#if !NET_DOTS
+                        Debug.LogWarning(
+                            $"Ignoring invalid [UpdateAfter] attribute on {sys.GetType()} because a system cannot be updated after itself.\n"
+                            + $"Set the target parameter of [UpdateAfter] to a different system class in the same {nameof(ComponentSystemGroup)} as {sys.GetType()}.");
+#else
+                        Debug.LogWarning($"WARNING: invalid [UpdateAfter] attribute:");
+                        Debug.LogWarning(TypeManager.SystemName(sys.GetType()));
+                        Debug.LogWarning("  depends on itself. Set the target parameter of [UpdateAfter] to a system class in the same ComponentSystemGroup.");
+#endif
+                        continue;
+                    }
                     int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
                     if (depIndex < 0)
                     {
 #if !NET_DOTS
-                        Debug.LogWarning("Ignoring invalid [UpdateAfter] dependency for " + sys.GetType() + ": " + dep.SystemType + " must be a member of the same ComponentSystemGroup.");
+                        Debug.LogWarning(
+                            $"Ignoring invalid [UpdateAfter] attribute on {sys.GetType()} because {dep.SystemType} belongs to a different {nameof(ComponentSystemGroup)}.\n"
+                            + $"This attribute can only order systems that are children of the same {nameof(ComponentSystemGroup)}.\n"
+                            + $"Make sure that both systems are in the same parent group with [UpdateInGroup(typeof({GetType()})].\n"
+                            + $"You can also change the relative order of groups when appropriate, by using [UpdateBefore] and [UpdateAfter] attributes at the group level.");
 #else
                         Debug.LogWarning("WARNING: invalid [UpdateAfter] dependency:");
                         Debug.LogWarning(TypeManager.SystemName(sys.GetType()));
-                        Debug.LogWarning("  depends on a non-sibling or non-ComponentSystem.");
+                        Debug.LogWarning("  depends on a non-sibling system: ");
+                        Debug.LogWarning(TypeManager.SystemName(dep.SystemType));
 #endif
                         continue;
                     }

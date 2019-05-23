@@ -72,6 +72,14 @@ namespace Unity.Entities.Tests
             }
             array.Dispose();
         }
+        
+        [Test]
+        public void AddComponentEmptyNativeArray()
+        {
+            var array = new NativeArray<Entity>(0, Allocator.Temp);
+            m_Manager.AddComponent(array, typeof(EcsTestData));
+            array.Dispose();
+        }
 
         [Test]
         public void FoundComponentInterface()

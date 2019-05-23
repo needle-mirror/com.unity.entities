@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
 using System;
@@ -313,7 +313,6 @@ namespace Unity.Entities.Tests
             chunks.Dispose();
         }
 
-        [DisableAutoCreation]
         class BumpChunkBufferTypeVersionSystem : ComponentSystem
         {
             struct UpdateChunks : IJobParallelFor

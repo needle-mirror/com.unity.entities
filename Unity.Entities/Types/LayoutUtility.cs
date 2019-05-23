@@ -7,7 +7,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-#if !UNITY_CSHARP_TINY
+#if !NET_DOTS
     public struct SOAFieldInfo
     {
         public ushort Size;

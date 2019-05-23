@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using NUnit.Framework;
 using Unity.Entities.Tests;
 using UnityEditor;
@@ -14,10 +14,8 @@ namespace Unity.Entities.Editor.Tests
         private EntityQuery entityQuery;
         private Entity m_Entity;
 
-        [DisableAutoCreation]
         class SingleGroupSystem : ComponentSystem
         {
-
             protected override void OnUpdate()
             {
                 throw new NotImplementedException();

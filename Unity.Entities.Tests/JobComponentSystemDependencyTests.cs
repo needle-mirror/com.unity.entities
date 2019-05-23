@@ -1,4 +1,4 @@
-﻿#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSPLAYER
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
@@ -8,7 +8,6 @@ namespace Unity.Entities.Tests
 {
     class JobComponentSystemDependencyTests : ECSTestsFixture
     {
-        [DisableAutoCreation]
         public class ReadSystem1 : JobComponentSystem
         {
             public EntityQuery m_ReadGroup;
@@ -32,7 +31,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [DisableAutoCreation]
         public class ReadSystem2 : JobComponentSystem
         {
             public EntityQuery m_ReadGroup;
@@ -71,7 +69,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [DisableAutoCreation]
         public class ReadSystem3 : JobComponentSystem
         {
             public EntityQuery m_ReadGroup;
@@ -87,7 +84,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [DisableAutoCreation]
         public class WriteSystem : JobComponentSystem
         {
             public EntityQuery m_WriteGroup;
@@ -184,7 +180,6 @@ namespace Unity.Entities.Tests
             rs.Update();
         }
 
-        [DisableAutoCreation]
         class UseEcsTestDataFromEntity: JobComponentSystem
         {
             public struct MutateEcsTestDataJob : IJob
@@ -216,7 +211,6 @@ namespace Unity.Entities.Tests
             systemA.Update();
             systemB.Update();
         }
-        [DisableAutoCreation]
         class EmptyJobComponentSystem: JobComponentSystem
         {
             protected override JobHandle OnUpdate(JobHandle dep)
@@ -225,7 +219,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [DisableAutoCreation]
         class JobComponentSystemWithJobChunkJob : JobComponentSystem
         {
             public struct EmptyJob : IJobChunk

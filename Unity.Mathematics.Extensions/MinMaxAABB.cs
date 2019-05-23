@@ -3,10 +3,17 @@ using static Unity.Mathematics.math;
 
 namespace Unity.Mathematics
 {
+    
+    [System.Serializable]
     public struct MinMaxAABB : IEquatable<MinMaxAABB>
     {
         public float3 Min;
         public float3 Max;
+
+        public bool IsEmpty
+        {
+            get { return this.Equals(Empty); }
+        }
 
         public static MinMaxAABB Empty
         {

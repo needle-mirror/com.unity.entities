@@ -5,7 +5,6 @@ using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
-    [DisableAutoCreation]
 
 #if NET_DOTS
     public class EmptySystem : ComponentSystem
@@ -54,7 +53,7 @@ namespace Unity.Entities.Tests
         }
     }
 #endif
-    public class ECSTestsFixture
+    public abstract class ECSTestsFixture
     {
         protected World m_PreviousWorld;
         protected World World;

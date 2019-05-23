@@ -1,5 +1,6 @@
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 using UnityEngine.Profiling;
 
 namespace Unity.Entities
@@ -28,7 +29,7 @@ namespace Unity.Entities
         {
             Entity entity;
             BeforeStructuralChange();
-            EntityManagerCreateDestroyEntitiesUtility.CreateEntities(archetype.Archetype, &entity, 1, EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+            EntityManagerCreateDestroyEntitiesUtility.CreateEntities(archetype.Archetype, &entity, 1, EntityComponentStore, ManagedComponentStore);
             return entity;
         }
 
@@ -57,7 +58,7 @@ namespace Unity.Entities
             Entity entity;
             EntityManagerCreateDestroyEntitiesUtility.CreateEntities(
                 GetEntityOnlyArchetype().Archetype, &entity, 1,
-                EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                EntityComponentStore, ManagedComponentStore);
             return entity;
         }
         
@@ -67,30 +68,10 @@ namespace Unity.Entities
         /// <remarks>Since entities in the same chunk share the same component structure, this function effectively destroys
         /// the chunks holding any entities identified by the `entityQueryFilter` parameter.</remarks>
         /// <param name="entityQueryFilter">Defines the components an entity must have to qualify for destruction.</param>
-        public void DestroyEntity(EntityQuery entityQueryFilter)
+        public void DestroyEntity(EntityQuery entityQuery)
         {
-            //@TODO: When destroying entities with entityQueryFilter we assume that any LinkedEntityGroup also get destroyed
-            //       We should have some sort of validation that everything is included, and either give an error message or have a fast enough path to handle it...
-
-            //@TODO: Locked checks...
-
-            Profiler.BeginSample("DestroyEntity(EntityQuery entityQueryFilter)");
-
-            Profiler.BeginSample("GetAllMatchingChunks");
-            using (var chunks = entityQueryFilter.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                Profiler.EndSample();
-
-                Profiler.BeginSample("EditorOnlyChecks");
-                EntityComponentStore->AssertCanDestroy(chunks);
-                Profiler.EndSample();
-
-                Profiler.BeginSample("DeleteChunks");
-                EntityManagerCreateDestroyEntitiesUtility.DestroyEntities(chunks, EntityComponentStore, ManagedComponentStore, EntityGroupManager);
-                Profiler.EndSample();
-            }
-
-            Profiler.EndSample();
+            var iterator = entityQuery.GetComponentChunkIterator();
+            DestroyEntity(iterator.m_MatchingArchetypeList, iterator.m_Filter);
         }
 
         /// <summary>
@@ -199,7 +180,7 @@ namespace Unity.Entities
             BeforeStructuralChange();
             EntityManagerCreateDestroyEntitiesUtility.CreateEntities(archetype.Archetype,
                 (Entity*) entities.GetUnsafePtr(), entities.Length,
-                EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                EntityComponentStore, ManagedComponentStore);
         }
 
         /// <summary>
@@ -222,7 +203,7 @@ namespace Unity.Entities
             
             EntityManagerCreateDestroyEntitiesUtility.CreateChunks(archetype.Archetype,
                 (ArchetypeChunk*) chunks.GetUnsafePtr(), entityCount,
-                EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                EntityComponentStore, ManagedComponentStore);
         }
         
 
@@ -234,7 +215,7 @@ namespace Unity.Entities
         {
             BeforeStructuralChange();
             EntityComponentStore->AssertCanDestroy(entities, count);
-            EntityManagerCreateDestroyEntitiesUtility.DestroyEntities(entities, count, EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+            EntityManagerCreateDestroyEntitiesUtility.DestroyEntities(entities, count, EntityComponentStore, ManagedComponentStore);
         }
         
         internal void InstantiateInternal(Entity srcEntity, Entity* outputEntities, int count)
@@ -242,8 +223,36 @@ namespace Unity.Entities
             BeforeStructuralChange();
             EntityComponentStore->AssertEntitiesExist(&srcEntity, 1);
             EntityManagerCreateDestroyEntitiesUtility.InstantiateEntities(srcEntity, outputEntities, count,
-                EntityComponentStore, ManagedComponentStore, EntityGroupManager);
+                EntityComponentStore, ManagedComponentStore);
         }
  
+        internal void DestroyEntity(MatchingArchetypeList archetypeList, EntityQueryFilter filter)
+        {
+            Profiler.BeginSample("DestroyEntity(EntityQuery entityQueryFilter)");
+
+            Profiler.BeginSample("GetAllMatchingChunks");
+            var jobHandle = new JobHandle();
+            using (var chunks = ComponentChunkIterator.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, out jobHandle, ref filter))
+            {
+                jobHandle.Complete();
+                Profiler.EndSample();
+                
+                if (chunks.Length != 0)
+                {
+                    BeforeStructuralChange();
+
+                    Profiler.BeginSample("EditorOnlyChecks");
+                    EntityComponentStore->AssertCanDestroy(chunks);
+                    EntityComponentStore->AssertWillDestroyAllInLinkedEntityGroup(chunks, GetArchetypeChunkBufferType<LinkedEntityGroup>(false));
+                    Profiler.EndSample();
+
+                    Profiler.BeginSample("DeleteChunks");
+                    EntityManagerCreateDestroyEntitiesUtility.DestroyEntities(chunks, EntityComponentStore, ManagedComponentStore);
+                    Profiler.EndSample();
+                }
+            }
+
+            Profiler.EndSample();
+        }
     }
 }

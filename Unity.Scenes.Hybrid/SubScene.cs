@@ -55,6 +55,17 @@ namespace Unity.Scenes
                 return bounds;
             }
         }
+        
+        public SceneData[] SceneData
+        {
+            get
+            {
+                if (m_SubSceneHeader != null && m_SubSceneHeader.Sections != null)
+                    return m_SubSceneHeader.Sections;
+                else
+                    return null;
+            }
+        }
 
         public SceneAsset SceneAsset
         {

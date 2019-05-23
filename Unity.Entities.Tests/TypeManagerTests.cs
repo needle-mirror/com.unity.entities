@@ -1,7 +1,12 @@
 using System;
 using NUnit.Framework;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Entities;
+using Unity.Entities.Tests;
 #pragma warning disable 649
+
+[assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<int>))]
+[assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<short>))]
 
 namespace Unity.Entities
 {
@@ -52,7 +57,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        struct GenericComponent<T> : IComponentData
+        public struct GenericComponent<T> : IComponentData
         {
             T value;
         }
@@ -80,6 +85,8 @@ namespace Unity.Entities.Tests
 
         // We need to decide whether this should actually be allowed; for now, add a test to make sure
         // we don't break things more than they already are.
+        
+
         [Test]
         [StandaloneFixme] // dots runtime doesn't support generic components
         public void TestGenericComponents()
@@ -88,6 +95,16 @@ namespace Unity.Entities.Tests
             var index2 = TypeManager.GetTypeIndex<GenericComponent<short>>();
 
             Assert.AreNotEqual(index1, index2);
+        }
+        
+        [Test]
+        [StandaloneFixme] // dots runtime doesn't support generic components
+        public void TestGenericComponentsThrowsOnUnregisteredGeneric()
+        {
+            Assert.Throws<ArgumentException>(() =>
+            {
+                TypeManager.GetTypeIndex<GenericComponent<long>>();
+            });
         }
 
         [InternalBufferCapacity(99)]
@@ -362,4 +379,6 @@ namespace Unity.Entities.Tests
         }
 #endif
     }
+
+
 }

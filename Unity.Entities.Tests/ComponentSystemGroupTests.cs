@@ -11,13 +11,11 @@ namespace Unity.Entities.Tests
 {
     class ComponentSystemGroupTests : ECSTestsFixture
     {
-        [DisableAutoCreation]
         class TestGroup : ComponentSystemGroup
         {
 
         }
 
-        [DisableAutoCreation]
 #if NET_DOTS
         private class TestSystemBase :ComponentSystem
         {
@@ -38,7 +36,6 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() => { parent.SortSystemUpdateList(); });
         }
 
-        [DisableAutoCreation]
         class TestSystem : TestSystemBase
         {
         }
@@ -53,12 +50,10 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(new[] {child}, parent.Systems);
         }
 
-        [DisableAutoCreation]
         [UpdateAfter(typeof(Sibling2System))]
         class Sibling1System : TestSystemBase
         {
         }
-        [DisableAutoCreation]
         class Sibling2System : TestSystemBase
         {
         }
@@ -82,32 +77,26 @@ namespace Unity.Entities.Tests
         // - systems 1 and 2 are properly sorted in the system update list.
         // - systems 3, 4, and 5 form a cycle (in that order, or equivalent).
         // - system 6 is not sorted AND is not part of the cycle.
-        [DisableAutoCreation]
         [UpdateBefore(typeof(Circle2System))]
         class Circle1System : TestSystemBase
         {
         }
-        [DisableAutoCreation]
         [UpdateBefore(typeof(Circle3System))]
         class Circle2System : TestSystemBase
         {
         }
-        [DisableAutoCreation]
         [UpdateAfter(typeof(Circle5System))]
         class Circle3System : TestSystemBase
         {
         }
-        [DisableAutoCreation]
         [UpdateAfter(typeof(Circle3System))]
         class Circle4System : TestSystemBase
         {
         }
-        [DisableAutoCreation]
         [UpdateAfter(typeof(Circle4System))]
         class Circle5System : TestSystemBase
         {
         }
-        [DisableAutoCreation]
         [UpdateAfter(typeof(Circle5System))]
         class Circle6System : TestSystemBase
         {
@@ -156,19 +145,15 @@ namespace Unity.Entities.Tests
         }
 
 
-        [DisableAutoCreation]
         class Unconstrained1System : TestSystemBase
         {
         }
-        [DisableAutoCreation]
         class Unconstrained2System : TestSystemBase
         {
         }
-        [DisableAutoCreation]
         class Unconstrained3System : TestSystemBase
         {
         }
-        [DisableAutoCreation]
         class Unconstrained4System : TestSystemBase
         {
         }
@@ -188,7 +173,6 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(parent.Systems, new TestSystemBase[] {child1, child2, child3, child4});
         }
 
-        [DisableAutoCreation]
         private class UpdateCountingSystemBase : ComponentSystem
         {
             public int CompleteUpdateCount = 0;
@@ -197,15 +181,12 @@ namespace Unity.Entities.Tests
                 ++CompleteUpdateCount;
             }
         }
-        [DisableAutoCreation]
         class NonThrowing1System : UpdateCountingSystemBase
         {
         }
-        [DisableAutoCreation]
         class NonThrowing2System : UpdateCountingSystemBase
         {
         }
-        [DisableAutoCreation]
         class ThrowingSystem : UpdateCountingSystemBase
         {
             public string ExceptionMessage = "I should always throw!";
@@ -235,6 +216,133 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, child1.CompleteUpdateCount);
             Assert.AreEqual(0, child2.CompleteUpdateCount);
             Assert.AreEqual(1, child3.CompleteUpdateCount);
+        }
+#endif
+
+#if !NET_DOTS // Tiny precompiles systems, and lacks a Regex overload for LogAssert.Expect()
+        [Test]
+        public void RemoveSystemFromGroup_Succeeds()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            var child = World.CreateSystem<TestSystem>();
+            // Updating the parent with the child added should log an exception (child doesn't implement OnUpdate).
+            parent.AddSystemToUpdateList(child);
+            parent.SortSystemUpdateList();
+            parent.Update();
+            LogAssert.Expect(LogType.Exception, new Regex("NotImplementedException"));
+
+            // After removing the child system, updating the parent should not reference it in its update pass.
+            Assert.DoesNotThrow(() => { parent.RemoveSystemFromUpdateList(child);});
+            parent.SortSystemUpdateList();
+            World.DestroySystem(child);
+            Assert.DoesNotThrow(() => { parent.Update(); });
+            LogAssert.NoUnexpectedReceived();
+        }
+#endif
+
+#if !NET_DOTS // Tiny precompiles systems, and lacks a Regex overload for LogAssert.Expect()
+        [UpdateAfter(typeof(NonSibling2System))]
+        class NonSibling1System : TestSystemBase
+        {
+        }
+        [UpdateBefore(typeof(NonSibling1System))]
+        class NonSibling2System : TestSystemBase
+        {
+        }
+        
+        [Test]
+        public void ComponentSystemGroup_UpdateAfterTargetIsNotSibling_LogsWarning()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            var child = World.CreateSystem<NonSibling1System>();
+            parent.AddSystemToUpdateList(child);
+            parent.SortSystemUpdateList();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateAfter\].+NonSibling1System.+belongs to a different ComponentSystemGroup"));
+        }
+
+        [Test]
+        public void ComponentSystemGroup_UpdateBeforeTargetIsNotSibling_LogsWarning()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            var child = World.CreateSystem<NonSibling2System>();
+            parent.AddSystemToUpdateList(child);
+            parent.SortSystemUpdateList();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateBefore\].+NonSibling2System.+belongs to a different ComponentSystemGroup"));
+        }
+        
+        [UpdateAfter(typeof(NotEvenASystem))]
+        class InvalidUpdateAfterSystem : TestSystemBase
+        {
+        }
+        [UpdateBefore(typeof(NotEvenASystem))]
+        class InvalidUpdateBeforeSystem : TestSystemBase
+        {
+        }
+        class NotEvenASystem
+        {
+        }
+
+        [Test]
+        public void ComponentSystemGroup_UpdateAfterTargetIsNotSystem_LogsWarning()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            var child = World.CreateSystem<InvalidUpdateAfterSystem>();
+            parent.AddSystemToUpdateList(child);
+            parent.SortSystemUpdateList();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateAfter\].+InvalidUpdateAfterSystem.+NotEvenASystem is not a subclass of ComponentSystemBase"));
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateBeforeTargetIsNotSystem_LogsWarning()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            var child = World.CreateSystem<InvalidUpdateBeforeSystem>();
+            parent.AddSystemToUpdateList(child);
+            parent.SortSystemUpdateList();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateBefore\].+InvalidUpdateBeforeSystem.+NotEvenASystem is not a subclass of ComponentSystemBase"));
+        }
+        
+        [UpdateAfter(typeof(UpdateAfterSelfSystem))]
+        class UpdateAfterSelfSystem : TestSystemBase
+        {
+        }
+        [UpdateBefore(typeof(UpdateBeforeSelfSystem))]
+        class UpdateBeforeSelfSystem : TestSystemBase
+        {
+        }
+
+        [Test]
+        public void ComponentSystemGroup_UpdateAfterTargetIsSelf_LogsWarning()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            var child = World.CreateSystem<UpdateAfterSelfSystem>();
+            parent.AddSystemToUpdateList(child);
+            parent.SortSystemUpdateList();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateAfter\].+UpdateAfterSelfSystem.+cannot be updated after itself"));
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateBeforeTargetIsSelf_LogsWarning()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            var child = World.CreateSystem<UpdateBeforeSelfSystem>();
+            parent.AddSystemToUpdateList(child);
+            parent.SortSystemUpdateList();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateBefore\].+UpdateBeforeSelfSystem.+cannot be updated before itself"));
+        }
+
+        [Test]
+        public void ComponentSystemGroup_AddNullToUpdateList_QuietNoOp()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            Assert.DoesNotThrow(() => { parent.AddSystemToUpdateList(null); });
+            Assert.IsEmpty(parent.Systems);
+        }
+
+        [Test]
+        public void ComponentSystemGroup_AddSelfToUpdateList_Throws()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            Assert.That(() => { parent.AddSystemToUpdateList(parent); },
+                Throws.ArgumentException.With.Message.Contains("to its own update list"));
         }
 #endif
     }

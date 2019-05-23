@@ -1,4 +1,4 @@
-﻿#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSPLAYER
 using System;
 using NUnit.Framework;
 using Unity.Collections;
@@ -19,7 +19,6 @@ namespace Unity.Entities.Tests
         // processed isn't known until running the job... Need some kind of late binding of parallel for length etc...
         // How do we prevent incorrect usage / default...
 
-        [DisableAutoCreation]
         public class DeltaCheckSystem : ComponentSystem
         {
             public Entity[] Expected;
@@ -198,7 +197,6 @@ namespace Unity.Entities.Tests
                 deltaCheckSystem.UpdateExpectedResults(nothing);
         }
 
-        [DisableAutoCreation]
         public class DeltaProcessComponentSystem : JobComponentSystem
         {
             struct DeltaJob : IJobForEach<EcsTestData, EcsTestData2>
@@ -245,7 +243,6 @@ namespace Unity.Entities.Tests
         }
 
 
-        [DisableAutoCreation]
         public class DeltaProcessComponentSystemUsingRun : ComponentSystem
         {
             struct DeltaJob : IJobForEach<EcsTestData, EcsTestData2>
@@ -308,7 +305,6 @@ namespace Unity.Entities.Tests
         }
 #endif
 
-        [DisableAutoCreation]
         public class ModifyComponentSystem1Comp : JobComponentSystem
         {
             public EntityQuery m_Group;
@@ -335,7 +331,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [DisableAutoCreation]
         public class DeltaModifyComponentSystem1Comp : JobComponentSystem
         {
             struct DeltaJobFirstRunAfterCreation : IJobForEach<EcsTestData>
@@ -401,7 +396,6 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
-        [DisableAutoCreation]
         public class ModifyComponentSystem2Comp : JobComponentSystem
         {
             public EntityQuery m_Group;
@@ -429,7 +423,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [DisableAutoCreation]
         public class DeltaModifyComponentSystem2Comp : JobComponentSystem
         {
             struct DeltaJobFirstRunAfterCreation : IJobForEach<EcsTestData, EcsTestData2>
@@ -527,7 +520,6 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
-        [DisableAutoCreation]
         public class ModifyComponentSystem3Comp : JobComponentSystem
         {
             public EntityQuery m_Group;
@@ -557,7 +549,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [DisableAutoCreation]
         public class DeltaModifyComponentSystem3Comp : JobComponentSystem
         {
             struct DeltaJobChanged0 : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>
@@ -652,7 +643,6 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
-        [DisableAutoCreation]
         class ChangeFilter1TestSystem : JobComponentSystem
         {
             struct ChangedFilterJob : IJobForEach<EcsTestData, EcsTestData2>
@@ -698,7 +688,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(100, m_Manager.GetComponentData<EcsTestData>(e).value);
         }
 
-        [DisableAutoCreation]
         class ChangeFilter2TestSystem : JobComponentSystem
         {
             struct ChangedFilterJob : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>

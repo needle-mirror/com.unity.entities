@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using NUnit.Framework;
 using Unity.Collections;
@@ -49,35 +50,42 @@ namespace Unity.Entities.PerformanceTests
             const int kCreateLoopCount = 512;
             const int kPlaybackLoopCount = 1000;
 
-
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var ecbs = new List<EntityCommandBuffer>(kPlaybackLoopCount);
             Measure.Method(
                 () =>
                 {
-                    for (int repeat = kPlaybackLoopCount; repeat != 0; --repeat)
+                    for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
                     {
-                        cmds.Dispose();
-                        cmds = new EntityCommandBuffer(Allocator.TempJob);
+                        var cmds = new EntityCommandBuffer(Allocator.TempJob);
                         FillWithEcsTestData(cmds, kCreateLoopCount);
+                        ecbs.Add(cmds);
                     }
                 })
                 .Definition("CreateEntities")
+                .WarmupCount(0)
+                .MeasurementCount(1)
                 .Run();
 
             Measure.Method(
-                    () =>
+                () =>
+                {
+                    for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
                     {
-                        for(int repeat = kPlaybackLoopCount; repeat != 0; --repeat)
-                            cmds.Playback(m_Manager);
-                    })
+                        ecbs[repeat].Playback(m_Manager);
+                    }
+                })
                 .Definition("Playback")
+                .WarmupCount(0)
+                .MeasurementCount(1)
                 .CleanUp(() =>
                 {
                 })
                 .Run();
 
-            cmds.Dispose();
-
+            foreach (var ecb in ecbs)
+            {
+                ecb.Dispose();
+            }
         }
 
         struct EcsTestDataWithEntity : IComponentData
@@ -105,33 +113,40 @@ namespace Unity.Entities.PerformanceTests
             const int kCreateLoopCount = 512;
             const int kPlaybackLoopCount = 1000;
 
-
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var ecbs = new List<EntityCommandBuffer>(kPlaybackLoopCount);
             Measure.Method(
                     () =>
                     {
-                        for (int repeat = kPlaybackLoopCount; repeat != 0; --repeat)
+                        for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
                         {
-                            cmds.Dispose();
-                            cmds = new EntityCommandBuffer(Allocator.TempJob);
+                            var cmds = new EntityCommandBuffer(Allocator.TempJob);
                             FillWithEcsTestDataWithEntity(cmds, kCreateLoopCount);
+                            ecbs.Add(cmds);
                         }
                     })
                 .Definition("CreateEntities")
+                .WarmupCount(0)
+                .MeasurementCount(1)
                 .Run();
-
             Measure.Method(
-                () =>
-                {
-                    for (int repeat = kPlaybackLoopCount; repeat != 0; --repeat)
-                        cmds.Playback(m_Manager);
-                })
+                    () =>
+                    {
+                        for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
+                        {
+                            ecbs[repeat].Playback(m_Manager);
+                        }
+                    })
                 .Definition("Playback")
+                .WarmupCount(0)
+                .MeasurementCount(1)
                 .Run();
-            cmds.Dispose();
+            foreach (var ecb in ecbs)
+            {
+                ecb.Dispose();
+            }
         }
 
-        #if UNITY_2019_2_OR_NEWER
+#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
         #else
         [PerformanceTest]
@@ -146,30 +161,37 @@ namespace Unity.Entities.PerformanceTests
             const int kPlaybackLoopCount = 1000;
 
 
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var ecbs = new List<EntityCommandBuffer>(kPlaybackLoopCount);
             Measure.Method(
                     () =>
                     {
-                        for (int repeat = kPlaybackLoopCount; repeat != 0; --repeat)
+                        for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
                         {
-                            cmds.Dispose();
-                            cmds = new EntityCommandBuffer(Allocator.TempJob);
+                            var cmds = new EntityCommandBuffer(Allocator.TempJob);
                             Entity e0 = cmds.CreateEntity();
                             cmds.AddComponent(e0, new EcsTestDataWithEntity {value = -1, entity = e0 });
                             FillWithEcsTestData(cmds, kCreateLoopCount);
+                            ecbs.Add(cmds);
                         }
                     })
                 .Definition("CreateEntities")
+                .WarmupCount(0)
+                .MeasurementCount(1)
                 .Run();
             Measure.Method(
                     () =>
                     {
-                        for (int repeat = kPlaybackLoopCount; repeat != 0; --repeat)
-                            cmds.Playback(m_Manager);
+                        for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
+                            ecbs[repeat].Playback(m_Manager);
                     })
                 .Definition("Playback")
+                .WarmupCount(0)
+                .MeasurementCount(1)
                 .Run();
-            cmds.Dispose();
+            foreach (var ecb in ecbs)
+            {
+                ecb.Dispose();
+            }
         }
     }
 }

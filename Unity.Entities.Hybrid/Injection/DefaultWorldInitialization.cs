@@ -156,7 +156,6 @@ namespace Unity.Entities
 
         public static List<Type> GetAllSystems(WorldSystemFilterFlags filterFlags)
         {
-            IEnumerable<Type> allTypes;
             var systemTypes = new List<Type>();
             ICustomBootstrap bootstrap = null;
 
@@ -165,14 +164,14 @@ namespace Unity.Entities
                 if (!TypeManager.IsAssemblyReferencingEntities(assembly))
                     continue;
 
+                IReadOnlyList<Type> allTypes;
                 try
                 {
                     allTypes = assembly.GetTypes();
-
                 }
                 catch (ReflectionTypeLoadException e)
                 {
-                    allTypes = e.Types.Where(t => t != null);
+                    allTypes = e.Types.Where(t => t != null).ToList();
                     Debug.LogWarning(
                         $"DefaultWorldInitialization failed loading assembly: {(assembly.IsDynamic ? assembly.ToString() : assembly.Location)}");
                 }
@@ -193,13 +192,50 @@ namespace Unity.Entities
                     }
                 }
 
+                // the entire assembly can be marked for no-auto-creation (test assemblies are good candidates for this)
+                var disableAllAutoCreation = assembly.GetCustomAttribute<DisableAutoCreationAttribute>() != null;
+
                 bool FilterSystemType(Type type)
                 {
-                    if (!type.IsSubclassOf(typeof(ComponentSystemBase)) || type.IsAbstract || type.ContainsGenericParameters)
-                        return false;
+                    // IMPORTANT: keep this logic in sync with SystemTypeGen.cs for DOTS Runtime
 
-                    if (type.GetCustomAttribute<DisableAutoCreationAttribute>(true) != null)
+                    var disableTypeAutoCreation = type.GetCustomAttribute<DisableAutoCreationAttribute>(false) != null;
+
+                    // only derivatives of ComponentSystemBase are systems
+                    if (!type.IsSubclassOf(typeof(ComponentSystemBase)))
+                    {
+                        if (disableTypeAutoCreation)
+                            Debug.LogWarning($"Invalid [DisableAutoCreation] on {type.FullName} (only makes sense for {nameof(ComponentSystemBase)}-derived types)");
+
                         return false;
+                    }
+
+                    // these types obviously cannot be instantiated
+                    if (type.IsAbstract || type.ContainsGenericParameters)
+                    {
+                        if (disableTypeAutoCreation)
+                            Debug.LogWarning($"Invalid [DisableAutoCreation] on {type.FullName} (only concrete types can be instantiated)");
+
+                        return false;
+                    }
+
+                    // the auto-creation system instantiates using the default ctor, so if we can't find one, exclude from list
+                    if (type.GetConstructors().All(c => c.GetParameters().Length != 0))
+                    {
+                        // we want users to be explicit
+                        if (!disableTypeAutoCreation && !disableAllAutoCreation)
+                            Debug.LogWarning($"Missing default ctor on {type.FullName} (or if you don't want this to be auto-creatable, tag it with [DisableAutoCreation])");
+
+                        return false;
+                    }
+
+                    if (disableTypeAutoCreation || disableAllAutoCreation)
+                    {
+                        if (disableTypeAutoCreation && disableAllAutoCreation)
+                            Debug.LogWarning($"Redundant [DisableAutoCreation] on {type.FullName} (attribute is already present on assembly {assembly.GetName().Name}");
+
+                        return false;
+                    }
 
                     var systemFlags = WorldSystemFilterFlags.Default;
                     var attrib = type.GetCustomAttribute<WorldSystemFilterAttribute>(true);

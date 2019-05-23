@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
@@ -48,7 +48,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(count, World.AllWorlds.Count());
         }
 
-        [DisableAutoCreation]
         class TestManager : ComponentSystem
         {
             protected override void OnUpdate() {}
@@ -87,7 +86,6 @@ namespace Unity.Entities.Tests
             Assert.Throws<ArgumentException>(() => world.GetExistingSystem<TestManager>());
         }
 
-        [DisableAutoCreation]
         class AddWorldDuringConstructorThrowsSystem : ComponentSystem
         {
             public AddWorldDuringConstructorThrowsSystem()
@@ -112,8 +110,6 @@ namespace Unity.Entities.Tests
             world.Dispose();
         }
 
-
-        [DisableAutoCreation]
         class SystemThrowingInOnCreateIsRemovedSystem : ComponentSystem
         {
             protected override void OnCreate()
@@ -138,7 +134,6 @@ namespace Unity.Entities.Tests
             world.Dispose();
         }
 
-        [DisableAutoCreation]
         class SystemIsAccessibleDuringOnCreateManagerSystem : ComponentSystem
         {
             protected override void OnCreate()

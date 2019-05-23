@@ -514,12 +514,15 @@ namespace Unity.Entities
             }
         }
 
-        public void AddArchetypeIfMatching(Archetype* type)
+        public void AddAdditionalArchetypes(ArchetypeList archetypeList)
         {
-            for (var g = m_EntityGroupDatas.Count - 1; g >= 0; --g)
+            for (int i = 0; i < archetypeList.Count; i++)
             {
-                var grp = m_EntityGroupDatas.p[g];
-                AddArchetypeIfMatching(type, grp);
+                for (var g = m_EntityGroupDatas.Count - 1; g >= 0; --g)
+                {
+                    var grp = m_EntityGroupDatas.p[g];
+                    AddArchetypeIfMatching(archetypeList.p[i], grp);
+                }
             }
         }
 

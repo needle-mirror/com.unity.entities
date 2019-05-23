@@ -302,6 +302,7 @@ namespace Unity.Entities
         }
     }
 
+    [ChunkSerializable]
     public struct ChunkHeader : ISystemStateComponentData
     {
         public ArchetypeChunk ArchetypeChunk;

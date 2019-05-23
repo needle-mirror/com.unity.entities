@@ -2,7 +2,6 @@ using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
-    [DisableAutoCreation]
     [AlwaysUpdateSystem]
     public class TestEcsChangeSystem : JobComponentSystem
     {

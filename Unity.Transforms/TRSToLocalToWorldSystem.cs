@@ -237,6 +237,7 @@ namespace Unity.Transforms
                     ComponentType.ReadOnly<Scale>(), 
                     ComponentType.ReadOnly<Rotation>(), 
                     ComponentType.ReadOnly<CompositeRotation>(), 
+                    ComponentType.ReadOnly<CompositeScale>(),
                     ComponentType.ReadOnly<Translation>()
                 },
                 Options = EntityQueryOptions.FilterWriteGroup

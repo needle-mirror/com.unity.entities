@@ -74,6 +74,22 @@ namespace Unity.Entities
         public int ComponentSize;
         // Data follows if command has an associated component payload
     }
+    
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct EntityQuerySharedComponentCommand
+    {
+        public EntityQueryCommand Header;
+        public int ComponentTypeIndex;
+        public int HashCode;
+        public EntityComponentGCNode GCNode;
+
+        internal object GetBoxedObject()
+        {
+            if (GCNode.BoxedObject.IsAllocated)
+                return GCNode.BoxedObject.Target;
+            return null;
+        }
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct EntitySharedComponentCommand
@@ -81,15 +97,20 @@ namespace Unity.Entities
         public EntityCommand Header;
         public int ComponentTypeIndex;
         public int HashCode;
-        public GCHandle BoxedObject;
-        public EntitySharedComponentCommand* Prev;
+        public EntityComponentGCNode GCNode;
 
         internal object GetBoxedObject()
         {
-            if (BoxedObject.IsAllocated)
-                return BoxedObject.Target;
+            if (GCNode.BoxedObject.IsAllocated)
+                return GCNode.BoxedObject.Target;
             return null;
         }
+    }
+
+    internal unsafe struct EntityComponentGCNode
+    {
+        public GCHandle BoxedObject;
+        public EntityComponentGCNode* Prev;
     }
 
     [StructLayout(LayoutKind.Sequential, Size = (64 > JobsUtility.CacheLineSize) ? 64 : JobsUtility.CacheLineSize)]
@@ -97,7 +118,7 @@ namespace Unity.Entities
     {
         public ECBChunk* m_Tail;
         public ECBChunk* m_Head;
-        public EntitySharedComponentCommand* m_CleanupList;
+        public EntityComponentGCNode* m_CleanupList;
         public CreateCommand*                m_PrevCreateCommand;
         public EntityCommand*                m_PrevEntityCommand;
         public EntityCommandBufferChain* m_NextChain;
@@ -232,7 +253,9 @@ namespace Unity.Entities
         SetSharedComponentData,
         
         AddComponentEntityQuery,
-        RemoveComponentEntityQuery
+        RemoveComponentEntityQuery,
+        DestroyEntitiesInEntityQuery,
+        AddSharedComponentEntityQuery
     }
 
     /// <summary>
@@ -286,6 +309,8 @@ namespace Unity.Entities
         public Allocator m_Allocator;
 
         public bool m_ShouldPlayback;
+
+        public bool m_DidPlayback;
 
         public Entity m_Entity;
 
@@ -506,15 +531,31 @@ namespace Unity.Entities
 
             if (boxedObject != null)
             {
-                data->BoxedObject = GCHandle.Alloc(boxedObject);
+                data->GCNode.BoxedObject = GCHandle.Alloc(boxedObject);
                 // We need to store all GCHandles on a cleanup list so we can dispose them later, regardless of if playback occurs or not.
-                data->Prev = chain->m_CleanupList;
-                chain->m_CleanupList = data;
+                data->GCNode.Prev = chain->m_CleanupList;
+                chain->m_CleanupList = &(data->GCNode);
             }
             else
             {
-                data->BoxedObject = new GCHandle();
+                data->GCNode.BoxedObject = new GCHandle();
             }
+        }
+        
+        internal void AddEntityCommand(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, EntityQuery entityQuery)
+        {
+            var sizeNeeded = Align(sizeof(EntityQueryComponentCommand), 8);
+            
+            var iterator = entityQuery.GetComponentChunkIterator();
+
+            ResetCommandBatching(chain);
+            var data = (EntityQueryCommand*)Reserve(chain, jobIndex, sizeNeeded);
+
+            data->Header.CommandType = (int)op;
+            data->Header.TotalSize = sizeNeeded;
+            data->Header.SortIndex = chain->m_LastSortIndex;
+            data->GroupData = entityQuery.m_GroupData;
+            data->EntityQueryFilter = iterator.m_Filter;
         }
         
         internal void AddEntityComponentTypeCommand(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, EntityQuery entityQuery, ComponentType t)
@@ -532,6 +573,43 @@ namespace Unity.Entities
             data->Header.GroupData = entityQuery.m_GroupData;
             data->Header.EntityQueryFilter = iterator.m_Filter;
             data->ComponentTypeIndex = t.TypeIndex;
+        }
+        
+        internal void AddEntitySharedComponentCommand<T>(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, EntityQuery entityQuery, int hashCode, object boxedObject)
+            where T : struct
+        {
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var sizeNeeded = Align(sizeof(EntityQuerySharedComponentCommand), 8);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (TypeManager.GetTypeInfo<T>().EntityOffsets != null)
+                throw new System.ArgumentException("EntityCommandBuffer.AddSharedComponentDataEntity does not support shared components with Entity fields.");
+#endif
+
+            var iterator = entityQuery.GetComponentChunkIterator();
+            
+            ResetCommandBatching(chain);
+            var data = (EntityQuerySharedComponentCommand*)Reserve(chain, jobIndex, sizeNeeded);
+
+            data->Header.Header.CommandType = (int)op;
+            data->Header.Header.TotalSize = sizeNeeded;
+            data->Header.Header.SortIndex = chain->m_LastSortIndex;
+            data->Header.GroupData = entityQuery.m_GroupData;
+            data->Header.EntityQueryFilter = iterator.m_Filter;
+            data->ComponentTypeIndex = typeIndex;
+            data->HashCode = hashCode;
+
+            if (boxedObject != null)
+            {
+                data->GCNode.BoxedObject = GCHandle.Alloc(boxedObject);
+                // We need to store all GCHandles on a cleanup list so we can dispose them later, regardless of if playback occurs or not.
+                data->GCNode.Prev = chain->m_CleanupList;
+                chain->m_CleanupList = &(data->GCNode);
+            }
+            else
+            {
+                data->GCNode.BoxedObject = new GCHandle();
+            }
         }
 
         internal byte* Reserve(EntityCommandBufferChain* chain, int jobIndex, int size)
@@ -648,7 +726,7 @@ namespace Unity.Entities
         /// the buffer from playing back when the user code is not in control
         /// of the site of playback.
         ///
-        /// For example, is a buffer has been acquired from a barrier and partially
+        /// For example, is a buffer has been acquired from an EntityCommandBufferSystem and partially
         /// filled in with data, but it is discovered that the work should be aborted,
         /// this property can be set to false to prevent the buffer from playing back.
         public bool ShouldPlayback
@@ -691,6 +769,7 @@ namespace Unity.Entities
             m_Data->m_Allocator = label;
             m_Data->m_MinimumChunkSize = kDefaultMinimumChunkSize;
             m_Data->m_ShouldPlayback = true;
+            m_Data->m_DidPlayback = false;
 
             m_Data->m_MainThreadChain.m_CleanupList = null;
             m_Data->m_MainThreadChain.m_Tail = null;
@@ -897,6 +976,12 @@ namespace Unity.Entities
             m_Data->AddEntityComponentTypeCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex,
                 ECBCommand.RemoveComponentEntityQuery, entityQuery, componentType);
         }
+        
+        public void DestroyEntity(EntityQuery entityQuery)
+        {
+            m_Data->AddEntityCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex,
+                ECBCommand.DestroyEntitiesInEntityQuery, entityQuery);
+        }
 
 
         private static bool IsDefaultObject<T>(ref T component, out int hashCode) where T : struct, ISharedComponentData
@@ -929,6 +1014,16 @@ namespace Unity.Entities
             else
                 m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.AddSharedComponentData, e, hashCode, component);
         }
+        
+        public void AddSharedComponent<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
+        {
+            EnforceSingleThreadOwnership();
+            int hashCode;
+            if (IsDefaultObject(ref component, out hashCode))
+                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.AddSharedComponentEntityQuery, entityQuery, hashCode, null);
+            else
+                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.AddSharedComponentEntityQuery, entityQuery, hashCode, component);
+        }
 
         [Obsolete("This function now requires an Entity parameter.")]
         public void SetSharedComponent<T>(T component) where T : struct, ISharedComponentData
@@ -959,6 +1054,11 @@ namespace Unity.Entities
 
             if (!ShouldPlayback || m_Data == null)
                 return;
+            if (m_Data != null && m_Data->m_DidPlayback)
+            {
+                throw new InvalidOperationException(
+                    "Attempt to call Playback() on an EntityCommandBuffer that has already been played back. EntityCommandBuffers can only be played back once.");
+            }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndBumpSecondaryVersion(m_BufferSafety);
@@ -1079,6 +1179,7 @@ namespace Unity.Entities
                 }
             }
 
+            m_Data->m_DidPlayback = true;
             Profiler.EndSample();
         }
 
@@ -1210,7 +1311,7 @@ namespace Unity.Entities
                                 
                                 EntityManagerCreateDestroyEntitiesUtility.CreateEntities(at.Archetype,
                                     playbackState.CreateEntityBatch + index, cmd->BatchCount, mgr.EntityComponentStore,
-                                     mgr.ManagedComponentStore, mgr.EntityGroupManager);
+                                     mgr.ManagedComponentStore);
                             }
                             break;
 
@@ -1326,6 +1427,21 @@ namespace Unity.Entities
                             var cmd = (EntityQueryComponentCommand*) header;
                             var componentType = (ComponentType)TypeManager.GetType(cmd->ComponentTypeIndex);
                             mgr.RemoveComponent(cmd->Header.GroupData->MatchingArchetypes, cmd->Header.EntityQueryFilter, componentType);
+                        }
+                            break;
+                        
+                        case ECBCommand.DestroyEntitiesInEntityQuery:
+                        {
+                            var cmd = (EntityQueryCommand*) header;
+                            mgr.DestroyEntity(cmd->GroupData->MatchingArchetypes, cmd->EntityQueryFilter);
+                        }
+                            break;
+                        
+                        case ECBCommand.AddSharedComponentEntityQuery:
+                        {
+                            var cmd = (EntityQuerySharedComponentCommand*)header;
+                            mgr.AddSharedComponentDataBoxed(cmd->Header.GroupData->MatchingArchetypes, cmd->Header.EntityQueryFilter, cmd->ComponentTypeIndex, cmd->HashCode,
+                                cmd->GetBoxedObject());
                         }
                             break;
 
