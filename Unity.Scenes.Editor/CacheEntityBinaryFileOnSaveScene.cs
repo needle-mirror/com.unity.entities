@@ -1,7 +1,6 @@
 ﻿using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
-using static Unity.Entities.GameObjectConversionUtility;
 
 namespace Unity.Scenes.Editor
 {
@@ -17,10 +16,10 @@ namespace Unity.Scenes.Editor
         {
             var sceneGUID = new GUID(AssetDatabase.AssetPathToGUID(scenePath));
 
-            if (EditorEntityScenes.HasEntitySceneCache(sceneGUID))
+            if (EditorEntityScenes.HasEntitySceneCache(sceneGUID) || (scene.isSubScene && !sceneGUID.Empty()))
             {
-                EditorEntityScenes.WriteEntityScene(scene, sceneGUID, 0);
+                EditorEntityScenes.WriteEntityScene(scene, sceneGUID);
             }
         }
-    }    
+    }
 }

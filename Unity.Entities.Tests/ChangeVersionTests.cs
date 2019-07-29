@@ -64,7 +64,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        class BumpChunkTypeVersionSystem : ComponentSystem
+        class BumpChunkTypeVersionSystem : JobComponentSystem
         {
             struct UpdateChunks : IJobParallelFor
             {
@@ -91,7 +91,7 @@ namespace Unity.Entities.Tests
                 m_LastAllChanged = false;
             }
 
-            protected override void OnUpdate()
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
             {
                 var chunks = m_Group.CreateArchetypeChunkArray(Allocator.TempJob);
                 var ecsTestDataType = GetArchetypeChunkComponentType<EcsTestData>();
@@ -100,7 +100,7 @@ namespace Unity.Entities.Tests
                     Chunks = chunks,
                     EcsTestDataType = ecsTestDataType
                 };
-                var updateChunksJobHandle = updateChunksJob.Schedule(chunks.Length, 32);
+                var updateChunksJobHandle = updateChunksJob.Schedule(chunks.Length, 32, inputDeps);
                 updateChunksJobHandle.Complete();
 
                 // LastSystemVersion bumped after update. Check for change
@@ -112,6 +112,7 @@ namespace Unity.Entities.Tests
                 }
 
                 chunks.Dispose();
+                return new JobHandle();
             }
 
             public bool AllEcsTestDataChunksChanged()

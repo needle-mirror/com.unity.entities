@@ -1,3 +1,7 @@
+---
+uid: ecs-fluent-query
+---
+
 # Using ComponentSystem
 
 You can use a ComponentSystem to process your data. ComponentSystem methods run on the main thread and thus don’t take advantage of multiple CPU cores. Use ComponentSystems in the following circumstances:
@@ -5,6 +9,7 @@ You can use a ComponentSystem to process your data. ComponentSystem methods run 
 * Debugging or exploratory development — sometimes it is easier to observe what is going on when the code is running on the main thread. You can, for example, log debug text and draw debug graphics.
 * When the system needs to access or interface with other APIs that can only run on the main thread — this can help you gradually convert your game systems to ECS rather than having to rewrite everything from the start.
 * The amount of work the system performs is less than the small overhead of creating and scheduling a Job.
+* When it is desirable to make structural changes (add/remove components, destroy entities, etc.) to entities directly while iterating through them.  Unlike a JobComponentSystem, ComponentSystems can modify entities inside of a ForEach lambda function.
 
 __Important:__ Making structural changes forces the completion of all Jobs. This event is called a *sync point* and can lead to a drop in performance because the system cannot take advantage of all the available CPU cores while it waits for the sync point. In a ComponentSystem, you should use a post-update command buffer. The sync point still occurs, but all the structural changes happen in a batch, so it has a slightly lower impact. For maximum efficiency, use a JobComponentSystem and an entity command buffer. When creating a large number of entities, you can also use a separate World to create the entities and then transfer those entities to the main game world.
 
@@ -28,7 +33,7 @@ The following example, from the HelloCube ForEach sample, animates the rotation 
 
 You can use ForEach lambda functions with up to six types of components.
 
-If you need to make structural changes to existing entities, you can add an Entity component to your lambda function parameters and use it to add the commands to your `ComponentSystem`'s `PostUpdateCommands` buffer. (If you were allowed to make structural changes inside the lambda function, you might change the layout of the data in the arrays you are iterating over, leading to bugs or other undefined behavior.)
+Unlike inside of JobComponentSystems, you can make structural changes to existing entities inside of a ComponentSystem's ForEach.
 
 For example, if you wanted to remove the RotationSpeed component form any entities whose rotation speed is currently zero, you could alter your ForEach function as follows:
 
@@ -40,13 +45,13 @@ Entities.ForEach( (Entity entity, ref RotationSpeed rotationSpeed, ref RotationQ
        quaternion.AxisAngle(math.up(), rotationSpeed.RadiansPerSecond * __deltaTime__));
   
    if(math.abs(rotationSpeed.RadiansPerSecond) <= float.Epsilon) //Speed effectively zero
-       PostUpdateCommands.RemoveComponent(entity, typeof(RotationSpeed));               
+       EntityManager.RemoveComponent(entity, typeof(RotationSpeed));
 });
 ```
 
-The system executes the commands in the post-update buffer after the OnUpdate() function is finished.
+The system can execute these commands safely as the ComponentSystem is running on the main thread.
 
-## Fluent Queries
+## Entity Queries
 
 You can use a [fluent-style](https://en.wikipedia.org/wiki/Fluent_interface) query to constrain a ForEach lambda such that it executes on a specific set of entities satisfying some constraints. These queries can specify whether the work should be done on entities that have any, all or none of a set of components. Constraints can be chained together and should look very familiar to users of C#'s LINQ system.
 

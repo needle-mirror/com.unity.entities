@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -199,16 +200,20 @@ namespace Unity.Entities
                 {
                     return m_Manager.GetSharedComponentData(entity, type.TypeIndex);
                 }
+                else if (typeInfo.Category == TypeManager.TypeCategory.Class)
+                {
+                    return m_Manager.GetComponentObject<object>(entity, type);
+                }
                 else
                 {
                     throw new System.NotImplementedException();
                 }
             }
-            
+
             public object GetComponentBoxed(Entity entity, Type type)
             {
                 m_Manager.EntityComponentStore->AssertEntitiesExist(&entity, 1);
-                
+
                 var archetype = m_Manager.m_EntityComponentStore->GetArchetype(entity);
                 var typeIndex = ChunkDataUtility.GetTypeIndexFromType(archetype, type);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -230,21 +235,22 @@ namespace Unity.Entities
             }
 #endif
 
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
             public void CheckInternalConsistency()
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 //@TODO: Validate from perspective of chunkquery...
-                var entityCountByEntity = m_Manager.EntityComponentStore->CheckInternalConsistency();
-                var entityCountByArchetype = EntityManagerDebugUtility.CheckInternalConsistency(m_Manager.EntityComponentStore);
-                Assert.AreEqual(entityCountByEntity, entityCountByArchetype);
-                Assert.IsTrue(m_Manager.ManagedComponentStore.AllSharedComponentReferencesAreFromChunks(m_Manager.EntityComponentStore));
+                m_Manager.EntityComponentStore->CheckInternalConsistency();
+
+                Assert.IsTrue(
+                    m_Manager.ManagedComponentStore.AllSharedComponentReferencesAreFromChunks(m_Manager
+                        .EntityComponentStore));
                 m_Manager.ManagedComponentStore.CheckInternalConsistency();
 
-                var chunkQuery = m_Manager.CreateEntityQuery(new EntityQueryDesc { All = new ComponentType[] { typeof(ChunkHeader) } });
-                int totalEntitiesFromQuery = m_Manager.UniversalQuery.CalculateLength() + chunkQuery.CalculateLength();
-                Assert.AreEqual(entityCountByEntity, totalEntitiesFromQuery);
+                var chunkQuery = m_Manager.CreateEntityQuery(new EntityQueryDesc
+                    {All = new ComponentType[] {typeof(ChunkHeader)}});
+                int totalEntitiesFromQuery = m_Manager.UniversalQuery.CalculateEntityCount() + chunkQuery.CalculateEntityCount();
+                Assert.AreEqual(m_Manager.EntityComponentStore->CountEntities(), totalEntitiesFromQuery);
                 chunkQuery.Dispose();
-#endif
             }
         }
 

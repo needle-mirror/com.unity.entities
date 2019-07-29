@@ -1,11 +1,11 @@
 namespace Unity.Entities
 {
-    public sealed unsafe partial class EntityManager 
-    { 
+    public sealed unsafe partial class EntityManager
+    {
         // ----------------------------------------------------------------------------------------------------------
         // PUBLIC
         // ----------------------------------------------------------------------------------------------------------
-        
+
         /// <summary>
         /// Creates an archetype from a set of component types.
         /// </summary>
@@ -21,11 +21,11 @@ namespace Unity.Entities
                 return CreateArchetype(typesPtr, types.Length);
             }
         }
-        
+
         // ----------------------------------------------------------------------------------------------------------
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------
-        
+
         internal EntityArchetype CreateArchetype(ComponentType* types, int count)
         {
             ComponentTypeInArchetype* typesInArchetype = stackalloc ComponentTypeInArchetype[count + 1];
@@ -33,24 +33,26 @@ namespace Unity.Entities
 
             // Lookup existing archetype (cheap)
             EntityArchetype entityArchetype;
-            entityArchetype.Archetype = EntityComponentStore->GetExistingArchetype(typesInArchetype, cachedComponentCount);
+            entityArchetype.Archetype =
+                EntityComponentStore->GetExistingArchetype(typesInArchetype, cachedComponentCount);
             if (entityArchetype.Archetype != null)
                 return entityArchetype;
 
             // Creating an archetype invalidates all iterators / jobs etc
             // because it affects the live iteration linked lists...
             BeforeStructuralChange();
+
             var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
 
-            entityArchetype.Archetype = EntityManagerCreateArchetypeUtility.GetOrCreateArchetype(typesInArchetype,
-                cachedComponentCount, EntityComponentStore);
+            entityArchetype.Archetype = EntityComponentStore->GetOrCreateArchetype(typesInArchetype,
+                cachedComponentCount);
 
             var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-            EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
-            
+            EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
+
             return entityArchetype;
         }
-        
+
         internal static int FillSortedArchetypeArray(ComponentTypeInArchetype* dst, ComponentType* requiredComponents,
             int count)
         {
@@ -64,7 +66,7 @@ namespace Unity.Entities
                 SortingUtilities.InsertSorted(dst, i + 1, requiredComponents[i]);
             return count + 1;
         }
-        
+
         internal EntityArchetype CreateArchetypeRaw(int* typeIndices, int count)
         {
             // TODO fix this up

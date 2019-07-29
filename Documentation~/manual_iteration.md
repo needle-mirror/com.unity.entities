@@ -18,7 +18,7 @@ public class RotationSpeedSystem : JobComponentSystem
            var chunk = Chunks[chunkIndex];
            var chunkRotation = chunk.GetNativeArray(RotationType);
            var chunkSpeed = chunk.GetNativeArray(RotationSpeedType);
-           var __instanceCount __= chunk.Count;
+           var instanceCount = chunk.Count;
 
            for (int i = 0; i < instanceCount; i++)
            {
@@ -30,23 +30,23 @@ public class RotationSpeedSystem : JobComponentSystem
        }
    }
    
-   EntityQuery m_group;   
+   EntityQuery m_Query;   
 
    protected override void OnCreate()
    {
-       var query = new EntityQueryDesc
+       var queryDesc = new EntityQueryDesc
        {
            All = new ComponentType[]{ typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>() }
        };
 
-       m_group = GetEntityQuery(query);
+       m_Query = GetEntityQuery(queryDesc);
    }
 
    protected override JobHandle OnUpdate(JobHandle inputDeps)
    {
        var rotationType = GetArchetypeChunkComponentType<RotationQuaternion>();
        var rotationSpeedType = GetArchetypeChunkComponentType<RotationSpeed>(true);
-       var chunks = m_group.CreateArchetypeChunkArray(Allocator.__TempJob__);
+       var chunks = m_Query.CreateArchetypeChunkArray(Allocator.TempJob);
        
        var rotationsSpeedJob = new RotationSpeedJob
        {

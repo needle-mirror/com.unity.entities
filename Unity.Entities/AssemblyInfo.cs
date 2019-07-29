@@ -10,3 +10,5 @@
 [assembly: InternalsVisibleTo("Unity.Authoring")]
 [assembly: InternalsVisibleTo("Unity.Tiny.IO")]
 [assembly: InternalsVisibleTo("Unity.Tiny.Scenes")]
+[assembly: InternalsVisibleTo("TestStaticTypeRegistry")]
+[assembly: InternalsVisibleTo("Unity.Entities.PerformanceTests")]

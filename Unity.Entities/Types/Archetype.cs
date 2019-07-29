@@ -8,7 +8,7 @@ namespace Unity.Entities
     internal unsafe struct Archetype
     {
         public ArchetypeChunkData Chunks;
-        public ChunkList ChunksWithEmptySlots;
+        public UnsafeChunkPtrList ChunksWithEmptySlots;
 
         public ChunkListMap FreeChunksBySharedComponents;
 
@@ -65,11 +65,6 @@ namespace Unity.Entities
             return info;
         }
 
-        public ref UnsafePtrList ChunksWithEmptySlotsUnsafePtrList
-        {
-            get { return ref *(UnsafePtrList*)UnsafeUtility.AddressOf(ref ChunksWithEmptySlots); }
-        }
-
         public void AddToChunkList(Chunk *chunk, SharedComponentValues sharedComponentIndices, uint changeVersion)
         {
             chunk->ListIndex = Chunks.Count;
@@ -97,17 +92,23 @@ namespace Unity.Entities
             var chunkThatMoved = Chunks.p[chunk->ListIndex];
             chunkThatMoved->ListIndex = chunk->ListIndex;
         }
+
         public void AddToChunkListWithEmptySlots(Chunk *chunk)
         {
-            chunk->ListWithEmptySlotsIndex = ChunksWithEmptySlots.Count;
-            ChunksWithEmptySlotsUnsafePtrList.Add(chunk);
+            chunk->ListWithEmptySlotsIndex = ChunksWithEmptySlots.Length;
+            ChunksWithEmptySlots.Add(chunk);
         }
+
         public void RemoveFromChunkListWithEmptySlots(Chunk *chunk)
         {
-            ChunksWithEmptySlotsUnsafePtrList.RemoveAtSwapBack(chunk->ListWithEmptySlotsIndex, chunk);
-            if (chunk->ListWithEmptySlotsIndex < ChunksWithEmptySlots.Count)
+            var index = chunk->ListWithEmptySlotsIndex;
+            Assert.IsTrue(index >= 0 && index < ChunksWithEmptySlots.Length);
+            Assert.IsTrue(ChunksWithEmptySlots.Ptr[index] == chunk);
+            ChunksWithEmptySlots.RemoveAtSwapBack(index);
+
+            if (chunk->ListWithEmptySlotsIndex < ChunksWithEmptySlots.Length)
             {
-                var chunkThatMoved = ChunksWithEmptySlots.p[chunk->ListWithEmptySlotsIndex];
+                var chunkThatMoved = ChunksWithEmptySlots.Ptr[chunk->ListWithEmptySlotsIndex];
                 chunkThatMoved->ListWithEmptySlotsIndex = chunk->ListWithEmptySlotsIndex;
             }
         }
@@ -144,9 +145,9 @@ namespace Unity.Entities
         {
             if (NumSharedComponents == 0)
             {
-                if (ChunksWithEmptySlots.Count != 0)
+                if (ChunksWithEmptySlots.Length != 0)
                 {
-                    var chunk = ChunksWithEmptySlots.p[0];
+                    var chunk = ChunksWithEmptySlots.Ptr[0];
                     Assert.AreNotEqual(chunk->Count, chunk->Capacity);
                     return chunk;
                 }
@@ -162,6 +163,5 @@ namespace Unity.Entities
 
             return null;
         }
-
     }
 }

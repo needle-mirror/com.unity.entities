@@ -13,10 +13,7 @@ namespace Unity.Entities
         {
             ReadWrite,
             ReadOnly,
-            Exclude,
-            [Obsolete("Create has been renamed. Use Exclude instead.", true)]
-            [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
-            Create
+            Exclude
         }
 
         public int TypeIndex;
@@ -32,13 +29,11 @@ namespace Unity.Entities
 
         public bool IgnoreDuplicateAdd => TypeManager.IgnoreDuplicateAdd(TypeIndex);
 
-        [Obsolete("Create<T> has been renamed. Use ReadWrite<T> instead.", false)]
-        [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
-        public static ComponentType Create<T>()
-        {
-            return ReadWrite<T>();
-        }
-        
+        [Obsolete("Create<T> has been renamed. Use ReadWrite<T> instead. (RemovedAfter 2019-08-25) (UnityUpgradable) -> ReadWrite<T>", false)]
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public static ComponentType Create<T>() => ReadWrite<T>();
+
+
         public static ComponentType ReadWrite<T>()
         {
             return FromTypeIndex(TypeManager.GetTypeIndex<T>());
@@ -92,7 +87,7 @@ namespace Unity.Entities
             return ReadOnly(typeIndex);
         }
 
-        
+
         public static ComponentType Exclude(Type type)
         {
             ComponentType t = FromTypeIndex(TypeManager.GetTypeIndex(type));
@@ -110,7 +105,6 @@ namespace Unity.Entities
         public ComponentType(Type type, AccessMode accessModeType = AccessMode.ReadWrite)
         {
             TypeIndex = TypeManager.GetTypeIndex(type);
-            var ct = TypeManager.GetTypeInfo(TypeIndex);
             AccessModeType = accessModeType;
         }
 
@@ -167,7 +161,7 @@ namespace Unity.Entities
 #else
             var name = GetManagedType().Name;
             if (IsBuffer)
-                return $"{name}[B]";
+                return $"{name} [B]";
             if (AccessModeType == AccessMode.Exclude)
                 return $"{name} [S]";
             if (AccessModeType == AccessMode.ReadOnly)
@@ -194,9 +188,9 @@ namespace Unity.Entities
             return (TypeIndex * 5813);
         }
     }
-    
-    
-    [Obsolete("SubtractiveComponent has been renamed. Use ExcludeComponent instead (UnityUpgradable) -> ExcludeComponent<T>", true)]
+
+
+    [Obsolete("SubtractiveComponent has been renamed. Use ExcludeComponent instead. (RemovedAfter 2019-08-25) (UnityUpgradable) -> ExcludeComponent<T>", true)]
     [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
     public struct SubtractiveComponent<T>
     {
@@ -204,14 +198,14 @@ namespace Unity.Entities
 
     public partial struct ComponentType
     {
-        [Obsolete("ComponentType.Subtractive has been renamed. Use Exclude instead (UnityUpgradable) -> Exclude(*)", true)]
+        [Obsolete("ComponentType.Subtractive has been renamed. Use Exclude instead. (RemovedAfter 2019-08-25) (UnityUpgradable) -> Exclude(*)", true)]
         [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
         public static ComponentType Subtractive(Type type)
         {
             return Exclude(type);
         }
 
-        [Obsolete("ComponentType.Subtractive has been renamed. Use ExcludeComponent instead (UnityUpgradable) -> Exclude<T>()", true)]
+        [Obsolete("ComponentType.Subtractive has been renamed. Use ExcludeComponent instead. (RemovedAfter 2019-08-25) (UnityUpgradable) -> Exclude<T>()", true)]
         [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
         public static ComponentType Subtractive<T>()
         {

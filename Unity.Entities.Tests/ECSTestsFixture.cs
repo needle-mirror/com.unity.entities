@@ -1,7 +1,9 @@
+using System;
 using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
+using UnityEngine.Profiling;
 
 namespace Unity.Entities.Tests
 {
@@ -52,7 +54,9 @@ namespace Unity.Entities.Tests
             return base.GetEntityQuery(componentTypes);
         }
     }
+    
 #endif
+    
     public abstract class ECSTestsFixture
     {
         protected World m_PreviousWorld;
@@ -74,7 +78,7 @@ namespace Unity.Entities.Tests
 
             m_Manager = World.EntityManager;
             m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
-
+            
 #if !UNITY_DOTSPLAYER
 #if !UNITY_2019_2_OR_NEWER
             // Not raising exceptions can easily bring unity down with massive logging when tests fail.
@@ -150,6 +154,19 @@ namespace Unity.Entities.Tests
             AssertComponentData(entity, index);
 
             return entity;
+        }
+
+
+        class EntityForEachSystem : ComponentSystem
+        {
+            protected override void OnUpdate() {  }
+        }
+        protected EntityQueryBuilder Entities
+        {
+            get
+            {
+                return new EntityQueryBuilder(World.Active.GetOrCreateSystem<EntityForEachSystem>());
+            }
         }
 
         public EmptySystem EmptySystem

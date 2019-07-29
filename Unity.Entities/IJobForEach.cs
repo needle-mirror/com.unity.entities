@@ -34,9 +34,9 @@ namespace Unity.Entities
     {
         public Type[] ExcludeComponents;
 
-        public ExcludeComponentAttribute(params Type[] subtractiveComponents)
+        public ExcludeComponentAttribute(params Type[] excludeComponents)
         {
-            ExcludeComponents = subtractiveComponents;
+            ExcludeComponents = excludeComponents;
         }
     }
 
@@ -48,70 +48,46 @@ namespace Unity.Entities
         }
 
 #if UNITY_DOTSPLAYER
-        // Methods used so Tiny code will link / compile, but replaced by codegen.
-        //
-        // Code-Gen of Schedule()
-        // ----------------------
-        // Taking the specific example of Schedule(), the steps are:
-        //
-        // T4 operates on .tt files to generate IJobFerEach.gen.cs. This is
-        // done by a developer when the code is written. (T4 is a tool for
-        // generating code variations.)
-        //
-        // A game developer calls job.Schedule(this).Complete() method.
-        //
-        // After the compiler runs, code-gen runs, which operates on the IL code
-        // output from tehe compiler. Code-gen replaces, in IL, the
-        // call to Schedule() with the correct variant (Schedule_rD, for example.)
-        //
-        // Schedule_rD<TJob, T0> would be a job with one read-only Component.
-        //
-        // Schedule_rD is internal by default, so it can't be directly called from user code.
-        // Code gen will also promote it to public.
-        //
-        // For ComponentData with the [DeallocateOnJobCompletion] Attribute, code-gen is
-        // used create the Dispose() calls needed to clean up the resources.
-
         static internal void DoDeallocateOnJobCompletion(object jobData)
         {
-            throw new NotImplementedException("This function should have been replaced by codegen");
+            throw new CodegenShouldReplaceException();
         }
 
         public static JobHandle Schedule<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IBaseJobForEach
         {
-            throw new NotImplementedException("Schedule<T>(EntityQuery query) should have been replaced by code-gen.");
+            throw new CodegenShouldReplaceException();
         }
 
         public static JobHandle Run<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IBaseJobForEach
         {
-            throw new NotImplementedException("Run<T>(EntityQuery query) should have been replaced by code-gen.");
+            throw new CodegenShouldReplaceException();
         }
 
         public static JobHandle ScheduleSingle<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IBaseJobForEach
         {
-            throw new NotImplementedException("ScheduleSingle<T>(EntityQuery query) should have been replaced by code-gen.");
+            throw new CodegenShouldReplaceException();
         }
 
 
         public unsafe static JobHandle Schedule<TJob>(this TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
             where TJob : struct, IBaseJobForEach
         {
-            throw new NotImplementedException("Schedule<TJob>(ComponentSystemBase system) should have been replaced by code-gen.");
+            throw new CodegenShouldReplaceException();
         }
 
         public unsafe static JobHandle Run<TJob>(this TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
             where TJob : struct, IBaseJobForEach
         {
-            throw new NotImplementedException("Schedule<TJob>(ComponentSystemBase system) should have been replaced by code-gen.");
+            throw new CodegenShouldReplaceException();
         }
 
         public unsafe static JobHandle ScheduleSingle<TJob>(this TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
             where TJob : struct, IBaseJobForEach
         {
-            throw new NotImplementedException("Schedule<TJob>(ComponentSystemBase system) should have been replaced by code-gen.");
+            throw new CodegenShouldReplaceException();
         }
 
 #endif
@@ -178,7 +154,7 @@ namespace Unity.Entities
         {
             var query = GetEntityQueryForIJobForEach(system, jobType);
 
-            int entityCount = query.CalculateLength();
+            int entityCount = query.CalculateEntityCount();
 
             return entityCount;
         }
@@ -286,7 +262,7 @@ namespace Unity.Entities
             }
 
             iterator.m_IsParallelFor = isParallelFor;
-            iterator.m_Length = query.CalculateNumberOfChunksWithoutFiltering();
+            iterator.m_Length = query.CalculateChunkCountWithoutFiltering();
 
             iterator.GlobalSystemVersion = query.GetComponentChunkIterator().m_GlobalSystemVersion;
 
@@ -294,44 +270,49 @@ namespace Unity.Entities
             iterator.m_MaxIndex = iterator.m_Length - 1;
             iterator.m_MinIndex = 0;
 
-            iterator.m_Safety0 = iterator.m_Safety1 = iterator.m_Safety2 = iterator.m_Safety3 = iterator.m_Safety4 =
- iterator.m_Safety5 = default(AtomicSafetyHandle);
+            iterator.m_Safety0 = iterator.m_Safety1 = iterator.m_Safety2 = iterator.m_Safety3 = iterator.m_Safety4 = iterator.m_Safety5 = 
+                iterator.m_Safety6 = iterator.m_Safety7 = iterator.m_Safety8 = iterator.m_Safety9 = iterator.m_Safety10 = iterator.m_Safety11 = default(AtomicSafetyHandle);
 
+            var bufferTypeCount = 0;
             iterator.m_SafetyReadOnlyCount = 0;
             fixed (AtomicSafetyHandle* safety = &iterator.m_Safety0)
             {
                 for (var i = 0; i != cache.ProcessTypesCount; i++)
+                {
                     if (cache.Types[i].AccessModeType == ComponentType.AccessMode.ReadOnly)
                     {
-                        safety[iterator.m_SafetyReadOnlyCount] =
-                            query.GetSafetyHandle(query.GetIndexInEntityQuery(cache.Types[i].TypeIndex));
+                        safety[iterator.m_SafetyReadOnlyCount] = query.GetSafetyHandle(query.GetIndexInEntityQuery(cache.Types[i].TypeIndex));
                         iterator.m_SafetyReadOnlyCount++;
+                        if (cache.Types[i].IsBuffer)
+                        {
+                            safety[iterator.m_SafetyReadOnlyCount] = query.GetBufferSafetyHandle(query.GetIndexInEntityQuery(cache.Types[i].TypeIndex));
+                            iterator.m_SafetyReadOnlyCount++;
+                            bufferTypeCount++;
+                        }
                     }
+                }
             }
 
             iterator.m_SafetyReadWriteCount = 0;
             fixed (AtomicSafetyHandle* safety = &iterator.m_Safety0)
             {
                 for (var i = 0; i != cache.ProcessTypesCount; i++)
+                {
                     if (cache.Types[i].AccessModeType == ComponentType.AccessMode.ReadWrite)
                     {
-                        safety[iterator.m_SafetyReadOnlyCount + iterator.m_SafetyReadWriteCount] =
-                            query.GetSafetyHandle(query.GetIndexInEntityQuery(cache.Types[i].TypeIndex));
+                        safety[iterator.m_SafetyReadOnlyCount + iterator.m_SafetyReadWriteCount] = query.GetSafetyHandle(query.GetIndexInEntityQuery(cache.Types[i].TypeIndex));
                         iterator.m_SafetyReadWriteCount++;
+                        if (cache.Types[i].IsBuffer)
+                        {
+                            safety[iterator.m_SafetyReadOnlyCount + iterator.m_SafetyReadWriteCount] = query.GetBufferSafetyHandle(query.GetIndexInEntityQuery(cache.Types[i].TypeIndex));
+                            iterator.m_SafetyReadWriteCount++;
+                            bufferTypeCount++;
+                        }
                     }
+                }
             }
 
-            iterator.m_BufferSafety0 = iterator.m_BufferSafety1 = iterator.m_BufferSafety2 = iterator.m_BufferSafety3 = iterator.m_BufferSafety4 =
-                iterator.m_BufferSafety5 = default(AtomicSafetyHandle);
-
-            fixed (AtomicSafetyHandle* safety = &iterator.m_BufferSafety0)
-            {
-                for (var i = 0; i != cache.ProcessTypesCount; i++)
-                    if(cache.Types[i].IsBuffer)
-                        safety[i] = query.GetBufferSafetyHandle(query.GetIndexInEntityQuery(cache.Types[i].TypeIndex));
-            }
-
-            Assert.AreEqual(cache.ProcessTypesCount, iterator.m_SafetyReadWriteCount + iterator.m_SafetyReadOnlyCount);
+            Assert.AreEqual(cache.ProcessTypesCount + bufferTypeCount, iterator.m_SafetyReadWriteCount + iterator.m_SafetyReadOnlyCount);
 #endif
         }
 
@@ -387,13 +368,12 @@ namespace Unity.Entities
             public AtomicSafetyHandle m_Safety3;
             public AtomicSafetyHandle m_Safety4;
             public AtomicSafetyHandle m_Safety5;
-
-            public AtomicSafetyHandle m_BufferSafety0;
-            public AtomicSafetyHandle m_BufferSafety1;
-            public AtomicSafetyHandle m_BufferSafety2;
-            public AtomicSafetyHandle m_BufferSafety3;
-            public AtomicSafetyHandle m_BufferSafety4;
-            public AtomicSafetyHandle m_BufferSafety5;
+            public AtomicSafetyHandle m_Safety6;
+            public AtomicSafetyHandle m_Safety7;
+            public AtomicSafetyHandle m_Safety8;
+            public AtomicSafetyHandle m_Safety9;
+            public AtomicSafetyHandle m_Safety10;
+            public AtomicSafetyHandle m_Safety11;
 #pragma warning restore
 #endif
         }

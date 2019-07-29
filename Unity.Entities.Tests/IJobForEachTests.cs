@@ -7,6 +7,8 @@ namespace Unity.Entities.Tests
 {
     public class IJobForEachTests :ECSTestsFixture
     {
+        const int TEST_VALUE = 42;
+
         struct Process1 : IJobForEach<EcsTestData>
         {
             public void Execute(ref EcsTestData dst)
@@ -112,8 +114,54 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(7, m_Manager.GetComponentData<EcsTestData2>(entity).value1);
         }
 
+        public struct ArrayJob : IJob
+        {
+            public NativeArray<int> arr;
 
-        
+            public void Execute()
+            {
+                for (int i = 0; i < arr.Length; ++i)
+                    arr[i] = 1;
+            }
+        }
+
+        public struct ProcessArrayJob : IJobForEach<EcsTestData>
+        {
+            public NativeArray<int> arr;
+
+            public void Execute(ref EcsTestData dst)
+            {
+                arr[0] = arr[0] + 1;
+                dst.value = arr.Length;
+            }
+        }
+
+        [Test]
+        public void ForEachJobHandleDependency()
+        {
+            // A useful general test (that a dependency works between a Job and a JobForEach)
+            // but specifically testing that (when this is written) DOTS-RT has a single threaded
+            // JobForEach and a multi-threaded Job.
+            const int N = 10000;
+
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.SetComponentData(entity, new EcsTestData(-1));
+            NativeArray<int> arr = new NativeArray<int>(N, Allocator.TempJob);
+
+            ArrayJob arrayJob = new ArrayJob() {arr = arr};
+            ProcessArrayJob processArrayJob = new ProcessArrayJob() {arr = arr};
+
+            JobHandle handle = arrayJob.Schedule();    // long running
+            JobHandle handle2 = processArrayJob.Schedule(EmptySystem, handle); // super fast
+
+            handle2.Complete();
+            Assert.AreEqual(N, m_Manager.GetComponentData<EcsTestData>(entity).value);
+            Assert.AreEqual(2, arr[0]);
+            Assert.AreEqual(1, arr[1]);
+
+            arr.Dispose();
+        }
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         [StandaloneFixme]
@@ -132,7 +180,7 @@ namespace Unity.Entities.Tests
         
         [ExcludeComponent(typeof(EcsTestData3))]
         [RequireComponentTag(typeof(EcsTestData4))]
-        struct ProcessTagged : IJobForEach<EcsTestData, EcsTestData2>
+        struct ProcessTagged1 : IJobForEach<EcsTestData, EcsTestData2>
         {
             public void Execute(ref EcsTestData src, ref EcsTestData2 dst)
             {
@@ -140,30 +188,90 @@ namespace Unity.Entities.Tests
             }
         }
         
-        void Test(bool didProcess, Entity entity)
+        void TestExcludeRequire1(bool didProcess, Entity entity)
         {
-            m_Manager.SetComponentData(entity, new EcsTestData(42));
+            m_Manager.SetComponentData(entity, new EcsTestData(TEST_VALUE));
 
-            new ProcessTagged().Schedule(EmptySystem).Complete();
+            new ProcessTagged1().Schedule(EmptySystem).Complete();
 
-            if (didProcess)
-                Assert.AreEqual(42, m_Manager.GetComponentData<EcsTestData2>(entity).value0);
-            else
-                Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData2>(entity).value0);
+            Assert.AreEqual(didProcess ? TEST_VALUE : 0, m_Manager.GetComponentData<EcsTestData2>(entity).value0);
+        }
+
+        [ExcludeComponent(typeof(EcsTestData4), typeof(EcsTestData3))]
+        struct ProcessTagged2 : IJobForEach<EcsTestData, EcsTestData2>
+        {
+            public void Execute(ref EcsTestData src, ref EcsTestData2 dst)
+            {
+                dst.value1 = dst.value0 = src.value;
+            }
+        }
+
+        void TestExcludeRequire2(bool didProcess, Entity entity)
+        {
+            m_Manager.SetComponentData(entity, new EcsTestData(TEST_VALUE));
+
+            new ProcessTagged2().Schedule(EmptySystem).Complete();
+
+            Assert.AreEqual(didProcess ? TEST_VALUE : 0, m_Manager.GetComponentData<EcsTestData2>(entity).value0);
+        }
+
+        [RequireComponentTag(typeof(EcsTestData4), typeof(EcsTestData3))]
+        struct ProcessTagged3 : IJobForEach<EcsTestData, EcsTestData2>
+        {
+            public void Execute(ref EcsTestData src, ref EcsTestData2 dst)
+            {
+                dst.value1 = dst.value0 = src.value;
+            }
+        }
+
+        void TestExcludeRequire3(bool didProcess, Entity entity)
+        {
+            m_Manager.SetComponentData(entity, new EcsTestData(TEST_VALUE));
+
+            new ProcessTagged3().Schedule(EmptySystem).Complete();
+
+            Assert.AreEqual(didProcess ? TEST_VALUE : 0, m_Manager.GetComponentData<EcsTestData2>(entity).value0);
         }
 
         [Test]
-        [StandaloneFixme]    // https://github.com/Unity-Technologies/dots/issues/1540
         public void JobProcessAdditionalRequirements()
         {
-            var entityIgnore0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
-            Test(false, entityIgnore0);
-            
-            var entityIgnore1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            Test(false, entityIgnore1);
+            /*
+             * [ExcludeComponent(typeof(EcsTestData3))]
+             * [RequireComponentTag(typeof(EcsTestData4))]
+             */
+            TestExcludeRequire1(false,
+                m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3)));
 
-            var entityProcess = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData4));
-            Test(true, entityProcess);
+            TestExcludeRequire1(false,
+                m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2)));
+
+            TestExcludeRequire1(true,
+                m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData4)));
+
+            /*
+             * [ExcludeComponent(typeof(EcsTestData4), typeof(EcsTestData3))]
+             */
+            TestExcludeRequire2(true,
+                m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2)));
+            TestExcludeRequire2(false,
+                m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3)));
+            TestExcludeRequire2(false,
+                m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData4)));
+            TestExcludeRequire2(false,
+                m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4)));
+
+            /*
+             * [RequireComponentTag(typeof(EcsTestData4), typeof(EcsTestData3))]
+             */
+            TestExcludeRequire3(false,
+                m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2)));
+            TestExcludeRequire3(false,
+                m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3)));
+            TestExcludeRequire3(false,
+                m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData4)));
+            TestExcludeRequire3(true,
+                m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4)));
         }
 
         struct ProcessFilteredData : IJobForEach<EcsTestData>
@@ -174,7 +282,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !UNITY_DOTSPLAYER
         [Test]
         public void JobProcessWithFilteredEntityQuery()
         {
@@ -198,6 +305,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(5,  m_Manager.GetComponentData<EcsTestData>(entityInGroupB).value);
         }
 
+#if !UNITY_DOTSPLAYER
         [Test]
         public void JobProcessWithMismatchedComponentGroupThrowsException()
         {

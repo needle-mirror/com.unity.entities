@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -9,7 +11,9 @@ namespace Unity.Entities
 {
 	[StructLayout(LayoutKind.Sequential)]
 	[NativeContainer]
-    public unsafe struct DynamicBuffer<T> where T : struct
+    [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
+    [DebuggerTypeProxy(typeof(DynamicBufferDebugView < >))]
+    public unsafe struct DynamicBuffer<T> : IEnumerable<T> where T : struct
     {
         [NativeDisableUnsafePtrRestriction]
         BufferHeader* m_Buffer;
@@ -191,12 +195,13 @@ namespace Unity.Entities
             UnsafeUtility.Free(oldPtr, Allocator.Persistent);
         }
 
-        public void Add(T elem)
+        public int Add(T elem)
         {
             CheckWriteAccess();
             int length = Length;
             ResizeUninitialized(length + 1);
             this[length] = elem;
+            return length;
         }
 
         public void Insert(int index, T elem)
@@ -277,17 +282,19 @@ namespace Unity.Entities
 #endif
             return shadow;
         }
+        
+        public NativeArray<T>.Enumerator GetEnumerator()
+        {
+            var array = AsNativeArray();
+            return new NativeArray<T>.Enumerator(ref array);
+        }
+        
+        IEnumerator IEnumerable.GetEnumerator() { throw new NotImplementedException(); }
+        IEnumerator<T> IEnumerable<T>.GetEnumerator() { throw new NotImplementedException(); }
 
         public NativeArray<T> ToNativeArray(Allocator allocator)
         {
             return new NativeArray<T>(AsNativeArray(), allocator);
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("Use AsNativeArray or ToNativeArray with specific allocator", true)]
-        public NativeArray<T> ToNativeArray()
-        {
-            return AsNativeArray();
         }
 
         public void CopyFrom(NativeArray<T> v)
@@ -330,5 +337,18 @@ namespace Unity.Entities
             gcHandle.Free();
 #endif
         }
+    }
+
+    internal sealed class DynamicBufferDebugView<T>  where T : struct
+    {
+#if !NET_DOTS
+        private DynamicBuffer<T> _buffer;
+        public DynamicBufferDebugView(DynamicBuffer<T> source)
+        {
+            _buffer = source;
+        }
+
+        public T[] Items => _buffer.AsNativeArray().ToArray();
+#endif
     }
 }

@@ -44,10 +44,10 @@ namespace Unity.Entities
     [DebuggerTypeProxy(typeof(EntityManagerDebugView))]
     public sealed unsafe partial class EntityManager : EntityManagerBaseInterfaceForObsolete
     {
-        ComponentJobSafetyManager*  m_ComponentJobSafetyManager;
+        ComponentJobSafetyManager* m_ComponentJobSafetyManager;
         EntityComponentStore*       m_EntityComponentStore;
         ManagedComponentStore       m_ManagedComponentStore;
-        EntityGroupManager          m_EntityGroupManager;
+        EntityQueryManager          m_EntityQueryManager;
         ExclusiveEntityTransaction  m_ExclusiveEntityTransaction;
         World                       m_World;
         EntityArchetype             m_EntityOnlyArchetype;
@@ -61,21 +61,26 @@ namespace Unity.Entities
         internal struct InsideForEach : IDisposable
         {
             EntityManager m_Manager;
+            int m_InsideForEachSafety;
 
             public InsideForEach(EntityManager manager)
             {
                 m_Manager = manager;
+                m_InsideForEachSafety = m_Manager.m_InsideForEach;
                 ++m_Manager.m_InsideForEach;
             }
 
             public void Dispose()
-                => --m_Manager.m_InsideForEach;
+            {
+                --m_Manager.m_InsideForEach;
+                Assert.AreEqual(m_InsideForEachSafety, m_Manager.m_InsideForEach);
+            }
         }
 #endif
 
         internal EntityComponentStore* EntityComponentStore => m_EntityComponentStore;
         internal ComponentJobSafetyManager* ComponentJobSafetyManager => m_ComponentJobSafetyManager;
-        internal EntityGroupManager EntityGroupManager => m_EntityGroupManager;
+        internal EntityQueryManager EntityQueryManager => m_EntityQueryManager;
         internal ManagedComponentStore ManagedComponentStore => m_ManagedComponentStore;
 
         /// <summary>
@@ -135,7 +140,9 @@ namespace Unity.Entities
         /// A EntityQuery instance that matches all components.
         /// </summary>
         public EntityQuery UniversalQuery => m_UniversalQuery;
-
+        
+        EntityQuery m_UniversalQueryWithChunks;
+        
         /// <summary>
         /// An object providing debugging information and operations.
         /// </summary>
@@ -154,15 +161,26 @@ namespace Unity.Entities
 
             m_EntityComponentStore = Entities.EntityComponentStore.Create(world.SequenceNumber << 32);
             m_ManagedComponentStore = new ManagedComponentStore();
-            m_EntityGroupManager = new EntityGroupManager(m_ComponentJobSafetyManager);
+            m_EntityQueryManager = new EntityQueryManager(m_ComponentJobSafetyManager);
 
-            m_ExclusiveEntityTransaction = new ExclusiveEntityTransaction(EntityGroupManager,
-                m_ManagedComponentStore, EntityComponentStore);
+            m_ExclusiveEntityTransaction = new ExclusiveEntityTransaction(EntityQueryManager, m_ManagedComponentStore, EntityComponentStore);
 
             m_UniversalQuery = CreateEntityQuery(
                 new EntityQueryDesc
                 {
                     Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
+                }
+            );
+
+            m_UniversalQueryWithChunks = CreateEntityQuery(
+                new EntityQueryDesc
+                {
+                    All = new[] {ComponentType.ReadWrite<ChunkHeader>()},
+                    Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
+                },
+                new EntityQueryDesc
+                {
+                    Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
                 }
             );
         }
@@ -175,6 +193,9 @@ namespace Unity.Entities
 
             m_UniversalQuery.Dispose();
             m_UniversalQuery = null;
+            
+            m_UniversalQueryWithChunks.Dispose();
+            m_UniversalQueryWithChunks = null;
 
             m_ComponentJobSafetyManager->Dispose();
             UnsafeUtility.Free(m_ComponentJobSafetyManager, Allocator.Persistent);
@@ -183,16 +204,14 @@ namespace Unity.Entities
             Entities.EntityComponentStore.Destroy(m_EntityComponentStore);
 
             m_EntityComponentStore = null;
-            m_EntityGroupManager.Dispose();
-            m_EntityGroupManager = null;
+            m_EntityQueryManager.Dispose();
+            m_EntityQueryManager = null;
             m_ExclusiveEntityTransaction.OnDestroy();
 
             m_ManagedComponentStore.Dispose();
 
             m_World = null;
             m_Debug = null;
-
-            TypeManager.Shutdown();
         }
 
         private EntityManager()

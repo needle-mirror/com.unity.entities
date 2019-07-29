@@ -43,7 +43,7 @@ namespace Unity.Entities.Tests
         public void WriteBytes(void* data, int bytes)
         {
             int length = content.Length;
-            content.ResizeUninitialized(length + bytes);
+            content.Resize(length + bytes, NativeArrayOptions.UninitializedMemory);
             UnsafeUtility.MemCpy((byte*)content.GetUnsafePtr() + length, data, bytes);
         }
 
@@ -158,10 +158,10 @@ namespace Unity.Entities.Tests
                     typeof(TestComponentData1), typeof(TestComponentData2));
                 var group4 = entityManager.CreateEntityQuery(typeof(EcsComplexEntityRefElement));
 
-                Assert.AreEqual(1, group1.CalculateLength());
-                Assert.AreEqual(1, group2.CalculateLength());
-                Assert.AreEqual(1, group3.CalculateLength());
-                Assert.AreEqual(1, group4.CalculateLength());
+                Assert.AreEqual(1, group1.CalculateEntityCount());
+                Assert.AreEqual(1, group2.CalculateEntityCount());
+                Assert.AreEqual(1, group3.CalculateEntityCount());
+                Assert.AreEqual(1, group4.CalculateEntityCount());
 
                 var everythingGroup = entityManager.CreateEntityQuery(Array.Empty<ComponentType>());
                 var chunks = everythingGroup.CreateArchetypeChunkArray(Allocator.TempJob);
@@ -281,7 +281,7 @@ namespace Unity.Entities.Tests
 
                 var group1 = entityManager.CreateEntityQuery(typeof(测试));
 
-                Assert.AreEqual(1, group1.CalculateLength());
+                Assert.AreEqual(1, group1.CalculateEntityCount());
 
                 var entities = group1.ToEntityArray(Allocator.TempJob);
                 var new_e1 = entities[0];
@@ -337,8 +337,8 @@ namespace Unity.Entities.Tests
                 var group1 = entityManager.CreateEntityQuery(typeof(EcsTestData), typeof(TestBufferElement));
                 var group2 = entityManager.CreateEntityQuery(typeof(EcsTestData2), typeof(TestBufferElement));
 
-                Assert.AreEqual(1, group1.CalculateLength());
-                Assert.AreEqual(1, group2.CalculateLength());
+                Assert.AreEqual(1, group1.CalculateEntityCount());
+                Assert.AreEqual(1, group2.CalculateEntityCount());
 
                 var entities1 = group1.ToEntityArray(Allocator.TempJob);
                 var entities2 = group2.ToEntityArray(Allocator.TempJob);
@@ -405,8 +405,8 @@ namespace Unity.Entities.Tests
                 var group1 = entityManager.CreateEntityQuery(typeof(EcsTestData));
                 var group2 = entityManager.CreateEntityQuery(typeof(EcsTestData2));
 
-                Assert.AreEqual(1, group1.CalculateLength());
-                Assert.AreEqual(1, group2.CalculateLength());
+                Assert.AreEqual(1, group1.CalculateEntityCount());
+                Assert.AreEqual(1, group2.CalculateEntityCount());
 
                 var entities1 = group1.ToEntityArray(Allocator.TempJob);
                 var entities2 = group2.ToEntityArray(Allocator.TempJob);

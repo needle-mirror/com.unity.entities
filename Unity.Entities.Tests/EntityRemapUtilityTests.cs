@@ -10,7 +10,6 @@ namespace Unity.Entities.Tests
         [SetUp]
         public void Setup()
         {
-            TypeManager.Initialize();
             m_Remapping = new NativeArray<EntityRemapUtility.EntityRemapInfo>(100, Allocator.Persistent);
         }
 
@@ -18,7 +17,6 @@ namespace Unity.Entities.Tests
         public void TearDown()
         {
             m_Remapping.Dispose();
-            TypeManager.Shutdown();
         }
 
         [Test]

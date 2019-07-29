@@ -19,4 +19,4 @@ The ECS API provides a number of ways to accomplish iteration, each with its own
 
 * [Manual iteration](manual_iteration.md) — if the previous methods are insufficient, you can manually iterate over entities or chunks. For example, you can get a NativeArray containing entities or the chunks of the entities that you want to process and iterate over them using a Job, such as IJobParallelFor.
 
-The [EntityQuery](component_group.md) class provides a way to construct a view of your data that contains only the specific data you need for a given algorithm or process. Many of the iteration methods in the list above use a EntityQuery, either explicitly or internally.
+The [EntityQuery](ecs_entity_query.md) class provides a way to construct a view of your data that contains only the specific data you need for a given algorithm or process. Many of the iteration methods in the list above use a EntityQuery, either explicitly or internally.

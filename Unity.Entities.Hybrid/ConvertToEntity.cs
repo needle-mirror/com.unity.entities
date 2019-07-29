@@ -8,6 +8,7 @@ using UnityEngine;
 
 namespace Unity.Entities
 {
+    [DisallowMultipleComponent]
     public class ConvertToEntity : MonoBehaviour
     {
         public enum Mode
@@ -83,32 +84,30 @@ namespace Unity.Entities
 
         public static void ConvertHierarchy(GameObject root)
         {
-            var gameObjectWorld = GameObjectConversionUtility.CreateConversionWorld(World.Active, default(Hash128), GameObjectConversionUtility.ConversionFlags.AssignName);
+            using (var gameObjectWorld = new GameObjectConversionSettings(World.Active, GameObjectConversionUtility.ConversionFlags.AssignName).CreateConversionWorld())
+            {
+                AddRecurse(gameObjectWorld.EntityManager, root.transform);
 
-            AddRecurse(gameObjectWorld.EntityManager, root.transform);
+                GameObjectConversionUtility.Convert(gameObjectWorld);
 
-            GameObjectConversionUtility.Convert(gameObjectWorld, World.Active);
+                InjectOriginalComponents(gameObjectWorld, World.Active.EntityManager, root.transform);
 
-            InjectOriginalComponents(gameObjectWorld, World.Active.EntityManager, root.transform);
-
-            GameObject.Destroy(root);
-
-            gameObjectWorld.Dispose();
+                Destroy(root);
+            }
         }
 
 
         public static void ConvertAndInjectOriginal(GameObject root)
         {
-            var gameObjectWorld = GameObjectConversionUtility.CreateConversionWorld(World.Active, default(Hash128), GameObjectConversionUtility.ConversionFlags.AssignName);
+            using (var gameObjectWorld = new GameObjectConversionSettings(World.Active, GameObjectConversionUtility.ConversionFlags.AssignName).CreateConversionWorld())
+            {
+                GameObjectEntity.AddToEntityManager(gameObjectWorld.EntityManager, root);
 
-            GameObjectEntity.AddToEntityManager(gameObjectWorld.EntityManager, root);
+                GameObjectConversionUtility.Convert(gameObjectWorld);
 
-            GameObjectConversionUtility.Convert(gameObjectWorld, World.Active);
-
-            var entity =GameObjectConversionUtility.GameObjectToConvertedEntity(gameObjectWorld, root);
-            InjectOriginalComponents(World.Active.EntityManager, entity, root.transform);
-
-            gameObjectWorld.Dispose();
+                var entity =GameObjectConversionUtility.GameObjectToConvertedEntity(gameObjectWorld, root);
+                InjectOriginalComponents(World.Active.EntityManager, entity, root.transform);
+            }
         }
     }
 }

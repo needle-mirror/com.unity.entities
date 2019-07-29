@@ -1,6 +1,5 @@
-<!-- Generated from ../Samples/Packages/com.unity.entities/Documentation~/toc.yml do not edit. -->
 * [Overview](index.md)
-* Core ECS
+* [Core ECS](ecs_core.md)
   * [Entities](ecs_entities.md)
     * [Worlds](world.md)
   * [Components](ecs_components.md)
@@ -8,7 +7,8 @@
     * [Shared Components](shared_component_data.md)
     * [System State Components](system_state_components.md)
     * [Dynamic Buffer Components](dynamic_buffers.md)
-  * [System](ecs_systems.md)
+    * [Chunk Components](ecs_chunk_component.md)
+  * [Systems](ecs_systems.md)
     * [Component Systems](component_system.md)
     * [Job Component Systems](job_component_system.md)
     * [Entity Command Buffers](entity_command_buffer.md)
@@ -18,11 +18,11 @@
     * [Using IJobChunk](chunk_iteration_job.md)
     * [Using ComponentSystem and ForEach](entity_iteration_foreach.md)
     * [Manual iteration](manual_iteration.md)
-    * [Component Groups](component_group.md)
+    * [Entity Query](ecs_entity_query.md)
   * [Component WriteGroups](ecs_write_groups.md)
   * [Versions and Generations](version_numbers.md)
   * [Jobs in ECS](ecs_job_overview.md)
     * [ECS Job System extensions](ecs_job_extensions.md)
-* Creating Gameplay
+* [Creating Gameplay](gp_overview.md)
   * [Transforms](transform_system.md)
   * [Rendering](gp_rendering.md)

@@ -20,7 +20,7 @@ namespace Unity.Entities
         {
             fixed (ComponentType* requiredComponentsPtr = requiredComponents)
             {
-                return m_EntityGroupManager.CreateEntityGroup(EntityComponentStore,
+                return m_EntityQueryManager.CreateEntityQuery(EntityComponentStore,
                     ManagedComponentStore, requiredComponentsPtr,
                     requiredComponents.Length);
             }
@@ -33,7 +33,7 @@ namespace Unity.Entities
         /// <returns>The EntityQuery corresponding to the queryDesc.</returns>
         public EntityQuery CreateEntityQuery(params EntityQueryDesc[] queriesDesc)
         {
-            return m_EntityGroupManager.CreateEntityGroup(EntityComponentStore,
+            return m_EntityQueryManager.CreateEntityQuery(EntityComponentStore,
                 ManagedComponentStore, queriesDesc);
         }
 
@@ -64,15 +64,15 @@ namespace Unity.Entities
         /// <param name="allArchetypes">A native list to receive the EntityArchetype objects.</param>
         public void GetAllArchetypes(NativeList<EntityArchetype> allArchetypes)
         {
-            for (var i = EntityComponentStore->m_Archetypes.Count - 1; i >= 0; --i)
+            for (var i = EntityComponentStore->m_Archetypes.Length - 1; i >= 0; --i)
             {
-                var archetype = EntityComponentStore->m_Archetypes.p[i];
+                var archetype = EntityComponentStore->m_Archetypes.Ptr[i];
                 var entityArchetype = new EntityArchetype() {Archetype = archetype};
                 allArchetypes.Add(entityArchetype);
             }
         }
 
-        [Obsolete("Please use EntityQuery APIs instead.")]
+        [Obsolete("Please use EntityQuery APIs instead. (RemovedAfter 2019-08-25)")]
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(NativeList<EntityArchetype> archetypes,
             Allocator allocator)
         {
@@ -84,7 +84,7 @@ namespace Unity.Entities
 #endif
         }
 
-        [Obsolete("Please use EntityQuery APIs instead.")]
+        [Obsolete("Please use EntityQuery APIs instead. (RemovedAfter 2019-08-25)")]
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(EntityQueryDesc queryDesc, Allocator allocator)
         {
             var foundArchetypes = new NativeList<EntityArchetype>(Allocator.TempJob);
@@ -100,7 +100,7 @@ namespace Unity.Entities
 
         internal EntityQuery CreateEntityQuery(ComponentType* requiredComponents, int count)
         {
-            return m_EntityGroupManager.CreateEntityGroup(EntityComponentStore,
+            return m_EntityQueryManager.CreateEntityQuery(EntityComponentStore,
                 ManagedComponentStore, requiredComponents, count);
         }
 
@@ -171,7 +171,7 @@ namespace Unity.Entities
             return foundCount == allCount;
         }
 
-        [Obsolete("This function is deprecated and will be removed in a future release.")]
+        [Obsolete("This function is deprecated and will be (RemovedAfter 2019-08-25)")]
         public void AddMatchingArchetypes(EntityQueryDesc queryDesc, NativeList<EntityArchetype> foundArchetypes)
         {
             var anyCount = queryDesc.Any.Length;
@@ -184,9 +184,9 @@ namespace Unity.Entities
                 {
                     fixed (ComponentType* all = queryDesc.All)
                     {
-                        for (var i = EntityComponentStore->m_Archetypes.Count - 1; i >= 0; --i)
+                        for (var i = EntityComponentStore->m_Archetypes.Length - 1; i >= 0; --i)
                         {
-                            var archetype = EntityComponentStore->m_Archetypes.p[i];
+                            var archetype = EntityComponentStore->m_Archetypes.Ptr[i];
                             if (archetype->EntityCount == 0)
                                 continue;
                             if (!TestMatchingArchetypeAny(archetype, any, anyCount))
@@ -206,23 +206,16 @@ namespace Unity.Entities
             }
         }
 
-        NativeArray<Entity> GetTempEntityArray(EntityQuery query)
-        {
-            var entityArray = query.ToEntityArray(Allocator.TempJob);
-            return entityArray;
-        }
-
         public EntityArchetype GetEntityOnlyArchetype()
         {
             if (!m_EntityOnlyArchetype.Valid)
             {
                 var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
                 ComponentTypeInArchetype entityType = new ComponentTypeInArchetype(ComponentType.ReadWrite<Entity>());
-                var archetype = EntityManagerCreateArchetypeUtility.GetOrCreateArchetype(&entityType,
-                    1, EntityComponentStore);
+                var archetype = EntityComponentStore->GetOrCreateArchetype(&entityType, 1);
                 m_EntityOnlyArchetype = new EntityArchetype {Archetype = archetype};
                 var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-                EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
+                EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
             }
 
             return m_EntityOnlyArchetype;

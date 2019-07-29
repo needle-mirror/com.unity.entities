@@ -130,6 +130,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(count, indexCountArray[0]);
             
             var sharedValueIndices = SharedValues.GetSharedValueIndicesBySourceIndex(0);
+            sharedValueIndices.Sort(); // No guarantee these are sorted.
             
             for (int i = 0; i < count; i++)
                 Assert.AreEqual(i, sharedValueIndices[i]);
@@ -158,15 +159,14 @@ namespace Unity.Entities.Tests
             sharedValuesJobHandle.Complete();
 
             var sharedValueCount = sharedValues.SharedValueCount;
-            Assert.AreEqual(4,sharedValueCount);
-
             var sharedIndexArray = sharedValues.GetSharedIndexArray();
 
             Assert.AreEqual(0, source[sharedIndexArray[0]]);
             Assert.AreEqual(1, source[sharedIndexArray[1]]);
             Assert.AreEqual(2, source[sharedIndexArray[2]]);
             Assert.AreEqual(3, source[sharedIndexArray[3]]);
-            
+            Assert.AreEqual(4,sharedValueCount);
+
             sharedValues.Dispose();
             source.Dispose();
         }

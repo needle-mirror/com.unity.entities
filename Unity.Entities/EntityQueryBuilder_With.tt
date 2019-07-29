@@ -25,12 +25,12 @@ namespace Unity.Entities
         // ** FLUENT QUERY **
 
 <#
-foreach (var (name, count, memberName) in new[] { 
-    ( "Any",            5, "m_Any" ), 
-    ( "AnyReadOnly",    5, "m_Any" ), 
-    ( "None",           5, "m_None" ), 
-    ( "All",            5, "m_All" ), 
-    ( "AllReadOnly",    5, "m_All" ) 
+foreach (var (name, count, memberName) in new[] {
+    ( "Any",            5, "m_Any" ),
+    ( "AnyReadOnly",    5, "m_Any" ),
+    ( "None",           5, "m_None" ),
+    ( "All",            5, "m_All" ),
+    ( "AllReadOnly",    5, "m_All" )
     }) {
     for (var it = 1; it <= count; ++it) {
 #>

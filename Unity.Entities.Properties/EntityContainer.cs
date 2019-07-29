@@ -172,7 +172,7 @@ namespace Unity.Entities
                 private readonly bool m_IsReadOnly;
 
                 public string GetName() => typeof(TValue).Name;
-                public bool IsReadOnly => m_IsReadOnly;
+                public bool IsReadOnly => true;
                 public bool IsContainer => true;
                 public IPropertyAttributeCollection Attributes => null;
                 public int Index => m_Index;
@@ -188,9 +188,9 @@ namespace Unity.Entities
                 {
                     var ptr = m_IsReadOnly 
                         ? container.EntityManager.GetBufferRawRO(container.Entity, m_TypeIndex)
-                        : container.EntityManager.GetBufferRawRW(container.Entity, m_TypeIndex);
+                        : (BufferHeader*) container.EntityManager.GetBufferRawRW(container.Entity, m_TypeIndex);
                     var len = container.EntityManager.GetBufferLength(container.Entity, m_TypeIndex);
-                    return new DynamicBufferContainer<TValue>(ptr, len, Unsafe.SizeOf<TValue>());
+                    return new DynamicBufferContainer<TValue>(ptr, len, Unsafe.SizeOf<TValue>(), m_IsReadOnly);
                 }
 
                 public void SetValue(ref EntityContainer container, DynamicBufferContainer<TValue> value)

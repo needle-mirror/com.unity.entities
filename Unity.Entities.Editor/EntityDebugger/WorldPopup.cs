@@ -58,12 +58,12 @@ namespace Unity.Entities.Editor
             setShowInactiveSystems = setShowSystems;
         }
         
-        public void OnGUI(bool showingPlayerLoop, string lastSelectedWorldName)
+        public void OnGUI(bool showingPlayerLoop, string lastSelectedWorldName, GUIStyle style = null)
         {
             TryRestorePreviousSelection(showingPlayerLoop, lastSelectedWorldName);
 
             var worldName = getWorldSelection()?.Name ?? kPlayerLoopName;
-            if (EditorGUILayout.DropdownButton(new GUIContent(worldName), FocusType.Passive))
+            if (EditorGUILayout.DropdownButton(new GUIContent(worldName), FocusType.Passive, style ?? (GUIStyle)"MiniPullDown"))
             {
                 Menu.ShowAsContext();
             }

@@ -333,8 +333,8 @@ namespace Unity.Entities.Tests
         [BurstCompile(CompileSynchronously = true)]
         struct Issue101Job : IJob
         {
-            [WriteOnly] public NativeHashMap<ulong, byte>.Concurrent hashMap;
-            [WriteOnly] public NativeQueue<ulong>.Concurrent keys;
+            [WriteOnly] public NativeHashMap<ulong, byte>.ParallelWriter hashMap;
+            [WriteOnly] public NativeQueue<ulong>.ParallelWriter keys;
             public int Index;
 
             public void Execute()
@@ -356,8 +356,8 @@ namespace Unity.Entities.Tests
             {
                 var job = new Issue101Job()
                 {
-                    hashMap = hashMap.ToConcurrent(),
-                    keys = keys.ToConcurrent(),
+                    hashMap = hashMap.AsParallelWriter(),
+                    keys = keys.AsParallelWriter(),
                     Index = 1,
                 };
 

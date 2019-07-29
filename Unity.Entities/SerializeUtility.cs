@@ -34,7 +34,7 @@ namespace Unity.Entities.Serialization
             public int ComponentSize;
         }
 
-        public static int CurrentFileFormatVersion = 19;
+        public static int CurrentFileFormatVersion = 20;
 
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, int numSharedComponents)
         {
@@ -57,7 +57,7 @@ namespace Unity.Entities.Serialization
             var archetypes = ReadArchetypes(reader, types, manager, out totalEntityCount);
 
             var changedArchetypes = manager.EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-            manager.EntityGroupManager.AddAdditionalArchetypes(changedArchetypes);
+            manager.EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
 
             int sharedComponentArraysLength = reader.ReadInt();
             var sharedComponentArrays = new NativeArray<int>(sharedComponentArraysLength, Allocator.Temp);
@@ -68,24 +68,21 @@ namespace Unity.Entities.Serialization
             int totalChunkCount = reader.ReadInt();
             var chunksWithMetaChunkEntities = new NativeList<ArchetypeChunk>(totalChunkCount, Allocator.Temp);
 
-            int totalBlobAssetSize = reader.ReadInt();
+            var totalBlobAssetSize = reader.ReadInt();
             byte* allBlobAssetData = null;
 
-            NativeList<ArchetypeChunk> blobAssetRefChunks = new NativeList<ArchetypeChunk>();
+            var blobAssetRefChunks = new NativeList<ArchetypeChunk>();
             var blobAssetOwner = default(BlobAssetOwner);
             if (totalBlobAssetSize != 0)
             {
-                allBlobAssetData = (byte*)UnsafeUtility.Malloc(totalBlobAssetSize, 16, Allocator.Persistent);
+                allBlobAssetData = (byte*)UnsafeUtility.Malloc((long)totalBlobAssetSize, 16, Allocator.Persistent);
+                if (totalBlobAssetSize > int.MaxValue)
+                    throw new System.ArgumentException("Blobs larger than 2GB are currently not supported");
+
                 reader.ReadBytes(allBlobAssetData, totalBlobAssetSize);
+                
                 blobAssetOwner = new BlobAssetOwner(allBlobAssetData, totalBlobAssetSize);
                 blobAssetRefChunks = new NativeList<ArchetypeChunk>(32, Allocator.Temp);
-                var end = allBlobAssetData + totalBlobAssetSize;
-                var header = (BlobAssetHeader*)allBlobAssetData;
-                while (header < end)
-                {
-                    header->ValidationPtr = header + 1;
-                    header = (BlobAssetHeader*)OffsetFromPointer(header+1, header->Length);
-                }
             }
 
             int sharedComponentArraysIndex = 0;
@@ -140,8 +137,8 @@ namespace Unity.Entities.Serialization
                     PatchBlobAssetsInChunkAfterLoad(chunk, allBlobAssetData);
                 }
                 
-                EntityManagerMoveEntitiesUtility.AddExistingChunk(chunk, remapedSharedComponentValues,
-                    manager.EntityComponentStore, manager.ManagedComponentStore);
+                manager.EntityComponentStore->AddExistingChunk(chunk, remapedSharedComponentValues);
+                manager.ManagedComponentStore.Playback(ref manager.EntityComponentStore->ManagedChangesTracker);
 
                 if (chunk->metaChunkEntity != Entity.Null)
                 {
@@ -161,7 +158,7 @@ namespace Unity.Entities.Serialization
                 manager.SetComponentData(chunk->metaChunkEntity, new ChunkHeader{ArchetypeChunk = chunksWithMetaChunkEntities[i]});
             }
             
-
+            blobAssetOwner.Release();
             chunksWithMetaChunkEntities.Dispose();
             sharedComponentArrays.Dispose();
             archetypes.Dispose();
@@ -224,9 +221,9 @@ namespace Unity.Entities.Serialization
         internal static unsafe void GetAllArchetypes(EntityComponentStore* entityComponentStore, out NativeHashMap<EntityArchetype, int> archetypeToIndex, out EntityArchetype[] archetypeArray)
         {
             var archetypeList = new List<EntityArchetype>();
-            for (var i = entityComponentStore->m_Archetypes.Count - 1; i >= 0; --i)
+            for (var i = entityComponentStore->m_Archetypes.Length - 1; i >= 0; --i)
             {
-                var archetype = entityComponentStore->m_Archetypes.p[i];
+                var archetype = entityComponentStore->m_Archetypes.Ptr[i];
                 if (archetype->EntityCount >= 0)
                     archetypeList.Add(new EntityArchetype{Archetype = archetype});
             }
@@ -248,7 +245,7 @@ namespace Unity.Entities.Serialization
 
             if (!typeInfo.IsSerializable)
             {
-                throw new ArgumentException($"Blittable component type '{typeInfo.Type}' contains a (potentially nested) pointer field. " +
+                throw new ArgumentException($"Blittable component type '{TypeManager.GetType(typeInfo.TypeIndex)}' contains a (potentially nested) pointer field. " +
                     $"Serializing bare pointers will likely lead to runtime errors. Remove this field and consider serializing the data " +
                     $"it points to another way such as by using a BlobAssetReference or a [Serializable] ISharedComponent. If for whatever " +
                     $"reason the pointer field should in fact be serialized, add the [ChunkSerializable] attribute to your type to bypass this error.");
@@ -315,9 +312,7 @@ namespace Unity.Entities.Serialization
             GatherAllUsedBlobAssets(archetypeArray, out var blobAssetRefs, out var blobAssets);
 
             var blobAssetOffsets = new NativeArray<int>(blobAssets.Length, Allocator.Temp);
-            int totalBlobAssetSize = 0;
-
-            int Align16(int x) => (x+15)&~15;
+            int totalBlobAssetSize = sizeof(BlobAssetBatch);
 
             for(int i = 0; i<blobAssets.Length; ++i)
             {
@@ -327,13 +322,13 @@ namespace Unity.Entities.Serialization
             }
 
             writer.Write(totalBlobAssetSize);
-
+            var blobAssetBatch = BlobAssetBatch.CreateForSerialize(blobAssets.Length, totalBlobAssetSize);
+            writer.WriteBytes(&blobAssetBatch, sizeof(BlobAssetBatch));
             var zeroBytes = int4.zero;
             for(int i = 0; i<blobAssets.Length; ++i)
             {
                 var blobAssetLength = blobAssets[i].header->Length;
-                BlobAssetHeader header = new BlobAssetHeader
-                    {ValidationPtr = null, Allocator = Allocator.None, Length = Align16(blobAssetLength)};
+                var header = BlobAssetHeader.CreateForSerialize(Align16(blobAssetLength));
                 writer.WriteBytes(&header, sizeof(BlobAssetHeader));
                 writer.WriteBytes(blobAssets[i].header + 1, blobAssetLength);
                 writer.WriteBytes(&zeroBytes, header.Length - blobAssetLength);
@@ -414,6 +409,11 @@ namespace Unity.Entities.Serialization
             typeHashes.Dispose();
             typeHashSet.Dispose();
             typeHashToIndexMap.Dispose();
+        }
+
+        static int Align16(int x)
+        {
+            return (x + 15) & ~15;
         }
 
 #if !NET_DOTS
@@ -618,7 +618,6 @@ namespace Unity.Entities.Serialization
                             int value = -1;
                             if (blobAssetRefPtr->m_Ptr != null)
                             {
-                                var blobAssetPtr = new BlobAssetPtr((*(BlobAssetHeader**)blobAssetRefPtr)-1);
                                 var key = new BlobAssetRefKey { chunk = originalChunk, offsetInBuffer = (int)((byte*)blobAssetRefPtr - chunkBuffer)};
 
                                 bool found = blobAssetRefs.TryGetValue(key, out value);
@@ -634,8 +633,6 @@ namespace Unity.Entities.Serialization
 
         private static unsafe void PatchBlobAssetsInChunkAfterLoad(Chunk* chunk, byte* allBlobAssetData)
         {
-            var blobAssetMap = new NativeHashMap<BlobAssetPtr, int>(100, Allocator.Temp);
-
             var archetype = chunk->Archetype;
             var typeCount = archetype->TypesCount;
             var entityCount = chunk->Count;
@@ -660,7 +657,7 @@ namespace Unity.Entities.Serialization
                 else if (blobAssetRefCount > 0)
                 {
                     int subArrayOffset = archetype->Offsets[ti];
-                    byte* componentArrayStart = OffsetFromPointer(chunkBuffer , subArrayOffset);
+                    byte* componentArrayStart = OffsetFromPointer(chunkBuffer, subArrayOffset);
                     int size = archetype->SizeOfs[ti];
                     byte* end = componentArrayStart + size * entityCount;
                     for (var componentData = componentArrayStart; componentData < end; componentData += size)

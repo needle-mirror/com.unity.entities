@@ -64,8 +64,9 @@ namespace Unity.Entities.Tests
     }
 #endif
 
-    class CircleOfDoom : ECSTestsFixture
+    class AutoCreateComponentSystemTests : ECSTestsFixture
     {
+    
         internal class SystemA : ComponentSystem
         {
             protected override void OnCreate()
@@ -106,7 +107,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void TestCircleOfDoom()
+        public void TestCircularAutoCreateComponentSystem()
         {
 #if UNITY_EDITOR
             World.CreateSystem<SystemA>();    // Everyone else should auto-create.

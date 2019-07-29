@@ -36,9 +36,22 @@ namespace Unity.Transforms
             [ReadOnly] public ArchetypeChunkComponentType<Scale> ScaleType;
             [ReadOnly] public ArchetypeChunkComponentType<CompositeScale> CompositeScaleType;
             public ArchetypeChunkComponentType<LocalToWorld> LocalToWorldType;
-            
+            public uint LastSystemVersion;
+
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
             {
+                bool changed =
+                    chunk.DidChange(TranslationType, LastSystemVersion) ||
+                    chunk.DidChange(NonUniformScaleType, LastSystemVersion) ||
+                    chunk.DidChange(ScaleType, LastSystemVersion) ||
+                    chunk.DidChange(CompositeScaleType, LastSystemVersion) ||
+                    chunk.DidChange(RotationType, LastSystemVersion) ||
+                    chunk.DidChange(CompositeRotationType, LastSystemVersion);
+                if (!changed)
+                {
+                    return;
+                }
+
                 var chunkTranslations = chunk.GetNativeArray(TranslationType);
                 var chunkNonUniformScales = chunk.GetNativeArray(NonUniformScaleType);
                 var chunkScales = chunk.GetNativeArray(ScaleType);
@@ -261,7 +274,8 @@ namespace Unity.Transforms
                 ScaleType = scaleType,
                 NonUniformScaleType = nonUniformScaleType,
                 CompositeScaleType = compositeScaleType,
-                LocalToWorldType = localToWorldType
+                LocalToWorldType = localToWorldType,
+                LastSystemVersion = LastSystemVersion
             };
             var trsToLocalToWorldJobHandle = trsToLocalToWorldJob.Schedule(m_Group, inputDeps);
             return trsToLocalToWorldJobHandle;

@@ -1,17 +1,24 @@
 using System;
+using System.Diagnostics;
 using NUnit.Framework;
 
 namespace Unity.Entities.Tests
 {
     public class DynamicBufferTests : ECSTestsFixture
     {
+        [DebuggerDisplay("Value: {Value}")]
         struct DynamicBufferElement : IBufferElementData
         {
+            public DynamicBufferElement(int value)
+            {
+                Value = value;
+            }
+
             public int Value;
         }
 
         [Test]
-        public void CopyFromDynamicBuffer([Values(0,1,2,3,64)]int srcBufferLength)
+        public void CopyFromDynamicBuffer([Values(0, 1, 2, 3, 64)] int srcBufferLength)
         {
             var srcEntity = m_Manager.CreateEntity(typeof(DynamicBufferElement));
             var dstEntity = m_Manager.CreateEntity(typeof(DynamicBufferElement));
@@ -43,7 +50,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CopyFromArray([Values(0,1,2,3,64)]int srcBufferLength)
+        public void CopyFromArray([Values(0, 1, 2, 3, 64)] int srcBufferLength)
         {
             var dstEntity = m_Manager.CreateEntity(typeof(DynamicBufferElement));
             var src = new DynamicBufferElement[srcBufferLength];
@@ -105,5 +112,66 @@ namespace Unity.Entities.Tests
 
             Assert.Throws<ArgumentNullException>(() => dst.CopyFrom(null));
         }
+
+#if !UNITY_DOTSPLAYER
+
+        // @TODO: when 2019.1 support is dropped this can be shared with the collections tests:
+        // until then the package validation will fail otherwise when collections is not marked testable
+        // since we can not have shared test code between packages in 2019.1
+        static class GCAllocRecorderForDynamicBuffer
+        {
+            static UnityEngine.Profiling.Recorder AllocRecorder;
+
+            static GCAllocRecorderForDynamicBuffer()
+            {
+                AllocRecorder = UnityEngine.Profiling.Recorder.Get("GC.Alloc.DynamicBuffer");
+            }
+
+            static int CountGCAllocs(Action action)
+            {
+                AllocRecorder.FilterToCurrentThread();
+                AllocRecorder.enabled = false;
+                AllocRecorder.enabled = true;
+
+                action();
+
+                AllocRecorder.enabled = false;
+                return AllocRecorder.sampleBlockCount;
+            }
+
+            // NOTE: action is called twice to warmup any GC allocs that can happen due to static constructors etc.
+            public static void ValidateNoGCAllocs(Action action)
+            {
+                CountGCAllocs(action);
+
+                var count = CountGCAllocs(action);
+                if (count != 0)
+                    throw new AssertionException($"Expected 0 GC allocations but there were {count}");
+            }
+        }
+
+        [Test]
+        public void DynamicBufferForEach()
+        {
+            var dstEntity = m_Manager.CreateEntity(typeof(DynamicBufferElement));
+            var buf = m_Manager.GetBuffer<DynamicBufferElement>(dstEntity);
+            buf.Add(new DynamicBufferElement(3));
+            buf.Add(new DynamicBufferElement(5));
+
+            int count = 0, sum = 0;
+            GCAllocRecorderForDynamicBuffer.ValidateNoGCAllocs(() =>
+            {
+                count = 0;
+                sum = 0;
+                foreach (var value in buf)
+                {
+                    sum += value.Value;
+                    count++;
+                }
+            });
+            Assert.AreEqual(2, count);
+            Assert.AreEqual(8, sum);
+        }
+#endif
     }
 }

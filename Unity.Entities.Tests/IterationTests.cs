@@ -13,7 +13,7 @@ namespace Unity.Entities.Tests
 			var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
 			var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
-			Assert.AreEqual(0, group.CalculateLength());
+			Assert.AreEqual(0, group.CalculateEntityCount());
 
 			var entity = m_Manager.CreateEntity(archetype);
             m_Manager.SetComponentData(entity, new EcsTestData(42));
@@ -34,15 +34,15 @@ namespace Unity.Entities.Tests
 		public void IterateEmptyArchetype()
 		{
 			var group = m_Manager.CreateEntityQuery(typeof(TempComponentNeverInstantiated));
-			Assert.AreEqual(0, group.CalculateLength());
+			Assert.AreEqual(0, group.CalculateEntityCount());
 
 			var archetype = m_Manager.CreateArchetype(typeof(TempComponentNeverInstantiated));
-			Assert.AreEqual(0, group.CalculateLength());
+			Assert.AreEqual(0, group.CalculateEntityCount());
 
 			Entity ent = m_Manager.CreateEntity(archetype);
-			Assert.AreEqual(1, group.CalculateLength());
+			Assert.AreEqual(1, group.CalculateEntityCount());
 			m_Manager.DestroyEntity(ent);
-			Assert.AreEqual(0, group.CalculateLength());
+			Assert.AreEqual(0, group.CalculateEntityCount());
 		}
 		[Test]
 		public void IterateChunkedEntityQuery()
@@ -51,7 +51,7 @@ namespace Unity.Entities.Tests
 			var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
 			var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-			Assert.AreEqual(0, group.CalculateLength());
+			Assert.AreEqual(0, group.CalculateEntityCount());
 
             Entity[] entities = new Entity[10000];
             for (int i = 0; i < entities.Length/2;i++)
@@ -88,7 +88,7 @@ namespace Unity.Entities.Tests
 			var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
 			var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-			Assert.AreEqual(0, group.CalculateLength());
+			Assert.AreEqual(0, group.CalculateEntityCount());
 
             Entity[] entities = new Entity[10000];
             for (int i = 0; i < entities.Length/2;i++)
@@ -128,7 +128,7 @@ namespace Unity.Entities.Tests
 			var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
 			var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-			Assert.AreEqual(0, group.CalculateLength());
+			Assert.AreEqual(0, group.CalculateEntityCount());
 
             Entity[] entities = new Entity[10000];
             for (int i = 0; i < entities.Length/2;i++)

@@ -1,13 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Reflection;
 using Unity.Entities;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEditor;
 using UnityEditor.SceneManagement;
-using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
+using Scene = UnityEngine.SceneManagement.Scene;
+
 
 namespace Unity.Scenes.Editor
 {
@@ -18,7 +18,8 @@ namespace Unity.Scenes.Editor
     {
         class GameObjectPrefabLiveLinkSceneTracker : AssetPostprocessor
         {
-            static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths)
+            static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets,
+                string[] movedFromAssetPaths)
             {
                 foreach (var asset in importedAssets)
                 {
@@ -30,10 +31,10 @@ namespace Unity.Scenes.Editor
 
         static int GlobalDirtyID = 0;
         static int PreviousGlobalDirtyID = 0;
-        MethodInfo m_GetDirtyIDMethod = typeof(Scene).GetProperty("dirtyID", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public).GetMethod;
 
-        UInt64 m_LiveLinkEditSceneViewMask = 1UL << 60;
-        UInt64 m_LiveLinkEditGameViewMask = 1UL << 58;
+        readonly MethodInfo m_GetDirtyIDMethod = typeof(Scene)
+            .GetProperty("dirtyID", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)?.GetMethod;
+
         HashSet<SceneAsset> m_EditingSceneAssets = new HashSet<SceneAsset>();
 
         static void AddUnique(ref List<SubScene> list, SubScene scene)
@@ -52,7 +53,7 @@ namespace Unity.Scenes.Editor
             List<SubScene> removeSceneLoadedFromLiveLink = null;
             m_EditingSceneAssets.Clear();
 
-            var liveLinkEnabled = SubSceneInspectorUtility.LiveLinkEnabled;
+            var liveLinkEnabled = SubSceneInspectorUtility.LiveLinkMode != LiveLinkMode.Disabled;
 
             // By default all scenes need to have m_GameObjectSceneCullingMask, otherwise they won't show up in game view
             for (int i = 0; i != EditorSceneManager.sceneCount; i++)
@@ -61,9 +62,10 @@ namespace Unity.Scenes.Editor
                 if (scene.isSubScene)
                 {
                     if (liveLinkEnabled)
-                        EditorSceneManager.SetSceneCullingMask(scene, m_LiveLinkEditSceneViewMask);
+                        EditorSceneManager.SetSceneCullingMask(scene, EditorRenderData.LiveLinkEditSceneViewMask);
                     else
-                        EditorSceneManager.SetSceneCullingMask(scene, EditorSceneManager.DefaultSceneCullingMask | m_LiveLinkEditGameViewMask);
+                        EditorSceneManager.SetSceneCullingMask(scene,
+                            EditorSceneManager.DefaultSceneCullingMask | EditorRenderData.LiveLinkEditGameViewMask);
 
                     var sceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(scene.path);
                     if (scene.isLoaded && sceneAsset != null)
@@ -75,7 +77,8 @@ namespace Unity.Scenes.Editor
             {
                 Entities.ForEach((SubScene subScene) =>
                 {
-                    subScene.LiveLinkDirtyID = -1;
+                    if (subScene.LiveLinkData != null)
+                        subScene.LiveLinkData.RequestCleanConversion();
                 });
                 PreviousGlobalDirtyID = GlobalDirtyID;
             }
@@ -86,8 +89,14 @@ namespace Unity.Scenes.Editor
                 // We are editing with live link. Ensure it is active & up to date
                 if (isLoaded && liveLinkEnabled)
                 {
-                    if (subScene.LiveLinkDirtyID != GetSceneDirtyID(subScene.LoadedScene) || subScene.LiveLinkShadowWorld == null)
+                    if (subScene.LiveLinkData == null)
                         AddUnique(ref needLiveLinkSync, subScene);
+                    else
+                    {
+                        if (subScene.LiveLinkData.LiveLinkDirtyID != GetSceneDirtyID(subScene.LoadedScene) ||
+                            subScene.LiveLinkData.DidRequestUpdate())
+                            AddUnique(ref needLiveLinkSync, subScene);
+                    }
                 }
                 // We are editing without live link.
                 // We should have no entity representation loaded for the scene.
@@ -95,7 +104,8 @@ namespace Unity.Scenes.Editor
                 {
                     var hasAnythingLoaded = false;
                     foreach (var s in subScene._SceneEntities)
-                        hasAnythingLoaded |= EntityManager.HasComponent<SubSceneStreamingSystem.StreamingState>(s) || !EntityManager.HasComponent<SubSceneStreamingSystem.IgnoreTag>(s);
+                        hasAnythingLoaded |= EntityManager.HasComponent<SubSceneStreamingSystem.StreamingState>(s) ||
+                                             !EntityManager.HasComponent<SubSceneStreamingSystem.IgnoreTag>(s);
 
                     if (hasAnythingLoaded)
                     {
@@ -110,7 +120,7 @@ namespace Unity.Scenes.Editor
                     foreach (var s in subScene._SceneEntities)
                         isDrivenByLiveLink |= EntityManager.HasComponent<SubSceneStreamingSystem.IgnoreTag>(s);
 
-                    if (isDrivenByLiveLink || subScene.LiveLinkShadowWorld != null)
+                    if (isDrivenByLiveLink || subScene.LiveLinkData != null)
                     {
                         AddUnique(ref cleanupScene, subScene);
                         AddUnique(ref removeSceneLoadedFromLiveLink, subScene);
@@ -120,18 +130,38 @@ namespace Unity.Scenes.Editor
 
             if (needLiveLinkSync != null)
             {
+                var shouldDelayLiveLink = SubSceneInspectorUtility.LiveLinkMode == LiveLinkMode.ConvertWithoutDiff;
                 // Live link changes to entity world
                 foreach (var scene in needLiveLinkSync)
                 {
-                    // Prevent live link updating during drag operation
-                    // (Currently performance is not good enough to do it completely live)
-                    if (!IsHotControlActive())
-                        ApplyLiveLink(scene);
-                    else
+                    if (shouldDelayLiveLink)
+                    {
                         EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
+                    }
+                    else
+                    {
+                        // The current behaviour is that we do incremental conversion until we release the hot control
+                        // This is to avoid any unexpected stalls
+                        // Optimally the undo system would tell us if only properties have changed, but currently we don't have such an event stream.
+                        var sceneDirtyID = GetSceneDirtyID(scene.LoadedScene);
+                        if (IsHotControlActive())
+                        {
+                            if (scene.LiveLinkData != null)
+                                LiveLinkScene.ApplyLiveLink(scene, World, scene.LiveLinkData.LiveLinkDirtyID,
+                                    SubSceneInspectorUtility.LiveLinkMode);
+                            else
+                                EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
+                        }
+                        else
+                        {
+                            if (scene.LiveLinkData != null && scene.LiveLinkData.LiveLinkDirtyID != sceneDirtyID)
+                                scene.LiveLinkData.RequestCleanConversion();
+                            LiveLinkScene.ApplyLiveLink(scene, World, sceneDirtyID,
+                                SubSceneInspectorUtility.LiveLinkMode);
+                        }
+                    }
                 }
             }
-
 
             if (cleanupScene != null)
             {
@@ -164,12 +194,11 @@ namespace Unity.Scenes.Editor
                     }
                 }
             }
-
         }
 
         void CleanupScene(SubScene scene)
         {
-            // Debug.Log("CleanupScene: " + scene.SceneName);
+            // Debug.Log("CleanupLiveLinkScene: " + scene.SceneName);
             scene.CleanupLiveLink();
 
             var streamingSystem = World.GetExistingSystem<SubSceneStreamingSystem>();
@@ -179,73 +208,11 @@ namespace Unity.Scenes.Editor
                 streamingSystem.UnloadSceneImmediate(sceneEntity);
                 EntityManager.DestroyEntity(sceneEntity);
             }
+
             scene._SceneEntities = new List<Entity>();
 
-            scene.UpdateSceneEntities();
+            scene.UpdateSceneEntities(false);
         }
-
-        void ApplyLiveLink(SubScene scene)
-        {
-            //Debug.Log("ApplyLiveLink: " + scene.SceneName);
-
-            var streamingSystem = World.GetExistingSystem<SubSceneStreamingSystem>();
-
-            var isFirstTime = scene.LiveLinkShadowWorld == null;
-            if (scene.LiveLinkShadowWorld == null)
-                scene.LiveLinkShadowWorld = new World("LiveLink");
-
-
-            using (var cleanConvertedEntityWorld = new World("Clean Entity Conversion World"))
-            {
-                // Unload scene
-                //@TODO: We optimally shouldn't be unloading the scene here. We should simply prime the shadow world with the scene that we originally loaded into the player (Including Entity GUIDs)
-                //       This way we can continue the live link, compared to exactly what we loaded into the player.
-                if (isFirstTime)
-                {
-                    foreach (var s in scene._SceneEntities)
-                    {
-                        streamingSystem.UnloadSceneImmediate(s);
-                        EntityManager.DestroyEntity(s);
-                    }
-
-                    var sceneEntity = EntityManager.CreateEntity();
-                    EntityManager.SetName(sceneEntity, "Scene (LiveLink): " + scene.SceneName);
-                    EntityManager.AddComponentObject(sceneEntity, scene);
-                    EntityManager.AddComponentData(sceneEntity, new SubSceneStreamingSystem.StreamingState { Status = SubSceneStreamingSystem.StreamingStatus.Loaded});
-                    EntityManager.AddComponentData(sceneEntity, new SubSceneStreamingSystem.IgnoreTag( ));
-
-                    scene._SceneEntities = new List<Entity>();
-                    scene._SceneEntities.Add(sceneEntity);
-                }
-
-                // Convert scene
-                GameObjectConversionUtility.ConvertScene(scene.LoadedScene, scene.SceneGUID, cleanConvertedEntityWorld, GameObjectConversionUtility.ConversionFlags.AddEntityGUID | GameObjectConversionUtility.ConversionFlags.AssignName);
-
-                var convertedEntityManager = cleanConvertedEntityWorld.EntityManager;
-
-                var liveLinkSceneEntity = scene._SceneEntities[0];
-
-                /// We want to let the live linked scene be able to reference the already existing Scene Entity (Specifically SceneTag should point to the scene Entity after live link completes)
-                // Add Scene tag to all entities using the convertedSceneEntity that will map to the already existing scene entity.
-                convertedEntityManager.AddSharedComponentData(convertedEntityManager.UniversalQuery, new SceneTag { SceneEntity = liveLinkSceneEntity });
-
-                WorldDiffer.DiffAndApply(cleanConvertedEntityWorld, scene.LiveLinkShadowWorld, World);
-
-                convertedEntityManager.Debug.CheckInternalConsistency();
-                scene.LiveLinkShadowWorld.EntityManager.Debug.CheckInternalConsistency();
-
-                var group = EntityManager.CreateEntityQuery(typeof(SceneTag), ComponentType.Exclude<EditorRenderData>());
-                group.SetFilter(new SceneTag {SceneEntity = liveLinkSceneEntity});
-
-                EntityManager.AddSharedComponentData(group, new EditorRenderData() { SceneCullingMask = m_LiveLinkEditGameViewMask, PickableObject = scene.gameObject });
-
-                group.Dispose();
-
-                scene.LiveLinkDirtyID = GetSceneDirtyID(scene.LoadedScene);
-                EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
-            }
-        }
-
 
         static GameObject GetGameObjectFromAny(Object target)
         {
@@ -271,9 +238,10 @@ namespace Unity.Scenes.Editor
                     var targetScene = target.scene;
                     Entities.ForEach((SubScene scene) =>
                     {
-                        if (scene.IsLoaded && scene.LoadedScene == targetScene)
+                        if (scene.LiveLinkData != null && scene.LoadedScene == targetScene)
                         {
-                            scene.LiveLinkDirtyID = -1;
+                            scene.LiveLinkData.AddChanged(target);
+                            EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
                         }
                     });
                 }
@@ -286,15 +254,16 @@ namespace Unity.Scenes.Editor
         {
             if (scene.IsValid())
             {
-                return (int)m_GetDirtyIDMethod.Invoke(scene, null);
+                return (int) m_GetDirtyIDMethod.Invoke(scene, null);
             }
             else
                 return -1;
         }
 
-        static void GlobalDirtyLiveLink()
+        public static void GlobalDirtyLiveLink()
         {
             GlobalDirtyID++;
+            EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
         }
 
         protected override void OnCreate()
@@ -303,15 +272,36 @@ namespace Unity.Scenes.Editor
             Undo.undoRedoPerformed += GlobalDirtyLiveLink;
 
             Camera.onPreCull += OnPreCull;
-            RenderPipeline.beginCameraRendering += OnPreCull;
+            RenderPipelineManager.beginCameraRendering += OnPreCull;
+
+            SceneView.duringSceneGui += SceneViewOnBeforeSceneGui;
         }
 
+        //@TODO:
+        // * This is a gross hack to show the Transform gizmo even though the game objects used for editing are hidden and thus the tool gizmo is not shown
+        // * Also we are not rendering the selection (Selection must be drawn around live linked object, not the editing object)
+        void SceneViewOnBeforeSceneGui(SceneView obj)
+        {
+            if (SubSceneInspectorUtility.LiveLinkMode == LiveLinkMode.LiveConvertSceneView)
+            {
+                ConfigureCamera(obj.camera, false);
+            }
+        }
+
+        void OnPreCull(ScriptableRenderContext _, Camera camera) => OnPreCull(camera);
+
         void OnPreCull(Camera camera)
+        {
+            ConfigureCamera(camera, SubSceneInspectorUtility.LiveLinkMode == LiveLinkMode.LiveConvertSceneView);
+        }
+
+        void ConfigureCamera(Camera camera, bool sceneViewLiveLink)
         {
             if (camera.cameraType == CameraType.Game)
             {
                 //Debug.Log("Configure game view");
-                camera.overrideSceneCullingMask = EditorSceneManager.DefaultSceneCullingMask | m_LiveLinkEditGameViewMask;
+                camera.overrideSceneCullingMask = EditorSceneManager.DefaultSceneCullingMask |
+                                                  EditorRenderData.LiveLinkEditGameViewMask;
             }
             else if (camera.cameraType == CameraType.SceneView)
             {
@@ -323,10 +313,14 @@ namespace Unity.Scenes.Editor
                 else
                 {
                     // Debug.Log("Scene view" + camera.GetInstanceID());
-                    camera.overrideSceneCullingMask = EditorSceneManager.DefaultSceneCullingMask | m_LiveLinkEditSceneViewMask;
+                    if (sceneViewLiveLink)
+                        camera.overrideSceneCullingMask =
+                            EditorSceneManager.DefaultSceneCullingMask | EditorRenderData.LiveLinkEditGameViewMask;
+                    else
+                        camera.overrideSceneCullingMask =
+                            EditorSceneManager.DefaultSceneCullingMask | EditorRenderData.LiveLinkEditSceneViewMask;
                 }
             }
-
         }
 
         protected override void OnDestroy()
@@ -335,8 +329,7 @@ namespace Unity.Scenes.Editor
             Undo.undoRedoPerformed -= GlobalDirtyLiveLink;
 
             Camera.onPreCull -= OnPreCull;
-            RenderPipeline.beginCameraRendering -= OnPreCull;
+            RenderPipelineManager.beginCameraRendering -= OnPreCull;
         }
     }
 }
-

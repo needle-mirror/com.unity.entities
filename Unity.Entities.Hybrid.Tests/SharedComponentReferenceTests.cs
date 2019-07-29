@@ -57,7 +57,6 @@ namespace Unity.Entities.Tests
             UnityEngine.Object.DestroyImmediate(obj);
 
             Assert.Throws<ArgumentException>(() => m_Manager.DestroyEntity(e));
-            Assert.Throws<ArgumentException>(() => m_Manager.Debug.CheckInternalConsistency());
             m_Manager.World.Dispose();
         }
     }

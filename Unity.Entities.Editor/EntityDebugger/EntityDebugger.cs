@@ -9,6 +9,10 @@ namespace Unity.Entities.Editor
 {
     internal class EntityDebugger : EditorWindow
     {
+        public delegate void SelectionChangeCallback(EntitySelectionProxy proxy);
+
+        public event SelectionChangeCallback OnEntitySelectionChanged;
+        
         private const float kSystemListWidth = 350f;
         private const float kChunkInfoViewWidth = 250f;
 
@@ -37,35 +41,54 @@ namespace Unity.Entities.Editor
         {
             GetWindow<EntityDebugger>("Entity Debugger");
         }
-
-        private static GUIStyle LabelStyle
+	
+        class DebuggerStyles
         {
-            get
+            public GUIStyle ToolbarStyle;
+            public GUIStyle SearchFieldStyle;
+            public GUIStyle SearchFieldCancelButton;
+            public GUIStyle SearchFieldCancelButtonEmpty;
+            public int SearchFieldWidth;
+            public GUIStyle ToolbarDropdownStyle;
+            public GUIStyle ToolbarButtonStyle;
+            public GUIStyle LabelStyle;
+            public GUIStyle BoxStyle;
+            public GUIStyle ToolbarLabelStyle;
+        }
+        
+        private static DebuggerStyles Styles;
+	
+        void InitStyles()
+        {
+            if (Styles == null)
             {
-                return labelStyle ?? (labelStyle = new GUIStyle(EditorStyles.label)
+                Styles = new DebuggerStyles();
+                Styles.ToolbarStyle = "Toolbar";
+                Styles.SearchFieldStyle = "ToolbarSeachTextField";
+                Styles.SearchFieldCancelButton = "ToolbarSeachCancelButton";
+                Styles.SearchFieldCancelButtonEmpty = "ToolbarSeachCancelButtonEmpty";
+                Styles.SearchFieldWidth = 100;
+                Styles.ToolbarDropdownStyle = "ToolbarDropDown";
+                Styles.ToolbarButtonStyle = "toolbarbutton";
+                Styles.LabelStyle = new GUIStyle(EditorStyles.label)
                 {
                     margin = EditorStyles.boldLabel.margin,
                     richText = true
-                });
-            }
-        }
-
-        private static GUIStyle labelStyle;
-
-        private static GUIStyle BoxStyle
-        {
-            get
-            {
-                return boxStyle ?? (boxStyle = new GUIStyle(GUI.skin.box)
+                };
+                Styles.BoxStyle = new GUIStyle(GUI.skin.box)
                 {
                     margin = new RectOffset(),
                     padding = new RectOffset(1, 0, 1, 0),
                     overflow = new RectOffset(0, 1, 0, 1)
-                });
+                };
+                Styles.ToolbarLabelStyle = new GUIStyle(Styles.ToolbarButtonStyle)
+                {
+                    richText = true,
+                    alignment = TextAnchor.MiddleLeft,
+                    normal = new GUIStyleState()
+                };
             }
         }
-
-        private static GUIStyle boxStyle;
 
         public ComponentSystemBase SystemSelection { get; private set; }
 
@@ -118,10 +141,12 @@ namespace Unity.Entities.Editor
             {
                 selectionProxy.SetEntity(world, newSelection);
                 Selection.activeObject = selectionProxy;
+                OnEntitySelectionChanged?.Invoke(selectionProxy);
             }
             else if (Selection.activeObject == selectionProxy)
             {
                 Selection.activeObject = null;
+                OnEntitySelectionChanged?.Invoke(null);
             }
         }
 
@@ -321,7 +346,23 @@ namespace Unity.Entities.Editor
 
         private void ShowWorldPopup()
         {
-            m_WorldPopup.OnGUI(showingPlayerLoop, EditorApplication.isPlaying ? lastPlayModeWorldSelection : lastEditModeWorldSelection);
+            m_WorldPopup.OnGUI(showingPlayerLoop, EditorApplication.isPlaying ? lastPlayModeWorldSelection : lastEditModeWorldSelection, Styles.ToolbarDropdownStyle);
+        }
+	
+        private string SearchField(string search)
+        {
+            search = GUILayout.TextField(search, Styles.SearchFieldStyle, GUILayout.Width(Styles.SearchFieldWidth));
+            if (!string.IsNullOrEmpty(search))
+            {
+                if (GUILayout.Button(GUIContent.none, Styles.SearchFieldCancelButton))
+                    search = null;
+            }
+            else
+            {
+                GUILayout.Box(GUIContent.none, Styles.SearchFieldCancelButtonEmpty);
+            }
+	
+            return search;
         }
 
         private void SystemList()
@@ -339,10 +380,10 @@ namespace Unity.Entities.Editor
 
         private void SystemHeader()
         {
-            GUILayout.BeginHorizontal();
-            GUILayout.Label("Systems", EditorStyles.boldLabel);
-            GUILayout.FlexibleSpace();
+            GUILayout.BeginHorizontal(Styles.ToolbarStyle);
             ShowWorldPopup();
+            GUILayout.FlexibleSpace();
+            systemListView.searchString = SearchField(systemListView.searchString);
             GUILayout.EndHorizontal();
         }
 
@@ -352,15 +393,16 @@ namespace Unity.Entities.Editor
         {
             if (WorldSelection != null || SystemSelectionWorld != null)
             {
-                var rect = new Rect(kSystemListWidth, 3f, CurrentEntityViewWidth, kLineHeight);
+                var rect = new Rect(kSystemListWidth, 0f, CurrentEntityViewWidth, kLineHeight);
+                GUI.Label(rect, GUIContent.none, Styles.ToolbarButtonStyle);
                 if (SystemSelection == null)
                 {
-                    GUI.Label(rect, "All Entities", EditorStyles.boldLabel);
+                    GUI.Label(rect, "<b>All Entities</b>", Styles.ToolbarLabelStyle);
                 }
                 else
                 {
                     var type = SystemSelection.GetType();
-                    GUI.Label(rect, $"<b>{type.Namespace}</b>.{type.Name}", LabelStyle);
+                    GUI.Label(rect, $"<b>{type.Namespace}</b>.{type.Name}", Styles.ToolbarLabelStyle);
                 }
             }
             if (!showingChunkInfoView)
@@ -371,7 +413,7 @@ namespace Unity.Entities.Editor
 
         private void ChunkInfoToggle(Rect rect)
         {
-            ShowingChunkInfoView = GUI.Toggle(rect, ShowingChunkInfoView, "Chunk Info", EditorStyles.miniButton);
+            ShowingChunkInfoView = GUI.Toggle(rect, ShowingChunkInfoView, "Chunk Info", Styles.ToolbarButtonStyle);
         }
 
         private void EntityQueryList()
@@ -379,8 +421,8 @@ namespace Unity.Entities.Editor
             if (SystemSelection != null)
             {
                 entityQueryListView.SetWidth(CurrentEntityViewWidth);
-                var height = Mathf.Min(entityQueryListView.Height + BoxStyle.padding.vertical, position.height*0.5f);
-                GUILayout.BeginVertical(BoxStyle, GUILayout.Height(height));
+                var height = Mathf.Min(entityQueryListView.Height + Styles.BoxStyle.padding.vertical, position.height*0.5f);
+                GUILayout.BeginVertical(Styles.BoxStyle, GUILayout.Height(height));
 
                 entityQueryListView.OnGUI(GUIHelpers.GetExpandingRect());
                 GUILayout.EndVertical();
@@ -414,24 +456,24 @@ namespace Unity.Entities.Editor
 
         void EntityList()
         {
-            GUILayout.BeginVertical(BoxStyle);
+            GUILayout.BeginVertical(Styles.BoxStyle);
             entityListView.OnGUI(GUIHelpers.GetExpandingRect());
             GUILayout.EndVertical();
         }
 
         private void ChunkInfoView()
         {
-            GUILayout.BeginHorizontal(BoxStyle);
+            GUILayout.BeginHorizontal(Styles.ToolbarButtonStyle);
             if (entityListView.ShowingSomething)
             {
-                GUILayout.Label($"Matching chunks: {entityListView.ChunkArray.Length}");
+                GUILayout.Label($"Matching chunks: {entityListView.ChunkArray.Length}", Styles.ToolbarLabelStyle);
             }
             GUILayout.FlexibleSpace();
             ChunkInfoToggle(GUILayoutUtility.GetRect(kChunkInfoButtonWidth, kLineHeight));
             GUILayout.EndHorizontal();
             if (entityListView.ShowingSomething)
             {
-                GUILayout.BeginHorizontal(BoxStyle);
+                GUILayout.BeginHorizontal(Styles.BoxStyle);
                 chunkInfoListView.OnGUI(GUIHelpers.GetExpandingRect());
                 GUILayout.EndHorizontal();
                 if (chunkInfoListView.HasSelection())
@@ -458,6 +500,7 @@ namespace Unity.Entities.Editor
 
         private void OnGUI()
         {
+            InitStyles();
             if (Event.current.type == EventType.Layout)
             {
                 systemListView.ReloadIfNecessary();
@@ -477,7 +520,7 @@ namespace Unity.Entities.Editor
             GUILayout.BeginArea(new Rect(0f, 0f, kSystemListWidth, position.height)); // begin System side
             SystemHeader();
 
-            GUILayout.BeginVertical(BoxStyle);
+            GUILayout.BeginVertical(Styles.BoxStyle);
             SystemList();
             GUILayout.EndVertical();
 

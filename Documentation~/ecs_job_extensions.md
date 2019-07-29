@@ -21,5 +21,5 @@ The Jobs package extends the Job System to support ECS. It contains:
 * [IJobParallelForDeferExtensions](https://docs.unity3d.com/Packages/com.unity.jobs@0.0/api/Unity.Jobs.IJobParallelForDeferExtensions.html)
 * [IJobParallelForFilter](https://docs.unity3d.com/Packages/com.unity.jobs@0.0/api/Unity.Jobs.IJobParallelForFilter.html)
 * [JobParallelIndexListExtensions](https://docs.unity3d.com/Packages/com.unity.jobs@0.0/api/Unity.Jobs.JobParallelIndexListExtensions.html)
-* [Job​Struct​Produce<T>](https://docs.unity3d.com/Packages/com.unity.jobs@0.0/api/Unity.Jobs.JobParallelIndexListExtensions.JobStructProduce-1.html)
+* [Job​Struct​Produce&lt;T&gt;](https://docs.unity3d.com/Packages/com.unity.jobs@0.0/api/Unity.Jobs.JobParallelIndexListExtensions.JobStructProduce-1.html)
 

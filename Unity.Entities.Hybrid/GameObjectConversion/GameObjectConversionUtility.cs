@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using JetBrains.Annotations;
 using Unity.Collections;
 using Unity.Profiling;
 using UnityEngine;
@@ -11,127 +13,141 @@ namespace Unity.Entities
 {
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
-    public class GameObjectConversionDeclarePrefabsGroup : ComponentSystemGroup
-    {
-
-    }
+    public class GameObjectDeclareReferencedObjectsGroup : ComponentSystemGroup { }
 
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
-    public class GameObjectBeforeConversionGroup : ComponentSystemGroup
-    {
-
-    }
+    public class GameObjectBeforeConversionGroup : ComponentSystemGroup { }
 
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
-    public class GameObjectConversionGroup : ComponentSystemGroup
-    {
-
-    }
+    public class GameObjectConversionGroup : ComponentSystemGroup { }
 
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
-    public class GameObjectAfterConversionGroup : ComponentSystemGroup
-    {
+    public class GameObjectAfterConversionGroup : ComponentSystemGroup { }
 
-    }
+    [DisableAutoCreation]
+    [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
+    public class GameObjectExportGroup : ComponentSystemGroup { }
 
+    
     public static class GameObjectConversionUtility
     {
-        static ProfilerMarker m_ConvertScene = new ProfilerMarker("GameObjectConversionUtility.ConvertScene");
-        static ProfilerMarker m_CreateConversionWorld = new ProfilerMarker("Create World & Systems");
-        static ProfilerMarker m_DestroyConversionWorld = new ProfilerMarker("DestroyWorld");
-        static ProfilerMarker m_CreateEntitiesForGameObjects = new ProfilerMarker("CreateEntitiesForGameObjects");
-        static ProfilerMarker m_UpdateSystems = new ProfilerMarker("UpdateConversionSystems");
-        static ProfilerMarker m_AddPrefabComponentDataTag = new ProfilerMarker("AddPrefabComponentDataTag");
+        static ProfilerMarker s_ConvertScene = new ProfilerMarker("GameObjectConversionUtility.ConvertScene");
+        static ProfilerMarker s_CreateConversionWorld = new ProfilerMarker("Create World & Systems");
+        static ProfilerMarker s_DestroyConversionWorld = new ProfilerMarker("DestroyWorld");
+        static ProfilerMarker s_CreateEntitiesForGameObjects = new ProfilerMarker("CreateEntitiesForGameObjects");
+        static ProfilerMarker s_UpdateConversionSystems = new ProfilerMarker("UpdateConversionSystems");
+        static ProfilerMarker s_UpdateExportSystems = new ProfilerMarker("UpdateExportSystems");
+        static ProfilerMarker s_AddPrefabComponentDataTag = new ProfilerMarker("AddPrefabComponentDataTag");
+        static ProfilerMarker s_GenerateLinkedEntityGroups = new ProfilerMarker("GenerateLinkedEntityGroups");
 
         [Flags]
         public enum ConversionFlags : uint
         {
-            None = 0,
             AddEntityGUID = 1 << 0,
             ForceStaticOptimization = 1 << 1,
             AssignName = 1 << 2,
+            SceneViewLiveLink = 1 << 3,
+            GameViewLiveLink = 1 << 4,
         }
 
-        unsafe public static EntityGuid GetEntityGuid(GameObject gameObject, int index)
+        public static EntityGuid GetEntityGuid(GameObject gameObject, int index)
         {
             return GameObjectConversionMappingSystem.GetEntityGuid(gameObject, index);
         }
 
-        internal  static World CreateConversionWorld(World dstEntityWorld, Hash128 sceneGUID, ConversionFlags conversionFlags)
+        internal static World CreateConversionWorld(GameObjectConversionSettings settings)
         {
-            m_CreateConversionWorld.Begin();
+            using (s_CreateConversionWorld.Auto())
+            {
+                var gameObjectWorld = new World("GameObject World");
+                gameObjectWorld.CreateSystem<GameObjectConversionMappingSystem>(settings);
 
-            var gameObjectWorld = new World("GameObject World");
-            gameObjectWorld.CreateSystem<GameObjectConversionMappingSystem>(dstEntityWorld, sceneGUID, conversionFlags);
+                var systemTypes = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.GameObjectConversion);
+                systemTypes.AddRange(settings.ExtraSystems);
 
-            AddConversionSystems(gameObjectWorld);
+                var includeExport = settings.GetType() != typeof(GameObjectConversionSettings);
+                AddConversionSystems(gameObjectWorld, systemTypes, includeExport);
 
-            m_CreateConversionWorld.End();
-
-            return gameObjectWorld;
+                settings.ConversionWorldCreated?.Invoke(gameObjectWorld);
+                
+                return gameObjectWorld;
+            }
         }
 
-        struct DeclaredReferencePrefabsTag : IComponentData { }
+        struct DeclaredReferenceObjectsTag : IComponentData { }
 
-        static void DeclareReferencesPrefabs(World gameObjectWorld, GameObjectConversionMappingSystem mappingSystem)
+        static void DeclareReferencedObjects(World gameObjectWorld, GameObjectConversionMappingSystem mappingSystem)
         {
-            var newEntitiesQuery = mappingSystem.Entities
-                .WithNone<DeclaredReferencePrefabsTag>()
-                .WithAll<Transform>()
+            var newAllEntitiesQuery = mappingSystem.Entities
+                .WithNone<DeclaredReferenceObjectsTag>()
                 .ToEntityQuery();
 
-            var declares = new List<IDeclareReferencedPrefabs>();
-            var prefabs = new List<GameObject>();
-
-            // we loop until there's nothing more to do (i.e. no new entities created during prefab declaration system updates)
-            while (!newEntitiesQuery.IsEmptyIgnoreFilter)
-            {
-                using (var newEntities = newEntitiesQuery.ToEntityArray(Allocator.TempJob))
+            //@TODO: Revert this again once KevinM adds support for inheritance in queries
+            //var newGoEntitiesQuery = mappingSystem.Entities
+            //    .WithNone<DeclaredReferenceObjectsTag>()
+            //    .WithAll<Transform>()
+            //    .ToEntityQuery();
+            var newGoEntitiesQuery = mappingSystem.GetEntityQuery(
+                new EntityQueryDesc
                 {
-                    // fetch components that know how to declare ref'd prefabs
-                    foreach (var newEntity in newEntities)
-                    {
-                        gameObjectWorld.EntityManager.GetComponentObject<Transform>(newEntity).GetComponents(declares);
+                    None = new ComponentType[] { typeof(DeclaredReferenceObjectsTag) },
+                    All = new ComponentType[] { typeof(Transform) }
+                },
+                new EntityQueryDesc
+                {
+                    None = new ComponentType[] { typeof(DeclaredReferenceObjectsTag) },
+                    All = new ComponentType[] { typeof(RectTransform) }
+                });
 
-                        // discover and declare by component
-                        foreach (var declare in declares)
-                            declare.DeclareReferencedPrefabs(prefabs);
-                        
-                        declares.Clear();
+            var prefabDeclarers = new List<IDeclareReferencedPrefabs>();
+            var declaredPrefabs = new List<GameObject>();
+
+            // loop until no new entities discovered that might need following
+            while (!newAllEntitiesQuery.IsEmptyIgnoreFilter)
+            {
+                using (var newGoEntities = newGoEntitiesQuery.ToEntityArray(Allocator.TempJob))
+                {
+                    // fetch components that implement IDeclareReferencedPrefabs
+                    foreach (var newGoEntity in newGoEntities)
+                    {
+                        //@TODO: Revert this again once we add support for inheritance in queries 
+                        //gameObjectWorld.EntityManager.GetComponentObject<Transform>(newGoEntity).GetComponents(prefabDeclarers);
+                        ((Transform)gameObjectWorld.EntityManager.Debug.GetComponentBoxed(newGoEntity, typeof(Transform))).GetComponents(prefabDeclarers);
+
+                        // let each component declare any prefab refs it knows about
+                        foreach (var prefabDeclarer in prefabDeclarers)
+                            prefabDeclarer.DeclareReferencedPrefabs(declaredPrefabs);
+
+                        prefabDeclarers.Clear();
                     }
                 }
 
                 // mark as seen for next loop
-                gameObjectWorld.EntityManager.AddComponent(newEntitiesQuery, typeof(DeclaredReferencePrefabsTag));
+                gameObjectWorld.EntityManager.AddComponent<DeclaredReferenceObjectsTag>(newAllEntitiesQuery);
 
-                foreach (var prefab in prefabs)
-                    mappingSystem.DeclareReferencedPrefab(prefab);
-                prefabs.Clear();
+                foreach (var declaredPrefab in declaredPrefabs)
+                    mappingSystem.DeclareReferencedPrefab(declaredPrefab);
+                declaredPrefabs.Clear();
 
-                // discover and declare by system
-
-                gameObjectWorld.GetExistingSystem<GameObjectConversionDeclarePrefabsGroup>().Update();
+                // give systems a chance to declare prefabs and assets
+                gameObjectWorld.GetExistingSystem<GameObjectDeclareReferencedObjectsGroup>().Update();
             }
 
             // clean up the markers
-            gameObjectWorld.EntityManager.RemoveComponent<DeclaredReferencePrefabsTag>(gameObjectWorld.EntityManager.UniversalQuery);
+            gameObjectWorld.EntityManager.RemoveComponent<DeclaredReferenceObjectsTag>(gameObjectWorld.EntityManager.UniversalQuery);
         }
 
-
-        
-        internal static void Convert(World gameObjectWorld, World dstEntityWorld)
+        internal static void Convert(World gameObjectWorld)
         {
             var mappingSystem = gameObjectWorld.GetExistingSystem<GameObjectConversionMappingSystem>();
 
-            using (m_UpdateSystems.Auto())
+            using (s_UpdateConversionSystems.Auto())
             {
+                DeclareReferencedObjects(gameObjectWorld, mappingSystem);
 
-                DeclareReferencesPrefabs(gameObjectWorld, mappingSystem);
-
-                // Convert all the data into dstEntityWorld
                 mappingSystem.CreatePrimaryEntities();
 
                 gameObjectWorld.GetExistingSystem<GameObjectBeforeConversionGroup>().Update();
@@ -139,9 +155,59 @@ namespace Unity.Entities
                 gameObjectWorld.GetExistingSystem<GameObjectAfterConversionGroup>().Update();
             }
 
-            using (m_AddPrefabComponentDataTag.Auto())
-            {
+            using (s_AddPrefabComponentDataTag.Auto())
                 mappingSystem.AddPrefabComponentDataTag();
+
+            using (s_GenerateLinkedEntityGroups.Auto())
+                mappingSystem.GenerateLinkedEntityGroups();
+
+            using (s_UpdateExportSystems.Auto())
+                gameObjectWorld.GetExistingSystem<GameObjectExportGroup>()?.Update();
+
+            mappingSystem.CleanupTemporaryCaches();
+        }
+
+        public static void ConvertIncremental(World gameObjectWorld, IEnumerable<GameObject> gameObjects, ConversionFlags flags)
+        {
+            var mappingSystem = gameObjectWorld.GetExistingSystem<GameObjectConversionMappingSystem>();
+
+            mappingSystem.PrepareIncrementalConversion(gameObjects, flags);
+
+            using (s_UpdateConversionSystems.Auto())
+            {
+                gameObjectWorld.GetExistingSystem<GameObjectBeforeConversionGroup>().Update();
+                gameObjectWorld.GetExistingSystem<GameObjectConversionGroup>().Update();
+                gameObjectWorld.GetExistingSystem<GameObjectAfterConversionGroup>().Update();
+            }
+            
+            using (s_GenerateLinkedEntityGroups.Auto())
+                mappingSystem.GenerateLinkedEntityGroups();
+
+            gameObjectWorld.EntityManager.DestroyEntity(gameObjectWorld.EntityManager.UniversalQuery);
+
+            // @TODO: Eventually we need to do incremental conversion of prefabs
+            // mappingSystem.AddPrefabComponentDataTag();
+
+            // @TODO: Eventually we need to figure out how to handle hybrid components incrementally
+            // mappingSystem.AddHybridComponents();
+
+            mappingSystem.CleanupTemporaryCaches();
+        }
+
+        public static World ConvertIncrementalInitialize(Scene scene, GameObjectConversionSettings settings)
+        {
+            using (s_ConvertScene.Auto())
+            {
+                var gameObjectWorld = CreateConversionWorld(settings);
+                
+                using (s_CreateEntitiesForGameObjects.Auto())
+                    gameObjectWorld.GetExistingSystem<GameObjectConversionMappingSystem>().CreateEntitiesForGameObjects(scene, gameObjectWorld);
+
+                Convert(gameObjectWorld);
+
+                gameObjectWorld.EntityManager.DestroyEntity(gameObjectWorld.EntityManager.UniversalQuery);
+
+                return gameObjectWorld;
             }
         }
 
@@ -151,115 +217,135 @@ namespace Unity.Entities
             return mappingSystem.GetPrimaryEntity(gameObject);
         }
 
-
-        public static Entity ConvertGameObjectHierarchy(GameObject root, World dstEntityWorld)
+        public static Entity ConvertGameObjectHierarchy(GameObject root, GameObjectConversionSettings settings)
         {
-            m_ConvertScene.Begin();
-
-            Entity convertedEntity;
-            using (var gameObjectWorld = CreateConversionWorld(dstEntityWorld, default(Hash128), 0))
+            using (s_ConvertScene.Auto())
             {
-                var mappingSystem = gameObjectWorld.GetExistingSystem<GameObjectConversionMappingSystem>();
-
-                using (m_CreateEntitiesForGameObjects.Auto())
+                Entity convertedEntity;
+                using (var conversionWorld = CreateConversionWorld(settings))
                 {
-                    mappingSystem.AddGameObjectOrPrefab(root);
+                    var mappingSystem = conversionWorld.GetExistingSystem<GameObjectConversionMappingSystem>();
+
+                    using (s_CreateEntitiesForGameObjects.Auto())
+                        mappingSystem.AddGameObjectOrPrefab(root);
+
+                    Convert(conversionWorld);
+
+                    convertedEntity = mappingSystem.GetPrimaryEntity(root);
+
+                    settings.ConversionWorldPreDispose?.Invoke(conversionWorld);
+                    
+                    s_DestroyConversionWorld.Begin();
                 }
 
-                Convert(gameObjectWorld, dstEntityWorld);
-
-                convertedEntity = mappingSystem.GetPrimaryEntity(root);
-                m_DestroyConversionWorld.Begin();
+                s_DestroyConversionWorld.End();
+                return convertedEntity;
             }
-            m_DestroyConversionWorld.End();
-
-            m_ConvertScene.End();
-
-            return convertedEntity;
         }
 
-        public static void ConvertScene(Scene scene, Hash128 sceneHash, World dstEntityWorld, ConversionFlags conversionFlags = 0)
+        public static void ConvertScene(Scene scene, GameObjectConversionSettings settings)
         {
-            m_ConvertScene.Begin();
-
-            using (var gameObjectWorld = CreateConversionWorld(dstEntityWorld, sceneHash, conversionFlags))
+            using (s_ConvertScene.Auto())
             {
-                using (m_CreateEntitiesForGameObjects.Auto())
+                using (var conversionWorld = CreateConversionWorld(settings))
                 {
-                    gameObjectWorld.GetExistingSystem<GameObjectConversionMappingSystem>().CreateEntitiesForGameObjects(scene, gameObjectWorld);
+                    using (s_CreateEntitiesForGameObjects.Auto())
+                    {
+                        var mappingSystem = conversionWorld.GetExistingSystem<GameObjectConversionMappingSystem>();
+                        mappingSystem.CreateEntitiesForGameObjects(scene, conversionWorld);
+                    }
+
+                    Convert(conversionWorld);
+
+                    settings.ConversionWorldPreDispose?.Invoke(conversionWorld);
+
+                    s_DestroyConversionWorld.Begin();
                 }
-
-                Convert(gameObjectWorld, dstEntityWorld);
-
-                m_DestroyConversionWorld.Begin();
+                s_DestroyConversionWorld.End();
             }
-            m_DestroyConversionWorld.End();
-
-            m_ConvertScene.End();
         }
 
-        static void AddConversionSystems(World gameObjectWorld)
+        static void AddConversionSystems(World gameObjectWorld, IEnumerable<Type> systemTypes, bool includeExport)
         {
-            var declareConvert = gameObjectWorld.GetOrCreateSystem<GameObjectConversionDeclarePrefabsGroup>();
+            var declareConvert = gameObjectWorld.GetOrCreateSystem<GameObjectDeclareReferencedObjectsGroup>();
             var earlyConvert = gameObjectWorld.GetOrCreateSystem<GameObjectBeforeConversionGroup>();
             var convert = gameObjectWorld.GetOrCreateSystem<GameObjectConversionGroup>();
             var lateConvert = gameObjectWorld.GetOrCreateSystem<GameObjectAfterConversionGroup>();
 
-            var systems = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.GameObjectConversion);
+            var export = includeExport ? gameObjectWorld.GetOrCreateSystem<GameObjectExportGroup>() : null;
 
-            foreach (var system in systems)
+            foreach (var systemType in systemTypes)
             {
-                var attributes = system.GetCustomAttributes(typeof(UpdateInGroupAttribute), true);
-                if (attributes.Length == 0)
+                var updateInGroupAttrs = systemType.GetCustomAttributes(typeof(UpdateInGroupAttribute), true);
+                if (updateInGroupAttrs.Length == 0)
                 {
-                    AddSystemAndLogException(gameObjectWorld, convert, system);
+                    AddSystemAndLogException(gameObjectWorld, convert, systemType);
                 }
                 else
                 {
-                    foreach (var attribute in attributes)
+                    foreach (var attribute in updateInGroupAttrs)
                     {
                         var groupType = (attribute as UpdateInGroupAttribute)?.GroupType;
 
                         if (groupType == declareConvert.GetType())
                         {
-                            AddSystemAndLogException(gameObjectWorld, declareConvert, system);
+                            AddSystemAndLogException(gameObjectWorld, declareConvert, systemType);
                         }
                         else if (groupType == earlyConvert.GetType())
                         {
-                            AddSystemAndLogException(gameObjectWorld, earlyConvert, system);
+                            AddSystemAndLogException(gameObjectWorld, earlyConvert, systemType);
                         }
                         else if (groupType == convert.GetType())
                         {
-                            AddSystemAndLogException(gameObjectWorld, convert, system);
+                            AddSystemAndLogException(gameObjectWorld, convert, systemType);
                         }
                         else if (groupType == lateConvert.GetType())
                         {
-                            AddSystemAndLogException(gameObjectWorld, lateConvert, system);
+                            AddSystemAndLogException(gameObjectWorld, lateConvert, systemType);
+                        }
+                        else if (groupType == typeof(GameObjectExportGroup))
+                        {
+                            if (export != null)
+                                AddSystemAndLogException(gameObjectWorld, export, systemType);
                         }
                         else
                         {
-                            Debug.LogWarning($"{system} has invalid UpdateInGroup[typeof({groupType}]");
+                            Debug.LogWarning($"{systemType} has invalid UpdateInGroup[typeof({groupType}]");
                         }
                     }
                 }
             }
 
-            declareConvert.SortSystemUpdateList();
+            declareConvert.SortSystemUpdateList(); 
             earlyConvert.SortSystemUpdateList();
             convert.SortSystemUpdateList();
             lateConvert.SortSystemUpdateList();
+            export?.SortSystemUpdateList();
         }
 
         static void AddSystemAndLogException(World world, ComponentSystemGroup group, Type type)
         {
             try
             {
-                group.AddSystemToUpdateList(world.GetOrCreateSystem(type) as ComponentSystemBase);
+                group.AddSystemToUpdateList(world.GetOrCreateSystem(type));
             }
             catch (Exception e)
             {
                 Debug.LogException(e);
             }
         }
+        
+        
+        // OBSOLETE
+
+        [Obsolete("ConvertIncrementalInitialize now receives its configuration parameters through a GameObjectConversionSettings (RemovedAfter 2019-10-17)")]
+        [EditorBrowsable(EditorBrowsableState.Never), UsedImplicitly]
+        public static World ConvertIncrementalInitialize(World dstEntityWorld, Scene scene, Hash128 sceneHash, ConversionFlags conversionFlags)
+            => ConvertIncrementalInitialize(scene, new GameObjectConversionSettings { DestinationWorld = dstEntityWorld, SceneGUID = sceneHash, ConversionFlags = conversionFlags });
+
+        [Obsolete("ConvertScene now receives its configuration parameters through a GameObjectConversionSettings (RemovedAfter 2019-10-17)")]
+        [EditorBrowsable(EditorBrowsableState.Never), UsedImplicitly]
+        public static void ConvertScene(Scene scene, Hash128 sceneHash, World dstEntityWorld, ConversionFlags conversionFlags = 0)
+            => ConvertScene(scene, new GameObjectConversionSettings { SceneGUID = sceneHash, DestinationWorld = dstEntityWorld, ConversionFlags = conversionFlags });
     }
 }

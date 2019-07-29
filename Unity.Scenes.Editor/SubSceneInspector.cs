@@ -53,22 +53,9 @@ namespace Unity.Scenes.Editor
             {
                 SubSceneInspectorUtility.SaveScene(subscenes);
             }
+            GUI.enabled = true;
     
             GUILayout.EndHorizontal();
-    
-            GUI.enabled = true;
-            if (SubSceneInspectorUtility.IsEditingAnyConvertedEntityScenes(subscenes))
-            {
-                GUILayout.BeginHorizontal();
-    
-                GUILayout.Space(16);
-                EditorGUI.BeginChangeCheck();
-                SubSceneInspectorUtility.LiveLinkEnabled = GUILayout.Toggle(SubSceneInspectorUtility.LiveLinkEnabled, "LiveLink (Experimental)");
-                if (EditorGUI.EndChangeCheck())
-                    EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
-
-                GUILayout.EndHorizontal();
-            }
             
             var scenes = SubSceneInspectorUtility.GetLoadableScenes(subscenes);
 

@@ -1,10 +1,8 @@
-
 using NUnit.Framework;
-using Unity.Jobs;
 
 namespace Unity.Entities.Editor.Tests
 {
- 
+
     public struct JustComponentNonExclude: IComponentData {}
     public struct ZeroSizedComponent: IComponentData {}
     public struct NonZeroSizedComponent : IComponentData
@@ -14,10 +12,10 @@ namespace Unity.Entities.Editor.Tests
 
     public class ExclusionGroupSampleSystem : ComponentSystem
     {
-        public Unity.Entities.EntityQuery Group1;
-        public Unity.Entities.EntityQuery Group2;
- 
-        protected override void OnCreateManager()
+        public EntityQuery Group1;
+        public EntityQuery Group2;
+
+        protected override void OnCreate()
         {
             Group1 = GetEntityQuery(typeof(JustComponentNonExclude), ComponentType.Exclude<ZeroSizedComponent>());
             Group2 = GetEntityQuery(typeof(JustComponentNonExclude), ComponentType.Exclude<NonZeroSizedComponent>());
@@ -28,23 +26,23 @@ namespace Unity.Entities.Editor.Tests
             throw new System.NotImplementedException();
         }
     }
-    
+
     class GenericClassTest<T>
     {
         public class InternalClass {}
         public class InternalGenericClass<U, V> {}
     }
-    
+
     public class EntityQueryGUITests
     {
-        
+
         [Test]
         public void EntityQueryGUI_SpecifiedTypeName_NestedTypeInGeneric()
         {
             var typeName = EntityQueryGUI.SpecifiedTypeName(typeof(GenericClassTest<object>.InternalClass));
             Assert.AreEqual("GenericClassTest<Object>.InternalClass", typeName);
         }
-        
+
         [Test]
         public void EntityQueryGUI_SpecifiedTypeName_NestedGenericTypeInGeneric()
         {
@@ -63,7 +61,7 @@ namespace Unity.Entities.Editor.Tests
                 var ui2 = new EntityQueryGUIControl(system.Group2.GetQueryTypes(), system.Group2.GetReadAndWriteTypes(), false);
                 Assert.AreEqual(EntityDebuggerStyles.ComponentExclude, ui2.styles[1]);
             }
-            
+
         }
     }
 }

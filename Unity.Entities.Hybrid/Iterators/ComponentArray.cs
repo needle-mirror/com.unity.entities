@@ -11,7 +11,7 @@ namespace Unity.Entities
     {
         public static T[] ToComponentArray<T>(this EntityQuery group) where T : Component
         {
-            int length = group.CalculateLength();
+            int length = group.CalculateEntityCount();
             ComponentChunkIterator iterator = group.GetComponentChunkIterator();
             var indexInComponentGroup = group.GetIndexInEntityQuery(TypeManager.GetTypeIndex<T>());
 

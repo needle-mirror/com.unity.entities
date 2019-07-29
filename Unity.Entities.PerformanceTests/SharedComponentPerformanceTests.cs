@@ -4,6 +4,7 @@ using Unity.PerformanceTesting;
 
 namespace Unity.Entities.PerformanceTests
 {
+    [Category("Performance")]
     public sealed class SharedComponentPerformanceTests
     {
         private World m_PreviousWorld;

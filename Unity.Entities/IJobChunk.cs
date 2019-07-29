@@ -7,15 +7,46 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace Unity.Entities
 {
 #if !UNITY_DOTSPLAYER
+    /// <summary>
+    /// IJobChunk is a type of [Job](https://docs.unity3d.com/ScriptReference/Unity.Jobs.IJob.html) that iterates over
+    /// a set of <see cref="ArchetypeChunk"/> instances.
+    /// </summary>
+    /// <remarks>
+    /// Create and schedule an IJobChunk Job inside a <see cref="JobComponentSystem"/>. The Job component system calls
+    /// the Execute function once for each <see cref="EntityArchetype"/> found by the <see cref="EntityQuery"/> used to
+    /// schedule the Job.
+    ///
+    /// To pass data to the Execute function beyond the parameters of the Execute() function, add public fields to the
+    /// IJobChunk struct declaration and set those fields immediately before scheduling the Job. You must pass the
+    /// component type information for any components that the Job reads or writes using a field of type,
+    /// <seealso cref="ArchetypeChunkComponentType{T}"/>. Get this type information by calling the appropriate
+    /// <seealso cref="ComponentSystemBase.GetArchetypeChunkComponentType{T}(bool)"/> function for the type of
+    /// component.
+    ///
+    /// For more information see [Using IJobChunk](xref:ecs-ijobchunk).
+    /// </remarks>
     [JobProducerType(typeof(JobChunkExtensions.JobChunk_Process<>))]
 #endif
     public interface IJobChunk
     {
         // firstEntityIndex refers to the index of the first entity in the current chunk within the EntityQuery the job was scheduled with
         // For example, if the job operates on 3 chunks with 20 entities each, then the firstEntityIndices will be [0, 20, 40] respectively
+        /// <summary>
+        /// Implement the Execute() function to perform a unit of work on an <see cref="ArchetypeChunk"/>.
+        /// </summary>
+        /// <remarks>The Job component system calls the Execute function once for each <see cref="EntityArchetype"/>
+        /// found by the <see cref="EntityQuery"/> used to schedule the Job.</remarks>
+        /// <param name="chunk">The current chunk.</param>
+        /// <param name="chunkIndex">The index of the current chunk within the list of all chunks found by the
+        /// Job's <see cref="EntityQuery"/>. Note that chunks are not processed in index order, except by chance.</param>
+        /// <param name="firstEntityIndex">The index of the first entity in the current chunk within the list of all
+        /// entities in all the chunks found by the Job's <see cref="EntityQuery"/>.</param>
         void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex);
     }
 
+    /// <summary>
+    /// Extensions for scheduling and running IJobChunk Jobs.
+    /// </summary>
     public static class JobChunkExtensions
     {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -40,12 +71,29 @@ namespace Unity.Entities
             public NativeArray<byte> PrefilterData;
         }
         
+        /// <summary>
+        /// Adds an IJobChunk instance to the Job scheduler queue.
+        /// </summary>
+        /// <param name="jobData">An IJobChunk instance.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <param name="dependsOn">The handle identifying already scheduled Jobs that could constrain this Job.
+        /// A Job that writes to a component must run before other Jobs that read or write that component. Jobs that
+        /// only read the same components can run in parallel.</param>
+        /// <typeparam name="T">The specific IJobChunk implementation type.</typeparam>
+        /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
+        /// parameter.</returns>
         public static unsafe JobHandle Schedule<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IJobChunk
         {
             return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Batched);
         }
 
+        /// <summary>
+        /// Runs the Job immediately on the current thread.
+        /// </summary>
+        /// <param name="jobData">An IJobChunk instance.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <typeparam name="T">The specific IJobChunk implementation type.</typeparam>
         public static void Run<T>(this T jobData, EntityQuery query)
             where T : struct, IJobChunk
         {
@@ -58,7 +106,7 @@ namespace Unity.Entities
         {
             ComponentChunkIterator iterator = query.GetComponentChunkIterator();
             
-            var unfilteredChunkCount = query.CalculateNumberOfChunksWithoutFiltering();
+            var unfilteredChunkCount = query.CalculateChunkCountWithoutFiltering();
 
             var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount,
                 iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out var prefilterData,
@@ -137,9 +185,11 @@ namespace Unity.Entities
             }
         }
 #else
-        internal static unsafe JobHandle ScheduleInternal<T>(ref T jobData, EntityQuery query, JobHandle dependsOn, ScheduleMode mode)
+        static internal unsafe JobHandle ScheduleInternal<T>(ref T jobData, EntityQuery query, JobHandle dependsOn, ScheduleMode mode)
             where T : struct, IJobChunk
         {
+            dependsOn.Complete();
+
             using (var chunks = query.CreateArchetypeChunkArray(Allocator.Temp))
             {
                 int currentChunk = 0;
@@ -159,7 +209,7 @@ namespace Unity.Entities
 
         static internal void DoDeallocateOnJobCompletion(object jobData)
         {
-            throw new NotImplementedException("This function should have been replaced by codegen");
+            throw new CodegenShouldReplaceException();
         }
 #endif
     }

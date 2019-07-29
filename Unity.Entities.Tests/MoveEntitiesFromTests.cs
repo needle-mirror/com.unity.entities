@@ -40,8 +40,8 @@ namespace Unity.Entities.Tests
             creationManager.Debug.CheckInternalConsistency();
 
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            Assert.AreEqual(entities.Length, group.CalculateLength());
-            Assert.AreEqual(0, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateLength());
+            Assert.AreEqual(entities.Length, group.CalculateEntityCount());
+            Assert.AreEqual(0, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
             // We expect that the order of the crated entities is the same as in the creation scene
             var testDataArray = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
@@ -78,8 +78,8 @@ namespace Unity.Entities.Tests
             creationManager.Debug.CheckInternalConsistency();
 
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
-            Assert.AreEqual(entities.Length, group.CalculateLength());
-            Assert.AreEqual(0, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateLength());
+            Assert.AreEqual(entities.Length, group.CalculateEntityCount());
+            Assert.AreEqual(0, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
             // We expect that the shared component data matches the correct entities
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
@@ -130,8 +130,8 @@ namespace Unity.Entities.Tests
             creationManager.Debug.CheckInternalConsistency();
 
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), ComponentType.ChunkComponent<EcsTestData2>());
-            Assert.AreEqual(entities.Length, group.CalculateLength());
-            Assert.AreEqual(0, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateLength());
+            Assert.AreEqual(entities.Length, group.CalculateEntityCount());
+            Assert.AreEqual(0, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
             var movedEntities = group.ToEntityArray(Allocator.TempJob);
             for (int i = 0; i < movedEntities.Length; ++i)
@@ -179,8 +179,8 @@ namespace Unity.Entities.Tests
             creationManager.Debug.CheckInternalConsistency();
 
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
-            Assert.AreEqual(2000, group.CalculateLength());
-            Assert.AreEqual(8000, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateLength());
+            Assert.AreEqual(2000, group.CalculateEntityCount());
+            Assert.AreEqual(8000, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
             // We expect that the shared component data matches the correct entities
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
@@ -252,16 +252,16 @@ namespace Unity.Entities.Tests
             creationManager.Debug.CheckInternalConsistency();
 
             var dstGroup = m_Manager.CreateEntityQuery(typeof(EcsTestData), ComponentType.ChunkComponent<EcsTestData2>(), typeof(SharedData1));
-            Assert.AreEqual(2000, dstGroup.CalculateLength());
-            Assert.AreEqual(8000, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateLength());
+            Assert.AreEqual(2000, dstGroup.CalculateEntityCount());
+            Assert.AreEqual(8000, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
             int expectedMovedChunkCount = chunksPerValue[2];
             int expectedRemainingChunkCount = chunksPerValue.Sum() - expectedMovedChunkCount;
 
             var movedChunkHeaderGroup = m_Manager.CreateEntityQuery(typeof(EcsTestData2), typeof(ChunkHeader));
             var remainingChunkHeaderGroup = creationManager.CreateEntityQuery(typeof(EcsTestData2), typeof(ChunkHeader));
-            Assert.AreEqual(expectedMovedChunkCount, movedChunkHeaderGroup.CalculateLength());
-            Assert.AreEqual(expectedRemainingChunkCount, remainingChunkHeaderGroup.CalculateLength());
+            Assert.AreEqual(expectedMovedChunkCount, movedChunkHeaderGroup.CalculateEntityCount());
+            Assert.AreEqual(expectedRemainingChunkCount, remainingChunkHeaderGroup.CalculateEntityCount());
 
 
             var dstEntityArray = dstGroup.ToEntityArray(Allocator.TempJob);
@@ -351,8 +351,8 @@ namespace Unity.Entities.Tests
             sourceManager.Debug.CheckInternalConsistency();
 
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            Assert.AreEqual(numberOfEntitiesPerManager * 2, group.CalculateLength());
-            Assert.AreEqual(0, sourceManager.CreateEntityQuery(typeof(EcsTestData)).CalculateLength());
+            Assert.AreEqual(numberOfEntitiesPerManager * 2, group.CalculateEntityCount());
+            Assert.AreEqual(0, sourceManager.CreateEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
             // We expect that the order of the crated entities is the same as in the creation scene
             var testDataArray = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
@@ -393,8 +393,8 @@ namespace Unity.Entities.Tests
             sourceManager.Debug.CheckInternalConsistency();
 
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestDataEntity));
-            Assert.AreEqual(numberOfEntitiesPerManager * 2, group.CalculateLength());
-            Assert.AreEqual(0, sourceManager.CreateEntityQuery(typeof(EcsTestDataEntity)).CalculateLength());
+            Assert.AreEqual(numberOfEntitiesPerManager * 2, group.CalculateEntityCount());
+            Assert.AreEqual(0, sourceManager.CreateEntityQuery(typeof(EcsTestDataEntity)).CalculateEntityCount());
 
             var testDataArray = group.ToComponentDataArray<EcsTestDataEntity>(Allocator.TempJob);
             for (int i = 0; i != testDataArray.Length; i++)
@@ -442,8 +442,8 @@ namespace Unity.Entities.Tests
             sourceManager.Debug.CheckInternalConsistency();
 
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedCompEntity));
-            Assert.AreEqual(numberOfEntitiesPerManager * 2, group.CalculateLength());
-            Assert.AreEqual(0, sourceManager.CreateEntityQuery(typeof(EcsTestData)).CalculateLength());
+            Assert.AreEqual(numberOfEntitiesPerManager * 2, group.CalculateEntityCount());
+            Assert.AreEqual(0, sourceManager.CreateEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
             var testDataArray = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             var entities = group.ToEntityArray(Allocator.TempJob);

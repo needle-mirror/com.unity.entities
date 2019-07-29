@@ -61,13 +61,12 @@ namespace Unity.Entities.Editor
 
                 foreach (var typeInfo in TypeManager.AllTypes)
                 {
-                    if (typeInfo.Type != null)
+                    Type type = TypeManager.GetType(typeInfo.TypeIndex);
+                    if (type != null)
                     {
-                        FastEquality.AddExtraAOTTypes(typeInfo.Type, extraTypes);
+                        FastEquality.AddExtraAOTTypes(type, extraTypes);
                     }
                 }
-
-                TypeManager.Shutdown();
 
                 return extraTypes;
             };

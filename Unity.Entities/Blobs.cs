@@ -1,46 +1,149 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-    [StructLayout(LayoutKind.Explicit, Size = 16)]
-    public unsafe struct BlobAssetOwner : ISharedComponentData, IDisposable
+    [StructLayout(LayoutKind.Explicit, Size = 8)]
+    internal unsafe struct BlobAssetOwner : ISharedComponentData, IRefCounted
     {
         [FieldOffset(0)]
-        private byte* data;
-        [FieldOffset(8)]
-        private int totalSize;
+        private BlobAssetBatch* BlobAssetBatchPtr;
 
-        public BlobAssetOwner(byte* data, int totalSize)
+        public BlobAssetOwner(void* buffer, int expectedTotalDataSize)
         {
-            this.data = data;
-            this.totalSize = totalSize;
+            BlobAssetBatchPtr = BlobAssetBatch.CreateFromMemory(buffer, expectedTotalDataSize);
         }
 
-        public void Dispose()
+        public void Release()
         {
-            var end = data + totalSize;
-            var header = (BlobAssetHeader*)data;
-            while (header < end)
-            {
-                header->Invalidate();
-                header = (BlobAssetHeader*)(((byte*) (header+1)) + header->Length);
-            }
-
-            UnsafeUtility.Free(data, Allocator.Persistent);
+            if (BlobAssetBatchPtr != null)
+                BlobAssetBatch.Release(BlobAssetBatchPtr);
+        }
+        
+        public void Retain()
+        {
+            if (BlobAssetBatchPtr != null)
+                BlobAssetBatch.Retain(BlobAssetBatchPtr);
         }
     }
 
     [StructLayout(LayoutKind.Explicit, Size = 16)]
+    internal unsafe struct BlobAssetBatch
+    {
+        [FieldOffset(0)]
+        private int     TotalDataSize;
+        [FieldOffset(4)]
+        private int     BlobAssetHeaderCount;
+        [FieldOffset(8)]
+        private int     RefCount;
+        [FieldOffset(12)]
+        private int     Padding;
+
+        internal static BlobAssetBatch CreateForSerialize(int blobAssetCount, int totalDataSize)
+        {
+            return new BlobAssetBatch
+            {
+                BlobAssetHeaderCount = blobAssetCount,
+                TotalDataSize = totalDataSize,
+                RefCount = 1,
+                Padding = 0
+            };
+        }
+
+
+        internal static BlobAssetBatch* CreateFromMemory(void* buffer, int expectedTotalDataSize)
+        {
+            var batch = (BlobAssetBatch*)buffer; 
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (batch->TotalDataSize != expectedTotalDataSize)
+                throw new System.ArgumentException($"TotalSize '{batch->TotalDataSize}' and expected Total size '{expectedTotalDataSize}' are out of sync");
+            if (batch->RefCount != 1)
+                throw new System.ArgumentException("BlobAssetBatch.Refcount must be 1 on deserialized");
+
+            var header = (BlobAssetHeader*)(batch + 1);
+            for (int i = 0; i != batch->BlobAssetHeaderCount; i++)
+            { 
+                header->ValidationPtr = header + 1;
+                if (header->Allocator != Allocator.None)
+                    throw new System.ArgumentException("Blob Allocator should be Allocator.None");
+                header = (BlobAssetHeader*)(((byte*) (header+1)) + header->Length);
+            }
+            header--;
+
+            if (header == (byte*) batch + batch->TotalDataSize)
+                throw new System.ArgumentException("");
+#endif
+
+            return batch;
+        }
+
+        public static void Retain(BlobAssetBatch* batch)
+        {
+            Interlocked.Increment(ref batch->RefCount);
+        }
+
+        public static void Release(BlobAssetBatch* batch)
+        {
+            int newRefCount = Interlocked.Decrement(ref batch->RefCount);
+            if (newRefCount <= 0)
+            {
+                // Debug.Log("Freeing blob");
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (newRefCount < 0)
+                    throw new InvalidOperationException("BlobAssetBatch refcount is less than zero. It has been corrupted.");
+                
+                if (batch->TotalDataSize == 0)
+                    throw new InvalidOperationException("BlobAssetBatch has been corrupted. Likely it has already been unloaded or released.");
+                
+                var header = (BlobAssetHeader*)(batch + 1);
+                for (int i = 0; i != batch->BlobAssetHeaderCount; i++)
+                {
+                    if (header->ValidationPtr != (header + 1))
+                        throw new InvalidOperationException("The BlobAssetReference has been corrupted. Likely it has already been unloaded or released.");
+
+                    header->Invalidate();
+                    header = (BlobAssetHeader*)(((byte*) (header+1)) + header->Length);
+                }
+                header--;
+                
+                if (header == (byte*) batch + batch->TotalDataSize)
+                    throw new InvalidOperationException("BlobAssetBatch has been corrupted. Likely it has already been unloaded or released.");
+
+                batch->TotalDataSize = 0;
+                batch->BlobAssetHeaderCount = 0;
+#endif
+                
+                UnsafeUtility.Free(batch, Allocator.Persistent);
+            }
+        }
+    }
+    
+    
+    //@TODO: Compress to 8 bytes?
+    [StructLayout(LayoutKind.Explicit, Size = 16)]
     unsafe struct BlobAssetHeader
     {
-        [FieldOffset(0)] public void* ValidationPtr;
-        [FieldOffset(8)] public int Length;
+        [FieldOffset(0)]  public void* ValidationPtr;
+        [FieldOffset(8)]  public int Length;
         [FieldOffset(12)] public Allocator Allocator;
+
+        internal static BlobAssetHeader CreateForSerialize(int length)
+        {
+            return new BlobAssetHeader
+            {
+                ValidationPtr = null,
+                Length = length,
+                Allocator = Allocator.None
+            };
+        }
+
 
         public void Invalidate()
         {
@@ -48,17 +151,11 @@ namespace Unity.Entities
         }
     }
 
-    //@TODO: This requires [StructLayout(LayoutKind.Explicit, Size = 8)] but it currently crashes in Burst when used in Unity.Physics
-    //       https://github.com/Unity-Technologies/dots/issues/2117
-    #if NET_DOTS
     [StructLayout(LayoutKind.Explicit, Size = 8)]
-    #endif
     internal unsafe struct BlobAssetReferenceData
     {
         [NativeDisableUnsafePtrRestriction]
-        #if NET_DOTS
         [FieldOffset(0)]
-        #endif
         public byte* m_Ptr;
     
         internal BlobAssetHeader* Header

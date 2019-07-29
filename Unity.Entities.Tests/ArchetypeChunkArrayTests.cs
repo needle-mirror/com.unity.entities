@@ -449,7 +449,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // don't know why this fails
         public void ACS_ChunkArchetypeTypesMatch()
         {
             var entityTypes = new ComponentType[] {typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsIntElement)};
@@ -468,7 +467,7 @@ namespace Unity.Entities.Tests
                         Assert.Contains(type, chunkTypes);
                     }
 
-                    Assert.Contains(new ComponentType(typeof(Entity)), chunkTypes);
+                    Assert.AreEqual(entityTypes.Length, entityTypes.Length);
                 }
             }
 

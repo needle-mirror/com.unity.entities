@@ -66,13 +66,34 @@ namespace Unity.Entities
             return (int)math.csum(Value * primes);
         }
         
-        #if UNITY_EDITOR
+#if UNITY_EDITOR
         unsafe public static implicit operator Hash128(UnityEditor.GUID guid)
         {
             var hash = new Hash128();
             hash = *(Hash128*) &guid;
             return hash;
         }
-        #endif
+        unsafe public static implicit operator UnityEditor.GUID(Hash128 guid)
+        {
+            var hash = new UnityEditor.GUID();
+            hash = *(UnityEditor.GUID*) &guid;
+            return hash;
+        }
+#endif
+
+#if UNITY_2019_1_OR_NEWER
+        unsafe public static implicit operator Hash128(UnityEngine.Hash128 guid)
+        {
+            var hash = new Hash128();
+            hash = *(Hash128*)&guid;
+            return hash;
+        }
+        unsafe public static implicit operator UnityEngine.Hash128(Hash128 guid)
+        {
+            var hash = new UnityEngine.Hash128();
+            hash = *(UnityEngine.Hash128*)&guid;
+            return hash;
+        }
+#endif
     }
 }

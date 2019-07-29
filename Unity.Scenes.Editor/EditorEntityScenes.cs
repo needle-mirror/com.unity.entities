@@ -1,5 +1,8 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
+using JetBrains.Annotations;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.Serialization;
@@ -8,7 +11,6 @@ using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.Assertions;
 using UnityEngine.SceneManagement;
 using UnityEditor.VersionControl;
 using static Unity.Entities.GameObjectConversionUtility;
@@ -17,13 +19,11 @@ using Object = UnityEngine.Object;
 
 namespace Unity.Scenes.Editor
 {
-    //@TODO: Public
-    public class EditorEntityScenes
+    public static class EditorEntityScenes
     {
         static readonly ProfilerMarker k_ProfileEntitiesSceneSave = new ProfilerMarker("EntitiesScene.Save");
         static readonly ProfilerMarker k_ProfileEntitiesSceneCreatePrefab = new ProfilerMarker("EntitiesScene.CreatePrefab");
         static readonly ProfilerMarker k_ProfileEntitiesSceneSaveHeader = new ProfilerMarker("EntitiesScene.WriteHeader");
-
 
         public static bool IsEntitySubScene(Scene scene)
         {
@@ -33,13 +33,13 @@ namespace Unity.Scenes.Editor
 
         public static void WriteEntityScene(SubScene scene)
         {
-            Entities.Hash128 guid = new GUID(AssetDatabase.AssetPathToGUID(scene.EditableScenePath));
-            WriteEntityScene(scene.LoadedScene, guid, 0);
+            var guid = new GUID(AssetDatabase.AssetPathToGUID(scene.EditableScenePath));
+            WriteEntityScene(scene.LoadedScene, guid);
         }
 
         public static bool HasEntitySceneCache(Hash128 sceneGUID)
         {
-            string headerPath = EntityScenesPaths.GetPathAndCreateDirectory(sceneGUID, EntityScenesPaths.PathType.EntitiesHeader, "");
+            string headerPath = EntityScenesPaths.GetPath(sceneGUID, EntityScenesPaths.PathType.EntitiesHeader, "");
             return File.Exists(headerPath);
         }
 
@@ -57,12 +57,13 @@ namespace Unity.Scenes.Editor
             return bounds;
         }
 
-        public static SceneData[] WriteEntityScene(Scene scene, Hash128 sceneGUID, ConversionFlags conversionFlags)
+        public static SceneData[] WriteEntityScene(Scene scene, GameObjectConversionSettings settings)
         {
             var world = new World("ConversionWorld");
             var entityManager = world.EntityManager;
+            settings.DestinationWorld = world;
             
-            ConvertScene(scene, sceneGUID, world, conversionFlags);
+            ConvertScene(scene, settings);
             EntitySceneOptimization.Optimize(world);
 
             var sceneSections = new List<SceneData>();
@@ -88,6 +89,8 @@ namespace Unity.Scenes.Editor
                     Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
                 }
             );
+
+            var sceneGUID = settings.SceneGUID;
             
             {
                 var section = new SceneSection {SceneGUID = sceneGUID, Section = 0};
@@ -279,8 +282,8 @@ namespace Unity.Scenes.Editor
                         Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
                     }
                 );
-                if (noSectionQuery.CalculateLength() != 0)
-                    Debug.LogWarning($"{noSectionQuery.CalculateLength()} entities in the scene '{scene.path}' had no SceneSection and as a result were not serialized at all.");
+                if (noSectionQuery.CalculateEntityCount() != 0)
+                    Debug.LogWarning($"{noSectionQuery.CalculateEntityCount()} entities in the scene '{scene.path}' had no SceneSection and as a result were not serialized at all.");
             }
             
             sectionQuery.Dispose();
@@ -296,8 +299,8 @@ namespace Unity.Scenes.Editor
 
             return sceneSections.ToArray();
         }
-        
-        static int WriteEntityScene(EntityManager scene, Entities.Hash128 sceneGUID, string subsection, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos = default(NativeArray<EntityRemapUtility.EntityRemapInfo>))
+
+        static int WriteEntityScene(EntityManager scene, Hash128 sceneGUID, string subsection, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos = default)
         {
             k_ProfileEntitiesSceneSave.Begin();
             
@@ -307,7 +310,7 @@ namespace Unity.Scenes.Editor
             GameObject sharedComponents;
 
             // We're going to do file writing manually, so make sure to do version control dance if needed
-            if (Provider.isActive && !AssetDatabase.IsOpenForEdit(entitiesBinaryPath, StatusQueryOptions.UseCachedIfPossible))
+            if (Provider.isActive && File.Exists(entitiesBinaryPath) && !AssetDatabase.IsOpenForEdit(entitiesBinaryPath, StatusQueryOptions.UseCachedIfPossible))
             {
                 var task = Provider.Checkout(entitiesBinaryPath, CheckoutMode.Asset);
                 task.Wait();
@@ -358,6 +361,14 @@ namespace Unity.Scenes.Editor
     
             k_ProfileEntitiesSceneSaveHeader.End();
         }
+        
+        
+        // OBSOLETE
+        
+        [Obsolete("WriteEntityScene now receives its configuration parameters through a GameObjectConversionSettings (RemovedAfter 2019-10-17)")]
+        [EditorBrowsable(EditorBrowsableState.Never), UsedImplicitly]
+        public static SceneData[] WriteEntityScene(Scene scene, Hash128 sceneGUID, ConversionFlags conversionFlags)
+            => WriteEntityScene(scene, new GameObjectConversionSettings { SceneGUID = sceneGUID, ConversionFlags = conversionFlags });        
     }    
 }
 

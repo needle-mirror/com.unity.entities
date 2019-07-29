@@ -114,10 +114,13 @@ namespace Unity.Entities.Tests
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
             {
                 var testDataArray = chunk.GetNativeArray(ecsTestType);
-                testDataArray[0] = new EcsTestData
+                for (int i = 0; i < chunk.Count; ++i)
                 {
-                    value = entityOffset
-                };
+                    testDataArray[i] = new EcsTestData
+                    {
+                        value = entityOffset
+                    };
+                }
             }
         }
 
@@ -186,7 +189,10 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [StandaloneFixme] // Tiny assigns the chunk entityOffsets in a different order. Tiny is also (as this is written)
+                          // using single threaded JobChunk execution (even though most of the rest of the Job system is now
+                          // MT). Haven't debugged if the ordering is because of Entity sorting issues, or the MT jobs.
+
         public void IJobChunkProcessChunkMultiArchetype()
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -195,12 +201,10 @@ namespace Unity.Entities.Tests
 
             var entity1A = m_Manager.CreateEntity(archetypeA);
             var entity2A = m_Manager.CreateEntity(archetypeA);
-
             var entityB = m_Manager.CreateEntity(archetypeB);
-
             var entityC = m_Manager.CreateEntity(archetypeC);
 
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            EntityQuery query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             m_Manager.SetComponentData<EcsTestData>(entity1A, new EcsTestData { value = -1 });
             m_Manager.SetComponentData<EcsTestData>(entity2A, new EcsTestData { value = -1 });
@@ -211,16 +215,16 @@ namespace Unity.Entities.Tests
             {
                 ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
             };
-            job.Schedule(group).Complete();
+            job.Schedule(query).Complete();
 
             Assert.AreEqual(0,  m_Manager.GetComponentData<EcsTestData>(entity1A).value);
+            Assert.AreEqual(0,  m_Manager.GetComponentData<EcsTestData>(entity2A).value);
             Assert.AreEqual(2,  m_Manager.GetComponentData<EcsTestData>(entityB).value);
             Assert.AreEqual(3,  m_Manager.GetComponentData<EcsTestData>(entityC).value);
 
-            group.Dispose();
+            query.Dispose();
         }
 
-        #if !UNITY_DOTSPLAYER
         struct ProcessChunkWriteIndex : IJobChunk
         {
             public ArchetypeChunkComponentType<EcsTestData> ecsTestType;
@@ -247,6 +251,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [StandaloneFixme]
         public void FilteredIJobChunkProcessesSameChunksAsFilteredJobForEach()
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
@@ -256,6 +261,7 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetypeA, entitiesA);
 
             var entitiesB = new NativeArray<Entity>(5000, Allocator.Temp);
+            // TODO this looks like a test bug. Shouldn't it be (archetypeB, entitiesB)?
             m_Manager.CreateEntity(archetypeA, entitiesB);
 
             for (int i = 0; i < 5000; ++i)
@@ -288,6 +294,5 @@ namespace Unity.Entities.Tests
             componentArrayB.Dispose();
             group.Dispose();
         }
-#endif
     }
 }

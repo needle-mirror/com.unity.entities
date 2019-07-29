@@ -32,7 +32,7 @@ namespace Unity.Entities
     [BurstCompile]
     internal unsafe struct GatherChunksAndOffsetsJob : IJob
     {
-        public MatchingArchetypeList Archetypes;
+        public UnsafeMatchingArchetypePtrList Archetypes;
         [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
 
         [NativeDisableUnsafePtrRestriction]
@@ -47,9 +47,9 @@ namespace Unity.Entities
             var chunkCounter = 0;
             var entityOffsetPrefixSum = 0;
 
-            for (var m = Archetypes.Count - 1; m >= 0; --m)
+            for (var m = Archetypes.Length - 1; m >= 0; --m)
             {
-                var match = Archetypes.p[m];
+                var match = Archetypes.Ptr[m];
                 if (match->Archetype->EntityCount <= 0)
                     continue;
 
@@ -165,7 +165,7 @@ namespace Unity.Entities
     [BurstCompile]
     internal unsafe struct GatherChunksAndOffsetsWithFilteringJob : IJob
     {
-        public MatchingArchetypeList Archetypes;
+        public UnsafeMatchingArchetypePtrList Archetypes;
         public EntityQueryFilter Filter;
 
         [NativeDisableUnsafePtrRestriction]
@@ -181,9 +181,9 @@ namespace Unity.Entities
             var filteredChunkCount = 0;
             var filteredEntityOffset = 0;
 
-            for (var m = Archetypes.Count - 1; m >= 0; --m)
+            for (var m = Archetypes.Length - 1; m >= 0; --m)
             {
-                var match = Archetypes.p[m];
+                var match = Archetypes.Ptr[m];
                 if (match->Archetype->EntityCount <= 0)
                     continue;
 

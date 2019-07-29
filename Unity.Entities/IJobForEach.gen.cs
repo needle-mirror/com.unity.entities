@@ -21,67 +21,57 @@ namespace Unity.Entities
 {
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_C<,>))]
-	#endif
-	public interface IJobForEach<T0> : IJobForEach_C<T0>
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_C<,>))]
+    #endif
+    public interface IJobForEach<T0> : IJobForEach_C<T0>
 		where T0 : struct, IComponentData
 	{}
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EC<,>))]
-	#endif
-	public interface IJobForEachWithEntity<T0> : IJobForEachWithEntity_EC<T0>
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EC<,>))]
+    #endif
+    public interface IJobForEachWithEntity<T0> : IJobForEachWithEntity_EC<T0>
 		where T0 : struct, IComponentData
 	{}
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CC<,,>))]
-	#endif
-	public interface IJobForEach<T0, T1> : IJobForEach_CC<T0, T1>
-		where T0 : struct, IComponentData
-		where T1 : struct, IComponentData
-	{}
-
-#if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECC<,,>))]
-	#endif
-	public interface IJobForEachWithEntity<T0, T1> : IJobForEachWithEntity_ECC<T0, T1>
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CC<,,>))]
+    #endif
+    public interface IJobForEach<T0, T1> : IJobForEach_CC<T0, T1>
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 	{}
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCC<,,,>))]
-	#endif
-	public interface IJobForEach<T0, T1, T2> : IJobForEach_CCC<T0, T1, T2>
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECC<,,>))]
+    #endif
+    public interface IJobForEachWithEntity<T0, T1> : IJobForEachWithEntity_ECC<T0, T1>
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
-		where T2 : struct, IComponentData
 	{}
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCC<,,,>))]
-	#endif
-	public interface IJobForEachWithEntity<T0, T1, T2> : IJobForEachWithEntity_ECCC<T0, T1, T2>
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCC<,,,>))]
+    #endif
+    public interface IJobForEach<T0, T1, T2> : IJobForEach_CCC<T0, T1, T2>
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
 	{}
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCC<,,,,>))]
-	#endif
-	public interface IJobForEach<T0, T1, T2, T3> : IJobForEach_CCCC<T0, T1, T2, T3>
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCC<,,,>))]
+    #endif
+    public interface IJobForEachWithEntity<T0, T1, T2> : IJobForEachWithEntity_ECCC<T0, T1, T2>
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
-		where T3 : struct, IComponentData
 	{}
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCC<,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity<T0, T1, T2, T3> : IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCC<,,,,>))]
+    #endif
+    public interface IJobForEach<T0, T1, T2, T3> : IJobForEach_CCCC<T0, T1, T2, T3>
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -89,20 +79,19 @@ namespace Unity.Entities
 	{}
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCCC<,,,,,>))]
-	#endif
-	public interface IJobForEach<T0, T1, T2, T3, T4> : IJobForEach_CCCCC<T0, T1, T2, T3, T4>
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCC<,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity<T0, T1, T2, T3> : IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
 		where T3 : struct, IComponentData
-		where T4 : struct, IComponentData
 	{}
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCCC<,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity<T0, T1, T2, T3, T4> : IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCCC<,,,,,>))]
+    #endif
+    public interface IJobForEach<T0, T1, T2, T3, T4> : IJobForEach_CCCCC<T0, T1, T2, T3, T4>
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -111,21 +100,20 @@ namespace Unity.Entities
 	{}
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCCCC<,,,,,,>))]
-	#endif
-	public interface IJobForEach<T0, T1, T2, T3, T4, T5> : IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCCC<,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity<T0, T1, T2, T3, T4> : IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
 		where T3 : struct, IComponentData
 		where T4 : struct, IComponentData
-		where T5 : struct, IComponentData
 	{}
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCCCC<,,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity<T0, T1, T2, T3, T4, T5> : IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCCCC<,,,,,,>))]
+    #endif
+    public interface IJobForEach<T0, T1, T2, T3, T4, T5> : IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -134,47 +122,59 @@ namespace Unity.Entities
 		where T5 : struct, IComponentData
 	{}
 
+#if !UNITY_ZEROPLAYER
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCCCC<,,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity<T0, T1, T2, T3, T4, T5> : IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
+		where T0 : struct, IComponentData
+		where T1 : struct, IComponentData
+		where T2 : struct, IComponentData
+		where T3 : struct, IComponentData
+		where T4 : struct, IComponentData
+		where T5 : struct, IComponentData
+	{}
+
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_C<,>))]
-	#endif
-	public interface IJobForEach_C<T0> : JobForEachExtensions.IBaseJobForEach_C
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_C<,>))]
+    #endif
+    public interface IJobForEach_C<T0> : JobForEachExtensions.IBaseJobForEach_C
 		where T0 : struct, IComponentData
 	{
         void Execute(ref T0 c0);
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EC<,>))]
-	#endif
-	public interface IJobForEachWithEntity_EC<T0> : JobForEachExtensions.IBaseJobForEach_EC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EC<,>))]
+    #endif
+    public interface IJobForEachWithEntity_EC<T0> : JobForEachExtensions.IBaseJobForEach_EC
 		where T0 : struct, IComponentData
 	{
         void Execute(Entity entity, int index, ref T0 c0);
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_B<,>))]
-	#endif
-	public interface IJobForEach_B<T0> : JobForEachExtensions.IBaseJobForEach_B
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_B<,>))]
+    #endif
+    public interface IJobForEach_B<T0> : JobForEachExtensions.IBaseJobForEach_B
 		where T0 : struct, IBufferElementData
 	{
         void Execute(DynamicBuffer<T0> b0);
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EB<,>))]
-	#endif
-	public interface IJobForEachWithEntity_EB<T0> : JobForEachExtensions.IBaseJobForEach_EB
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EB<,>))]
+    #endif
+    public interface IJobForEachWithEntity_EB<T0> : JobForEachExtensions.IBaseJobForEach_EB
 		where T0 : struct, IBufferElementData
 	{
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0);
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CC<,,>))]
-	#endif
-	public interface IJobForEach_CC<T0, T1> : JobForEachExtensions.IBaseJobForEach_CC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CC<,,>))]
+    #endif
+    public interface IJobForEach_CC<T0, T1> : JobForEachExtensions.IBaseJobForEach_CC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 	{
@@ -182,9 +182,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECC<,,>))]
-	#endif
-	public interface IJobForEachWithEntity_ECC<T0, T1> : JobForEachExtensions.IBaseJobForEach_ECC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECC<,,>))]
+    #endif
+    public interface IJobForEachWithEntity_ECC<T0, T1> : JobForEachExtensions.IBaseJobForEach_ECC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 	{
@@ -192,9 +192,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BC<,,>))]
-	#endif
-	public interface IJobForEach_BC<T0, T1> : JobForEachExtensions.IBaseJobForEach_BC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BC<,,>))]
+    #endif
+    public interface IJobForEach_BC<T0, T1> : JobForEachExtensions.IBaseJobForEach_BC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
 	{
@@ -202,9 +202,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBC<,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBC<T0, T1> : JobForEachExtensions.IBaseJobForEach_EBC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBC<,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBC<T0, T1> : JobForEachExtensions.IBaseJobForEach_EBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
 	{
@@ -212,9 +212,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BB<,,>))]
-	#endif
-	public interface IJobForEach_BB<T0, T1> : JobForEachExtensions.IBaseJobForEach_BB
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BB<,,>))]
+    #endif
+    public interface IJobForEach_BB<T0, T1> : JobForEachExtensions.IBaseJobForEach_BB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 	{
@@ -222,9 +222,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBB<,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBB<T0, T1> : JobForEachExtensions.IBaseJobForEach_EBB
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBB<,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBB<T0, T1> : JobForEachExtensions.IBaseJobForEach_EBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 	{
@@ -232,9 +232,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCC<,,,>))]
-	#endif
-	public interface IJobForEach_CCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_CCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCC<,,,>))]
+    #endif
+    public interface IJobForEach_CCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_CCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -243,9 +243,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCC<,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_ECCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_ECCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCC<,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_ECCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_ECCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -254,9 +254,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCC<,,,>))]
-	#endif
-	public interface IJobForEach_BCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_BCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCC<,,,>))]
+    #endif
+    public interface IJobForEach_BCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_BCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -265,9 +265,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCC<,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_EBCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCC<,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_EBCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -276,9 +276,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBC<,,,>))]
-	#endif
-	public interface IJobForEach_BBC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_BBC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBC<,,,>))]
+    #endif
+    public interface IJobForEach_BBC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_BBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IComponentData
@@ -287,9 +287,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBC<,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBBC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_EBBC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBC<,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBBC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_EBBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IComponentData
@@ -298,9 +298,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBB<,,,>))]
-	#endif
-	public interface IJobForEach_BBB<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_BBB
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBB<,,,>))]
+    #endif
+    public interface IJobForEach_BBB<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_BBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -309,9 +309,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBB<,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBBB<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_EBBB
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBB<,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBBB<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_EBBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -320,9 +320,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCC<,,,,>))]
-	#endif
-	public interface IJobForEach_CCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_CCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCC<,,,,>))]
+    #endif
+    public interface IJobForEach_CCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_CCCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -332,9 +332,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCC<,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_ECCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_ECCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCC<,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_ECCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_ECCCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -344,9 +344,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCCC<,,,,>))]
-	#endif
-	public interface IJobForEach_BCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCCC<,,,,>))]
+    #endif
+    public interface IJobForEach_BCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -356,9 +356,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCCC<,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCCC<,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -368,9 +368,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBCC<,,,,>))]
-	#endif
-	public interface IJobForEach_BBCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BBCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBCC<,,,,>))]
+    #endif
+    public interface IJobForEach_BBCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BBCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IComponentData
@@ -380,9 +380,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBCC<,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBBCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBBCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBCC<,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBBCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBBCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IComponentData
@@ -392,9 +392,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBC<,,,,>))]
-	#endif
-	public interface IJobForEach_BBBC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BBBC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBC<,,,,>))]
+    #endif
+    public interface IJobForEach_BBBC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BBBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -404,9 +404,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBC<,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBBBC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBBBC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBC<,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBBBC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBBBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -416,9 +416,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBB<,,,,>))]
-	#endif
-	public interface IJobForEach_BBBB<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BBBB
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBB<,,,,>))]
+    #endif
+    public interface IJobForEach_BBBB<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BBBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -428,9 +428,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBB<,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBBBB<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBBBB
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBB<,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBBBB<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBBBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -440,9 +440,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCCC<,,,,,>))]
-	#endif
-	public interface IJobForEach_CCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_CCCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCCC<,,,,,>))]
+    #endif
+    public interface IJobForEach_CCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_CCCCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -453,9 +453,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCCC<,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_ECCCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCCC<,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_ECCCCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -466,9 +466,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCCCC<,,,,,>))]
-	#endif
-	public interface IJobForEach_BCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BCCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCCCC<,,,,,>))]
+    #endif
+    public interface IJobForEach_BCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BCCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -479,9 +479,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCCCC<,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBCCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCCCC<,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBCCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -492,9 +492,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBCCC<,,,,,>))]
-	#endif
-	public interface IJobForEach_BBCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBCCC<,,,,,>))]
+    #endif
+    public interface IJobForEach_BBCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IComponentData
@@ -505,9 +505,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBCCC<,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBBCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBCCC<,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBBCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IComponentData
@@ -518,9 +518,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBCC<,,,,,>))]
-	#endif
-	public interface IJobForEach_BBBCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBBCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBCC<,,,,,>))]
+    #endif
+    public interface IJobForEach_BBBCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBBCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -531,9 +531,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBCC<,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBBBCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBBCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBCC<,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBBBCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBBCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -544,9 +544,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBC<,,,,,>))]
-	#endif
-	public interface IJobForEach_BBBBC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBBBC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBC<,,,,,>))]
+    #endif
+    public interface IJobForEach_BBBBC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBBBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -557,9 +557,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBC<,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBBBBC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBBBC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBC<,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBBBBC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBBBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -570,9 +570,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBB<,,,,,>))]
-	#endif
-	public interface IJobForEach_BBBBB<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBBBB
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBB<,,,,,>))]
+    #endif
+    public interface IJobForEach_BBBBB<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBBBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -583,9 +583,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBB<,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBBBBB<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBBBB
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBB<,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBBBBB<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBBBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -596,9 +596,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCCCC<,,,,,,>))]
-	#endif
-	public interface IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_CCCCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCCCC<,,,,,,>))]
+    #endif
+    public interface IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_CCCCCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -610,9 +610,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCCCC<,,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_ECCCCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCCCC<,,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_ECCCCCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -624,9 +624,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCCCCC<,,,,,,>))]
-	#endif
-	public interface IJobForEach_BCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BCCCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCCCCC<,,,,,,>))]
+    #endif
+    public interface IJobForEach_BCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BCCCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -638,9 +638,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCCCCC<,,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBCCCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCCCCC<,,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBCCCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
 		where T2 : struct, IComponentData
@@ -652,9 +652,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBCCCC<,,,,,,>))]
-	#endif
-	public interface IJobForEach_BBCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBCCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBCCCC<,,,,,,>))]
+    #endif
+    public interface IJobForEach_BBCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBCCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IComponentData
@@ -666,9 +666,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBCCCC<,,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBBCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBCCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBCCCC<,,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBBCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBCCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IComponentData
@@ -680,9 +680,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBCCC<,,,,,,>))]
-	#endif
-	public interface IJobForEach_BBBCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBCCC<,,,,,,>))]
+    #endif
+    public interface IJobForEach_BBBCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -694,9 +694,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBCCC<,,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBBBCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBCCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBCCC<,,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBBBCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -708,9 +708,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBCC<,,,,,,>))]
-	#endif
-	public interface IJobForEach_BBBBCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBBCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBCC<,,,,,,>))]
+    #endif
+    public interface IJobForEach_BBBBCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBBCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -722,9 +722,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBCC<,,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBBBBCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBBCC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBCC<,,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBBBBCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBBCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -736,9 +736,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBBC<,,,,,,>))]
-	#endif
-	public interface IJobForEach_BBBBBC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBBBC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBBC<,,,,,,>))]
+    #endif
+    public interface IJobForEach_BBBBBC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBBBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -750,9 +750,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBBC<,,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBBBBBC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBBBC
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBBC<,,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBBBBBC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBBBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -764,9 +764,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBBB<,,,,,,>))]
-	#endif
-	public interface IJobForEach_BBBBBB<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBBBB
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBBB<,,,,,,>))]
+    #endif
+    public interface IJobForEach_BBBBBB<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBBBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -778,9 +778,9 @@ namespace Unity.Entities
     }
 
 #if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBBB<,,,,,,>))]
-	#endif
-	public interface IJobForEachWithEntity_EBBBBBB<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBBBB
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBBB<,,,,,,>))]
+    #endif
+    public interface IJobForEachWithEntity_EBBBBBB<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBBBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
 		where T2 : struct, IBufferElementData
@@ -1531,7 +1531,7 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_C<T, T0>
             where T : struct, IJobForEach_C<T0>
-			where T0 : struct, IComponentData
+            where T0 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -1577,13 +1577,13 @@ namespace Unity.Entities
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
-					var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i));
-                    }
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i));
+                        }
                 }
             }
         }
@@ -1628,7 +1628,7 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EC<T, T0>
             where T : struct, IJobForEachWithEntity_EC<T0>
-			where T0 : struct, IComponentData
+            where T0 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -1673,15 +1673,15 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
-					var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i));
-                    }
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i));
+                        }
                 }
             }
         }
@@ -1726,7 +1726,7 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_B<T, T0>
             where T : struct, IJobForEach_B<T0>
-			where T0 : struct, IBufferElementData
+            where T0 : struct, IBufferElementData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -1773,16 +1773,22 @@ namespace Unity.Entities
 #endif
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
+                    {
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 #else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(buffer0[i]);
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i]);
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -1827,7 +1833,7 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EB<T, T0>
             where T : struct, IJobForEachWithEntity_EB<T0>
-			where T0 : struct, IBufferElementData
+            where T0 : struct, IBufferElementData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -1872,19 +1878,25 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
+                    {
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 #else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i]);
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i]);
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -1929,8 +1941,8 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_CC<T, T0, T1>
             where T : struct, IJobForEach_CC<T0, T1>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
+            where T0 : struct, IComponentData
+            where T1 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -1978,14 +1990,14 @@ namespace Unity.Entities
 #endif
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
-					var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i));
-                    }
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i));
+                        }
                 }
             }
         }
@@ -2030,8 +2042,8 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_ECC<T, T0, T1>
             where T : struct, IJobForEachWithEntity_ECC<T0, T1>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
+            where T0 : struct, IComponentData
+            where T1 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -2077,17 +2089,17 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
-					var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i));
-                    }
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i));
+                        }
                 }
             }
         }
@@ -2132,8 +2144,8 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BC<T, T0, T1>
             where T : struct, IJobForEach_BC<T0, T1>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -2182,17 +2194,23 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -2237,8 +2255,8 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBC<T, T0, T1>
             where T : struct, IJobForEachWithEntity_EBC<T0, T1>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -2284,21 +2302,27 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -2343,8 +2367,8 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BB<T, T0, T1>
             where T : struct, IJobForEach_BB<T0, T1>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -2393,18 +2417,25 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
+                    {
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 #else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(buffer0[i], buffer1[i]);
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i]);
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -2449,8 +2480,8 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBB<T, T0, T1>
             where T : struct, IJobForEachWithEntity_EBB<T0, T1>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -2496,22 +2527,29 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
+                    {
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 #else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i]);
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i]);
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -2556,9 +2594,9 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_CCC<T, T0, T1, T2>
             where T : struct, IJobForEach_CCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
+            where T0 : struct, IComponentData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -2608,15 +2646,15 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
-					var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i));
-                    }
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i));
+                        }
                 }
             }
         }
@@ -2661,9 +2699,9 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_ECCC<T, T0, T1, T2>
             where T : struct, IJobForEachWithEntity_ECCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
+            where T0 : struct, IComponentData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -2710,19 +2748,19 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
-					var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i));
-                    }
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i));
+                        }
                 }
             }
         }
@@ -2767,9 +2805,9 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BCC<T, T0, T1, T2>
             where T : struct, IJobForEach_BCC<T0, T1, T2>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -2820,18 +2858,24 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -2876,9 +2920,9 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBCC<T, T0, T1, T2>
             where T : struct, IJobForEachWithEntity_EBCC<T0, T1, T2>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -2925,23 +2969,29 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -2986,9 +3036,9 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BBC<T, T0, T1, T2>
             where T : struct, IJobForEach_BBC<T0, T1, T2>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -3039,19 +3089,26 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -3096,9 +3153,9 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBBC<T, T0, T1, T2>
             where T : struct, IJobForEachWithEntity_EBBC<T0, T1, T2>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -3145,24 +3202,31 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -3207,9 +3271,9 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BBB<T, T0, T1, T2>
             where T : struct, IJobForEach_BBB<T0, T1, T2>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -3260,20 +3324,28 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
+                    {
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 #else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i]);
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i]);
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -3318,9 +3390,9 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBBB<T, T0, T1, T2>
             where T : struct, IJobForEachWithEntity_EBBB<T0, T1, T2>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -3367,25 +3439,33 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
+                    {
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 #else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i]);
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i]);
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -3430,10 +3510,10 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_CCCC<T, T0, T1, T2, T3>
             where T : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
+            where T0 : struct, IComponentData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -3485,16 +3565,16 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
-					var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
-                    }
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
+                        }
                 }
             }
         }
@@ -3539,10 +3619,10 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_ECCCC<T, T0, T1, T2, T3>
             where T : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
+            where T0 : struct, IComponentData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -3590,21 +3670,21 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
-					var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
-                    }
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
+                        }
                 }
             }
         }
@@ -3649,10 +3729,10 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BCCC<T, T0, T1, T2, T3>
             where T : struct, IJobForEach_BCCC<T0, T1, T2, T3>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -3705,19 +3785,25 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -3762,10 +3848,10 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBCCC<T, T0, T1, T2, T3>
             where T : struct, IJobForEachWithEntity_EBCCC<T0, T1, T2, T3>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -3813,25 +3899,31 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -3876,10 +3968,10 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BBCC<T, T0, T1, T2, T3>
             where T : struct, IJobForEach_BBCC<T0, T1, T2, T3>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -3932,20 +4024,27 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -3990,10 +4089,10 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBBCC<T, T0, T1, T2, T3>
             where T : struct, IJobForEachWithEntity_EBBCC<T0, T1, T2, T3>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -4041,26 +4140,33 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -4105,10 +4211,10 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BBBC<T, T0, T1, T2, T3>
             where T : struct, IJobForEach_BBBC<T0, T1, T2, T3>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -4161,21 +4267,29 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -4220,10 +4334,10 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBBBC<T, T0, T1, T2, T3>
             where T : struct, IJobForEachWithEntity_EBBBC<T0, T1, T2, T3>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -4271,27 +4385,35 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -4336,10 +4458,10 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BBBB<T, T0, T1, T2, T3>
             where T : struct, IJobForEach_BBBB<T0, T1, T2, T3>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IBufferElementData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IBufferElementData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -4392,22 +4514,31 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety3, jobData.Iterator.m_BufferSafety3);
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
+                    {
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
 #else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], buffer3[i]);
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], buffer3[i]);
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -4452,10 +4583,10 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBBBB<T, T0, T1, T2, T3>
             where T : struct, IJobForEachWithEntity_EBBBB<T0, T1, T2, T3>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IBufferElementData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IBufferElementData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -4503,28 +4634,37 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety3, jobData.Iterator.m_BufferSafety3);
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
+                    {
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
 #else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], buffer3[i]);
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], buffer3[i]);
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -4569,11 +4709,11 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_CCCCC<T, T0, T1, T2, T3, T4>
             where T : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
+            where T0 : struct, IComponentData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -4627,17 +4767,17 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
-					var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
-                    }
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+                        }
                 }
             }
         }
@@ -4682,11 +4822,11 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_ECCCCC<T, T0, T1, T2, T3, T4>
             where T : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
+            where T0 : struct, IComponentData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -4735,23 +4875,23 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
-					var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
-                    }
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+                        }
                 }
             }
         }
@@ -4796,11 +4936,11 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BCCCC<T, T0, T1, T2, T3, T4>
             where T : struct, IJobForEach_BCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -4855,20 +4995,26 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -4913,11 +5059,11 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBCCCC<T, T0, T1, T2, T3, T4>
             where T : struct, IJobForEachWithEntity_EBCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -4966,27 +5112,33 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -5031,11 +5183,11 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BBCCC<T, T0, T1, T2, T3, T4>
             where T : struct, IJobForEach_BBCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -5090,21 +5242,28 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -5149,11 +5308,11 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBBCCC<T, T0, T1, T2, T3, T4>
             where T : struct, IJobForEachWithEntity_EBBCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -5202,28 +5361,35 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -5268,11 +5434,11 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BBBCC<T, T0, T1, T2, T3, T4>
             where T : struct, IJobForEach_BBBCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -5327,22 +5493,30 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -5387,11 +5561,11 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBBBCC<T, T0, T1, T2, T3, T4>
             where T : struct, IJobForEachWithEntity_EBBBCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -5440,29 +5614,37 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -5507,11 +5689,11 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BBBBC<T, T0, T1, T2, T3, T4>
             where T : struct, IJobForEach_BBBBC<T0, T1, T2, T3, T4>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IBufferElementData
-			where T4 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IBufferElementData
+            where T4 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -5566,23 +5748,32 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety3, jobData.Iterator.m_BufferSafety3);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], buffer3[i], ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], buffer3[i], ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -5627,11 +5818,11 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBBBBC<T, T0, T1, T2, T3, T4>
             where T : struct, IJobForEachWithEntity_EBBBBC<T0, T1, T2, T3, T4>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IBufferElementData
-			where T4 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IBufferElementData
+            where T4 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -5680,30 +5871,39 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety3, jobData.Iterator.m_BufferSafety3);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], buffer3[i], ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], buffer3[i], ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -5748,11 +5948,11 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BBBBB<T, T0, T1, T2, T3, T4>
             where T : struct, IJobForEach_BBBBB<T0, T1, T2, T3, T4>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IBufferElementData
-			where T4 : struct, IBufferElementData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IBufferElementData
+            where T4 : struct, IBufferElementData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -5807,24 +6007,34 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety3, jobData.Iterator.m_BufferSafety3);
-					var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety4, jobData.Iterator.m_BufferSafety4);
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
+                    {
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var safety4 = jobData.Iterator.IsReadOnly4 != 0 ? 8 : jobData.Iterator.m_SafetyReadOnlyCount + 8;
+						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
 #else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-					var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], buffer3[i], buffer4[i]);
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], buffer3[i], buffer4[i]);
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -5869,11 +6079,11 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBBBBB<T, T0, T1, T2, T3, T4>
             where T : struct, IJobForEachWithEntity_EBBBBB<T0, T1, T2, T3, T4>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IBufferElementData
-			where T4 : struct, IBufferElementData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IBufferElementData
+            where T4 : struct, IBufferElementData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -5922,31 +6132,41 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety3, jobData.Iterator.m_BufferSafety3);
-					var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety4, jobData.Iterator.m_BufferSafety4);
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
+                    {
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var safety4 = jobData.Iterator.IsReadOnly4 != 0 ? 8 : jobData.Iterator.m_SafetyReadOnlyCount + 8;
+						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
 #else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-					var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], buffer3[i], buffer4[i]);
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], buffer3[i], buffer4[i]);
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -5991,12 +6211,12 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_CCCCCC<T, T0, T1, T2, T3, T4, T5>
             where T : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
+            where T0 : struct, IComponentData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
+            where T5 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -6052,18 +6272,18 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
-					var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-					var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
-                    }
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+                        }
                 }
             }
         }
@@ -6108,12 +6328,12 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_ECCCCCC<T, T0, T1, T2, T3, T4, T5>
             where T : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
+            where T0 : struct, IComponentData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
+            where T5 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -6163,25 +6383,25 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
-					var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-					var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
-                    }
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(ptr0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+                        }
                 }
             }
         }
@@ -6226,12 +6446,12 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BCCCCC<T, T0, T1, T2, T3, T4, T5>
             where T : struct, IJobForEach_BCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
+            where T5 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -6288,21 +6508,27 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-					var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -6347,12 +6573,12 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBCCCCC<T, T0, T1, T2, T3, T4, T5>
             where T : struct, IJobForEachWithEntity_EBCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IComponentData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
+            where T5 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -6402,7 +6628,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -6410,21 +6636,27 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-					var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(ptr1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -6469,12 +6701,12 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BBCCCC<T, T0, T1, T2, T3, T4, T5>
             where T : struct, IJobForEach_BBCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
+            where T5 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -6531,22 +6763,29 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-					var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -6591,12 +6830,12 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBBCCCC<T, T0, T1, T2, T3, T4, T5>
             where T : struct, IJobForEachWithEntity_EBBCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IComponentData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
+            where T5 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -6646,7 +6885,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -6654,22 +6893,29 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-					var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], ref UnsafeUtilityEx.ArrayElementAsRef<T2>(ptr2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -6714,12 +6960,12 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BBBCCC<T, T0, T1, T2, T3, T4, T5>
             where T : struct, IJobForEach_BBBCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
+            where T5 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -6776,23 +7022,31 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-					var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -6837,12 +7091,12 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBBBCCC<T, T0, T1, T2, T3, T4, T5>
             where T : struct, IJobForEachWithEntity_EBBBCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IComponentData
+            where T4 : struct, IComponentData
+            where T5 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -6892,7 +7146,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -6900,23 +7154,31 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-					var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], ref UnsafeUtilityEx.ArrayElementAsRef<T3>(ptr3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -6961,12 +7223,12 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BBBBCC<T, T0, T1, T2, T3, T4, T5>
             where T : struct, IJobForEach_BBBBCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IBufferElementData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IBufferElementData
+            where T4 : struct, IComponentData
+            where T5 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -7023,24 +7285,33 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety3, jobData.Iterator.m_BufferSafety3);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-					var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], buffer3[i], ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], buffer3[i], ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -7085,12 +7356,12 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBBBBCC<T, T0, T1, T2, T3, T4, T5>
             where T : struct, IJobForEachWithEntity_EBBBBCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IBufferElementData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IBufferElementData
+            where T4 : struct, IComponentData
+            where T5 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -7140,7 +7411,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -7148,24 +7419,33 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety3, jobData.Iterator.m_BufferSafety3);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-					var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], buffer3[i], ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], buffer3[i], ref UnsafeUtilityEx.ArrayElementAsRef<T4>(ptr4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -7210,12 +7490,12 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BBBBBC<T, T0, T1, T2, T3, T4, T5>
             where T : struct, IJobForEach_BBBBBC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IBufferElementData
-			where T4 : struct, IBufferElementData
-			where T5 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IBufferElementData
+            where T4 : struct, IBufferElementData
+            where T5 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -7272,25 +7552,35 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety3, jobData.Iterator.m_BufferSafety3);
-					var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety4, jobData.Iterator.m_BufferSafety4);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-					var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], buffer3[i], buffer4[i], ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var safety4 = jobData.Iterator.IsReadOnly4 != 0 ? 8 : jobData.Iterator.m_SafetyReadOnlyCount + 8;
+						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], buffer3[i], buffer4[i], ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -7335,12 +7625,12 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBBBBBC<T, T0, T1, T2, T3, T4, T5>
             where T : struct, IJobForEachWithEntity_EBBBBBC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IBufferElementData
-			where T4 : struct, IBufferElementData
-			where T5 : struct, IComponentData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IBufferElementData
+            where T4 : struct, IBufferElementData
+            where T5 : struct, IComponentData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -7390,7 +7680,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -7398,25 +7688,35 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety3, jobData.Iterator.m_BufferSafety3);
-					var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety4, jobData.Iterator.m_BufferSafety4);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-					var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
-#endif
-					var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], buffer3[i], buffer4[i], ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var safety4 = jobData.Iterator.IsReadOnly4 != 0 ? 8 : jobData.Iterator.m_SafetyReadOnlyCount + 8;
+						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+#endif
+						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], buffer3[i], buffer4[i], ref UnsafeUtilityEx.ArrayElementAsRef<T5>(ptr5, i));
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -7461,12 +7761,12 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_BBBBBB<T, T0, T1, T2, T3, T4, T5>
             where T : struct, IJobForEach_BBBBBB<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IBufferElementData
-			where T4 : struct, IBufferElementData
-			where T5 : struct, IBufferElementData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IBufferElementData
+            where T4 : struct, IBufferElementData
+            where T5 : struct, IBufferElementData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -7523,26 +7823,37 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety3, jobData.Iterator.m_BufferSafety3);
-					var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety4, jobData.Iterator.m_BufferSafety4);
-					var buffer5 = ComponentChunkIterator.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety5, jobData.Iterator.m_BufferSafety5);
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
+                    {
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var safety4 = jobData.Iterator.IsReadOnly4 != 0 ? 8 : jobData.Iterator.m_SafetyReadOnlyCount + 8;
+						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
+						var safety5 = jobData.Iterator.IsReadOnly5 != 0 ? 10 : jobData.Iterator.m_SafetyReadOnlyCount + 10;
+						var buffer5 = ComponentChunkIterator.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion, safety[safety5], safety[safety5 + 1]);
 #else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-					var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
-					var buffer5 = ComponentChunkIterator.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var buffer5 = ComponentChunkIterator.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], buffer3[i], buffer4[i], buffer5[i]);
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(buffer0[i], buffer1[i], buffer2[i], buffer3[i], buffer4[i], buffer5[i]);
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
@@ -7587,12 +7898,12 @@ namespace Unity.Entities
         [StructLayout(LayoutKind.Sequential)]
         internal struct JobStruct_Process_EBBBBBB<T, T0, T1, T2, T3, T4, T5>
             where T : struct, IJobForEachWithEntity_EBBBBBB<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IBufferElementData
-			where T1 : struct, IBufferElementData
-			where T2 : struct, IBufferElementData
-			where T3 : struct, IBufferElementData
-			where T4 : struct, IBufferElementData
-			where T5 : struct, IBufferElementData
+            where T0 : struct, IBufferElementData
+            where T1 : struct, IBufferElementData
+            where T2 : struct, IBufferElementData
+            where T3 : struct, IBufferElementData
+            where T4 : struct, IBufferElementData
+            where T5 : struct, IBufferElementData
         {
             public ProcessIterationData Iterator;
             public T Data;
@@ -7642,7 +7953,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -7650,9832 +7961,43 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety0, jobData.Iterator.m_BufferSafety0);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety1, jobData.Iterator.m_BufferSafety1);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety2, jobData.Iterator.m_BufferSafety2);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety3, jobData.Iterator.m_BufferSafety3);
-					var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety4, jobData.Iterator.m_BufferSafety4);
-					var buffer5 = ComponentChunkIterator.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety5, jobData.Iterator.m_BufferSafety5);
-#else
-					var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-					var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-					var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-					var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-					var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
-					var buffer5 = ComponentChunkIterator.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
-#endif
-
-
-                    for (var i = 0; i != count; i++)
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
-                        jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], buffer3[i], buffer4[i], buffer5[i]);
+						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var safety4 = jobData.Iterator.IsReadOnly4 != 0 ? 8 : jobData.Iterator.m_SafetyReadOnlyCount + 8;
+						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
+						var safety5 = jobData.Iterator.IsReadOnly5 != 0 ? 10 : jobData.Iterator.m_SafetyReadOnlyCount + 10;
+						var buffer5 = ComponentChunkIterator.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion, safety[safety5], safety[safety5 + 1]);
+#else
+						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var buffer5 = ComponentChunkIterator.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
+#endif
+
+
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(ptrE[i], i + beginIndex, buffer0[i], buffer1[i], buffer2[i], buffer3[i], buffer4[i], buffer5[i]);
+                        }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
                 }
             }
         }
 #endif
 
 
-#if UNITY_DOTSPLAYER
-        internal unsafe static JobHandle Schedule_Query_rD<TJob, T0>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_C<T0>
-			where T0 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wD<TJob, T0>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_C<T0>
-			where T0 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErD<TJob, T0>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_EC<T0>
-			where T0 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwD<TJob, T0>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_EC<T0>
-			where T0 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrD<TJob, T0, T1>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CC<T0, T1>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrD<TJob, T0, T1>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CC<T0, T1>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwD<TJob, T0, T1>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CC<T0, T1>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwD<TJob, T0, T1>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CC<T0, T1>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrD<TJob, T0, T1>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECC<T0, T1>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrD<TJob, T0, T1>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECC<T0, T1>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwD<TJob, T0, T1>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECC<T0, T1>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwD<TJob, T0, T1>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECC<T0, T1>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwD<TJob, T0, T1, T2>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCC<T0, T1, T2>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwDrD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwDwD<TJob, T0, T1, T2, T3>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwDrDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwDwDrD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwDrDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwDwDwD<TJob, T0, T1, T2, T3, T4>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDrDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDrDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_rDwDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_wDwDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(true);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafeReadOnlyPtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(true);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafeReadOnlyPtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(true);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafeReadOnlyPtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(true);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafeReadOnlyPtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDrDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDrDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(true);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafeReadOnlyPtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_ErDwDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(true);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafeReadOnlyPtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-        internal unsafe static JobHandle Schedule_Query_EwDwDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
-			where T0 : struct, IComponentData
-			where T1 : struct, IComponentData
-			where T2 : struct, IComponentData
-			where T3 : struct, IComponentData
-			where T4 : struct, IComponentData
-			where T5 : struct, IComponentData
-        {
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-            ArchetypeChunkComponentType<T0> chunkComponentType0 = World.Active.EntityManager.GetArchetypeChunkComponentType<T0>(false);
-            ArchetypeChunkComponentType<T1> chunkComponentType1 = World.Active.EntityManager.GetArchetypeChunkComponentType<T1>(false);
-            ArchetypeChunkComponentType<T2> chunkComponentType2 = World.Active.EntityManager.GetArchetypeChunkComponentType<T2>(false);
-            ArchetypeChunkComponentType<T3> chunkComponentType3 = World.Active.EntityManager.GetArchetypeChunkComponentType<T3>(false);
-            ArchetypeChunkComponentType<T4> chunkComponentType4 = World.Active.EntityManager.GetArchetypeChunkComponentType<T4>(false);
-            ArchetypeChunkComponentType<T5> chunkComponentType5 = World.Active.EntityManager.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-                            entityArray[i], entityArray[i].Index,
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i),
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i)
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-#endif
     }
 }
 

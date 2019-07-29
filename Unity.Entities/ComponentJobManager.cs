@@ -55,7 +55,11 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_ComponentSafetyHandles[arrayIndex].SafetyHandle = AtomicSafetyHandle.Create();
             AtomicSafetyHandle.SetAllowSecondaryVersionWriting(m_ComponentSafetyHandles[arrayIndex].SafetyHandle, false);
+            
             m_ComponentSafetyHandles[arrayIndex].BufferHandle = AtomicSafetyHandle.Create();
+            #if UNITY_2019_3_OR_NEWER
+            AtomicSafetyHandle.SetBumpSecondaryVersionOnScheduleWrite(m_ComponentSafetyHandles[arrayIndex].BufferHandle, true);
+            #endif
 #endif
             m_ComponentSafetyHandles[arrayIndex].WriteFence = new JobHandle();
 

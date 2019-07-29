@@ -100,9 +100,11 @@ namespace Unity.Entities
         /// <returns>A native array containing the <see cref="ComponentType"/> objects of this archetype.</returns>
         public NativeArray<ComponentType> GetComponentTypes(Allocator allocator = Allocator.Temp)
         {
-            var types = new NativeArray<ComponentType>(Archetype->TypesCount, allocator);
-            for (var i = 0; i < types.Length; ++i)
-                types[i] = Archetype->Types[i].ToComponentType();
+            var archetypeCount = Archetype->TypesCount;
+            // NOTE: Entity is excluded (Entity is always the first type in the archetype)
+            var types = new NativeArray<ComponentType>(archetypeCount - 1, allocator);
+            for (var i = 1; i < archetypeCount; ++i)
+                types[i  - 1] = Archetype->Types[i].ToComponentType();
             return types;
         }
 

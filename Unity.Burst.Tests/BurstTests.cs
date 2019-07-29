@@ -112,7 +112,7 @@ public class BurstTests
 		var jobData = new ListCapacityJob() { list = new NativeList<int>(Allocator.TempJob) };
 		jobData.Run();
 
-		Assert.AreEqual(100, jobData.list.Capacity);
+		Assert.IsTrue( jobData.list.Capacity >= 100);
 		Assert.AreEqual(0, jobData.list.Length);
 
         jobData.list.Dispose();
@@ -159,7 +159,6 @@ public class BurstTests
 	{
 		var jobData = new NativeListAddValue() { list = new NativeList<int>(1, Allocator.Persistent) };
 
-		Assert.AreEqual(1, jobData.list.Capacity);
 		jobData.list.Add(-1);
 
 		jobData.Run();

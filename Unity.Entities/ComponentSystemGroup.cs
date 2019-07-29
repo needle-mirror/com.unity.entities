@@ -59,6 +59,9 @@ namespace Unity.Entities
                     throw new ArgumentException($"Can't add a ComponentSystemGroup to its own update list");
 #endif
                 }
+                
+                if (sys.World != World)
+                    Debug.LogWarning($"'{sys.GetType()}' can't be added to '{GetType()}' because they are in different worlds. ('{sys.World.Name}' vs '{World.Name}')");
 
                 // Check for duplicate Systems. Also see issue #1792
                 if (m_systemsToUpdate.IndexOf(sys) >= 0)
@@ -220,6 +223,33 @@ namespace Unity.Entities
         }
 #endif
 
+        private void WarningForBeforeCheck(Type sysType, Type depType) {
+#if !NET_DOTS
+            Debug.LogWarning(
+                $"Ignoring redundant [UpdateBefore] attribute on {sysType} because {depType} is already restricted to be last.\n"
+                + $"Set the target parameter of [UpdateBefore] to a different system class in the same {nameof(ComponentSystemGroup)} as {sysType}.");
+#else
+            Debug.LogWarning($"WARNING: invalid [UpdateBefore] attribute:");
+            Debug.LogWarning(TypeManager.SystemName(sysType));
+            Debug.LogWarning("  is a redundant update before a system that is restricted to be last: ");
+            Debug.LogWarning(TypeManager.SystemName(depType));
+            Debug.LogWarning("Set the target parameter of [UpdateBefore] to a system class in the same ComponentSystemGroup.");
+#endif
+        }
+        private void WarningForAfterCheck(Type sysType, Type depType) {
+#if !NET_DOTS
+            Debug.LogWarning(
+                $"Ignoring redundant [UpdateAfter] attribute on {sysType} because {depType} is already restricted to be first.\n"
+                + $"Set the target parameter of [UpdateAfter] to a different system class in the same {nameof(ComponentSystemGroup)} as {sysType}.");
+#else
+            Debug.LogWarning($"WARNING: invalid [UpdateAfter] attribute:");
+            Debug.LogWarning(TypeManager.SystemName(sysType));
+            Debug.LogWarning("  is a redundant update before a system that is restricted to be first: ");
+            Debug.LogWarning(TypeManager.SystemName(depType));
+            Debug.LogWarning("Set the target parameter of [UpdateBefore] to a system class in the same ComponentSystemGroup.");
+#endif
+        }
+
         public virtual void SortSystemUpdateList()
         {
             if (!m_systemSortDirty)
@@ -255,6 +285,7 @@ namespace Unity.Entities
             for(int i=0; i<m_systemsToUpdate.Count; ++i)
             {
                 var sys = m_systemsToUpdate[i];
+                
                 var before = TypeManager.GetSystemAttributes(sys.GetType(), typeof(UpdateBeforeAttribute));
                 var after = TypeManager.GetSystemAttributes(sys.GetType(), typeof(UpdateAfterAttribute));
                 foreach (var attr in before)
@@ -286,6 +317,61 @@ namespace Unity.Entities
 #endif
                         continue;
                     }
+
+                    if (this is InitializationSystemGroup)
+                    {
+                        if (dep.SystemType == typeof(BeginInitializationEntityCommandBufferSystem))
+                        {
+#if !NET_DOTS
+                            throw new ArgumentException($"Invalid [UpdateBefore] {dep.SystemType} attribute on {sys.GetType()}, because that system is already restricted to be first.");
+#else
+                            throw new ArgumentException($"Invalid [UpdateBefore] BeginInitializationEntityCommandBufferSystem, because that system is already restricted to be first.");
+#endif
+                        }
+                        if (dep.SystemType == typeof(EndInitializationEntityCommandBufferSystem))
+                        {
+                            WarningForBeforeCheck(sys.GetType(), dep.SystemType);
+                            continue;
+                        }
+                    } 
+                    if (this is SimulationSystemGroup)
+                    {
+                        if (dep.SystemType == typeof(BeginSimulationEntityCommandBufferSystem))
+                        {
+#if !NET_DOTS
+                            throw new ArgumentException($"Invalid [UpdateBefore] {dep.SystemType} attribute on {sys.GetType()}, because that system is already restricted to be first.");
+#else
+                            throw new ArgumentException($"Invalid [UpdateBefore] BeginSimulationEntityCommandBufferSystem, because that system is already restricted to be first.");
+#endif
+                        }
+                        if (dep.SystemType == typeof(LateSimulationSystemGroup))
+                        {
+                            WarningForBeforeCheck(sys.GetType(), dep.SystemType);
+                            continue;
+                        }
+                        if (dep.SystemType == typeof(EndSimulationEntityCommandBufferSystem))
+                        {
+                            WarningForBeforeCheck(sys.GetType(), dep.SystemType);
+                            continue;
+                        } 
+                    } 
+                    if (this is PresentationSystemGroup)
+                    {
+                        if (dep.SystemType == typeof(BeginPresentationEntityCommandBufferSystem))
+                        {
+#if !NET_DOTS
+                            throw new ArgumentException($"Invalid [UpdateBefore] {dep.SystemType} attribute on {sys.GetType()}, because that system is already restricted to be first.");
+#else
+                            throw new ArgumentException($"Invalid [UpdateBefore] BeginPreesntationEntityCommandBufferSystem, because that system is already restricted to be first.");
+#endif
+                        }
+                        if (dep.SystemType == typeof(EndPresentationEntityCommandBufferSystem))
+                        {
+                            WarningForBeforeCheck(sys.GetType(), dep.SystemType);
+                            continue;
+                        }
+                    } 
+
                     int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
                     if (depIndex < 0)
                     {
@@ -336,6 +422,64 @@ namespace Unity.Entities
 #endif
                         continue;
                     }
+
+                    if (this is InitializationSystemGroup)
+                    {
+                        if (dep.SystemType == typeof(BeginInitializationEntityCommandBufferSystem))
+                        {
+                            WarningForAfterCheck(sys.GetType(), dep.SystemType);
+                            continue; 
+                        }
+                        if (dep.SystemType == typeof(EndInitializationEntityCommandBufferSystem))
+                        {
+#if !NET_DOTS
+                            throw new ArgumentException($"Invalid [UpdateAfter] {dep.SystemType} attribute on {sys.GetType()}, because that system is already restricted to be last.");
+#else
+                            throw new ArgumentException($"Invalid [UpdateAfter] EndInitializationEntityCommandBufferSystem, because that system is already restricted to be last.");
+#endif
+                        }
+                    } 
+                    if (this is SimulationSystemGroup)
+                    {
+                        if (dep.SystemType == typeof(BeginSimulationEntityCommandBufferSystem))
+                        {
+                            WarningForAfterCheck(sys.GetType(), dep.SystemType);
+                            continue; 
+                        }
+                        if (dep.SystemType == typeof(LateSimulationSystemGroup))
+                        {
+#if !NET_DOTS
+                            throw new ArgumentException($"Invalid [UpdateAfter] {dep.SystemType} attribute on {sys.GetType()}, because that system is already restricted to be last.");
+#else
+                            throw new ArgumentException($"Invalid [UpdateAfter] EndLateSimulationEntityCommandBufferSystem, because that system is already restricted to be last.");
+#endif
+                        }
+                        if (dep.SystemType == typeof(EndSimulationEntityCommandBufferSystem))
+                        {
+#if !NET_DOTS
+                            throw new ArgumentException($"Invalid [UpdateAfter] {dep.SystemType} attribute on {sys.GetType()}, because that system is already restricted to be last.");
+#else
+                            throw new ArgumentException($"Invalid [UpdateAfter] EndSimulationEntityCommandBufferSystem, because that system is already restricted to be last.");
+#endif
+                        } 
+                    } 
+                    if (this is PresentationSystemGroup)
+                    {
+                        if (dep.SystemType == typeof(BeginPresentationEntityCommandBufferSystem))
+                        {
+                            WarningForAfterCheck(sys.GetType(), dep.SystemType);
+                            continue; 
+                        }
+                        if (dep.SystemType == typeof(EndPresentationEntityCommandBufferSystem))
+                        {
+#if !NET_DOTS
+                            throw new ArgumentException($"Invalid [UpdateAfter] {dep.SystemType} attribute on {sys.GetType()}, because that system is already restricted to be last.");
+#else
+                            throw new ArgumentException($"Invalid [UpdateAfter] EndPresentationEntityCommandBufferSystem, because that system is already restricted to be last.");
+#endif
+                        }
+                    } 
+
                     int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
                     if (depIndex < 0)
                     {

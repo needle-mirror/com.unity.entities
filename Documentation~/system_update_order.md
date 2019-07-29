@@ -1,3 +1,7 @@
+---
+uid: ecs-system-update-order
+---
+
 # System Update Order
 
 Use Component System Groups to specify the update order of your systems. You can place a systems in a group using the [UpdateInGroup] attribute on the system’s class declaration. You can then use [UpdateBefore] and [UpdateAfter] attributes to specify the update order within the group. 
@@ -10,6 +14,7 @@ The ComponentSystemGroup class represents a list of related component systems th
 
 By default, when a ComponentSystemGroup’s `Update()` method is called, it calls Update() on each system in its sorted list of member systems. If any member systems are themselves system groups, they will recursively update their own members. The resulting system ordering follows a depth-first traversal of a tree.
 
+<a name="attributes"></a>
 ## System Ordering Attributes
 
 The existing system ordering attributes are maintained, with slightly different semantics and restrictions.

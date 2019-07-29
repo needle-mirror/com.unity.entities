@@ -12,13 +12,14 @@ namespace Unity.Scenes.Editor
     class ConversionWarningsGui
     {
         static ProfilerMarker ms_ConversionWarningsMarker = new ProfilerMarker("ConversionWarningsGUI.ConversionWarnings");
+        static readonly List<ConvertToEntity> s_ConvertToEntityBuffer = new List<ConvertToEntity>(8);
 
         static ConversionWarningsGui()
         {
             UnityEditor.Editor.finishedDefaultHeaderGUI += Callback;
         }
 
-        public static void Callback(UnityEditor.Editor editor)
+        static void Callback(UnityEditor.Editor editor)
         {
             ms_ConversionWarningsMarker.Begin();
             var warning = GetWarning(editor);
@@ -37,10 +38,12 @@ namespace Unity.Scenes.Editor
             return GetWarnings(gameobject);
         }
 
-        public static string GetWarnings(GameObject gameobject)
+        static string GetWarnings(GameObject gameobject)
         {
             var isSubScene = EditorEntityScenes.IsEntitySubScene(gameobject.scene);
-            var convertToEntity = gameobject.GetComponentInParent<ConvertToEntity>() != null;
+            gameobject.GetComponentsInParent(true, s_ConvertToEntityBuffer);
+            var convertToEntity = s_ConvertToEntityBuffer.Count > 0;
+            s_ConvertToEntityBuffer.Clear();
 
             var willBeConverted = convertToEntity | isSubScene;
 

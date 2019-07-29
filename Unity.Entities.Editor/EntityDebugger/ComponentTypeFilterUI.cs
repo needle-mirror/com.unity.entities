@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Unity.Entities.Editor
@@ -38,10 +39,11 @@ namespace Unity.Entities.Editor
                 var typeCount = TypeManager.GetTypeCount();
                 filterTypes.Capacity = typeCount;
                 selectedFilterTypes.Capacity = typeCount;
-                foreach (var type in TypeManager.AllTypes)
+                foreach (var typeInfo in TypeManager.AllTypes)
                 {
-                    if (type.Type == typeof(Entity)) continue;
-                    var typeIndex = TypeManager.GetTypeIndex(type.Type);
+                    Type type = TypeManager.GetType(typeInfo.TypeIndex);
+                    if (type == typeof(Entity)) continue;
+                    var typeIndex = typeInfo.TypeIndex;
                     var componentType = ComponentType.FromTypeIndex(typeIndex);
                     if (componentType.GetManagedType() == null) continue;
                     requiredTypes.Add(componentType);

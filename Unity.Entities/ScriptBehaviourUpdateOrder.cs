@@ -21,6 +21,9 @@ namespace Unity.Entities
     {
         public UpdateBeforeAttribute(Type systemType)
         {
+            if (systemType == null)
+                throw new ArgumentNullException(nameof(systemType));
+
             SystemType = systemType;
         }
 
@@ -34,6 +37,9 @@ namespace Unity.Entities
     {
         public UpdateAfterAttribute(Type systemType)
         {
+            if (systemType == null)
+                throw new ArgumentNullException(nameof(systemType));
+            
             SystemType = systemType;
         }
 
@@ -49,6 +55,9 @@ namespace Unity.Entities
     {
         public UpdateInGroupAttribute(Type groupType)
         {
+            if (groupType == null)
+                throw new ArgumentNullException(nameof(groupType));
+            
             GroupType = groupType;
         }
 

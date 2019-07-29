@@ -26,22 +26,20 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+
                 var query = m_Query;
                 if (query == null)
                 {
                     query = ResolveEntityQuery(null, 0);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        action(entity);
                     }
                 }
             }
@@ -57,29 +55,30 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        action(entity, ref c0);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -95,27 +94,30 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        action(ref c0);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -131,29 +133,23 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        action(entity, c0);
                     }
                 }
             }
@@ -169,27 +165,23 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        action(c0);
                     }
                 }
             }
@@ -205,29 +197,23 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        action(entity, c0);
                     }
                 }
             }
@@ -243,27 +229,23 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        action(c0);
                     }
                 }
             }
@@ -279,29 +261,23 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        action(entity, c0);
                     }
                 }
             }
@@ -317,27 +293,23 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        action(c0);
                     }
                 }
             }
@@ -355,32 +327,39 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        action(entity, ref c0, ref c1);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -398,30 +377,39 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        action(ref c0, ref c1);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -441,35 +429,48 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        action(entity, ref c0, ref c1, ref c2);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -489,33 +490,48 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        action(ref c0, ref c1, ref c2);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -537,38 +553,57 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        action(entity, ref c0, ref c1, ref c2, ref c3);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -590,36 +625,57 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        action(ref c0, ref c1, ref c2, ref c3);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -643,41 +699,66 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        action(entity, ref c0, ref c1, ref c2, ref c3, ref c4);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -701,39 +782,66 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        action(ref c0, ref c1, ref c2, ref c3, ref c4);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -759,44 +867,75 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                        var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        var copy5 = c5;
+                        action(entity, ref c0, ref c1, ref c2, ref c3, ref c4, ref c5);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -822,42 +961,75 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                        var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        var copy5 = c5;
+                        action(ref c0, ref c1, ref c2, ref c3, ref c4, ref c5);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -875,32 +1047,32 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        action(entity, c0, ref c1);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -918,30 +1090,32 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        action(c0, ref c1);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -961,35 +1135,41 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        action(entity, c0, ref c1, ref c2);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1009,33 +1189,41 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        action(c0, ref c1, ref c2);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1057,38 +1245,50 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        action(entity, c0, ref c1, ref c2, ref c3);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1110,36 +1310,50 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        action(c0, ref c1, ref c2, ref c3);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1163,41 +1377,59 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        action(entity, c0, ref c1, ref c2, ref c3, ref c4);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1221,39 +1453,59 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        action(c0, ref c1, ref c2, ref c3, ref c4);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1279,44 +1531,68 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                        var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        var copy5 = c5;
+                        action(entity, c0, ref c1, ref c2, ref c3, ref c4, ref c5);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1342,42 +1618,68 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                        var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        var copy5 = c5;
+                        action(c0, ref c1, ref c2, ref c3, ref c4, ref c5);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1395,32 +1697,32 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        action(entity, c0, ref c1);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1438,30 +1740,32 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        action(c0, ref c1);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1481,35 +1785,41 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        action(entity, c0, ref c1, ref c2);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1529,33 +1839,41 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        action(c0, ref c1, ref c2);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1577,38 +1895,50 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        action(entity, c0, ref c1, ref c2, ref c3);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1630,36 +1960,50 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        action(c0, ref c1, ref c2, ref c3);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1683,41 +2027,59 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        action(entity, c0, ref c1, ref c2, ref c3, ref c4);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1741,39 +2103,59 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        action(c0, ref c1, ref c2, ref c3, ref c4);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1799,44 +2181,68 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                        var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        var copy5 = c5;
+                        action(entity, c0, ref c1, ref c2, ref c3, ref c4, ref c5);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1862,42 +2268,68 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                        var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        var copy5 = c5;
+                        action(c0, ref c1, ref c2, ref c3, ref c4, ref c5);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1915,32 +2347,32 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        action(entity, c0, ref c1);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -1958,30 +2390,32 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        action(c0, ref c1);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2001,35 +2435,41 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        action(entity, c0, ref c1, ref c2);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2049,33 +2489,41 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        action(c0, ref c1, ref c2);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2097,38 +2545,50 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        action(entity, c0, ref c1, ref c2, ref c3);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2150,36 +2610,50 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        action(c0, ref c1, ref c2, ref c3);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2203,41 +2677,59 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        action(entity, c0, ref c1, ref c2, ref c3, ref c4);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2261,39 +2753,59 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        action(c0, ref c1, ref c2, ref c3, ref c4);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2319,44 +2831,68 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                        var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        var copy5 = c5;
+                        action(entity, c0, ref c1, ref c2, ref c3, ref c4, ref c5);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2382,42 +2918,68 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                        var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                        var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                        var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                        var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i));
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        var copy1 = c1;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        var copy2 = c2;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        var copy3 = c3;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        var copy4 = c4;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        var copy5 = c5;
+                        action(c0, ref c1, ref c2, ref c3, ref c4, ref c5);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2435,32 +2997,32 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        action(entity, ref c0, c1);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2478,30 +3040,32 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        action(ref c0, c1);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2521,35 +3085,34 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        action(entity, ref c0, c1, c2);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2569,33 +3132,34 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        action(ref c0, c1, c2);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2617,38 +3181,36 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        action(entity, ref c0, c1, c2, c3);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2670,36 +3232,36 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        action(ref c0, c1, c2, c3);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2723,41 +3285,38 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        action(entity, ref c0, c1, c2, c3, c4);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2781,39 +3340,38 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        action(ref c0, c1, c2, c3, c4);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2839,44 +3397,40 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-                        var array5 = chunk.GetComponentObjects(chunkComponentType5, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
+                        action(entity, ref c0, c1, c2, c3, c4, c5);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2902,42 +3456,40 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-                        var array5 = chunk.GetComponentObjects(chunkComponentType5, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
+                        action(ref c0, c1, c2, c3, c4, c5);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -2955,32 +3507,25 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        action(entity, c0, c1);
                     }
                 }
             }
@@ -2998,30 +3543,25 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        action(c0, c1);
                     }
                 }
             }
@@ -3041,35 +3581,27 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        action(entity, c0, c1, c2);
                     }
                 }
             }
@@ -3089,33 +3621,27 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        action(c0, c1, c2);
                     }
                 }
             }
@@ -3137,38 +3663,29 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        action(entity, c0, c1, c2, c3);
                     }
                 }
             }
@@ -3190,36 +3707,29 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        action(c0, c1, c2, c3);
                     }
                 }
             }
@@ -3243,41 +3753,31 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        action(entity, c0, c1, c2, c3, c4);
                     }
                 }
             }
@@ -3301,39 +3801,31 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        action(c0, c1, c2, c3, c4);
                     }
                 }
             }
@@ -3359,44 +3851,33 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-                        var array5 = chunk.GetComponentObjects(chunkComponentType5, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
+                        action(entity, c0, c1, c2, c3, c4, c5);
                     }
                 }
             }
@@ -3422,42 +3903,33 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-                        var array5 = chunk.GetComponentObjects(chunkComponentType5, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
+                        action(c0, c1, c2, c3, c4, c5);
                     }
                 }
             }
@@ -3475,32 +3947,25 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        action(entity, c0, c1);
                     }
                 }
             }
@@ -3518,30 +3983,25 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        action(c0, c1);
                     }
                 }
             }
@@ -3561,35 +4021,27 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        action(entity, c0, c1, c2);
                     }
                 }
             }
@@ -3609,33 +4061,27 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        action(c0, c1, c2);
                     }
                 }
             }
@@ -3657,38 +4103,29 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        action(entity, c0, c1, c2, c3);
                     }
                 }
             }
@@ -3710,36 +4147,29 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        action(c0, c1, c2, c3);
                     }
                 }
             }
@@ -3763,41 +4193,31 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        action(entity, c0, c1, c2, c3, c4);
                     }
                 }
             }
@@ -3821,39 +4241,31 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        action(c0, c1, c2, c3, c4);
                     }
                 }
             }
@@ -3879,44 +4291,33 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-                        var array5 = chunk.GetComponentObjects(chunkComponentType5, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
+                        action(entity, c0, c1, c2, c3, c4, c5);
                     }
                 }
             }
@@ -3942,42 +4343,33 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-                        var array5 = chunk.GetComponentObjects(chunkComponentType5, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
+                        action(c0, c1, c2, c3, c4, c5);
                     }
                 }
             }
@@ -3995,32 +4387,25 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        action(entity, c0, c1);
                     }
                 }
             }
@@ -4038,30 +4423,25 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        action(c0, c1);
                     }
                 }
             }
@@ -4081,35 +4461,27 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        action(entity, c0, c1, c2);
                     }
                 }
             }
@@ -4129,33 +4501,27 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        action(c0, c1, c2);
                     }
                 }
             }
@@ -4177,38 +4543,29 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        action(entity, c0, c1, c2, c3);
                     }
                 }
             }
@@ -4230,36 +4587,29 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        action(c0, c1, c2, c3);
                     }
                 }
             }
@@ -4283,41 +4633,31 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        action(entity, c0, c1, c2, c3, c4);
                     }
                 }
             }
@@ -4341,39 +4681,31 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        action(c0, c1, c2, c3, c4);
                     }
                 }
             }
@@ -4399,44 +4731,33 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-                        var array5 = chunk.GetComponentObjects(chunkComponentType5, m_System.EntityManager);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
+                        action(entity, c0, c1, c2, c3, c4, c5);
                     }
                 }
             }
@@ -4462,42 +4783,33 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkComponentType<T1>();
-                var chunkComponentType2 = m_System.GetArchetypeChunkComponentType<T2>();
-                var chunkComponentType3 = m_System.GetArchetypeChunkComponentType<T3>();
-                var chunkComponentType4 = m_System.GetArchetypeChunkComponentType<T4>();
-                var chunkComponentType5 = m_System.GetArchetypeChunkComponentType<T5>();
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetComponentObjects(chunkComponentType1, m_System.EntityManager);
-                        var array2 = chunk.GetComponentObjects(chunkComponentType2, m_System.EntityManager);
-                        var array3 = chunk.GetComponentObjects(chunkComponentType3, m_System.EntityManager);
-                        var array4 = chunk.GetComponentObjects(chunkComponentType4, m_System.EntityManager);
-                        var array5 = chunk.GetComponentObjects(chunkComponentType5, m_System.EntityManager);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
+                        var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
+                        var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
+                        var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
+                        var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
+                        action(c0, c1, c2, c3, c4, c5);
                     }
                 }
             }
@@ -4515,32 +4827,32 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        action(entity, ref c0, c1);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -4558,30 +4870,32 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        action(ref c0, c1);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -4601,35 +4915,34 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        action(entity, ref c0, c1, c2);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -4649,33 +4962,34 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        action(ref c0, c1, c2);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -4697,38 +5011,36 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        action(entity, ref c0, c1, c2, c3);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -4750,36 +5062,36 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        action(ref c0, c1, c2, c3);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -4803,41 +5115,38 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        action(entity, ref c0, c1, c2, c3, c4);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -4861,39 +5170,38 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        action(ref c0, c1, c2, c3, c4);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -4919,44 +5227,40 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkBufferType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-                        var array5 = chunk.GetBufferAccessor(chunkComponentType5);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
+                        action(entity, ref c0, c1, c2, c3, c4, c5);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -4982,42 +5286,40 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkBufferType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-                        var array5 = chunk.GetBufferAccessor(chunkComponentType5);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        var copy0 = c0;
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
+                        action(ref c0, c1, c2, c3, c4, c5);
+                        if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
+                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                        {
+                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                        }
                     }
                 }
             }
@@ -5035,32 +5337,25 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        action(entity, c0, c1);
                     }
                 }
             }
@@ -5078,30 +5373,25 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        action(c0, c1);
                     }
                 }
             }
@@ -5121,35 +5411,27 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        action(entity, c0, c1, c2);
                     }
                 }
             }
@@ -5169,33 +5451,27 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        action(c0, c1, c2);
                     }
                 }
             }
@@ -5217,38 +5493,29 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        action(entity, c0, c1, c2, c3);
                     }
                 }
             }
@@ -5270,36 +5537,29 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        action(c0, c1, c2, c3);
                     }
                 }
             }
@@ -5323,41 +5583,31 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        action(entity, c0, c1, c2, c3, c4);
                     }
                 }
             }
@@ -5381,39 +5631,31 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        action(c0, c1, c2, c3, c4);
                     }
                 }
             }
@@ -5439,44 +5681,33 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkBufferType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-                        var array5 = chunk.GetBufferAccessor(chunkComponentType5);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
+                        action(entity, c0, c1, c2, c3, c4, c5);
                     }
                 }
             }
@@ -5502,42 +5733,33 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkBufferType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetComponentObjects(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-                        var array5 = chunk.GetBufferAccessor(chunkComponentType5);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
+                        action(c0, c1, c2, c3, c4, c5);
                     }
                 }
             }
@@ -5555,32 +5777,25 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        action(entity, c0, c1);
                     }
                 }
             }
@@ -5598,30 +5813,25 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        action(c0, c1);
                     }
                 }
             }
@@ -5641,35 +5851,27 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        action(entity, c0, c1, c2);
                     }
                 }
             }
@@ -5689,33 +5891,27 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        action(c0, c1, c2);
                     }
                 }
             }
@@ -5737,38 +5933,29 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        action(entity, c0, c1, c2, c3);
                     }
                 }
             }
@@ -5790,36 +5977,29 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        action(c0, c1, c2, c3);
                     }
                 }
             }
@@ -5843,41 +6023,31 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        action(entity, c0, c1, c2, c3, c4);
                     }
                 }
             }
@@ -5901,39 +6071,31 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        action(c0, c1, c2, c3, c4);
                     }
                 }
             }
@@ -5959,44 +6121,33 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkBufferType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-                        var array5 = chunk.GetBufferAccessor(chunkComponentType5);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0[i], array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
+                        action(entity, c0, c1, c2, c3, c4, c5);
                     }
                 }
             }
@@ -6022,42 +6173,33 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkBufferType<T0>(false);
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkBufferType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetBufferAccessor(chunkComponentType0);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-                        var array5 = chunk.GetBufferAccessor(chunkComponentType5);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0[i], array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
+                        action(c0, c1, c2, c3, c4, c5);
                     }
                 }
             }
@@ -6075,32 +6217,25 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        action(entity, c0, c1);
                     }
                 }
             }
@@ -6118,30 +6253,25 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, array1[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        action(c0, c1);
                     }
                 }
             }
@@ -6161,35 +6291,27 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        action(entity, c0, c1, c2);
                     }
                 }
             }
@@ -6209,33 +6331,27 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, array1[i], array2[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        action(c0, c1, c2);
                     }
                 }
             }
@@ -6257,38 +6373,29 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        action(entity, c0, c1, c2, c3);
                     }
                 }
             }
@@ -6310,36 +6417,29 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, array1[i], array2[i], array3[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        action(c0, c1, c2, c3);
                     }
                 }
             }
@@ -6363,41 +6463,31 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        action(entity, c0, c1, c2, c3, c4);
                     }
                 }
             }
@@ -6421,39 +6511,31 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, array1[i], array2[i], array3[i], array4[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        action(c0, c1, c2, c3, c4);
                     }
                 }
             }
@@ -6479,44 +6561,33 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var entityType = m_System.GetArchetypeChunkEntityType();
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkBufferType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-                        var array5 = chunk.GetBufferAccessor(chunkComponentType5);
-                        var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(entityArray[i], array0, array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
+                        action(entity, c0, c1, c2, c3, c4, c5);
                     }
                 }
             }
@@ -6542,7667 +6613,36 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+                var typeIndex0 = TypeManager.GetTypeIndex<T0>();
+                var typeIndex1 = TypeManager.GetTypeIndex<T1>();
+                var typeIndex2 = TypeManager.GetTypeIndex<T2>();
+                var typeIndex3 = TypeManager.GetTypeIndex<T3>();
+                var typeIndex4 = TypeManager.GetTypeIndex<T4>();
+                var typeIndex5 = TypeManager.GetTypeIndex<T5>();
+
                 var query = m_Query;
                 if (query == null)
                 {
-                    var delegateTypes = stackalloc[]
-                    {
-                        TypeManager.GetTypeIndex<T0>(),
-                        TypeManager.GetTypeIndex<T1>(),
-                        TypeManager.GetTypeIndex<T2>(),
-                        TypeManager.GetTypeIndex<T3>(),
-                        TypeManager.GetTypeIndex<T4>(),
-                        TypeManager.GetTypeIndex<T5>(),
-                    };
-
+                    var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-
-                var chunkComponentType0 = m_System.GetArchetypeChunkSharedComponentType<T0>();
-                var chunkComponentType1 = m_System.GetArchetypeChunkBufferType<T1>(false);
-                var chunkComponentType2 = m_System.GetArchetypeChunkBufferType<T2>(false);
-                var chunkComponentType3 = m_System.GetArchetypeChunkBufferType<T3>(false);
-                var chunkComponentType4 = m_System.GetArchetypeChunkBufferType<T4>(false);
-                var chunkComponentType5 = m_System.GetArchetypeChunkBufferType<T5>(false);
-
-                using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
                 {
-                    foreach (var chunk in chunks)
+                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
                     {
-                        var array0 = chunk.GetSharedComponentData(chunkComponentType0, m_System.EntityManager);
-                        var array1 = chunk.GetBufferAccessor(chunkComponentType1);
-                        var array2 = chunk.GetBufferAccessor(chunkComponentType2);
-                        var array3 = chunk.GetBufferAccessor(chunkComponentType3);
-                        var array4 = chunk.GetBufferAccessor(chunkComponentType4);
-                        var array5 = chunk.GetBufferAccessor(chunkComponentType5);
-
-                        for (int i = 0, count = chunk.Count; i < count; ++i)
-                            action(array0, array1[i], array2[i], array3[i], array4[i], array5[i]);
+                        var entity = originalEntities[entityCount];
+                        if (!m_System.EntityManager.Exists(entity))
+                            continue;
+                        var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
+                        var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
+                        var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
+                        var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
+                        var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
+                        var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
+                        action(c0, c1, c2, c3, c4, c5);
                     }
                 }
             }
-        }
-
-    }
-
-    // Schedule() implementation for DOTS-standalone.
-    // The IDE calls Schedule(), and then code-gen is used to
-    // replace the call to the correct Schedule_D method, With
-    // known types.
-
-#if UNITY_DOTSPLAYER
-    public static partial class JobForEachExtensions
-    {
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static void Execute_D<TJob, T0>(TJob job, ComponentSystemBase system, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0>
-            where T0 : struct, IComponentData
-        {
-            var chunkComponentType0 = system.GetArchetypeChunkComponentType<T0>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i));
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rD<TJob, T0>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0>
-            where T0 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[1]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 1);
-                Execute_D<TJob, T0>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wD<TJob, T0>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0>
-            where T0 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[1]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 1);
-                Execute_D<TJob, T0>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static void Execute_ED<TJob, T0>(TJob job, ComponentSystemBase system, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0>
-            where T0 : struct, IComponentData
-        {
-            var entityType = system.GetArchetypeChunkEntityType();
-            var chunkComponentType0 = system.GetArchetypeChunkComponentType<T0>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(entityArray[i], entityArray[i].Index, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i));
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErD<TJob, T0>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0>
-            where T0 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[1]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 1);
-                Execute_ED<TJob, T0>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwD<TJob, T0>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0>
-            where T0 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[1]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 1);
-                Execute_ED<TJob, T0>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static void Execute_DD<TJob, T0, T1>(TJob job, ComponentSystemBase system, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-        {
-            var chunkComponentType0 = system.GetArchetypeChunkComponentType<T0>(false);
-            var chunkComponentType1 = system.GetArchetypeChunkComponentType<T1>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i));
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrD<TJob, T0, T1>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[2]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 2);
-                Execute_DD<TJob, T0, T1>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrD<TJob, T0, T1>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[2]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 2);
-                Execute_DD<TJob, T0, T1>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwD<TJob, T0, T1>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[2]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 2);
-                Execute_DD<TJob, T0, T1>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwD<TJob, T0, T1>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[2]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 2);
-                Execute_DD<TJob, T0, T1>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static void Execute_EDD<TJob, T0, T1>(TJob job, ComponentSystemBase system, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-        {
-            var entityType = system.GetArchetypeChunkEntityType();
-            var chunkComponentType0 = system.GetArchetypeChunkComponentType<T0>(false);
-            var chunkComponentType1 = system.GetArchetypeChunkComponentType<T1>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(entityArray[i], entityArray[i].Index, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i));
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrD<TJob, T0, T1>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[2]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 2);
-                Execute_EDD<TJob, T0, T1>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrD<TJob, T0, T1>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[2]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 2);
-                Execute_EDD<TJob, T0, T1>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwD<TJob, T0, T1>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[2]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 2);
-                Execute_EDD<TJob, T0, T1>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwD<TJob, T0, T1>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[2]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 2);
-                Execute_EDD<TJob, T0, T1>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static void Execute_DDD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            var chunkComponentType0 = system.GetArchetypeChunkComponentType<T0>(false);
-            var chunkComponentType1 = system.GetArchetypeChunkComponentType<T1>(false);
-            var chunkComponentType2 = system.GetArchetypeChunkComponentType<T2>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i));
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_DDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_DDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_DDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_DDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_DDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_DDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_DDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_DDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static void Execute_EDDD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            var entityType = system.GetArchetypeChunkEntityType();
-            var chunkComponentType0 = system.GetArchetypeChunkComponentType<T0>(false);
-            var chunkComponentType1 = system.GetArchetypeChunkComponentType<T1>(false);
-            var chunkComponentType2 = system.GetArchetypeChunkComponentType<T2>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(entityArray[i], entityArray[i].Index, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i));
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_EDDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_EDDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_EDDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_EDDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_EDDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_EDDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_EDDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwD<TJob, T0, T1, T2>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[3]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 3);
-                Execute_EDDD<TJob, T0, T1, T2>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static void Execute_DDDD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            var chunkComponentType0 = system.GetArchetypeChunkComponentType<T0>(false);
-            var chunkComponentType1 = system.GetArchetypeChunkComponentType<T1>(false);
-            var chunkComponentType2 = system.GetArchetypeChunkComponentType<T2>(false);
-            var chunkComponentType3 = system.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i));
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_DDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static void Execute_EDDDD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            var entityType = system.GetArchetypeChunkEntityType();
-            var chunkComponentType0 = system.GetArchetypeChunkComponentType<T0>(false);
-            var chunkComponentType1 = system.GetArchetypeChunkComponentType<T1>(false);
-            var chunkComponentType2 = system.GetArchetypeChunkComponentType<T2>(false);
-            var chunkComponentType3 = system.GetArchetypeChunkComponentType<T3>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(entityArray[i], entityArray[i].Index, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i));
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwDrD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwDwD<TJob, T0, T1, T2, T3>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[4]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 4);
-                Execute_EDDDD<TJob, T0, T1, T2, T3>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static void Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            var chunkComponentType0 = system.GetArchetypeChunkComponentType<T0>(false);
-            var chunkComponentType1 = system.GetArchetypeChunkComponentType<T1>(false);
-            var chunkComponentType2 = system.GetArchetypeChunkComponentType<T2>(false);
-            var chunkComponentType3 = system.GetArchetypeChunkComponentType<T3>(false);
-            var chunkComponentType4 = system.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i));
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_DDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static void Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            var entityType = system.GetArchetypeChunkEntityType();
-            var chunkComponentType0 = system.GetArchetypeChunkComponentType<T0>(false);
-            var chunkComponentType1 = system.GetArchetypeChunkComponentType<T1>(false);
-            var chunkComponentType2 = system.GetArchetypeChunkComponentType<T2>(false);
-            var chunkComponentType3 = system.GetArchetypeChunkComponentType<T3>(false);
-            var chunkComponentType4 = system.GetArchetypeChunkComponentType<T4>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(entityArray[i], entityArray[i].Index, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i));
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwDrDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwDwDrD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwDrDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwDwDwD<TJob, T0, T1, T2, T3, T4>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[5]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 5);
-                Execute_EDDDDD<TJob, T0, T1, T2, T3, T4>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static void Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            var chunkComponentType0 = system.GetArchetypeChunkComponentType<T0>(false);
-            var chunkComponentType1 = system.GetArchetypeChunkComponentType<T1>(false);
-            var chunkComponentType2 = system.GetArchetypeChunkComponentType<T2>(false);
-            var chunkComponentType3 = system.GetArchetypeChunkComponentType<T3>(false);
-            var chunkComponentType4 = system.GetArchetypeChunkComponentType<T4>(false);
-            var chunkComponentType5 = system.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i));
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDrDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDrDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_rDwDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_wDwDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEach<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_DDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static void Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            var entityType = system.GetArchetypeChunkEntityType();
-            var chunkComponentType0 = system.GetArchetypeChunkComponentType<T0>(false);
-            var chunkComponentType1 = system.GetArchetypeChunkComponentType<T1>(false);
-            var chunkComponentType2 = system.GetArchetypeChunkComponentType<T2>(false);
-            var chunkComponentType3 = system.GetArchetypeChunkComponentType<T3>(false);
-            var chunkComponentType4 = system.GetArchetypeChunkComponentType<T4>(false);
-            var chunkComponentType5 = system.GetArchetypeChunkComponentType<T5>(false);
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-                    var array0 = chunk.GetNativeArray(chunkComponentType0).GetUnsafePtr();
-                    var array1 = chunk.GetNativeArray(chunkComponentType1).GetUnsafePtr();
-                    var array2 = chunk.GetNativeArray(chunkComponentType2).GetUnsafePtr();
-                    var array3 = chunk.GetNativeArray(chunkComponentType3).GetUnsafePtr();
-                    var array4 = chunk.GetNativeArray(chunkComponentType4).GetUnsafePtr();
-                    var array5 = chunk.GetNativeArray(chunkComponentType5).GetUnsafePtr();
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(entityArray[i], entityArray[i].Index, ref UnsafeUtilityEx.ArrayElementAsRef<T0>(array0, i), ref UnsafeUtilityEx.ArrayElementAsRef<T1>(array1, i), ref UnsafeUtilityEx.ArrayElementAsRef<T2>(array2, i), ref UnsafeUtilityEx.ArrayElementAsRef<T3>(array3, i), ref UnsafeUtilityEx.ArrayElementAsRef<T4>(array4, i), ref UnsafeUtilityEx.ArrayElementAsRef<T5>(array5, i));
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwDrDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwDwDrDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwDrDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwDwDwDrD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadOnly<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwDrDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwDwDrDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadOnly<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwDrDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadOnly<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDrDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadOnly<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDrDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDrDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadOnly<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_ErDwDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadOnly<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        internal unsafe static JobHandle Schedule_EwDwDwDwDwDwD<TJob, T0, T1, T2, T3, T4, T5>(TJob job, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, IJobForEachWithEntity<T0, T1, T2, T3, T4, T5>
-            where T0 : struct, IComponentData
-            where T1 : struct, IComponentData
-            where T2 : struct, IComponentData
-            where T3 : struct, IComponentData
-            where T4 : struct, IComponentData
-            where T5 : struct, IComponentData
-        {
-            {
-                var delegateTypes = stackalloc ComponentType[6]
-                {
-                    ComponentType.ReadWrite<T0>(),
-                    ComponentType.ReadWrite<T1>(),
-                    ComponentType.ReadWrite<T2>(),
-                    ComponentType.ReadWrite<T3>(),
-                    ComponentType.ReadWrite<T4>(),
-                    ComponentType.ReadWrite<T5>(),
-                };
-                EntityQuery query = /*ResolveEntityQuery*/system.GetEntityQueryInternal(delegateTypes, 6);
-                Execute_EDDDDDD<TJob, T0, T1, T2, T3, T4, T5>(job, system, query, dependsOn);
-            }
-            return new JobHandle();
-        }
-        
-    }
-#endif // UNITY_DOTSPLAYER
-
-    // BACK-COMPAT
-
-    public partial class ComponentSystem
-    {
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach(EntityQueryBuilder.F_E action, EntityQuery query = null)
-            
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0>(EntityQueryBuilder.F_ED<T0> action, EntityQuery query = null)
-            where T0 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0>(EntityQueryBuilder.F_D<T0> action, EntityQuery query = null)
-            where T0 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0>(EntityQueryBuilder.F_EC<T0> action, EntityQuery query = null)
-            where T0 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0>(EntityQueryBuilder.F_C<T0> action, EntityQuery query = null)
-            where T0 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0>(EntityQueryBuilder.F_EB<T0> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0>(EntityQueryBuilder.F_B<T0> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0>(EntityQueryBuilder.F_ES<T0> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0>(EntityQueryBuilder.F_S<T0> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_EDD<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_DD<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_EDDD<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_DDD<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_EDDDD<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_DDDD<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_EDDDDD<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_DDDDD<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_EDDDDDD<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData where T5 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_DDDDDD<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData where T5 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_ECD<T0, T1> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_CD<T0, T1> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_ECDD<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IComponentData where T2 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_CDD<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IComponentData where T2 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_ECDDD<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_CDDD<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_ECDDDD<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_CDDDD<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_ECDDDDD<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData where T5 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_CDDDDD<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData where T5 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_EBD<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_BD<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_EBDD<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IComponentData where T2 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_BDD<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IComponentData where T2 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_EBDDD<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_BDDD<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_EBDDDD<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_BDDDD<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_EBDDDDD<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData where T5 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_BDDDDD<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData where T5 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_ESD<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_SD<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_ESDD<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_SDD<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_ESDDD<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_SDDD<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_ESDDDD<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_SDDDD<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_ESDDDDD<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData where T5 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_SDDDDD<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IComponentData where T2 : struct, IComponentData where T3 : struct, IComponentData where T4 : struct, IComponentData where T5 : struct, IComponentData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_EDC<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_DC<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_EDCC<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : class where T2 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_DCC<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : class where T2 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_EDCCC<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : class where T2 : class where T3 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_DCCC<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : class where T2 : class where T3 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_EDCCCC<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : class where T2 : class where T3 : class where T4 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_DCCCC<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : class where T2 : class where T3 : class where T4 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_EDCCCCC<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : class where T2 : class where T3 : class where T4 : class where T5 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_DCCCCC<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : class where T2 : class where T3 : class where T4 : class where T5 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_ECC<T0, T1> action, EntityQuery query = null)
-            where T0 : class where T1 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_CC<T0, T1> action, EntityQuery query = null)
-            where T0 : class where T1 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_ECCC<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : class where T1 : class where T2 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_CCC<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : class where T1 : class where T2 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_ECCCC<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : class where T1 : class where T2 : class where T3 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_CCCC<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : class where T1 : class where T2 : class where T3 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_ECCCCC<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : class where T1 : class where T2 : class where T3 : class where T4 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_CCCCC<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : class where T1 : class where T2 : class where T3 : class where T4 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_ECCCCCC<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : class where T1 : class where T2 : class where T3 : class where T4 : class where T5 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_CCCCCC<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : class where T1 : class where T2 : class where T3 : class where T4 : class where T5 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_EBC<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_BC<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_EBCC<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : class where T2 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_BCC<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : class where T2 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_EBCCC<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : class where T2 : class where T3 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_BCCC<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : class where T2 : class where T3 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_EBCCCC<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : class where T2 : class where T3 : class where T4 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_BCCCC<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : class where T2 : class where T3 : class where T4 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_EBCCCCC<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : class where T2 : class where T3 : class where T4 : class where T5 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_BCCCCC<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : class where T2 : class where T3 : class where T4 : class where T5 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_ESC<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_SC<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_ESCC<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : class where T2 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_SCC<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : class where T2 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_ESCCC<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : class where T2 : class where T3 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_SCCC<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : class where T2 : class where T3 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_ESCCCC<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : class where T2 : class where T3 : class where T4 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_SCCCC<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : class where T2 : class where T3 : class where T4 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_ESCCCCC<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : class where T2 : class where T3 : class where T4 : class where T5 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_SCCCCC<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : class where T2 : class where T3 : class where T4 : class where T5 : class
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_EDB<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_DB<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_EDBB<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_DBB<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_EDBBB<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_DBBB<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_EDBBBB<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_DBBBB<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_EDBBBBB<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData where T5 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_DBBBBB<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, IComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData where T5 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_ECB<T0, T1> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_CB<T0, T1> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_ECBB<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_CBB<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_ECBBB<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_CBBB<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_ECBBBB<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_CBBBB<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_ECBBBBB<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData where T5 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_CBBBBB<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : class where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData where T5 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_EBB<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_BB<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_EBBB<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_BBB<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_EBBBB<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_BBBB<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_EBBBBB<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_BBBBB<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_EBBBBBB<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData where T5 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_BBBBBB<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, IBufferElementData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData where T5 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_ESB<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1>(EntityQueryBuilder.F_SB<T0, T1> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_ESBB<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2>(EntityQueryBuilder.F_SBB<T0, T1, T2> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_ESBBB<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3>(EntityQueryBuilder.F_SBBB<T0, T1, T2, T3> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_ESBBBB<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4>(EntityQueryBuilder.F_SBBBB<T0, T1, T2, T3, T4> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_ESBBBBB<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData where T5 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
-        }
-
-        [System.Obsolete("Call Entities.ForEach() or Entities.With(query).ForEach() instead (RemovedAfter 2019-07-11)")]
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public unsafe void ForEach<T0, T1, T2, T3, T4, T5>(EntityQueryBuilder.F_SBBBBB<T0, T1, T2, T3, T4, T5> action, EntityQuery query = null)
-            where T0 : struct, ISharedComponentData where T1 : struct, IBufferElementData where T2 : struct, IBufferElementData where T3 : struct, IBufferElementData where T4 : struct, IBufferElementData where T5 : struct, IBufferElementData
-        {
-            var q = Entities;
-            if (query != null)
-                q = q.With(query);
-            q.ForEach(action);
         }
 
     }

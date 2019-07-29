@@ -1,4 +1,5 @@
 using System;
+using Unity.Assertions;
 
 namespace Unity.Entities
 {
@@ -26,15 +27,18 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (ComponentJobSafetyManager->IsInTransaction)
+            {
                 throw new InvalidOperationException(
                     "Access to EntityManager is not allowed after EntityManager.BeginExclusiveEntityTransaction(); has been called.");
+            }
 
-            if (m_InsideForEach != 0)
-                throw new InvalidOperationException(
-                    "EntityManager.AddComponent/RemoveComponent/CreateEntity/DestroyEntity are not allowed during Entities.ForEach. Please use PostUpdateCommandBuffer to delay applying those changes until after ForEach.");
-
+            // This is not an end user error. If there are any managed changes at this point, it indicates there is some
+            // (previous) EntityManager change that is not properly playing back the managed changes that were buffered 
+            // afterward. That needs to be found and fixed. 
+            Assert.IsTrue(EntityComponentStore->ManagedChangesTracker.Empty);
 #endif
-            ComponentJobSafetyManager->CompleteAllJobsAndInvalidateArrays();
+
+            CompleteAllJobs();
         }
     }
 }

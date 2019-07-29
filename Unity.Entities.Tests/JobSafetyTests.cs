@@ -157,11 +157,6 @@ namespace Unity.Entities.Tests
             job.entities.Dispose();
         }
 
-	    [Test]
-	    [Ignore("Should work, need to write test")]
-	    public void TwoJobsAccessingEntityArrayCanRunInParallel()
-	    {
-	    }
 
         struct EntityOnlyDependencyJob : IJobChunk
         {
@@ -293,6 +288,139 @@ namespace Unity.Entities.Tests
             sharedComponentSystem.Update();
             // DestroyEntity should sync the job and not cause any safety error
             m_Manager.DestroyEntity(entity);
+        }
+
+        struct BufferSafetyJobA : IJobForEach_B<EcsIntElement>
+        {
+            public void Execute(DynamicBuffer<EcsIntElement> b0)
+            {
+                b0[3] = new EcsIntElement
+                {
+                    Value = b0[0].Value + b0[1].Value + b0[2].Value,
+                };
+            }
+        }
+
+        struct BufferSafetyJobB : IJobParallelFor
+        {
+            [ReadOnly]
+            [DeallocateOnJobCompletion]
+            public NativeArray<Entity> Entities;
+
+            [ReadOnly]
+            public BufferFromEntity<EcsIntElement> BuffersFromEntity;
+
+            public void Execute(int index)
+            {
+                var buffer = BuffersFromEntity[Entities[index]];
+                var total = buffer[3].Value;
+            }
+        }
+
+        public void SetupDynamicBufferJobTestEnvironment()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsIntElement), typeof(EcsTestData), typeof(EcsTestData2));
+            var entity = m_Manager.CreateEntity(archetype);
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            buffer.Add(new EcsIntElement { Value = 1 });
+            buffer.Add(new EcsIntElement { Value = 10 });
+            buffer.Add(new EcsIntElement { Value = 100 });
+            buffer.Add(new EcsIntElement { Value = 0 });
+        }
+
+        [Test]
+        public void TwoJobsUsingDynamicBuffersDontCauseSafetySystemFalsePositiveErrors()
+        {
+            SetupDynamicBufferJobTestEnvironment();
+
+            var query = EmptySystem.GetEntityQuery(typeof(EcsIntElement));
+
+            var jobA = new BufferSafetyJobA();
+            var jobAHandle = jobA.Schedule(query, default(JobHandle));
+
+            var jobB = new BufferSafetyJobB
+            {
+                Entities = query.ToEntityArray(Allocator.TempJob),
+                BuffersFromEntity = EmptySystem.GetBufferFromEntity<EcsIntElement>(true)
+            };
+            var jobBHandle = jobB.Schedule(jobB.Entities.Length, 1, jobAHandle);
+            jobBHandle.Complete();
+        }
+        
+        struct BufferSafetyJob_TwoReadOnly : IJobForEachWithEntity_EB<EcsIntElement>
+        {
+            [ReadOnly]
+            public BufferFromEntity<EcsIntElement> BuffersFromEntity;
+            
+            public void Execute(Entity e, int _, [ReadOnly]DynamicBuffer<EcsIntElement> bufferA)
+            {
+                var bufferB = BuffersFromEntity[e];
+
+                var totalA = bufferA[0] + bufferA[1] + bufferA[2];
+                var totalB = bufferB[0] + bufferB[1] + bufferB[2];
+            }
+        }
+        
+        [Test]
+        public void SingleJobUsingSameReadOnlyDynamicBuffer()
+        {
+            SetupDynamicBufferJobTestEnvironment();
+
+            var query = EmptySystem.GetEntityQuery(typeof(EcsIntElement));
+
+            var job = new BufferSafetyJob_TwoReadOnly
+            {
+                BuffersFromEntity = EmptySystem.GetBufferFromEntity<EcsIntElement>(true)
+            };
+            job.Run(query); 
+        }
+        
+        struct BufferSafetyJob_OneRead_OneWrite : IJobForEachWithEntity_EB<EcsIntElement>
+        {
+            public BufferFromEntity<EcsIntElement> BuffersFromEntity;
+            
+            public void Execute(Entity e, int _, [ReadOnly]DynamicBuffer<EcsIntElement> bufferA)
+            {
+                var bufferB = BuffersFromEntity[e];
+
+                var totalA = bufferA[0] + bufferA[1] + bufferA[2];
+                var totalB = bufferB[0] + bufferB[1] + bufferB[2];
+                bufferB[3] = new EcsIntElement {Value = totalB};
+            }
+        }
+        
+        [Test]
+        public void SingleJobUsingSameReadOnlyAndReadWriteDynamicBufferThrows()
+        {
+            SetupDynamicBufferJobTestEnvironment();
+
+            var query = EmptySystem.GetEntityQuery(typeof(EcsIntElement));
+
+            var job = new BufferSafetyJob_OneRead_OneWrite
+            {
+                BuffersFromEntity = EmptySystem.GetBufferFromEntity<EcsIntElement>(false)
+            };
+            Assert.Throws<InvalidOperationException>(()=>
+            {
+                job.Run(query);
+            });
+        }
+
+        unsafe struct BufferSafetyJob_GetUnsafePtrReadWrite : IJobForEach_BCC<EcsIntElement, EcsTestData, EcsTestData2>
+        {
+            public void Execute(DynamicBuffer<EcsIntElement> b0, [ReadOnly]ref EcsTestData c1, [ReadOnly]ref EcsTestData2 c2)
+            {
+                b0.GetUnsafePtr();
+            }
+        }
+
+        [Test]
+        public void DynamicBufferUnsafePtrDoesntThrowWhenReadWrite()
+        {
+            SetupDynamicBufferJobTestEnvironment();
+
+            var job = new BufferSafetyJob_GetUnsafePtrReadWrite {};
+            job.Run(EmptySystem);
         }
     }
 }

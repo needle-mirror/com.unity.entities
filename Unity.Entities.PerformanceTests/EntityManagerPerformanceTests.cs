@@ -5,7 +5,8 @@ using Unity.PerformanceTesting;
 
 namespace Unity.Entities.PerformanceTests
 {
-    public sealed unsafe class EntityManagerPerformanceTests
+    [Category("Performance")]
+    public sealed class EntityManagerPerformanceTests
     {
         World m_PreviousWorld;
         World m_World;

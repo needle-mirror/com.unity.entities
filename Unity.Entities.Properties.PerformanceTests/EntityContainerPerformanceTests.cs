@@ -7,7 +7,8 @@ using Unity.Properties.Reflection;
 namespace Unity.Entities.Properties.PerformanceTests
 {
     [TestFixture]
-    internal sealed class EntityContainerPerformanceTests
+    [Category("Performance")]
+    sealed class EntityContainerPerformanceTests
     {
         private World 			m_PreviousWorld;
         private World 			m_World;

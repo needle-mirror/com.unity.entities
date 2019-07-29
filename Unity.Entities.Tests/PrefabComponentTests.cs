@@ -17,7 +17,7 @@ namespace Unity.Entities.Tests
 			var entity0 = m_Manager.CreateEntity(archetype0);
 			var entity1 = m_Manager.CreateEntity(archetype1);
 
-			Assert.AreEqual(1, group.CalculateLength());
+			Assert.AreEqual(1, group.CalculateEntityCount());
 
 			m_Manager.DestroyEntity(entity0);
 			m_Manager.DestroyEntity(entity1);
@@ -56,7 +56,7 @@ namespace Unity.Entities.Tests
 			var entity1 = m_Manager.CreateEntity(archetype1);
 			var entity2 = m_Manager.CreateEntity(archetype1);
 
-			Assert.AreEqual(2, group.CalculateLength());
+			Assert.AreEqual(2, group.CalculateEntityCount());
 
 			m_Manager.DestroyEntity(entity0);
 			m_Manager.DestroyEntity(entity1);

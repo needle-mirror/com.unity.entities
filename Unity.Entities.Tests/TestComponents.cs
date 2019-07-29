@@ -68,6 +68,12 @@ namespace Unity.Entities.Tests
             value4 = value3 = value2 = value1 = value0 = inValue;
         }
     }
+
+    public struct EcsTestFloatData : IComponentData
+    {
+        public float Value;
+    }
+
     public struct EcsTestSharedComp : ISharedComponentData
     {
         public int value;
@@ -86,6 +92,18 @@ namespace Unity.Entities.Tests
         public EcsTestSharedComp2(int inValue)
         {
             value0 = value1 = inValue;
+        }
+    }
+
+    public struct EcsTestSharedComp3 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp3(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
         }
     }
 

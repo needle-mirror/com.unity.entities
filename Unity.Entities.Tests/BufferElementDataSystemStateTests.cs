@@ -2,8 +2,6 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Unity.Jobs;
 
 // ******* COPY AND PASTE WARNING *************
@@ -652,13 +650,14 @@ namespace Unity.Entities.Tests
 	        ReadOnlyDynamicBufferImpl(true);
 	    }
 
+#if UNITY_2019_3_OR_NEWER
 	    [Test]
-	    [Ignore("Joe is fixing for 19.1. https://ono.unity3d.com/unity/unity/changeset/7fba7166055c164f6d10a8b7d12bd0588ee12025")]
-	    public void ReadOnlyDynamicBufferWritable()
+        [StandaloneFixme] // IJob        
+        public void ReadOnlyDynamicBufferWritable()
 	    {
 	        ReadOnlyDynamicBufferImpl(false);
 	    }
-
+#endif
 	    struct BufferConsumingJob : IJob
 	    {
 	        public DynamicBuffer<EcsIntStateElement> Buffer;
@@ -741,6 +740,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_AllocateBufferWithLongSize_DoesNotThrow()
         {
 	        if (IntPtr.Size == 4)
@@ -754,6 +754,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_Insert_BufferHasLongSize_DoesNotThrow()
         {
 	        if (IntPtr.Size == 4)
@@ -769,6 +770,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_AddRange_NewBufferHasLongSize_DoesNotThrow()
         {
 	        if (IntPtr.Size == 4)
@@ -786,6 +788,7 @@ namespace Unity.Entities.Tests
 
         
         [Test]
+        [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_RemoveRange_MovedBufferHasLongSize_DoesNotThrow()
         {
 	        if (IntPtr.Size == 4)
@@ -802,6 +805,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_Add_NewBufferHasLongSize_DoesNotThrow()
         {
 	        if (IntPtr.Size == 4) 
@@ -818,6 +822,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_TrimExcess_NewBufferHasLongSize_DoesNotThrow()
         {
 	        if (IntPtr.Size == 4)

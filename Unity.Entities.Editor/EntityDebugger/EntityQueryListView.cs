@@ -210,7 +210,7 @@ namespace Unity.Entities.Editor
             EntityQuery entityQuery;
             if (componentGroupsById.TryGetValue(args.item.id, out entityQuery))
             {
-                var countString = entityQuery.CalculateLength().ToString();
+                var countString = entityQuery.CalculateEntityCount().ToString();
                 DefaultGUI.LabelRightAligned(args.rowRect, countString, args.selected, args.focused);
             }
         }

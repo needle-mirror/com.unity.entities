@@ -1,4 +1,5 @@
 using System;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -21,6 +22,7 @@ namespace Unity.Transforms
     {
         private EntityQuery m_Group;
 
+        [BurstCompile]
         struct ToWorldToLocal : IJobChunk
         {
             [ReadOnly] public ArchetypeChunkComponentType<LocalToWorld> LocalToWorldType;

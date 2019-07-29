@@ -1,5 +1,42 @@
 # Change log
 
+## [0.1.0-preview] - 2019-07-30
+
+### New Features
+
+* Added the `#UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP_RUNTIME_WORLD` and `#UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP_EDITOR_WORLD` defines which respectively can be used to disable runtime and editor default world generation.  Defining `#UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP` will still disable all default world generation.
+* Allow structural changes to entities (add/remove components, add/destroy entities, etc.) while inside of `ForEach` lambda functions.  This negates the need for using `PostUpdateCommands` inside of ForEach.
+* `EntityCommandBuffer` has some additional methods for adding components based on `ComponentType`, or for adding empty components of a certain type (`<T>`)
+* EntityManagerDiffer & EntityManagerPatcher provides highly optimized diffing & patching functionality. It is used in the editor for providing scene conversion live link.
+* Added support for `EntityManager.MoveEntitiesFrom` with managed arrays (Object Components).
+* EntityManager.SetArchetype lets you change an entity to a specific archetype. Removing & adding the necessary components with default values. System state components are not allowed to be removed with this method, it throws an exception to avoid accidental system state removal. (Used in incremental live link conversion it made conversion from 100ms -> 40ms for 1000 changed game objects)
+* Entity Debugger's system list now has a string filter field. This makes it easier to find a system by name when you have a lot of systems.
+* Added IComponentData type `Asset` that will be used by Tiny to convert Editor assets to runtime assets
+* Filled in some `<T>` holes in the overloads we provide in `EntityManager`
+* New `Entities.WithIncludeAll()` that will include in matching all components that are normally ignored by default (currently `Prefab` and `Disabled`)
+* EntityManager.CopyAndReplaceEntitiesFrom has been added it can be used to store & restore a backup of the world for the purposes of general purpose simulation rollback.
+* EntityManager.AddComponentData<T>(EntityQuery entityQuery, NativeArray<T> componentArray) has been added. This can be used to efficiently add components to an entityQuery and set the component data on each entity.
+
+
+### Upgrade guide
+
+* WorldDiff has been removed. It has been replaced by EntityManagerDiff & EntityManagerPatch.
+* Renamed `EntityGroupManager` to `EntityQueryManager`.
+
+### Changes
+
+* EntityArchetype.GetComponentTypes no longer includes Entity in the list of components (it is implied). Behaviour now matches the EntityMangager.GetComponentTypes method. This matches the behavior of the corresponding `EntityManager` function.
+* `EntityCommandBuffer.AddComponent(Entity, ComponentType)` no longer fails if the target entity already has the specified component.
+
+### Fixes
+
+* Entity Inspector now shows DynamicBuffer elements in pages of five at a time
+* Resources folder renamed to Styles so as not to add editor assets to built player
+* `EntityQueryBuilder.ShallowEquals` (used from `Entities.ForEach`) no longer boxes and allocs GC
+* Improved error message for unnecessary/invalid `UpdateBefore` and `UpdateAfter`
+* Fixed leak in BlobBuilder.CreateBlobAssetReference
+* ComponentSystems are now properly preserved when running the UnityLinker. Note this requires 19.3a10 to work correctly. If your project is not yet using 19.3 you can workaround the issue using the link.xml file. https://docs.unity3d.com/Manual//IL2CPP-BytecodeStripping.html
+* Types that trigger an exception in the TypeManager won't prevent other types from initializing properly.
 
 ## [0.0.12-preview.33] - 2019-05-24
 
@@ -25,6 +62,7 @@
 * SceneBoundingVolume is now generated seperately for each subsection
 * SceneBoundingVolume no longer throws exceptions in conversion flow
 * Fixed regression where calling AddComponent(NativeArray<Entity> entities, ComponentType componentType) could cause a crash.
+* Fixed bug causing error message to appear in Inspector header when `ConvertToEntity` component was added to a disabled GameObject.
 
 ## [0.0.12-preview.32] - 2019-05-16
 
@@ -59,9 +97,9 @@
 * Usages of BlobAllocator will need to be changed to use BlobBuilder instead. The API is similar but Allocate now returns the data that can be populated:
 
   ```csharp
-    ref var root = ref builder.ConstructRoot<MyData>();
-    var floatArray = builder.Allocate(3, ref root.floatArray);
-    floatArray[0] = 0; // root.floatArray[0] can not be used and will throw on access
+  ref var root = ref builder.ConstructRoot<MyData>();
+  var floatArray = builder.Allocate(3, ref root.floatArray);
+  floatArray[0] = 0; // root.floatArray[0] can not be used and will throw on access
   ```
 
 * ISharedComponentData with managed fields must implement IEquatable and GetHashCode

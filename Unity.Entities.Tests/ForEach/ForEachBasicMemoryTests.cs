@@ -1,4 +1,4 @@
-#if !UNITY_DOTSPLAYER
+#if false // !UNITY_DOTSPLAYER
 using System;
 using NUnit.Framework;
 

@@ -71,7 +71,7 @@ namespace Unity.Entities.Tests
             m_Manager.EndExclusiveEntityTransaction();
 
             var data = m_Group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
-            Assert.AreEqual(2, m_Group.CalculateLength());
+            Assert.AreEqual(2, m_Group.CalculateEntityCount());
             Assert.AreEqual(42, data[0].value);
             Assert.AreEqual(42, data[1].value);
 

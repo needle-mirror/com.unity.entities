@@ -3,13 +3,6 @@ using UnityEngine;
 
 namespace Unity.Entities
 {
-    [Obsolete("ComponentDataWrapper has been renamed to ComponentDataProxy", true)]
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-    public abstract class ComponentDataWrapper<T> : ComponentDataProxyBase where T : struct, IComponentData
-    {
-    }
-
-
     public abstract class ComponentDataProxy<T> : ComponentDataProxyBase where T : struct, IComponentData
     {
         internal override void ValidateSerializedData()

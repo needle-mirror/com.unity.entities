@@ -28,7 +28,7 @@ namespace Unity.Entities.Tests
 
             Assert.IsFalse(m_Manager.HasComponent(entity3, ComponentType.ChunkComponent<EcsTestData3>()));
 
-            Assert.AreEqual(2, metaChunkGroup.CalculateLength());
+            Assert.AreEqual(2, metaChunkGroup.CalculateEntityCount());
 
             m_ManagerDebug.CheckInternalConsistency();
 
@@ -38,7 +38,7 @@ namespace Unity.Entities.Tests
 
             Assert.IsFalse(m_Manager.HasComponent(entity2, ComponentType.ChunkComponent<EcsTestData3>()));
 
-            Assert.AreEqual(1, metaChunkGroup.CalculateLength());
+            Assert.AreEqual(1, metaChunkGroup.CalculateEntityCount());
         }
 
         [Test]
@@ -76,7 +76,6 @@ namespace Unity.Entities.Tests
         [StandaloneFixme] // ISharedComponentData
         public void AddRemoveAnyComponentWithGroupWorksWithVariousTypes()
         {
-            TypeManager.Initialize();
             var componentTypes = new ComponentType[] { typeof(EcsTestTag), typeof(EcsTestData4), ComponentType.ChunkComponent<EcsTestData4>(), typeof(EcsTestSharedComp) };
 
             foreach (var type in componentTypes)
@@ -100,7 +99,7 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(m_Manager.HasComponent(entity3, type));
 
                 if (type.IsChunkComponent)
-                    Assert.AreEqual(2, metaChunkGroup.CalculateLength());
+                    Assert.AreEqual(2, metaChunkGroup.CalculateEntityCount());
 
                 if (type == ComponentType.ReadWrite<EcsTestSharedComp>())
                 {
@@ -117,16 +116,14 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(m_Manager.HasComponent(entity2, ComponentType.ChunkComponent<EcsTestData3>()));
 
                 if (type.IsChunkComponent)
-                    Assert.AreEqual(1, metaChunkGroup.CalculateLength());
+                    Assert.AreEqual(1, metaChunkGroup.CalculateEntityCount());
             }
-            TypeManager.Shutdown();
         }
 
         [Test]
         [StandaloneFixme] // ISharedComponentData
         public void RemoveAnyComponentWithGroupIgnoresChunksThatDontHaveTheComponent()
         {
-            TypeManager.Initialize();
             var componentTypes = new ComponentType[] { typeof(EcsTestTag), typeof(EcsTestData4), ComponentType.ChunkComponent<EcsTestData4>(), typeof(EcsTestSharedComp) };
 
             foreach (var type in componentTypes)
@@ -150,7 +147,7 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(m_Manager.HasComponent(entity3, type));
 
                 if (type.IsChunkComponent)
-                    Assert.AreEqual(2, metaChunkGroup.CalculateLength());
+                    Assert.AreEqual(2, metaChunkGroup.CalculateEntityCount());
 
                 if (type == ComponentType.ReadWrite<EcsTestSharedComp>())
                 {
@@ -162,9 +159,8 @@ namespace Unity.Entities.Tests
 
                 m_Manager.RemoveComponent(m_Manager.UniversalQuery, type);
 
-                Assert.AreEqual(0, m_Manager.CreateEntityQuery(type).CalculateLength());
+                Assert.AreEqual(0, m_Manager.CreateEntityQuery(type).CalculateEntityCount());
             }
-            TypeManager.Shutdown();
         }
 
         uint GetComponentDataVersion<T>(Entity e) where T : struct, IComponentData

@@ -24,7 +24,7 @@ namespace Unity.Scenes.Tests
             var temp = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
             EditorSceneManager.SetActiveScene(temp);
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            var entitySceneData = EditorEntityScenes.WriteEntityScene(temp, guid, 0);
+            var entitySceneData = EditorEntityScenes.WriteEntityScene(temp, guid);
             Assert.AreEqual(1, entitySceneData.Length);
         
             var sceneEntity = m_Manager.CreateEntity();

@@ -71,7 +71,7 @@ to regular component data.
 
 You can also look up `Buffers` on a per-entity basis from a JobComponentSystem:
 
-        var lookup = GetBufferFromEntity<EcsIntElement>();
+        var lookup = GetBufferFromEntity<MyBufferElement>();
         var buffer = lookup[myEntity];
         buffer.Append(17);
         buffer.RemoveAt(0);
@@ -80,9 +80,9 @@ You can also look up `Buffers` on a per-entity basis from a JobComponentSystem:
 
 `Buffers` can be reinterpreted as a type of the same size. The intention is to
 allow controlled type-punning and to get rid of the wrapper element types when
-they get in the way. To reinterpret, simply call `Reinterpret<T>`:
+they get in the way. To reinterpret, simply call `Reinterpret&lt;T&gt;`:
 
-    var intBuffer = entityManager.GetBuffer<EcsIntElement>().Reinterpret<int>();
+    var intBuffer = entityManager.GetBuffer<MyBufferElement>().Reinterpret<int>();
 
 The reinterpreted `Buffer` carries with it the safety handle of the original
 `Buffer`, and is safe to use. They use the same underlying `BufferHeader`, so

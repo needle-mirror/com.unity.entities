@@ -8,15 +8,6 @@ using Unity.Mathematics;
 
 namespace Unity.Entities
 {
-    [DebuggerTypeProxy(typeof(UintListDebugView))]
-    internal unsafe struct UintList
-    {
-        [NativeDisableUnsafePtrRestriction]
-        public uint* p;
-        public int Count;
-        public int Capacity;
-    }
-
     [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct ChunkListMap : IDisposable
     {
@@ -43,26 +34,15 @@ namespace Unity.Entities
             return result;
         }
 
-        private UintList hashes;
-        private ChunkList chunks;
-
-        public ref UnsafePtrList ChunksUnsafePtrList
-        {
-            get { return ref *(UnsafePtrList*)UnsafeUtility.AddressOf(ref chunks); }
-        }
-
-        public ref UnsafeList HashesPtrList
-        {
-            get { return ref *(UnsafeList*)UnsafeUtility.AddressOf(ref hashes); }
-        }
+        private UnsafeUintList hashes;
+        private UnsafeChunkPtrList chunks;
 
         private int emptyNodes;
         private int skipNodes;
 
-
         public int Size
         {
-            get => hashes.Count;
+            get => hashes.Length;
         }
 
         public int UnoccupiedNodes
@@ -94,8 +74,8 @@ namespace Unity.Entities
         {
             if (capacity < MinimumSize)
                 capacity = MinimumSize;
-            ChunksUnsafePtrList.SetCapacity(capacity);
-            HashesPtrList.SetCapacity<uint>(capacity);
+            chunks.SetCapacity(capacity);
+            hashes.SetCapacity(capacity);
         }
 
         public void Init(int count)
@@ -103,22 +83,24 @@ namespace Unity.Entities
             if (count < MinimumSize)
                 count = MinimumSize;
             Assert.IsTrue(0 == (count & (count - 1)));
-            HashesPtrList.Resize<uint>(count);
-            ChunksUnsafePtrList.Resize(count);
-            UnsafeUtility.MemClear(hashes.p, count * sizeof(uint));
-            UnsafeUtility.MemClear(chunks.p, count * sizeof(Chunk*));
+
+            hashes = new UnsafeUintList(count, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+            hashes.Resize(count);
+
+            chunks = new UnsafeChunkPtrList(count, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+            chunks.Resize(count);
+
             emptyNodes = count;
             skipNodes = 0;
         }
-
 
         public void AppendFrom(ref ChunkListMap src)
         {
             for (int offset = 0; offset < src.Size; ++offset)
             {
-                var hash = src.hashes.p[offset];
+                var hash = src.hashes.Ptr[offset];
                 if (hash != 0 && hash != kSkipCode)
-                    Add(src.chunks.p[offset]);
+                    Add(src.chunks.Ptr[offset]);
             }
         }
 
@@ -129,12 +111,12 @@ namespace Unity.Entities
             int attempts = 0;
             while (true)
             {
-                var hash = hashes.p[offset];
+                var hash = hashes.Ptr[offset];
                 if (hash == 0)
                     return null;
                 if (hash == desiredHash)
                 {
-                    var chunk = chunks.p[offset];
+                    var chunk = chunks.Ptr[offset];
                     if (sharedComponentValues.EqualTo(chunk->SharedComponentValues, numSharedComponents))
                         return chunk;
                 }
@@ -181,11 +163,11 @@ namespace Unity.Entities
             int attempts = 0;
             while (true)
             {
-                var hash = hashes.p[offset];
+                var hash = hashes.Ptr[offset];
                 if (hash == 0)
                 {
-                    hashes.p[offset] = desiredHash;
-                    chunks.p[offset] = chunk;
+                    hashes.Ptr[offset] = desiredHash;
+                    chunks.Ptr[offset] = chunk;
                     chunk->ListWithEmptySlotsIndex = offset;
                     --emptyNodes;
                     PossiblyGrow();
@@ -194,8 +176,8 @@ namespace Unity.Entities
 
                 if (hash == kSkipCode)
                 {
-                    hashes.p[offset] = desiredHash;
-                    chunks.p[offset] = chunk;
+                    hashes.Ptr[offset] = desiredHash;
+                    chunks.Ptr[offset] = chunk;
                     chunk->ListWithEmptySlotsIndex = offset;
                     --skipNodes;
                     PossiblyGrow();
@@ -213,8 +195,8 @@ namespace Unity.Entities
             int offset = chunk->ListWithEmptySlotsIndex;
             chunk->ListWithEmptySlotsIndex = -1;
             Assert.IsTrue(offset != -1);
-            Assert.IsTrue(chunks.p[offset] == chunk);
-            hashes.p[offset] = kSkipCode;
+            Assert.IsTrue(chunks.Ptr[offset] == chunk);
+            hashes.Ptr[offset] = kSkipCode;
             ++skipNodes;
             PossiblyShrink();
         }
@@ -222,13 +204,13 @@ namespace Unity.Entities
         public bool Contains(Chunk* chunk)
         {
             var offset = chunk->ListWithEmptySlotsIndex;
-            return offset != -1 && chunks.p[offset] == chunk;
+            return offset != -1 && chunks.Ptr[offset] == chunk;
         }
 
         public void Dispose()
         {
-            HashesPtrList.Dispose<uint>();
-            ChunksUnsafePtrList.Dispose();
+            hashes.Dispose();
+            chunks.Dispose();
             emptyNodes = 0;
             skipNodes = 0;
         }
@@ -248,26 +230,14 @@ namespace Unity.Entities
             return result;
         }
 
-        public UintList hashes;
-        public ArchetypeList archetypes;
+        public UnsafeUintList hashes;
+        public UnsafeArchetypePtrList archetypes;
         public int emptyNodes;
         public int skipNodes;
 
-
-        public ref UnsafePtrList ArchetypeUnsafePtrList
-        {
-            get { return ref *(UnsafePtrList*)UnsafeUtility.AddressOf(ref archetypes); }
-        }
-
-        public ref UnsafeList HashesPtrList
-        {
-            get { return ref *(UnsafeList*)UnsafeUtility.AddressOf(ref hashes); }
-        }
-
-
         public int Size
         {
-            get => hashes.Count;
+            get => hashes.Length;
         }
 
         public int UnoccupiedNodes
@@ -299,8 +269,8 @@ namespace Unity.Entities
         {
             if (capacity < MinimumSize)
                 capacity = MinimumSize;
-            ArchetypeUnsafePtrList.SetCapacity(capacity);
-            HashesPtrList.SetCapacity<uint>(capacity);
+            archetypes.SetCapacity(capacity);
+            hashes.SetCapacity(capacity);
         }
 
         public void Init(int count)
@@ -308,9 +278,13 @@ namespace Unity.Entities
             if (count < MinimumSize)
                 count = MinimumSize;
             Assert.IsTrue(0 == (count & (count - 1)));
-            HashesPtrList.Resize<uint>(count);
-            ArchetypeUnsafePtrList.Resize(count);
-            UnsafeUtility.MemClear(hashes.p, count * sizeof(uint));
+
+            hashes = new UnsafeUintList(count, Allocator.Persistent);
+            hashes.Resize(count, NativeArrayOptions.ClearMemory);
+
+            archetypes = new UnsafeArchetypePtrList(count, Allocator.Persistent);
+            archetypes.Resize(count);
+
             emptyNodes = count;
             skipNodes = 0;
         }
@@ -319,9 +293,9 @@ namespace Unity.Entities
         {
             for (int offset = 0; offset < src->Size; ++offset)
             {
-                var hash = src->hashes.p[offset];
+                var hash = src->hashes.Ptr[offset];
                 if (hash != 0 && hash != kSkipCode)
-                    Add(src->archetypes.p[offset]);
+                    Add(src->archetypes.Ptr[offset]);
             }
             src->Dispose();
         }
@@ -333,12 +307,12 @@ namespace Unity.Entities
             int attempts = 0;
             while (true)
             {
-                var hash = hashes.p[offset];
+                var hash = hashes.Ptr[offset];
                 if (hash == 0)
                     return null;
                 if (hash == desiredHash)
                 {
-                    var archetype = archetypes.p[offset];
+                    var archetype = archetypes.Ptr[offset];
                     if (archetype->TypesCount == types && 0 == UnsafeUtility.MemCmp(archetype->Types, type, types * sizeof(ComponentTypeInArchetype)))
                         return archetype;
                 }
@@ -388,11 +362,11 @@ namespace Unity.Entities
             int attempts = 0;
             while (true)
             {
-                var hash = hashes.p[offset];
+                var hash = hashes.Ptr[offset];
                 if (hash == 0)
                 {
-                    hashes.p[offset] = desiredHash;
-                    archetypes.p[offset] = archetype;
+                    hashes.Ptr[offset] = desiredHash;
+                    archetypes.Ptr[offset] = archetype;
                     --emptyNodes;
                     PossiblyGrow();
                     return;
@@ -400,8 +374,8 @@ namespace Unity.Entities
 
                 if (hash == kSkipCode)
                 {
-                    hashes.p[offset] = desiredHash;
-                    archetypes.p[offset] = archetype;
+                    hashes.Ptr[offset] = desiredHash;
+                    archetypes.Ptr[offset] = archetype;
                     --skipNodes;
                     PossiblyGrow();
                     return;
@@ -420,12 +394,12 @@ namespace Unity.Entities
             uint attempts = 0;
             while (true)
             {
-                var hash = hashes.p[offset];
+                var hash = hashes.Ptr[offset];
                 if (hash == 0)
                     return -1;
                 if (hash == desiredHash)
                 {
-                    var c = archetypes.p[offset];
+                    var c = archetypes.Ptr[offset];
                     if (c == archetype)
                         return offset;
                 }
@@ -440,7 +414,7 @@ namespace Unity.Entities
         {
             int offset = IndexOf(archetype);
             Assert.IsTrue(offset != -1);
-            hashes.p[offset] = kSkipCode;
+            hashes.Ptr[offset] = kSkipCode;
             ++skipNodes;
             PossiblyShrink();
         }
@@ -452,8 +426,8 @@ namespace Unity.Entities
 
         public void Dispose()
         {
-            HashesPtrList.Dispose<uint>();
-            ArchetypeUnsafePtrList.Dispose();
+            hashes.Dispose();
+            archetypes.Dispose();
             emptyNodes = 0;
             skipNodes = 0;
         }

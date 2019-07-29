@@ -71,7 +71,7 @@ You can add attributes to the function parameters to help ECS optimize your syst
 
 * [ReadOnly] — use for components that the function reads, but does not write.
 * [WriteOnly] — use for components that the function writes, but does not read.
-* [ChangeFilter] — use when you only want to run the function on entities for which that component value may have changed since the last time your system ran. 
+* [ChangedFilter] — use when you only want to run the function on entities for which that component value may have changed since the last time your system ran. 
 
 Identifying read-only and write-only components allows the Job scheduler to schedule your Jobs efficiently. For example, the scheduler won’t schedule a Job that writes to a component at the same time as a Job that reads that component, but it can run two Jobs in parallel if they only read the same components.
 

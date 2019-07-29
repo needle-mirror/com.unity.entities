@@ -3,35 +3,19 @@ uid: ecs-components
 ---
 # Components
 
-<!--
-> Synopsis:componentsin detail
-> What a componenti s...
-> How components are managed
-> General approaches for accessing components> ComponentData struct
-> SharedComponentData struct
-> SystemStateComponent and SystemStateSharedComponent
-> BufferComponent
-> ChunkComponent
-> Prefab and Disabled IComponentData
-> EntityQuery and filtering
--->
-
-Components are one of the three principle elements of an Entity Component System architecture. They represent the data of your game or program. [Entities](ecs_entities.md) are essentially identifiers that index your collections of components [Systems](ecs_systems.md) provide the behavior. 
+Components are one of the three principle elements of an Entity Component System architecture. They represent the data of your game or program. [Entities](ecs_entities.md) are essentially identifiers that index your collections of components. [Systems](ecs_systems.md) provide the behavior. 
 
 Concretely, a component in ECS is a struct with one of the following "marker interfaces":
 
-* IComponentData
-* ISharedComponentData
-* ISystemStateComponentData
-* ISharedSystemStateComponentData
+* [IComponentData](xref:Unity.entities.IComponentData) — use for [general purpose](xref:ecs-component-data) and [chunk components](xref:ecs-chunk-component-data).
+* [IBufferElementData](xref:IBufferelementData) — use for associating  [dynamic buffers](xref:ecs-dynamic-buffers) with an entity.
+* [ISharedComponentData](xref:Unity.entities.ISharedComponentData) — use to categorize or group entities by value within an archetype. See [Shared Component Data](xref:ecs-shared-component-data).
+* [ISystemStateComponentData](xref:Unity.entities.ISystemStateComponentData) — use for associating system-specific state with an entity and for detecting when individual entities are created or destroyed. See [System State Components](xref:ecs-system-state-component-data).
+* [ISharedSystemStateComponentData](xref:Unity.entities.ISharedSystemStateComponentData) — a combination of shared and system state data. See [System State Components](xref:ecs-system-state-component-data).
 
 The EntityManager organizes unique combinations of components appearing on your entities into **Archetypes**. It stores the components of all entities with the same archetype together in blocks of memory called **Chunks**. The entities in a given Chunk all have the same component archetype.
 
-Shared components are a special kind of data component that you can use to subdivide entities based on the specific values in the shared component (in addition to their archetype). When you add a shared component to an entity, the EntityManager places all entities with the same shared data values into the same Chunk. Shared components allow your systems to process like entities  together. For example, the shared component `Rendering.RenderMesh`, which is part of the Hybrid.rendering package, defines several fields, including **mesh**, **material**, **receiveShadows**, etc. When rendering, it is most efficient to process all the 3D objects that all have the same value for those fields together. Because these properties are specified in a shared component the EntityManager places the matching entities together in memory so the rendering system can efficiently iterate over them. 
+![](images/ArchetypeChunkDiagram.png)
 
-**Note:** Over using shared components can lead to poor Chunk utilization since it involves a combinatorial expansion of the number of memory Chunks required based on archetype and every unique value of each shared component field. Avoid adding unnecessary fields to a shared component Use the [Entity Debugger](ecs_debugging.md) to view the current Chunk utilization.
- 
-If you add or remove a component from an entity, or change the value of a SharedComponent, The EntityManager moves the entity to a different Chunk, creating a new Chunk if necessary.
-
-System state components behave like normal components or shared components with the exception that when you destroy entities, the EntityManager does not remove any system state components and does not recycle the entity ID until they are removed. This difference in behavior allows a system to cleanup its internal state or free resources when an entity is destroyed.
+This diagram illustrates how component data is stored in chunks by archetype. Shared components and chunk components are exceptions because they are stored outside the chunk; a single instance of these component types apply to all the entities in the applicable chunks. In addition, you can optionally store dynamic buffers outside the chunk. Even though these types of components are not stored inside the chunk, you generally treat them the same as other component types when querying for entities.
 

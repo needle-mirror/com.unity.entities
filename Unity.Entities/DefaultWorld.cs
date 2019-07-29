@@ -18,8 +18,10 @@ namespace Unity.Entities
 
     public class InitializationSystemGroup : ComponentSystemGroup
     {
-        private BeginInitializationEntityCommandBufferSystem m_BeginEntityCommandBufferSystem;
-        private EndInitializationEntityCommandBufferSystem m_EndEntityCommandBufferSystem;
+        [Preserve] public InitializationSystemGroup() {}
+
+        BeginInitializationEntityCommandBufferSystem m_BeginEntityCommandBufferSystem;
+        EndInitializationEntityCommandBufferSystem m_EndEntityCommandBufferSystem;
 
         protected override void OnCreate()
         {
@@ -67,9 +69,12 @@ namespace Unity.Entities
 
     public class SimulationSystemGroup : ComponentSystemGroup
     {
-        private BeginSimulationEntityCommandBufferSystem m_BeginEntityCommandBufferSystem;
-        private LateSimulationSystemGroup m_lateSimulationGroup;
-        private EndSimulationEntityCommandBufferSystem m_EndEntityCommandBufferSystem;
+        [Preserve] public SimulationSystemGroup() {}
+
+        BeginSimulationEntityCommandBufferSystem m_BeginEntityCommandBufferSystem;
+        LateSimulationSystemGroup m_lateSimulationGroup;
+        EndSimulationEntityCommandBufferSystem m_EndEntityCommandBufferSystem;
+
         protected override void OnCreate()
         {
             m_BeginEntityCommandBufferSystem = World.GetOrCreateSystem<BeginSimulationEntityCommandBufferSystem>();
@@ -118,8 +123,10 @@ namespace Unity.Entities
 
     public class PresentationSystemGroup : ComponentSystemGroup
     {
-        private BeginPresentationEntityCommandBufferSystem m_BeginEntityCommandBufferSystem;
-        private EndPresentationEntityCommandBufferSystem m_EndEntityCommandBufferSystem;
+        [Preserve] public PresentationSystemGroup() {}
+
+        BeginPresentationEntityCommandBufferSystem m_BeginEntityCommandBufferSystem;
+        EndPresentationEntityCommandBufferSystem m_EndEntityCommandBufferSystem;
 
         protected override void OnCreate()
         {

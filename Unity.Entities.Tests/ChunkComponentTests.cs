@@ -97,11 +97,11 @@ namespace Unity.Entities.Tests
             var chunk0 = m_Manager.GetChunk(entity0);
             EcsTestData testData = new EcsTestData{value = 7};
 
-            Assert.AreEqual(1, group0.CalculateLength());
+            Assert.AreEqual(1, group0.CalculateEntityCount());
 
             m_Manager.SetChunkComponentData(chunk0, testData);
 
-            Assert.AreEqual(1, group0.CalculateLength());
+            Assert.AreEqual(1, group0.CalculateEntityCount());
 
             Assert.AreEqual(7, m_Manager.GetChunkComponentData<EcsTestData>(entity0).value);
 
@@ -112,21 +112,21 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(7, m_Manager.GetChunkComponentData<EcsTestData>(entity0).value);
             Assert.AreEqual(7, m_Manager.GetChunkComponentData<EcsTestData>(entity1).value);
 
-            Assert.AreEqual(1, group0.CalculateLength());
+            Assert.AreEqual(1, group0.CalculateEntityCount());
 
             m_Manager.SetChunkComponentData(chunk1, testData);
 
-            Assert.AreEqual(1, group0.CalculateLength());
+            Assert.AreEqual(1, group0.CalculateEntityCount());
 
             m_Manager.SetComponentData(entity1, new EcsTestData2 {value0 = 2, value1 = 3});
 
-            Assert.AreEqual(1, group0.CalculateLength());
+            Assert.AreEqual(1, group0.CalculateEntityCount());
 
             m_Manager.SetChunkComponentData<EcsTestData>(chunk0, new EcsTestData{value = 10});
 
             Assert.AreEqual(10, m_Manager.GetChunkComponentData<EcsTestData>(entity0).value);
 
-            Assert.AreEqual(1, group0.CalculateLength());
+            Assert.AreEqual(1, group0.CalculateEntityCount());
         }
 
         [Test]
@@ -137,7 +137,7 @@ namespace Unity.Entities.Tests
             var entity1 = m_Manager.CreateEntity(typeof(BoundsComponent), ComponentType.ChunkComponent<ChunkBoundsComponent>());
             m_Manager.SetComponentData(entity1, new BoundsComponent{boundsMin = new float3(0,0,0), boundsMax = new float3(10,10,10)});
             var metaGroup = m_Manager.CreateEntityQuery(typeof(ChunkBoundsComponent), typeof(ChunkHeader));
-            var metaBoundsCount = metaGroup.CalculateLength();
+            var metaBoundsCount = metaGroup.CalculateEntityCount();
             var metaChunkHeaders = metaGroup.ToComponentDataArray<ChunkHeader>(Allocator.TempJob);
             Assert.AreEqual(1, metaBoundsCount);
             for (int i = 0; i < metaBoundsCount; ++i)
@@ -220,8 +220,8 @@ namespace Unity.Entities.Tests
             EntityQuery group0 = m_Manager.CreateEntityQuery(typeof(ChunkHeader), typeof(EcsTestData));
             EntityQuery group1 = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
-            Assert.AreEqual(1, group0.CalculateLength());
-            Assert.AreEqual(0, group1.CalculateLength());
+            Assert.AreEqual(1, group0.CalculateEntityCount());
+            Assert.AreEqual(0, group1.CalculateEntityCount());
         }
         
         [Test]
@@ -261,5 +261,29 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(m_Manager.Exists(metaEntity));
             Assert.IsFalse(m_Manager.Exists(entity));
         }
+
+        [Test]
+        public void NewChunkGetsDefaultChunkComponentValue()
+        {
+            var entity = m_Manager.CreateEntity
+            (
+                ComponentType.ChunkComponent<EcsTestData>(),
+                ComponentType.ReadWrite<EcsTestSharedComp>()
+            );
+
+            m_Manager.SetSharedComponentData(entity, new EcsTestSharedComp(123));
+            m_Manager.SetChunkComponentData(m_Manager.GetChunk(entity), new EcsTestData(123));
+
+            var other = m_Manager.Instantiate(entity);
+
+            Assert.AreEqual(m_Manager.GetChunk(entity), m_Manager.GetChunk(other));
+            Assert.AreEqual(123, m_Manager.GetChunkComponentData<EcsTestData>(other).value);
+
+            m_Manager.SetSharedComponentData(other, new EcsTestSharedComp(456));
+
+            Assert.AreNotEqual(m_Manager.GetChunk(entity), m_Manager.GetChunk(other));
+            Assert.AreEqual(0, m_Manager.GetChunkComponentData<EcsTestData>(other).value);
+        }
+
     }
 }

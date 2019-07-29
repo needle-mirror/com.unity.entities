@@ -5,24 +5,21 @@ using UnityEngine.Assertions;
 
 namespace Unity.Entities
 {
-    [Obsolete("BlobAllocator is deprecated, please use BlobBuilder instead.")]
-    unsafe public struct BlobAllocator : IDisposable
+    [Obsolete("BlobAllocator is deprecated, please use BlobBuilder instead. (RemovedAfter 2019-08-25)")]
+    public unsafe struct BlobAllocator : IDisposable
     {
-        byte* m_RootPtr;
+        readonly byte* m_RootPtr;
         byte* m_Ptr;
 
-        long m_Size;
+        readonly long m_Size;
 
-        //@TODO: handle alignment correctly in the allocator
         public BlobAllocator(int sizeHint)
         {
-            //@TODO: Use virtual alloc to make it unnecessary to know the size ahead of time...
-            // Should only need 256 MB on large mesh etc
-#if UNITY_IPHONE || UNITY_ANDROID || UNITY_SWITCH
-        int size = 1024 * 1024 * 16;
-#else
+        #if UNITY_IPHONE || UNITY_ANDROID || UNITY_SWITCH
+            int size = 1024 * 1024 * 16;
+        #else
             int size = 1024 * 1024 * 256;
-#endif
+        #endif
 
             m_RootPtr = m_Ptr = (byte*) UnsafeUtility.Malloc(size, 16, Allocator.Persistent);
             m_Size = size;
@@ -91,9 +88,6 @@ namespace Unity.Entities
             return blobAssetReference;
         }
 
-        public long DataSize
-        {
-            get { return (m_Ptr - m_RootPtr); }
-        }
+        public long DataSize => m_Ptr - m_RootPtr;
     }
 }

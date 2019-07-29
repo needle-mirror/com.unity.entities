@@ -46,9 +46,7 @@ namespace Unity.Entities
                 return;
             }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            throw new InvalidOperationException("Shouldn't happen");
-#endif
+            typeLookupCache = -1;
         }
 
         public static int GetSizeInChunk(Chunk* chunk, int typeIndex, ref int typeLookupCache)
@@ -338,7 +336,7 @@ namespace Unity.Entities
                 }
                 else
                 {
-                    UnsafeUtility.MemCpy(dst, src, count * srcStride);
+                    UnsafeUtility.MemMove(dst, src, count * srcStride);
 
                     // Poison source buffer to make sure there is no aliasing.
                     if (srcArch->Types[srcI].IsBuffer)
@@ -496,7 +494,9 @@ namespace Unity.Entities
 
         public static bool AreLayoutCompatible(Archetype* a, Archetype* b)
         {
-            if ((a == null) || (b == null))
+            if ((a == null) || (b == null) ||
+                (a->BytesPerInstance != b->BytesPerInstance) ||
+                (a->ChunkCapacity != b->ChunkCapacity))
                 return false;
 
             var typeCount = a->NonZeroSizedTypesCount;
@@ -516,8 +516,6 @@ namespace Unity.Entities
         public static void AssertAreLayoutCompatible(Archetype* a, Archetype* b)
         {
             Assert.IsTrue(AreLayoutCompatible(a,b));
-            Assert.AreEqual(a->BytesPerInstance, b->BytesPerInstance);
-            Assert.AreEqual(a->ChunkCapacity, b->ChunkCapacity);
 
             var typeCount = a->NonZeroSizedTypesCount;
 

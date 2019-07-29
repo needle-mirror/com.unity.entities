@@ -12,25 +12,25 @@ namespace Unity.Entities
     public sealed unsafe partial class EntityManager
     {
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("CreateComponentGroup has been renamed to CreateEntityQuery. (UnityUpgradable) -> CreateEntityQuery(Unity.Entities.ComponentType[])", true)]
+        [Obsolete("CreateComponentGroup has been renamed to CreateEntityQuery. (RemovedAfter 2019-08-25) (UnityUpgradable) -> CreateEntityQuery(Unity.Entities.ComponentType[])", true)]
         public ComponentGroup CreateComponentGroup(params ComponentType[] requiredComponents)
         {
             throw new NotImplementedException();
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("CreateComponentGroup has been renamed to CreateEntityQuery. (UnityUpgradable) -> CreateEntityQuery(Unity.Entities.EntityQueryDesc[])", true)]
+        [Obsolete("CreateComponentGroup has been renamed to CreateEntityQuery. (RemovedAfter 2019-08-25) (UnityUpgradable) -> CreateEntityQuery(Unity.Entities.EntityQueryDesc[])", true)]
         public ComponentGroup CreateComponentGroup(params EntityArchetypeQuery[] queriesDesc)
         {
             throw new NotImplementedException();
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("UniversalGroup has been renamed to UniversalQuery. (UnityUpgradable) -> UniversalQuery", true)]
+        [Obsolete("UniversalGroup has been renamed to UniversalQuery. (RemovedAfter 2019-08-25) (UnityUpgradable) -> UniversalQuery", true)]
         public EntityQuery UniversalGroup => null;
     }
 
-    [Obsolete("EntityArchetypeQuery has been renamed to EntityQueryDesc. (UnityUpgradable) -> EntityQueryDesc", true)]
+    [Obsolete("EntityArchetypeQuery has been renamed to EntityQueryDesc. (RemovedAfter 2019-08-25) (UnityUpgradable) -> EntityQueryDesc", true)]
     [EditorBrowsable(EditorBrowsableState.Never)]
     public class EntityArchetypeQuery
     {
@@ -42,7 +42,7 @@ namespace Unity.Entities
 
     [Flags]
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("EntityArchetypeQueryOptions has been renamed to EntityQueryOptions. (UnityUpgradable) -> EntityQueryOptions", true)]
+    [Obsolete("EntityArchetypeQueryOptions has been renamed to EntityQueryOptions. (RemovedAfter 2019-08-25) (UnityUpgradable) -> EntityQueryOptions", true)]
     public enum EntityArchetypeQueryOptions
     {
         Default = 0,
@@ -51,13 +51,13 @@ namespace Unity.Entities
         FilterWriteGroup = 4,
     }
 
-    [Obsolete("ComponentGroupExtensionsForComponentArray has been renamed to EntityQueryExtensionsForComponentArray. (UnityUpgradable) -> EntityQueryExtensionsForComponentArray", true)]
+    [Obsolete("ComponentGroupExtensionsForComponentArray has been renamed to EntityQueryExtensionsForComponentArray. (RemovedAfter 2019-08-25) (UnityUpgradable) -> EntityQueryExtensionsForComponentArray", true)]
     [EditorBrowsable(EditorBrowsableState.Never)]
     public static class ComponentGroupExtensionsForComponentArray
     {
     }
 
-    [Obsolete("ComponentGroupExtensionsForTransformAccessArray has been renamed to EntityQueryExtensionsForTransformAccessArray. (UnityUpgradable) -> EntityQueryExtensionsForTransformAccessArray", true)]
+    [Obsolete("ComponentGroupExtensionsForTransformAccessArray has been renamed to EntityQueryExtensionsForTransformAccessArray. (RemovedAfter 2019-08-25) (UnityUpgradable) -> EntityQueryExtensionsForTransformAccessArray", true)]
     [EditorBrowsable(EditorBrowsableState.Never)]
     public static class ComponentGroupExtensionsForTransformAccessArray
     {
@@ -66,21 +66,21 @@ namespace Unity.Entities
     public unsafe abstract partial class ComponentSystemBase
     {
         [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("GetComponentGroup has been renamed to GetEntityQuery. (UnityUpgradable) -> GetEntityQuery(Unity.Entities.ComponentType[])", true)]
+        [Obsolete("GetComponentGroup has been renamed to GetEntityQuery. (RemovedAfter 2019-08-25) (UnityUpgradable) -> GetEntityQuery(Unity.Entities.ComponentType[])", true)]
         public ComponentGroup GetComponentGroup(params ComponentType[] componentTypes)
         {
             throw new NotImplementedException();
         }
 
         [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("GetComponentGroup has been renamed to GetEntityQuery. (UnityUpgradable) -> GetEntityQuery(Unity.Collections.NativeArray<ComponentType>)", true)]
+        [Obsolete("GetComponentGroup has been renamed to GetEntityQuery. (RemovedAfter 2019-08-25) (UnityUpgradable) -> GetEntityQuery(Unity.Collections.NativeArray<ComponentType>)", true)]
         public ComponentGroup GetComponentGroup(NativeArray<ComponentType> componentTypes)
         {
             throw new NotImplementedException();
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("GetComponentGroup has been renamed to GetEntityQuery. (UnityUpgradable) -> GetEntityQuery(Unity.Entities.EntityQueryDesc[])", true)]
+        [Obsolete("GetComponentGroup has been renamed to GetEntityQuery. (RemovedAfter 2019-08-25) (UnityUpgradable) -> GetEntityQuery(Unity.Entities.EntityQueryDesc[])", true)]
         public ComponentGroup GetComponentGroup(params EntityArchetypeQuery[] queryDesc)
         {
             throw new NotImplementedException();
@@ -91,27 +91,27 @@ namespace Unity.Entities
     // tHe script updater cannot handle interface updates, but we can make things work
     // by inheriting from the new ones (with an obsolete warning)
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("IJobProcessComponentData has been renamed to IBaseJobForEach")]
+    [Obsolete("IJobProcessComponentData has been renamed to IBaseJobForEach. (RemovedAfter 2019-08-25)")]
     public interface IBaseJobProcessComponentData : JobForEachExtensions.IBaseJobForEach
     {
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("IJobProcessComponentData has been renamed to IJobForEach")]
+    [Obsolete("IJobProcessComponentData has been renamed to IJobForEach. (RemovedAfter 2019-08-25)")]
     public interface IJobProcessComponentData<U0> : IJobForEach<U0>
             where U0 : struct, IComponentData
     {
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("IJobProcessComponentDataWithEntity has been renamed to IJobForEachWithEntity")]
+    [Obsolete("IJobProcessComponentDataWithEntity has been renamed to IJobForEachWithEntity. (RemovedAfter 2019-08-25)")]
     public interface IJobProcessComponentDataWithEntity<U0> : IJobForEachWithEntity<U0>
             where U0 : struct, IComponentData
     {
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("IJobProcessComponentData has been renamed to IJobForEach")]
+    [Obsolete("IJobProcessComponentData has been renamed to IJobForEach. (RemovedAfter 2019-08-25)")]
     public interface IJobProcessComponentData<U0, U1> : IJobForEach<U0, U1>
             where U0 : struct, IComponentData
             where U1 : struct, IComponentData
@@ -119,7 +119,7 @@ namespace Unity.Entities
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("IJobProcessComponentDataWithEntity has been renamed to IJobForEachWithEntity")]
+    [Obsolete("IJobProcessComponentDataWithEntity has been renamed to IJobForEachWithEntity. (RemovedAfter 2019-08-25)")]
     public interface IJobProcessComponentDataWithEntity<U0, U1> : IJobForEachWithEntity<U0, U1>
             where U0 : struct, IComponentData
             where U1 : struct, IComponentData
@@ -127,7 +127,7 @@ namespace Unity.Entities
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("IJobProcessComponentData has been renamed to IJobForEach")]
+    [Obsolete("IJobProcessComponentData has been renamed to IJobForEach. (RemovedAfter 2019-08-25)")]
     public interface IJobProcessComponentData<U0, U1, U2> : IJobForEach<U0, U1, U2>
             where U0 : struct, IComponentData
             where U1 : struct, IComponentData
@@ -136,7 +136,7 @@ namespace Unity.Entities
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("IJobProcessComponentDataWithEntity has been renamed to IJobForEachWithEntity")]
+    [Obsolete("IJobProcessComponentDataWithEntity has been renamed to IJobForEachWithEntity. (RemovedAfter 2019-08-25)")]
     public interface IJobProcessComponentDataWithEntity<U0, U1, U2> : IJobForEachWithEntity<U0, U1, U2>
             where U0 : struct, IComponentData
             where U1 : struct, IComponentData
@@ -145,7 +145,7 @@ namespace Unity.Entities
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("IJobProcessComponentData has been renamed to IJobForEach")]
+    [Obsolete("IJobProcessComponentData has been renamed to IJobForEach. (RemovedAfter 2019-08-25)")]
     public interface IJobProcessComponentData<U0, U1, U2, U3> : IJobForEach<U0, U1, U2, U3>
             where U0 : struct, IComponentData
             where U1 : struct, IComponentData
@@ -155,7 +155,7 @@ namespace Unity.Entities
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("IJobProcessComponentDataWithEntity has been renamed to IJobForEachWithEntity")]
+    [Obsolete("IJobProcessComponentDataWithEntity has been renamed to IJobForEachWithEntity. (RemovedAfter 2019-08-25)")]
     public interface IJobProcessComponentDataWithEntity<U0, U1, U2, U3> : IJobForEachWithEntity<U0, U1, U2, U3>
             where U0 : struct, IComponentData
             where U1 : struct, IComponentData
@@ -165,7 +165,7 @@ namespace Unity.Entities
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("IJobProcessComponentData has been renamed to IJobForEach")]
+    [Obsolete("IJobProcessComponentData has been renamed to IJobForEach. (RemovedAfter 2019-08-25)")]
     public interface IJobProcessComponentData<U0, U1, U2, U3, U4> : IJobForEach<U0, U1, U2, U3, U4>
             where U0 : struct, IComponentData
             where U1 : struct, IComponentData
@@ -176,7 +176,7 @@ namespace Unity.Entities
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("IJobProcessComponentDataWithEntity has been renamed to IJobForEachWithEntity")]
+    [Obsolete("IJobProcessComponentDataWithEntity has been renamed to IJobForEachWithEntity. (RemovedAfter 2019-08-25)")]
     public interface IJobProcessComponentDataWithEntity<U0, U1, U2, U3, U4> : IJobForEachWithEntity<U0, U1, U2, U3, U4>
             where U0 : struct, IComponentData
             where U1 : struct, IComponentData
@@ -187,7 +187,7 @@ namespace Unity.Entities
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("IJobProcessComponentData has been renamed to IJobForEach")]
+    [Obsolete("IJobProcessComponentData has been renamed to IJobForEach. (RemovedAfter 2019-08-25)")]
     public interface IJobProcessComponentData<U0, U1, U2, U3, U4, U5> : IJobForEach<U0, U1, U2, U3, U4, U5>
             where U0 : struct, IComponentData
             where U1 : struct, IComponentData
@@ -199,7 +199,7 @@ namespace Unity.Entities
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("IJobProcessComponentDataWithEntity has been renamed to IJobForEachWithEntity")]
+    [Obsolete("IJobProcessComponentDataWithEntity has been renamed to IJobForEachWithEntity. (RemovedAfter 2019-08-25)")]
     public interface IJobProcessComponentDataWithEntity<U0, U1, U2, U3, U4, U5> : IJobForEachWithEntity<U0, U1, U2, U3, U4, U5>
             where U0 : struct, IComponentData
             where U1 : struct, IComponentData
@@ -214,57 +214,22 @@ namespace Unity.Entities
     public static partial class JobForEachExtensions
     {
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("GetComponentGroupForIJobProcessComponentData has been renamed to GetEntityQueryForIJobForEach.")]
+        [Obsolete("GetComponentGroupForIJobProcessComponentData has been renamed to GetEntityQueryForIJobForEach. (RemovedAfter 2019-08-25)")]
         public static EntityQuery GetComponentGroupForIJobProcessComponentData(this ComponentSystemBase system, Type jobType)
         {
             return system.GetEntityQueryForIJobForEach(jobType);
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("PrepareComponentGroup has been renamed to PrepareEntityQuery.")]
+        [Obsolete("PrepareComponentGroup has been renamed to PrepareEntityQuery. (RemovedAfter 2019-08-25)")]
         public static void PrepareComponentGroup<T>(this T jobData, ComponentSystemBase system)
             where T : struct, JobForEachExtensions.IBaseJobForEach
         {
             jobData.PrepareEntityQuery(system);
         }
 
-        // these could be useful, but the script updater will make the ComponentGroup -> EntityQuery change without seeing these,
-        // so we have to have methods that have EntityQuery as the param, not ComponentGroup
-#if false
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("GetComponentGroupForIJobProcessComponentData has been renamed to GetEntityQueryForIJobForEach. (UnityUpgradable) -> GetEntityQueryForIJobForEach(*)")]
-        public static ComponentGroup GetComponentGroupForIJobProcessComponentData(this ComponentSystemBase system, Type jobType)
-        {
-            return system.GetEntityQueryForIJobForEach(jobType);
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("ScheduleGroup has been renamed to Schedule. (UnityUpgradable) -> Schedule<T>(*)", true)]
-        public static JobHandle ScheduleGroup<T>(this T jobData, ComponentGroup cg, JobHandle dependsOn = default(JobHandle))
-            where T : struct, JobForEachExtensions.IBaseJobForEach
-        {
-            throw new NotImplementedException();
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("ScheduleGroupSingle has been renamed to ScheduleSingle. (UnityUpgradable) -> ScheduleSingle<T>(*)", true)]
-        public static JobHandle ScheduleGroupSingle<T>(this T jobData, ComponentGroup cg, JobHandle dependsOn = default(JobHandle))
-            where T : struct, JobForEachExtensions.IBaseJobForEach
-        {
-            throw new NotImplementedException();
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("RunGroup has been renamed to Run. (UnityUpgradable) -> Run<T>(*)", true)]
-        public static JobHandle RunGroup<T>(this T jobData, ComponentGroup cg, JobHandle dependsOn = default(JobHandle))
-            where T : struct, JobForEachExtensions.IBaseJobForEach
-        {
-            throw new NotImplementedException();
-        }
-#endif
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("ScheduleGroup has been renamed to Schedule.")]
+        [Obsolete("ScheduleGroup has been renamed to Schedule. (RemovedAfter 2019-08-25)")]
         public static JobHandle ScheduleGroup<T>(this T jobData, EntityQuery cg, JobHandle dependsOn = default(JobHandle))
             where T : struct, JobForEachExtensions.IBaseJobForEach
         {
@@ -272,7 +237,7 @@ namespace Unity.Entities
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("ScheduleGroupSingle has been renamed to ScheduleSingle.")]
+        [Obsolete("ScheduleGroupSingle has been renamed to ScheduleSingle. (RemovedAfter 2019-08-25)")]
         public static JobHandle ScheduleGroupSingle<T>(this T jobData, EntityQuery cg, JobHandle dependsOn = default(JobHandle))
             where T : struct, JobForEachExtensions.IBaseJobForEach
         {
@@ -280,7 +245,7 @@ namespace Unity.Entities
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("RunGroup has been renamed to Run.")]
+        [Obsolete("RunGroup has been renamed to Run. (RemovedAfter 2019-08-25)")]
         public static JobHandle RunGroup<T>(this T jobData, EntityQuery cg, JobHandle dependsOn = default(JobHandle))
             where T : struct, JobForEachExtensions.IBaseJobForEach
         {
@@ -290,13 +255,16 @@ namespace Unity.Entities
 #endif
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("ComponentGroup has been renamed to EntityQuery. (UnityUpgradable) -> EntityQuery", true)]
+    [Obsolete("ComponentGroup has been renamed to EntityQuery. (RemovedAfter 2019-08-25) (UnityUpgradable) -> EntityQuery", true)]
     public class ComponentGroup : IDisposable
     {
-        public bool IsEmptyIgnoreFilter
+        internal unsafe ComponentGroup(EntityQueryData* queryData, ComponentJobSafetyManager* safetyManager, EntityComponentStore* entityComponentStore, ManagedComponentStore managedComponentStore)
         {
-            get { throw new NotImplementedException(); }
+            // ctor matching EntityQuery ctor to prevent default parameterless ctor from being created
+            throw new NotImplementedException();
         }
+
+        public bool IsEmptyIgnoreFilter => throw new NotImplementedException();
 
         public int CalculateLength()
         {

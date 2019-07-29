@@ -577,27 +577,38 @@ namespace Unity.Entities.Tests
 
 	            var intValueArray = intValue.AsNativeArray();
 
-	            Assert.AreEqual(5, intValue[0].Value);
-	            Assert.AreEqual(5, intValueArray[0].Value);
+                Assert.AreEqual(5, intValue[0].Value);
+                Assert.AreEqual(5, intValueArray[0].Value);
 
 	            intValueArray[0] = 6;
 
-	            Assert.AreEqual(intValueArray.Length, 1);
-	            Assert.AreEqual(6, intValue[0].Value);
+                Assert.AreEqual(intValueArray.Length, 1);
+                Assert.AreEqual(6, intValue[0].Value);
+	            
+                // Invalidate intValueArray
+                intValue.Add(10);
+#if UNITY_2019_3_OR_NEWER       
+                Assert.Throws<InvalidOperationException>(() => { var p = intValueArray[0]; });
+                Assert.Throws<InvalidOperationException>(() => { intValueArray[0] = 5; });
+#endif
 	        }
 	    }
 
 	    [Test]
 	    public void ReadWriteDynamicBuffer()
 	    {
-	        var original = m_Manager.CreateEntity(typeof(EcsIntElement));
-	        var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
-	        buffer.Add(5);
-
+            // Create multiple chunks so we ensure we are doing parallel for writing to buffers
+            for (int i = 0; i != 10; i++)
+            {
+                var original = m_Manager.CreateEntity(typeof(EcsIntElement));
+                m_Manager.AddSharedComponentData(original, new SharedData1(i));
+                var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
+                buffer.Add(5);
+            }
+            
 	        var group = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntElement)}});
 	        var job = new WriteJob
 	        {
-	            //@TODO: Throw exception when read only flag is not accurately passed to job for buffers...
 	            Int = EmptySystem.GetArchetypeChunkBufferType<EcsIntElement>()
 	        };
 
@@ -630,9 +641,14 @@ namespace Unity.Entities.Tests
 
 	    public void ReadOnlyDynamicBufferImpl(bool readOnlyType)
 	    {
-	        var original = m_Manager.CreateEntity(typeof(EcsIntElement));
-	        var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
-	        buffer.Add(5);
+            // Create multiple chunks so we ensure we are doing parallel for reading from buffers
+            for (int i = 0; i != 10; i++)
+            {
+                var original = m_Manager.CreateEntity(typeof(EcsIntElement));
+                m_Manager.AddSharedComponentData(original, new SharedData1(i));
+                var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
+                buffer.Add(5);
+            }
 
 	        var group = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntElement)}});
 	        var job = new ReadOnlyJob
@@ -650,13 +666,15 @@ namespace Unity.Entities.Tests
 	        ReadOnlyDynamicBufferImpl(true);
 	    }
 
+        #if UNITY_2019_3_OR_NEWER
 	    [Test]
-	    [Ignore("Joe is fixing for 19.1. https://ono.unity3d.com/unity/unity/changeset/7fba7166055c164f6d10a8b7d12bd0588ee12025")]
+        [StandaloneFixme] // IJob
 	    public void ReadOnlyDynamicBufferWritable()
 	    {
 	        ReadOnlyDynamicBufferImpl(false);
 	    }
-
+        #endif
+        
 	    struct BufferConsumingJob : IJob
 	    {
 	        public DynamicBuffer<EcsIntElement> Buffer;
@@ -693,7 +711,6 @@ namespace Unity.Entities.Tests
 	            Assert.AreEqual(5, array[0].Value);
 
 	            // Can't write to buffer...
-	            Assert.Throws<InvalidOperationException>(() => { array[0] = 5; });
 	            Assert.Throws<InvalidOperationException>(() => { array[0] = 5; });
 	        }
 	    }
@@ -739,6 +756,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_AllocateBufferWithLongSize_DoesNotThrow()
         {
 	        if (IntPtr.Size == 4)
@@ -752,6 +770,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_Insert_BufferHasLongSize_DoesNotThrow()
         {
 	        if (IntPtr.Size == 4)
@@ -767,6 +786,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_AddRange_NewBufferHasLongSize_DoesNotThrow()
         {
 	        if (IntPtr.Size == 4)
@@ -783,6 +803,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_RemoveRange_MovedBufferHasLongSize_DoesNotThrow()
         {
 	        if (IntPtr.Size == 4)
@@ -799,6 +820,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_Add_NewBufferHasLongSize_DoesNotThrow()
         {
 	        if (IntPtr.Size == 4)
@@ -815,6 +837,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_TrimExcess_NewBufferHasLongSize_DoesNotThrow()
         {
 	        if (IntPtr.Size == 4)

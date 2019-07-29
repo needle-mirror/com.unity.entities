@@ -23,8 +23,7 @@ namespace Unity.Scenes
         static List<SubScene> m_AllSubScenes = new List<SubScene>();
         public static IReadOnlyCollection<SubScene> AllSubScenes { get { return m_AllSubScenes; } }
     
-        [NonSerialized] public int LiveLinkDirtyID = -1;
-        [NonSerialized] public World LiveLinkShadowWorld;
+        [NonSerialized] public LiveLinkScene LiveLinkData;
     
     #endif
         
@@ -124,7 +123,6 @@ namespace Unity.Scenes
     
     #endif
     
-    
         void OnEnable()
         {
     #if UNITY_EDITOR
@@ -144,27 +142,27 @@ namespace Unity.Scenes
                 }
             }
                  
-            m_AllSubScenes.Add(this);
-
-            var sceneHeaderPath = EntityScenesPaths.GetLoadPath(SceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1);
-            m_SubSceneHeader = AssetDatabase.LoadAssetAtPath<SubSceneHeader>(sceneHeaderPath);
-    
-            if (m_SubSceneHeader == null)
-            {
-                Debug.LogWarning($"Sub-scene '{EditableScenePath}' has no valid header at '{sceneHeaderPath}'. Please rebuild the Entity Cache.", this);
-                return;
-            }
+            m_AllSubScenes.Add(this);    
     #endif
             
-            UpdateSceneEntities();
+            UpdateSceneEntities(true);
         }
 
-        public void UpdateSceneEntities()
+        public void UpdateSceneEntities(bool warnIfMissing = false)
         {
 #if UNITY_EDITOR
             var sceneHeaderPath = EntityScenesPaths.GetLoadPath(SceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1);
             m_SubSceneHeader = AssetDatabase.LoadAssetAtPath<SubSceneHeader>(sceneHeaderPath);
 #endif
+            if (warnIfMissing && m_SubSceneHeader == null)
+            {
+#if UNITY_EDITOR
+                Debug.LogWarning($"Sub-scene '{EditableScenePath}' has no valid header at '{sceneHeaderPath}'. Please rebuild the Entity Cache.", this);
+#else
+                Debug.LogWarning($"Sub-scene '{name}' has no valid header. Please rebuild the Entity Cache.", this);
+#endif
+            }
+
 
             if (_SceneEntityManager != null && _SceneEntityManager.IsCreated)
             {
@@ -177,25 +175,38 @@ namespace Unity.Scenes
             _SceneEntityManager = null;
 
             DefaultWorldInitialization.DefaultLazyEditModeInitialize();
-            if (World.Active != null && m_SubSceneHeader != null)
+            if (World.Active != null)
             {
                 _SceneEntityManager = World.Active.EntityManager;
 
-                for (int i = 0; i < m_SubSceneHeader.Sections.Length; ++i)
+                if (m_SubSceneHeader != null)
+                {
+                    for (int i = 0; i < m_SubSceneHeader.Sections.Length; ++i)
+                    {
+                        var sceneEntity = _SceneEntityManager.CreateEntity();
+                        #if UNITY_EDITOR
+                        _SceneEntityManager.SetName(sceneEntity, i == 0 ? $"Scene: {SceneName}" : $"Scene: {SceneName} ({i})");
+                        #endif
+
+                        _SceneEntities.Add(sceneEntity);
+                        _SceneEntityManager.AddComponentObject(sceneEntity, this);
+        
+                        if (AutoLoadScene)
+                            _SceneEntityManager.AddComponentData(sceneEntity, new RequestSceneLoaded());
+        
+                        _SceneEntityManager.AddComponentData(sceneEntity, m_SubSceneHeader.Sections[i]);
+                        _SceneEntityManager.AddComponentData(sceneEntity, new SceneBoundingVolume { Value = m_SubSceneHeader.Sections[i].BoundingVolume });
+                    }
+                }
+                else
                 {
                     var sceneEntity = _SceneEntityManager.CreateEntity();
                     #if UNITY_EDITOR
-                    _SceneEntityManager.SetName(sceneEntity, i == 0 ? $"Scene: {SceneName}" : $"Scene: {SceneName} ({i})");
+                    _SceneEntityManager.SetName(sceneEntity, "Scene: {SceneName}");
                     #endif
 
                     _SceneEntities.Add(sceneEntity);
                     _SceneEntityManager.AddComponentObject(sceneEntity, this);
-    
-                    if (AutoLoadScene)
-                        _SceneEntityManager.AddComponentData(sceneEntity, new RequestSceneLoaded());
-    
-                    _SceneEntityManager.AddComponentData(sceneEntity, m_SubSceneHeader.Sections[i]);
-                    _SceneEntityManager.AddComponentData(sceneEntity, new SceneBoundingVolume { Value = m_SubSceneHeader.Sections[i].BoundingVolume });
                 }
             }
         }
@@ -243,10 +254,9 @@ namespace Unity.Scenes
         public void CleanupLiveLink()
         {
     #if UNITY_EDITOR
-            if (LiveLinkShadowWorld != null && LiveLinkShadowWorld.IsCreated)
-                LiveLinkShadowWorld.Dispose();
-            LiveLinkShadowWorld = null;
-            LiveLinkDirtyID = -1;
+            if (LiveLinkData != null)
+                LiveLinkData.Dispose();
+            LiveLinkData = null;
     #endif
         }
     

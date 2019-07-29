@@ -5,7 +5,7 @@ using NUnit.Framework;
 
 namespace Unity.Entities.Tests
 {
-    class EntityQueryBuilderTestFixture : ECSTestsFixture
+    public class EntityQueryBuilderTestFixture : ECSTestsFixture
     {
         protected class TestComponentSystem : ComponentSystem
             { protected override void OnUpdate() { } }

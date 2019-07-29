@@ -14,9 +14,9 @@ It works like __IJobParallelFor__, but instead of calling a single execute funct
 In the IJobParallelForBatch example, the entry point where the job is actually scheduled looks like this:
 
 ```c#
-unsafe static public JobHandle ScheduleBatch<T>(this T jobData, int arrayLength, int minIndicesPerJobCount, JobHandle dependsOn = new JobHandle()) where T : struct, IJobParallelForBatch
+unsafe static public JobHandle ScheduleBatch&lt;T&gt;(this T jobData, int arrayLength, int minIndicesPerJobCount, JobHandle dependsOn = new JobHandle()) where T : struct, IJobParallelForBatch
 {
-    var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref jobData), ParallelForBatchJobStruct<T>.Initialize(), dependsOn, ScheduleMode.Batched);
+    var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref jobData), ParallelForBatchJobStruct&lt;T&gt;.Initialize(), dependsOn, ScheduleMode.Batched);
     return JobsUtility.ScheduleParallelFor(ref scheduleParams, arrayLength, minIndicesPerJobCount);
 }
 ```

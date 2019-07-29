@@ -10,7 +10,7 @@ namespace Unity.Entities
         // ----------------------------------------------------------------------------------------------------------
         // PUBLIC
         // ----------------------------------------------------------------------------------------------------------
-        
+
         /// <summary>
         /// Creates an entity having the specified archetype.
         /// </summary>
@@ -29,7 +29,8 @@ namespace Unity.Entities
         {
             Entity entity;
             BeforeStructuralChange();
-            EntityManagerCreateDestroyEntitiesUtility.CreateEntities(archetype.Archetype, &entity, 1, EntityComponentStore, ManagedComponentStore);
+            EntityComponentStore->CreateEntities(archetype.Archetype, &entity, 1);
+            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
             return entity;
         }
 
@@ -56,12 +57,11 @@ namespace Unity.Entities
         {
             BeforeStructuralChange();
             Entity entity;
-            EntityManagerCreateDestroyEntitiesUtility.CreateEntities(
-                GetEntityOnlyArchetype().Archetype, &entity, 1,
-                EntityComponentStore, ManagedComponentStore);
+            EntityComponentStore->CreateEntities(GetEntityOnlyArchetype().Archetype, &entity, 1);
+            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
             return entity;
         }
-        
+
         /// <summary>
         /// Destroy all entities having a common set of component types.
         /// </summary>
@@ -118,7 +118,7 @@ namespace Unity.Entities
         {
             DestroyEntityInternal(&entity, 1);
         }
-        
+
         /// <summary>
         /// Clones an entity.
         /// </summary>
@@ -163,7 +163,7 @@ namespace Unity.Entities
         {
             InstantiateInternal(srcEntity, (Entity*) outputEntities.GetUnsafePtr(), outputEntities.Length);
         }
-        
+
         /// <summary>
         /// Creates a set of entities of the specified archetype.
         /// </summary>
@@ -178,9 +178,9 @@ namespace Unity.Entities
         public void CreateEntity(EntityArchetype archetype, NativeArray<Entity> entities)
         {
             BeforeStructuralChange();
-            EntityManagerCreateDestroyEntitiesUtility.CreateEntities(archetype.Archetype,
-                (Entity*) entities.GetUnsafePtr(), entities.Length,
-                EntityComponentStore, ManagedComponentStore);
+            EntityComponentStore->CreateEntities(archetype.Archetype, (Entity*) entities.GetUnsafePtr(),
+                entities.Length);
+            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
         }
 
         /// <summary>
@@ -198,14 +198,15 @@ namespace Unity.Entities
         /// <param name="chunks">An empty array to receive the created chunks.</param>
         /// <param name="entityCount">The number of entities to create.</param>
         public void CreateChunk(EntityArchetype archetype, NativeArray<ArchetypeChunk> chunks, int entityCount)
-        {;
+        {
+            ;
             BeforeStructuralChange();
-            
-            EntityManagerCreateDestroyEntitiesUtility.CreateChunks(archetype.Archetype,
-                (ArchetypeChunk*) chunks.GetUnsafePtr(), entityCount,
-                EntityComponentStore, ManagedComponentStore);
+
+            EntityComponentStore->CreateChunks(archetype.Archetype, (ArchetypeChunk*) chunks.GetUnsafePtr(),
+                entityCount);
+            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
         }
-        
+
 
         // ----------------------------------------------------------------------------------------------------------
         // INTERNAL
@@ -215,39 +216,44 @@ namespace Unity.Entities
         {
             BeforeStructuralChange();
             EntityComponentStore->AssertCanDestroy(entities, count);
-            EntityManagerCreateDestroyEntitiesUtility.DestroyEntities(entities, count, EntityComponentStore, ManagedComponentStore);
+            EntityComponentStore->DestroyEntities(entities, count);
+            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
         }
-        
+
         internal void InstantiateInternal(Entity srcEntity, Entity* outputEntities, int count)
         {
             BeforeStructuralChange();
             EntityComponentStore->AssertEntitiesExist(&srcEntity, 1);
-            EntityManagerCreateDestroyEntitiesUtility.InstantiateEntities(srcEntity, outputEntities, count,
-                EntityComponentStore, ManagedComponentStore);
+            EntityComponentStore->InstantiateEntities(srcEntity, outputEntities, count);
+            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
         }
- 
-        internal void DestroyEntity(MatchingArchetypeList archetypeList, EntityQueryFilter filter)
+
+        internal void DestroyEntity(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter)
         {
             Profiler.BeginSample("DestroyEntity(EntityQuery entityQueryFilter)");
 
             Profiler.BeginSample("GetAllMatchingChunks");
             var jobHandle = new JobHandle();
-            using (var chunks = ComponentChunkIterator.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, out jobHandle, ref filter))
+            using (var chunks =
+                ComponentChunkIterator.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, out jobHandle,
+                    ref filter))
             {
                 jobHandle.Complete();
                 Profiler.EndSample();
-                
+
                 if (chunks.Length != 0)
                 {
                     BeforeStructuralChange();
 
                     Profiler.BeginSample("EditorOnlyChecks");
                     EntityComponentStore->AssertCanDestroy(chunks);
-                    EntityComponentStore->AssertWillDestroyAllInLinkedEntityGroup(chunks, GetArchetypeChunkBufferType<LinkedEntityGroup>(false));
+                    EntityComponentStore->AssertWillDestroyAllInLinkedEntityGroup(chunks,
+                        GetArchetypeChunkBufferType<LinkedEntityGroup>(false));
                     Profiler.EndSample();
 
                     Profiler.BeginSample("DeleteChunks");
-                    EntityManagerCreateDestroyEntitiesUtility.DestroyEntities(chunks, EntityComponentStore, ManagedComponentStore);
+                    EntityComponentStore->DestroyEntities(chunks);
+                    ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
                     Profiler.EndSample();
                 }
             }

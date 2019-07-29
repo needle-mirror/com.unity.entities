@@ -269,6 +269,193 @@ namespace Unity.Entities.Tests
             parent.SortSystemUpdateList();
             LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateBefore\].+NonSibling2System.+belongs to a different ComponentSystemGroup"));
         }
+#endif
+
+#if !NET_DOTS // Tiny precompiles systems, and lacks a Regex overload for LogAssert.Expect()
+        // The UpdateBefore and UpdateAfter tests are for ensuring the user recognizes that ordering relative 
+        // to an ECB system isnt supported.
+        [UpdateBefore(typeof(EndInitializationEntityCommandBufferSystem))]
+        class BeforeInitEndSystem : TestSystemBase
+        {
+        }
+        [UpdateBefore(typeof(LateSimulationSystemGroup))]
+        class BeforeLateSimSystem : TestSystemBase
+        {
+        }
+        [UpdateBefore(typeof(EndSimulationEntityCommandBufferSystem))]
+        class BeforeSimEndSystem : TestSystemBase
+        {
+        }
+        [UpdateBefore(typeof(EndPresentationEntityCommandBufferSystem))]
+        class BeforePresEndSystem : TestSystemBase
+        {
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateBeforeInitiliazationEnd_LogsWarning()
+        {
+            var parent = World.CreateSystem<InitializationSystemGroup>();
+            var child = World.CreateSystem<BeforeInitEndSystem>();
+            parent.AddSystemToUpdateList(child);
+            parent.SortSystemUpdateList();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateBefore\].+already restricted to be last."));
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateBeforeLateSimulation_LogsWarning()
+        {
+            var parent = World.CreateSystem<SimulationSystemGroup>();
+            var child = World.CreateSystem<BeforeLateSimSystem>();
+            parent.AddSystemToUpdateList(child);
+            parent.SortSystemUpdateList();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateBefore\].+already restricted to be last."));
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateBeforeSimulationEnd_LogsWarning()
+        {
+            var parent = World.CreateSystem<SimulationSystemGroup>();
+            var child = World.CreateSystem<BeforeSimEndSystem>();
+            parent.AddSystemToUpdateList(child);
+            parent.SortSystemUpdateList();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateBefore\].+already restricted to be last."));
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateBeforePresentationEnd_LogsWarning()
+        {
+            var parent = World.CreateSystem<PresentationSystemGroup>();
+            var child = World.CreateSystem<BeforePresEndSystem>();
+            parent.AddSystemToUpdateList(child);
+            parent.SortSystemUpdateList();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateBefore\].+already restricted to be last."));
+        }
+        [UpdateBefore(typeof(BeginInitializationEntityCommandBufferSystem))]
+        class BeforeInitBeginSystem : TestSystemBase
+        {
+        }
+        [UpdateBefore(typeof(BeginSimulationEntityCommandBufferSystem))]
+        class BeforeSimBeginSystem : TestSystemBase
+        {
+        }
+        [UpdateBefore(typeof(BeginPresentationEntityCommandBufferSystem))]
+        class BeforePresBeginSystem : TestSystemBase
+        {
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateBeforeInitializationBegin_ThrowsError()
+        {
+            var parent = World.CreateSystem<InitializationSystemGroup>();
+            var child = World.CreateSystem<BeforeInitBeginSystem>();
+            parent.AddSystemToUpdateList(child);
+            Assert.That(() => { parent.SortSystemUpdateList(); },
+                Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be first."));
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateBeforeSimulationBegin_ThrowsError()
+        {
+            var parent = World.CreateSystem<SimulationSystemGroup>();
+            var child = World.CreateSystem<BeforeSimBeginSystem>();
+            parent.AddSystemToUpdateList(child);
+            Assert.That(() => { parent.SortSystemUpdateList(); },
+                Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be first."));
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateBeforePresentationBegin_ThrowsError()
+        {
+            var parent = World.CreateSystem<PresentationSystemGroup>();
+            var child = World.CreateSystem<BeforePresBeginSystem>();
+            parent.AddSystemToUpdateList(child);
+            Assert.That(() => { parent.SortSystemUpdateList(); },
+                Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be first."));
+        }
+        [UpdateAfter(typeof(BeginInitializationEntityCommandBufferSystem))]
+        class AfterInitBeginSystem : TestSystemBase
+        {
+        }
+        [UpdateAfter(typeof(BeginSimulationEntityCommandBufferSystem))]
+        class AfterSimBeginSystem : TestSystemBase
+        {
+        }
+        [UpdateAfter(typeof(BeginPresentationEntityCommandBufferSystem))]
+        class AfterPresBeginSystem : TestSystemBase
+        {
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateAfterInitializationBegin_LogsWarning()
+        {
+            var parent = World.CreateSystem<InitializationSystemGroup>();
+            var child = World.CreateSystem<AfterInitBeginSystem>();
+            parent.AddSystemToUpdateList(child);
+            parent.SortSystemUpdateList();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateAfter\].+already restricted to be first."));
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateAfterSimulationBegin_LogsWarning()
+        {
+            var parent = World.CreateSystem<SimulationSystemGroup>();
+            var child = World.CreateSystem<AfterSimBeginSystem>();
+            parent.AddSystemToUpdateList(child);
+            parent.SortSystemUpdateList();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateAfter\].+already restricted to be first."));
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateAfterPresentationBegin_LogsWarning()
+        {
+            var parent = World.CreateSystem<PresentationSystemGroup>();
+            var child = World.CreateSystem<AfterPresBeginSystem>();
+            parent.AddSystemToUpdateList(child);
+            parent.SortSystemUpdateList();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateAfter\].+already restricted to be first."));
+        }
+        [UpdateAfter(typeof(EndInitializationEntityCommandBufferSystem))]
+        class AfterInitEndSystem : TestSystemBase
+        {
+        }
+        [UpdateAfter(typeof(LateSimulationSystemGroup))]
+        class AfterLateSimSystem : TestSystemBase
+        {
+        }
+        [UpdateAfter(typeof(EndSimulationEntityCommandBufferSystem))]
+        class AfterSimEndSystem : TestSystemBase
+        {
+        }
+        [UpdateAfter(typeof(EndPresentationEntityCommandBufferSystem))]
+        class AfterPresEndSystem : TestSystemBase
+        {
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateAfterInitializationEnd_ThrowsError()
+        {
+            var parent = World.CreateSystem<InitializationSystemGroup>();
+            var child = World.CreateSystem<AfterInitEndSystem>();
+            parent.AddSystemToUpdateList(child);
+            Assert.That(() => { parent.SortSystemUpdateList(); },
+                Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be last."));
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateAfterLateSimulation_ThrowsError()
+        {
+            var parent = World.CreateSystem<SimulationSystemGroup>();
+            var child = World.CreateSystem<AfterLateSimSystem>();
+            parent.AddSystemToUpdateList(child);
+            Assert.That(() => { parent.SortSystemUpdateList(); },
+                Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be last."));
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateAfterSimulationEnd_ThrowsError()
+        {
+            var parent = World.CreateSystem<SimulationSystemGroup>();
+            var child = World.CreateSystem<AfterSimEndSystem>();
+            parent.AddSystemToUpdateList(child);
+            Assert.That(() => { parent.SortSystemUpdateList(); },
+                Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be last."));
+        }
+        [Test]
+        public void ComponentSystemGroup_UpdateAfterPresentationEnd_ThrowsError()
+        {
+            var parent = World.CreateSystem<PresentationSystemGroup>();
+            var child = World.CreateSystem<AfterPresEndSystem>();
+            parent.AddSystemToUpdateList(child);
+            Assert.That(() => { parent.SortSystemUpdateList(); },
+                Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be last."));
+        }
         
         [UpdateAfter(typeof(NotEvenASystem))]
         class InvalidUpdateAfterSystem : TestSystemBase
@@ -317,7 +504,7 @@ namespace Unity.Entities.Tests
             var child = World.CreateSystem<UpdateAfterSelfSystem>();
             parent.AddSystemToUpdateList(child);
             parent.SortSystemUpdateList();
-            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateAfter\].+UpdateAfterSelfSystem.+cannot be updated after itself"));
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateAfter\].+UpdateAfterSelfSystem.+cannot be updated after itself."));
         }
         [Test]
         public void ComponentSystemGroup_UpdateBeforeTargetIsSelf_LogsWarning()
@@ -326,7 +513,7 @@ namespace Unity.Entities.Tests
             var child = World.CreateSystem<UpdateBeforeSelfSystem>();
             parent.AddSystemToUpdateList(child);
             parent.SortSystemUpdateList();
-            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateBefore\].+UpdateBeforeSelfSystem.+cannot be updated before itself"));
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateBefore\].+UpdateBeforeSelfSystem.+cannot be updated before itself."));
         }
 
         [Test]

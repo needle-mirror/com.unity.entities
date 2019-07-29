@@ -185,7 +185,7 @@ namespace Unity.Entities
     public unsafe class EntityQuery : IDisposable
     {
         readonly ComponentJobSafetyManager* m_SafetyManager;
-        internal readonly EntityGroupData*  m_GroupData;
+        internal readonly EntityQueryData*  m_QueryData;
         readonly EntityComponentStore*      m_EntityComponentStore;
         EntityQueryFilter                   m_Filter;
         private ManagedComponentStore       m_ManagedComponentStore;
@@ -200,16 +200,16 @@ namespace Unity.Entities
         internal EntityComponentStore* EntityComponentStore => m_EntityComponentStore;
         internal ManagedComponentStore ManagedComponentStore => m_ManagedComponentStore;
         internal ComponentJobSafetyManager* SafetyManager => m_SafetyManager;
-        
-        internal EntityQuery(EntityGroupData* groupData, ComponentJobSafetyManager* safetyManager, EntityComponentStore* entityComponentStore, ManagedComponentStore managedComponentStore)
+
+        internal EntityQuery(EntityQueryData* queryData, ComponentJobSafetyManager* safetyManager, EntityComponentStore* entityComponentStore, ManagedComponentStore managedComponentStore)
         {
-            m_GroupData = groupData;
+            m_QueryData = queryData;
             m_Filter = default(EntityQueryFilter);
-            m_SafetyManager = safetyManager;            
+            m_SafetyManager = safetyManager;
             m_EntityComponentStore = entityComponentStore;
             m_ManagedComponentStore = managedComponentStore;
         }
-        
+
         /// <summary>
         ///      Ignore this EntityQuery if it has no entities in any of its archetypes.
         /// </summary>
@@ -218,9 +218,9 @@ namespace Unity.Entities
         {
             get
             {
-                for (var m = m_GroupData->MatchingArchetypes.Count - 1; m >= 0; --m)
+                for (var m = m_QueryData->MatchingArchetypes.Length - 1; m >= 0; --m)
                 {
-                    var match = m_GroupData->MatchingArchetypes.p[m];
+                    var match = m_QueryData->MatchingArchetypes.Ptr[m];
                     if (match->Archetype->EntityCount > 0)
                         return false;
                 }
@@ -264,19 +264,19 @@ namespace Unity.Entities
             var types = new SlowListSet<ComponentType>();
 #endif
 
-            for (var i = 0; i < m_GroupData->ArchetypeQueryCount; ++i)
+            for (var i = 0; i < m_QueryData->ArchetypeQueryCount; ++i)
             {
-                for (var j = 0; j < m_GroupData->ArchetypeQuery[i].AnyCount; ++j)
+                for (var j = 0; j < m_QueryData->ArchetypeQuery[i].AnyCount; ++j)
                 {
-                    types.Add(TypeManager.GetType(m_GroupData->ArchetypeQuery[i].Any[j]));
+                    types.Add(TypeManager.GetType(m_QueryData->ArchetypeQuery[i].Any[j]));
                 }
-                for (var j = 0; j < m_GroupData->ArchetypeQuery[i].AllCount; ++j)
+                for (var j = 0; j < m_QueryData->ArchetypeQuery[i].AllCount; ++j)
                 {
-                    types.Add(TypeManager.GetType(m_GroupData->ArchetypeQuery[i].All[j]));
+                    types.Add(TypeManager.GetType(m_QueryData->ArchetypeQuery[i].All[j]));
                 }
-                for (var j = 0; j < m_GroupData->ArchetypeQuery[i].NoneCount; ++j)
+                for (var j = 0; j < m_QueryData->ArchetypeQuery[i].NoneCount; ++j)
                 {
-                    types.Add(ComponentType.Exclude(TypeManager.GetType(m_GroupData->ArchetypeQuery[i].None[j])));
+                    types.Add(ComponentType.Exclude(TypeManager.GetType(m_QueryData->ArchetypeQuery[i].None[j])));
                 }
             }
 
@@ -298,15 +298,15 @@ namespace Unity.Entities
         /// <returns>Array of ComponentTypes</returns>
         internal ComponentType[] GetReadAndWriteTypes()
         {
-            var types = new ComponentType[m_GroupData->ReaderTypesCount + m_GroupData->WriterTypesCount];
+            var types = new ComponentType[m_QueryData->ReaderTypesCount + m_QueryData->WriterTypesCount];
             var typeArrayIndex = 0;
-            for (var i = 0; i < m_GroupData->ReaderTypesCount; ++i)
+            for (var i = 0; i < m_QueryData->ReaderTypesCount; ++i)
             {
-                types[typeArrayIndex++] = ComponentType.ReadOnly(TypeManager.GetType(m_GroupData->ReaderTypes[i]));
+                types[typeArrayIndex++] = ComponentType.ReadOnly(TypeManager.GetType(m_QueryData->ReaderTypes[i]));
             }
-            for (var i = 0; i < m_GroupData->WriterTypesCount; ++i)
+            for (var i = 0; i < m_QueryData->WriterTypesCount; ++i)
             {
-                types[typeArrayIndex++] = TypeManager.GetType(m_GroupData->WriterTypes[i]);
+                types[typeArrayIndex++] = TypeManager.GetType(m_QueryData->WriterTypes[i]);
             }
 
             return types;
@@ -333,7 +333,7 @@ namespace Unity.Entities
         /// <returns>AtomicSafetyHandle for a ComponentType</returns>
         internal AtomicSafetyHandle GetSafetyHandle(int indexInEntityQuery)
         {
-            var type = m_GroupData->RequiredComponents + indexInEntityQuery;
+            var type = m_QueryData->RequiredComponents + indexInEntityQuery;
             var isReadOnly = type->AccessModeType == ComponentType.AccessMode.ReadOnly;
             return m_SafetyManager->GetSafetyHandle(type->TypeIndex, isReadOnly);
         }
@@ -345,14 +345,14 @@ namespace Unity.Entities
         /// <returns>AtomicSafetyHandle for a buffer</returns>
         internal AtomicSafetyHandle GetBufferSafetyHandle(int indexInEntityQuery)
         {
-            var type = m_GroupData->RequiredComponents + indexInEntityQuery;
+            var type = m_QueryData->RequiredComponents + indexInEntityQuery;
             return m_SafetyManager->GetBufferSafetyHandle(type->TypeIndex);
         }
 #endif
 
         bool GetIsReadOnly(int indexInEntityQuery)
         {
-            var type = m_GroupData->RequiredComponents + indexInEntityQuery;
+            var type = m_QueryData->RequiredComponents + indexInEntityQuery;
             var isReadOnly = type->AccessModeType == ComponentType.AccessMode.ReadOnly;
             return isReadOnly;
         }
@@ -364,10 +364,51 @@ namespace Unity.Entities
         /// The EntityQuery must run the queryDesc and apply any filters to calculate the entity count.
         /// </remarks>
         /// <returns>The number of entities based on the current EntityQuery properties.</returns>
-        public int CalculateLength()
+        public int CalculateEntityCount()
         {
             SyncFilterTypes();
-            return ComponentChunkIterator.CalculateLength(m_GroupData->MatchingArchetypes, ref m_Filter);
+            return ComponentChunkIterator.CalculateEntityCount(m_QueryData->MatchingArchetypes, ref m_Filter);
+        }
+
+        /// <summary>
+        /// Calculates the number of entities selected by this EntityQuery, ignoring any set filters.
+        /// </summary>
+        /// <remarks>
+        /// The EntityQuery must run the queryDesc to calculate the entity count.
+        /// </remarks>
+        /// <returns>The number of entities based on the current EntityQuery properties.</returns>
+        public int CalculateEntityCountWithoutFiltering()
+        {
+            SyncFilterTypes();
+            var dummyFilter = default(EntityQueryFilter);
+            return ComponentChunkIterator.CalculateEntityCount(m_QueryData->MatchingArchetypes, ref dummyFilter);
+        }
+
+        /// <summary>
+        /// Calculates the number of chunks that match this EntityQuery.
+        /// </summary>
+        /// <remarks>
+        /// The EntityQuery must run the queryDesc and apply any filters to calculate the chunk count.
+        /// </remarks>
+        /// <returns>The number of entities based on the current EntityQuery properties.</returns>
+        public int CalculateChunkCount()
+        {
+            SyncFilterTypes();
+            return ComponentChunkIterator.CalculateChunkCount(m_QueryData->MatchingArchetypes, ref m_Filter);
+        }
+
+        /// <summary>
+        /// Calculates the number of chunks that match this EntityQuery, ignoring any set filters.
+        /// </summary>
+        /// <remarks>
+        /// The EntityQuery must run the queryDesc to calculate the chunk count.
+        /// </remarks>
+        /// <returns>The number of entities based on the current EntityQuery properties.</returns>
+        public int CalculateChunkCountWithoutFiltering()
+        {
+            SyncFilterTypes();
+            var dummyFilter = default(EntityQueryFilter);
+            return ComponentChunkIterator.CalculateChunkCount(m_QueryData->MatchingArchetypes, ref dummyFilter);
         }
 
         /// <summary>
@@ -376,7 +417,7 @@ namespace Unity.Entities
         /// <returns>ComponentChunkIterator for this EntityQuery</returns>
         internal ComponentChunkIterator GetComponentChunkIterator()
         {
-            return new ComponentChunkIterator(m_GroupData->MatchingArchetypes, m_EntityComponentStore->GlobalSystemVersion, ref m_Filter);
+            return new ComponentChunkIterator(m_QueryData->MatchingArchetypes, m_EntityComponentStore->GlobalSystemVersion, ref m_Filter);
         }
 
         /// <summary>
@@ -397,11 +438,11 @@ namespace Unity.Entities
         {
             // Go through all the required component types in this EntityQuery until you find the matching component type index.
             var componentIndex = 0;
-            while (componentIndex < m_GroupData->RequiredComponentsCount && m_GroupData->RequiredComponents[componentIndex].TypeIndex != componentType)
+            while (componentIndex < m_QueryData->RequiredComponentsCount && m_QueryData->RequiredComponents[componentIndex].TypeIndex != componentType)
                 ++componentIndex;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (componentIndex >= m_GroupData->RequiredComponentsCount || m_GroupData->RequiredComponents[componentIndex].AccessModeType == ComponentType.AccessMode.Exclude)
+            if (componentIndex >= m_QueryData->RequiredComponentsCount || m_QueryData->RequiredComponents[componentIndex].AccessModeType == ComponentType.AccessMode.Exclude)
                 throw new InvalidOperationException( $"Trying to get iterator for {TypeManager.GetType(componentType)} but the required component type was not declared in the EntityGroup.");
 #endif
             return componentIndex;
@@ -424,12 +465,12 @@ namespace Unity.Entities
                 var readerTypes = stackalloc int[filterCount];
                 fixed (int* indexInEntityQueryPtr = m_Filter.Changed.IndexInEntityQuery)
                     for (int i = 0; i < filterCount; ++i)
-                        readerTypes[i] = m_GroupData->RequiredComponents[indexInEntityQueryPtr[i]].TypeIndex;
+                        readerTypes[i] = m_QueryData->RequiredComponents[indexInEntityQueryPtr[i]].TypeIndex;
 
                 dependency = m_SafetyManager->GetDependency(readerTypes, filterCount,null, 0);
             }
 
-            return ComponentChunkIterator.CreateArchetypeChunkArray(m_GroupData->MatchingArchetypes, allocator, out jobhandle, ref m_Filter, dependency);
+            return ComponentChunkIterator.CreateArchetypeChunkArray(m_QueryData->MatchingArchetypes, allocator, out jobhandle, ref m_Filter, dependency);
         }
 
         /// <summary>
@@ -442,7 +483,7 @@ namespace Unity.Entities
         {
             SyncFilterTypes();
             JobHandle job;
-            var res = ComponentChunkIterator.CreateArchetypeChunkArray(m_GroupData->MatchingArchetypes, allocator, out job, ref m_Filter);
+            var res = ComponentChunkIterator.CreateArchetypeChunkArray(m_QueryData->MatchingArchetypes, allocator, out job, ref m_Filter);
             job.Complete();
             return res;
         }
@@ -463,7 +504,7 @@ namespace Unity.Entities
             var entityType = new ArchetypeChunkEntityType();
 #endif
 
-            return ComponentChunkIterator.CreateEntityArray(m_GroupData->MatchingArchetypes, allocator, entityType,  this, ref m_Filter, out jobhandle, GetDependency());
+            return ComponentChunkIterator.CreateEntityArray(m_QueryData->MatchingArchetypes, allocator, entityType,  this, ref m_Filter, out jobhandle, GetDependency());
         }
 
         /// <summary>
@@ -480,7 +521,7 @@ namespace Unity.Entities
             var entityType = new ArchetypeChunkEntityType();
 #endif
             JobHandle job;
-            var res = ComponentChunkIterator.CreateEntityArray(m_GroupData->MatchingArchetypes, allocator, entityType, this, ref m_Filter, out job, GetDependency());
+            var res = ComponentChunkIterator.CreateEntityArray(m_QueryData->MatchingArchetypes, allocator, entityType, this, ref m_Filter, out job, GetDependency());
             job.Complete();
             return res;
         }
@@ -502,7 +543,7 @@ namespace Unity.Entities
 #else
             var componentType = new ArchetypeChunkComponentType<T>(true, EntityComponentStore->GlobalSystemVersion);
 #endif
-            return ComponentChunkIterator.CreateComponentDataArray(m_GroupData->MatchingArchetypes, allocator, componentType, this, ref m_Filter, out jobhandle, GetDependency());
+            return ComponentChunkIterator.CreateComponentDataArray(m_QueryData->MatchingArchetypes, allocator, componentType, this, ref m_Filter, out jobhandle, GetDependency());
         }
 
         /// <summary>
@@ -531,7 +572,7 @@ namespace Unity.Entities
 #endif
 
             JobHandle job;
-            var res = ComponentChunkIterator.CreateComponentDataArray(m_GroupData->MatchingArchetypes, allocator, componentType, this, ref m_Filter, out job, GetDependency());
+            var res = ComponentChunkIterator.CreateComponentDataArray(m_QueryData->MatchingArchetypes, allocator, componentType, this, ref m_Filter, out job, GetDependency());
             job.Complete();
             return res;
         }
@@ -541,7 +582,7 @@ namespace Unity.Entities
         {
             // throw if non equal size
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var entityCount = CalculateLength();
+            var entityCount = CalculateEntityCount();
             if (entityCount != componentDataArray.Length)
                 throw new ArgumentException($"Length of input array ({componentDataArray.Length}) does not match length of EntityQuery ({entityCount})");
             var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, EntityComponentStore->GlobalSystemVersion);
@@ -549,7 +590,7 @@ namespace Unity.Entities
             var componentType = new ArchetypeChunkComponentType<T>(false, EntityComponentStore->GlobalSystemVersion);
 #endif
 
-            ComponentChunkIterator.CopyFromComponentDataArray(m_GroupData->MatchingArchetypes, componentDataArray, componentType, this, ref m_Filter, out var job, GetDependency());
+            ComponentChunkIterator.CopyFromComponentDataArray(m_QueryData->MatchingArchetypes, componentDataArray, componentType, this, ref m_Filter, out var job, GetDependency());
             job.Complete();
         }
 
@@ -558,7 +599,7 @@ namespace Unity.Entities
         {
             // throw if non equal size
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var entityCount = CalculateLength();
+            var entityCount = CalculateEntityCount();
             if(entityCount != componentDataArray.Length)
                 throw new ArgumentException($"Length of input array ({componentDataArray.Length}) does not match length of EntityQuery ({entityCount})");
 #endif
@@ -569,13 +610,13 @@ namespace Unity.Entities
             var componentType = new ArchetypeChunkComponentType<T>(false, EntityComponentStore->GlobalSystemVersion);
 #endif
 
-            ComponentChunkIterator.CopyFromComponentDataArray(m_GroupData->MatchingArchetypes, componentDataArray, componentType, this, ref m_Filter, out jobhandle, GetDependency());
+            ComponentChunkIterator.CopyFromComponentDataArray(m_QueryData->MatchingArchetypes, componentDataArray, componentType, this, ref m_Filter, out jobhandle, GetDependency());
         }
 
         public Entity GetSingletonEntity()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var entityCount = CalculateLength();
+            var entityCount = CalculateEntityCount();
             if (entityCount != 1)
                 throw new System.InvalidOperationException($"GetSingletonEntity() requires that exactly one exists but there are {entityCount}.");
 #endif
@@ -605,7 +646,7 @@ namespace Unity.Entities
             if(GetIndexInEntityQuery(TypeManager.GetTypeIndex<T>()) != 1)
                 throw new System.InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that {typeof(T)} is the only component type in its archetype.");
 
-            var entityCount = CalculateLength();
+            var entityCount = CalculateEntityCount();
             if (entityCount != 1)
                 throw new System.InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exists but there are {entityCount}.");
             #endif
@@ -658,7 +699,7 @@ namespace Unity.Entities
             if(GetIndexInEntityQuery(TypeManager.GetTypeIndex<T>()) != 1)
                 throw new System.InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that {typeof(T)} is the only component type in its archetype.");
 
-            var entityCount = CalculateLength();
+            var entityCount = CalculateEntityCount();
             if (entityCount != 1)
                 throw new System.InvalidOperationException($"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exists but there are {entityCount}.");
 #endif
@@ -674,7 +715,7 @@ namespace Unity.Entities
 
         internal bool CompareComponents(ComponentType* componentTypes, int count)
         {
-            return EntityGroupManager.CompareComponents(componentTypes, count, m_GroupData);
+            return EntityQueryManager.CompareComponents(componentTypes, count, m_QueryData);
         }
 
         // @TODO: Define what CompareComponents() does
@@ -687,7 +728,7 @@ namespace Unity.Entities
         {
             fixed (ComponentType* componentTypesPtr = componentTypes)
             {
-                return EntityGroupManager.CompareComponents(componentTypesPtr, componentTypes.Length, m_GroupData);
+                return EntityQueryManager.CompareComponents(componentTypesPtr, componentTypes.Length, m_QueryData);
             }
         }
 
@@ -698,7 +739,7 @@ namespace Unity.Entities
         /// <returns></returns>
         public bool CompareComponents(NativeArray<ComponentType> componentTypes)
         {
-            return EntityGroupManager.CompareComponents((ComponentType*)componentTypes.GetUnsafeReadOnlyPtr(), componentTypes.Length, m_GroupData);
+            return EntityQueryManager.CompareComponents((ComponentType*)componentTypes.GetUnsafeReadOnlyPtr(), componentTypes.Length, m_QueryData);
         }
 
         /// <summary>
@@ -708,7 +749,7 @@ namespace Unity.Entities
         /// <returns></returns>
         public bool CompareQuery(EntityQueryDesc[] queryDesc)
         {
-            return EntityGroupManager.CompareQuery(queryDesc, m_GroupData);
+            return EntityQueryManager.CompareQuery(queryDesc, m_QueryData);
         }
 
         /// <summary>
@@ -854,8 +895,8 @@ namespace Unity.Entities
         /// </summary>
         public void CompleteDependency()
         {
-            m_SafetyManager->CompleteDependenciesNoChecks(m_GroupData->ReaderTypes, m_GroupData->ReaderTypesCount,
-                m_GroupData->WriterTypes, m_GroupData->WriterTypesCount);
+            m_SafetyManager->CompleteDependenciesNoChecks(m_QueryData->ReaderTypes, m_QueryData->ReaderTypesCount,
+                m_QueryData->WriterTypes, m_QueryData->WriterTypesCount);
         }
 
         /// <summary>
@@ -864,8 +905,8 @@ namespace Unity.Entities
         /// <returns>JobHandle that represents the combined dependencies of this EntityQuery</returns>
         public JobHandle GetDependency()
         {
-            return m_SafetyManager->GetDependency(m_GroupData->ReaderTypes, m_GroupData->ReaderTypesCount,
-                m_GroupData->WriterTypes, m_GroupData->WriterTypesCount);
+            return m_SafetyManager->GetDependency(m_QueryData->ReaderTypes, m_QueryData->ReaderTypesCount,
+                m_QueryData->WriterTypes, m_QueryData->WriterTypesCount);
         }
 
         /// <summary>
@@ -873,8 +914,8 @@ namespace Unity.Entities
         /// </summary>
         public void AddDependency(JobHandle job)
         {
-            m_SafetyManager->AddDependency(m_GroupData->ReaderTypes, m_GroupData->ReaderTypesCount,
-                m_GroupData->WriterTypes, m_GroupData->WriterTypesCount, job);
+            m_SafetyManager->AddDependency(m_QueryData->ReaderTypes, m_QueryData->ReaderTypesCount,
+                m_QueryData->WriterTypes, m_QueryData->WriterTypesCount, job);
         }
 
         /// <summary>
@@ -885,30 +926,20 @@ namespace Unity.Entities
         {
             var version = 0;
 
-            for (var i = 0; i < m_GroupData->RequiredComponentsCount; ++i)
-                version += m_EntityComponentStore->GetComponentTypeOrderVersion(m_GroupData->RequiredComponents[i].TypeIndex);
+            for (var i = 0; i < m_QueryData->RequiredComponentsCount; ++i)
+                version += m_EntityComponentStore->GetComponentTypeOrderVersion(m_QueryData->RequiredComponents[i].TypeIndex);
 
             return version;
         }
 
-        /// <summary>
-        ///     Total number of chunks in this EntityQuery's MatchingArchetypes list.
-        /// </summary>
-        /// <param name="firstMatchingArchetype">First node of MatchingArchetypes linked list.</param>
-        /// <returns>Number of chunks in this EntityQuery.</returns>
-        internal int CalculateNumberOfChunksWithoutFiltering()
-        {
-            return ComponentChunkIterator.CalculateNumberOfChunksWithoutFiltering(m_GroupData->MatchingArchetypes);
-        }
-
-        internal bool AddReaderWritersToLists(ref UnsafeList reading, ref UnsafeList writing)
+        internal bool AddReaderWritersToLists(ref UnsafeIntList reading, ref UnsafeIntList writing)
         {
             bool anyAdded = false;
-            for (int i = 0; i < m_GroupData->ReaderTypesCount; ++i)
-                anyAdded |= CalculateReaderWriterDependency.AddReaderTypeIndex(m_GroupData->ReaderTypes[i], ref reading, ref writing);
+            for (int i = 0; i < m_QueryData->ReaderTypesCount; ++i)
+                anyAdded |= CalculateReaderWriterDependency.AddReaderTypeIndex(m_QueryData->ReaderTypes[i], ref reading, ref writing);
 
-            for (int i = 0; i < m_GroupData->WriterTypesCount; ++i)
-                anyAdded |=CalculateReaderWriterDependency.AddWriterTypeIndex(m_GroupData->WriterTypes[i], ref reading, ref writing);
+            for (int i = 0; i < m_QueryData->WriterTypesCount; ++i)
+                anyAdded |=CalculateReaderWriterDependency.AddWriterTypeIndex(m_QueryData->WriterTypes[i], ref reading, ref writing);
             return anyAdded;
         }
 
@@ -924,30 +955,34 @@ namespace Unity.Entities
                 fixed (int* indexInEntityQueryPtr = m_Filter.Changed.IndexInEntityQuery)
                     for (int i = 0; i < m_Filter.Changed.Count; ++i)
                     {
-                        var type = m_GroupData->RequiredComponents[indexInEntityQueryPtr[i]];
+                        var type = m_QueryData->RequiredComponents[indexInEntityQueryPtr[i]];
                         SafetyManager->CompleteWriteDependency(type.TypeIndex);
                     }
             }
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("GetComponentDataArray is deprecated. Use IJobForEach or ToComponentDataArray/CopyFromComponentDataArray instead. More information: https://forum.unity.com/threads/api-deprecation-faq-0-0-23.636994/", true)]
+        [Obsolete("GetComponentDataArray is deprecated. Use IJobForEach or ToComponentDataArray/CopyFromComponentDataArray instead. (RemovedAfter 2019-08-25) More information: https://forum.unity.com/threads/api-deprecation-faq-0-0-23.636994/", true)]
         public void GetComponentDataArray<T>() where T : struct, IComponentData
         { }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("GetSharedComponentDataArray is deprecated. Use ArchetypeChunk.GetSharedComponentData. More information: https://forum.unity.com/threads/api-deprecation-faq-0-0-23.636994/", true)]
+        [Obsolete("GetSharedComponentDataArray is deprecated. Use ArchetypeChunk.GetSharedComponentData. (RemovedAfter 2019-08-25) More information: https://forum.unity.com/threads/api-deprecation-faq-0-0-23.636994/", true)]
         public void GetSharedComponentDataArray<T>() where T : struct, ISharedComponentData
         { }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("GetBufferArray is deprecated. Use ArchetypeChunk.GetBufferAccessor() instead. More information: https://forum.unity.com/threads/api-deprecation-faq-0-0-23.636994/", true)]
+        [Obsolete("GetBufferArray is deprecated. Use ArchetypeChunk.GetBufferAccessor() instead. (RemovedAfter 2019-08-25) More information: https://forum.unity.com/threads/api-deprecation-faq-0-0-23.636994/", true)]
         public void GetBufferArray<T>() where T : struct, IBufferElementData
         { }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("GetEntityArray is deprecated. Use IJobForEachWithEntity or ToEntityArray instead.  More information: https://forum.unity.com/threads/api-deprecation-faq-0-0-23.636994/", true)]
+        [Obsolete("GetEntityArray is deprecated. Use IJobForEachWithEntity or ToEntityArray instead. (RemovedAfter 2019-08-25) More information: https://forum.unity.com/threads/api-deprecation-faq-0-0-23.636994/", true)]
         public void GetEntityArray()
         { }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [Obsolete("CalculateLength has been renamed to CalculateEntityCount. (RemovedAfter 2019-10-25) (UnityUpgradable) -> CalculateEntityCount()")]
+        public int CalculateLength() => CalculateEntityCount();
     }
 }

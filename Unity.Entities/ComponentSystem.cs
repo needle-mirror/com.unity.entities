@@ -5,22 +5,11 @@ using Unity.Jobs;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs.LowLevel.Unsafe;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
-using UnityEngine;
 
 namespace Unity.Entities
 {
-
-    [DebuggerTypeProxy(typeof(IntListDebugView))]
-    internal unsafe struct IntList
-    {
-        public int* p;
-        public int Count;
-        public int Capacity;
-    }
-
     /// <summary>
     /// A system provides behavior in an ECS architecture.
     /// </summary>
@@ -59,13 +48,13 @@ namespace Unity.Entities
     /// default World. You can use the <seealso cref="DisableAutoCreationAttribute"/> to prevent a system from being
     /// created automatically.
     /// </remarks>
-    public unsafe abstract partial class ComponentSystemBase
+    public abstract unsafe partial class ComponentSystemBase
     {
         EntityQuery[] m_EntityQueries;
         EntityQuery[] m_RequiredEntityQueries;
 
-        internal IntList m_JobDependencyForReadingSystems;
-        internal IntList m_JobDependencyForWritingSystems;
+        internal UnsafeIntList m_JobDependencyForReadingSystems;
+        internal UnsafeIntList m_JobDependencyForWritingSystems;
 
         uint m_LastSystemVersion;
 
@@ -140,30 +129,32 @@ namespace Unity.Entities
 
         // ============
 
-#if UNITY_EDITOR
-        private UnityEngine.Profiling.CustomSampler m_Sampler;
-#endif
+    #if !NET_DOTS && (ENABLE_PROFILER || UNITY_EDITOR)
+        Profiling.ProfilerMarker m_ProfilerMarker;
+    #endif
 
-#if !NET_DOTS
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        private static HashSet<Type> s_ObsoleteAPICheckedTypes = new HashSet<Type>();
+    #if !NET_DOTS
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+        static HashSet<Type> s_ObsoleteAPICheckedTypes = new HashSet<Type>();
 
         void CheckForObsoleteAPI()
         {
-            var type = this.GetType();
+            var type = GetType();
             while (type != typeof(ComponentSystemBase))
             {
                 if (s_ObsoleteAPICheckedTypes.Contains(type))
-                    break;
-
-                if (type.GetMethod("OnCreateManager", BindingFlags.DeclaredOnly | BindingFlags.Instance) != null)
                 {
-                    Debug.LogWarning($"The OnCreateManager overload in {type} is obsolete; please rename it to OnCreate.  OnCreateManager will stop being called in a future release.");
+                    break;
                 }
 
-                if (type.GetMethod("OnDestroyManager", BindingFlags.DeclaredOnly | BindingFlags.Instance) != null)
+                if (type.GetMethod("OnCreateManager", BindingFlags.NonPublic | BindingFlags.Instance)?.DeclaringType != typeof(ComponentSystemBase))
                 {
-                    Debug.LogWarning($"The OnDestroyManager overload in {type} is obsolete; please rename it to OnDestroy.  OnDestroyManager will stop being called in a future release.");
+                    Debug.LogWarning($"OnCreateManager in {type} is obsolete and shall be renamed to OnCreate. This message will be (RemovedAfter 2019-10-22) and OnCreateManager will no longer be called");
+                }
+
+                if (type.GetMethod("OnDestroyManager", BindingFlags.NonPublic | BindingFlags.Instance)?.DeclaringType != typeof(ComponentSystemBase))
+                {
+                    Debug.LogWarning($"OnDestroyManager in {type} is obsolete and shall be renamed to OnDestroy. This message will be (RemovedAfter 2019-10-22) and OnDestroyManager will no longer be called");
                 }
 
                 s_ObsoleteAPICheckedTypes.Add(type);
@@ -171,27 +162,24 @@ namespace Unity.Entities
                 type = type.BaseType;
             }
         }
-
-        /// <summary>
-        /// Base class constructor.
-        /// </summary>
-        protected ComponentSystemBase()
-        {
-             CheckForObsoleteAPI();
-        }
-#endif
-#endif
+    #endif
+    #endif
 
         internal void CreateInstance(World world)
         {
             OnBeforeCreateInternal(world);
             try
             {
-                OnCreateManager(); // DELETE after obsolete period!
+        #if !NET_DOTS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                CheckForObsoleteAPI();
+        #endif
+        #endif
+                CallOnCreateManagerAndLogIfOverrideDetected();
                 OnCreate();
-#if UNITY_EDITOR
+#if !NET_DOTS && (ENABLE_PROFILER || UNITY_EDITOR)
                 var type = GetType();
-                m_Sampler = UnityEngine.Profiling.CustomSampler.Create($"{world.Name} {type.FullName}");
+                m_ProfilerMarker = new Profiling.ProfilerMarker($"{world.Name} {type.FullName}");
 #endif
             }
             catch
@@ -206,22 +194,8 @@ namespace Unity.Entities
         {
             OnBeforeDestroyInternal();
             OnDestroy();
-            OnDestroyManager(); // DELETE after obsolete period!
+            CallOnDestroyManagerAndLogIfOverrideDetected();
             OnAfterDestroyInternal();
-        }
-
-        /// <summary>
-        /// Deprecated. Use <see cref="OnCreate"/>.
-        /// </summary>
-        protected virtual void OnCreateManager()
-        {
-        }
-
-        /// <summary>
-        /// Deprecated. Use <see cref="OnDestroy"/>.
-        /// </summary>
-        protected virtual void OnDestroyManager()
-        {
         }
 
         /// <summary>
@@ -234,6 +208,60 @@ namespace Unity.Entities
         /// </remarks>
         protected virtual void OnCreate()
         {
+        }
+
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS && NET_DOTS
+        bool m_OnDestroyManagerOverwritten = true;
+    #endif
+        /// <summary>
+        /// WARNING: OnDestroyManager() is obsolete and should be renamed to OnDestroy. OnDestroyManager will not be called by Unity after 2019-10-22
+        /// </summary>
+        protected virtual void OnDestroyManager()
+        {
+            // base.OnDestroyManager() could also be called, the reflection code path is used to detect that.
+            // As this is disabled for the tiny profile though, there is this little check with which
+            // we can only detect if it was overwritten without calling into that base function here.
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS && NET_DOTS
+            m_OnDestroyManagerOverwritten = false;
+        #endif
+        }
+
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS && NET_DOTS
+        bool m_OnCreateManagerOverwritten = true;
+    #endif
+        /// <summary>
+        /// WARNING: OnCreateManager() is obsolete and should be renamed to OnCreate. OnCreateManager will not be called by Unity after 2019-10-22
+        /// </summary>
+        protected virtual void OnCreateManager()
+        {
+            // base.OnCreateManager() could also be called, the reflection code path is used to detect that.
+            // As this is disabled for the tiny profile though, there is this little check with which
+            // we can only detect if it was overwritten without calling into that base function here.
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS && NET_DOTS
+            m_OnCreateManagerOverwritten = false;
+        #endif
+        }
+
+        void CallOnCreateManagerAndLogIfOverrideDetected()
+        {
+            OnCreateManager();
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS && NET_DOTS
+            if (m_OnCreateManagerOverwritten)
+            {
+                Debug.LogWarning("OnCreateManager is obsolete and shall be renamed to OnCreate. This message will be (RemovedAfter 2019-10-22) and OnCreateManager will no longer be called");
+            }
+        #endif
+        }
+
+        void CallOnDestroyManagerAndLogIfOverrideDetected()
+        {
+            OnDestroyManager();
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS && NET_DOTS
+            if (m_OnDestroyManagerOverwritten)
+            {
+                Debug.LogWarning("OnDestroyManager is obsolete and shall be renamed to OnDestroy. This message will be (RemovedAfter 2019-10-22) and OnDestroyManager will no longer be called");
+            }
+        #endif
         }
 
         /// <summary>
@@ -281,21 +309,20 @@ namespace Unity.Entities
         /// <seealso cref="EntityCommandBufferSystem"/>
         public void Update()
         {
-#if UNITY_EDITOR
-            m_Sampler?.Begin();
+#if !NET_DOTS && (ENABLE_PROFILER || UNITY_EDITOR)
+            m_ProfilerMarker.Begin();
 #endif
             InternalUpdate();
-
-#if UNITY_EDITOR
-            m_Sampler?.End();
+#if !NET_DOTS && (ENABLE_PROFILER || UNITY_EDITOR)
+            m_ProfilerMarker.End();
 #endif
         }
 
         // ===================
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
         internal int                        m_SystemID;
-        static internal ComponentSystemBase ms_ExecutingSystem;
+        internal static ComponentSystemBase ms_ExecutingSystem;
 
         internal ComponentSystemBase GetSystemFromSystemID(World world, int systemID)
         {
@@ -310,32 +337,23 @@ namespace Unity.Entities
 
             return null;
         }
-#endif
-
-        ref UnsafeList JobDependencyForReadingSystemsUnsafeList =>
-            ref *(UnsafeList*) UnsafeUtility.AddressOf(ref m_JobDependencyForReadingSystems);
-
-        ref UnsafeList JobDependencyForWritingSystemsUnsafeList =>
-            ref *(UnsafeList*) UnsafeUtility.AddressOf(ref m_JobDependencyForWritingSystems);
+    #endif
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal void CheckExists()
+        void CheckExists()
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (World == null || !World.IsCreated)
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (World != null && World.IsCreated) return;
+
+            if (m_SystemID == 0)
             {
-                if (m_SystemID == 0)
-                {
-                    throw new InvalidOperationException(
-                        $"{GetType()}.m_systemID is zero (invalid); This usually means it was not created with World.GetOrCreateSystem<{GetType()}>().");
-                }
-                else
-                {
-                    throw new InvalidOperationException(
-                        $"{GetType()} has already been destroyed. It may not be used anymore.");
-                }
+                throw new InvalidOperationException(
+                    $"{GetType()}.m_systemID is zero (invalid); This usually means it was not created with World.GetOrCreateSystem<{GetType()}>().");
             }
-#endif
+
+            throw new InvalidOperationException(
+                $"{GetType()} has already been destroyed. It may not be used anymore.");
+        #endif
         }
 
         /// <summary>
@@ -386,28 +404,31 @@ namespace Unity.Entities
 
         internal virtual void OnBeforeCreateInternal(World world)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_SystemID = World.AllocateSystemID();
-#endif
+        #endif
             m_World = world;
             m_EntityManager = world.EntityManager;
             m_SafetyManager = m_EntityManager.ComponentJobSafetyManager;
 
+            m_JobDependencyForReadingSystems = new UnsafeIntList(0, Allocator.Persistent);
+            m_JobDependencyForWritingSystems = new UnsafeIntList(0, Allocator.Persistent);
+
             m_EntityQueries = new EntityQuery[0];
-#if !NET_DOTS
+        #if !NET_DOTS
             m_AlwaysUpdateSystem = GetType().GetCustomAttributes(typeof(AlwaysUpdateSystemAttribute), true).Length != 0;
-#else
+        #else
             m_AlwaysUpdateSystem = true;
-#endif
+        #endif
         }
 
         internal void OnAfterDestroyInternal()
         {
             foreach (var query in m_EntityQueries)
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 query.DisallowDisposing = null;
-#endif
+        #endif
                 query.Dispose();
             }
 
@@ -416,8 +437,8 @@ namespace Unity.Entities
             m_World = null;
             m_SafetyManager = null;
 
-            JobDependencyForReadingSystemsUnsafeList.Dispose<int>();
-            JobDependencyForWritingSystemsUnsafeList.Dispose<int>();
+            m_JobDependencyForReadingSystems.Dispose();
+            m_JobDependencyForWritingSystems.Dispose();
         }
 
         internal abstract void InternalUpdate();
@@ -557,7 +578,7 @@ namespace Unity.Entities
         {
             var type = ComponentType.ReadOnly<T>();
             var query = GetEntityQueryInternal(&type, 1);
-            return !query.IsEmptyIgnoreFilter;
+            return query.CalculateEntityCount() == 1;
         }
 
         /// <summary>
@@ -592,11 +613,10 @@ namespace Unity.Entities
         /// <summary>
         /// Gets the Entity instance for a singleton.
         /// </summary>
-        /// <typeparam name="T">The IComponentData subtype of the singleton component.</typeparam>
+        /// <typeparam name="T">The Type of the singleton component.</typeparam>
         /// <returns>The entity associated with the specified singleton component.</returns>
         /// <seealso cref="EntityQuery.GetSingletonEntity"/>
         public Entity GetSingletonEntity<T>()
-            where T : struct, IComponentData
         {
             var type = ComponentType.ReadOnly<T>();
             var query = GetEntityQueryInternal(&type, 1);
@@ -606,8 +626,7 @@ namespace Unity.Entities
 
         internal void AddReaderWriter(ComponentType componentType)
         {
-            if (CalculateReaderWriterDependency.Add(componentType, ref JobDependencyForReadingSystemsUnsafeList,
-                ref JobDependencyForWritingSystemsUnsafeList))
+            if (CalculateReaderWriterDependency.Add(componentType, ref m_JobDependencyForReadingSystems, ref m_JobDependencyForWritingSystems))
             {
                 CompleteDependencyInternal();
             }
@@ -615,8 +634,7 @@ namespace Unity.Entities
 
         internal void AddReaderWriters(EntityQuery query)
         {
-            if (query.AddReaderWritersToLists(ref JobDependencyForReadingSystemsUnsafeList,
-                ref JobDependencyForWritingSystemsUnsafeList))
+            if (query.AddReaderWritersToLists(ref m_JobDependencyForReadingSystems, ref m_JobDependencyForWritingSystems))
             {
                 CompleteDependencyInternal();
             }
@@ -665,10 +683,9 @@ namespace Unity.Entities
         void AfterQueryCreated(EntityQuery query)
         {
             query.SetFilterChangedRequiredVersion(m_LastSystemVersion);
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            query.DisallowDisposing =
- "EntityQuery.Dispose() may not be called on a EntityQuery created with ComponentSystem.GetEntityQuery. The EntityQuery will automatically be disposed by the ComponentSystem.";
-#endif
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            query.DisallowDisposing = "EntityQuery.Dispose() may not be called on a EntityQuery created with ComponentSystem.GetEntityQuery. The EntityQuery will automatically be disposed by the ComponentSystem.";
+        #endif
 
             ArrayUtilityAdd(ref m_EntityQueries, query);
         }
@@ -710,14 +727,10 @@ namespace Unity.Entities
 
         internal void CompleteDependencyInternal()
         {
-            m_SafetyManager->CompleteDependenciesNoChecks(m_JobDependencyForReadingSystems.p,
-                m_JobDependencyForReadingSystems.Count, m_JobDependencyForWritingSystems.p,
-                m_JobDependencyForWritingSystems.Count);
+            m_SafetyManager->CompleteDependenciesNoChecks(m_JobDependencyForReadingSystems.Ptr,
+                m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr,
+                m_JobDependencyForWritingSystems.Length);
         }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("GetEntities has been deprecated. Use Entities.ForEach to access managed components. More information: https://forum.unity.com/threads/api-deprecation-faq-0-0-23.636994/", true)]
-        protected void GetEntities<T>() where T : struct { }
     }
 
     /// <summary>
@@ -779,7 +792,7 @@ namespace Unity.Entities
 
             JobHandle.ScheduleBatchedJobs();
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
             try
             {
                 m_DeferredEntities.Playback(EntityManager);
@@ -790,9 +803,9 @@ namespace Unity.Entities
                 var error = $"{e.Message}\nEntityCommandBuffer was recorded in {GetType()} using PostUpdateCommands.\n" + e.StackTrace;
                 throw new System.ArgumentException(error);
             }
-#else
+        #else
             m_DeferredEntities.Playback(EntityManager);
-#endif
+        #endif
             m_DeferredEntities.Dispose();
         }
 
@@ -808,10 +821,10 @@ namespace Unity.Entities
 
                 BeforeOnUpdate();
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 var oldExecutingSystem = ms_ExecutingSystem;
                 ms_ExecutingSystem = this;
-#endif
+        #endif
 
                 try
                 {
@@ -819,9 +832,9 @@ namespace Unity.Entities
                 }
                 finally
                 {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     ms_ExecutingSystem = oldExecutingSystem;
-#endif
+        #endif
                     AfterOnUpdate();
                 }
             }
@@ -862,7 +875,7 @@ namespace Unity.Entities
     {
         JobHandle m_PreviousFrameDependency;
 
-        unsafe JobHandle BeforeOnUpdate()
+        JobHandle BeforeOnUpdate()
         {
             BeforeUpdateVersioning();
 
@@ -881,7 +894,7 @@ namespace Unity.Entities
 
             AddDependencyInternal(outputJob);
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
 
             if (!JobsUtility.JobDebuggerEnabled)
                 return;
@@ -898,15 +911,15 @@ namespace Unity.Entities
             //       Which seems like debug code might have side-effects
 
             string dependencyError = null;
-            for (var index = 0; index < m_JobDependencyForReadingSystems.Count && dependencyError == null; index++)
+            for (var index = 0; index < m_JobDependencyForReadingSystems.Length && dependencyError == null; index++)
             {
-                var type = m_JobDependencyForReadingSystems.p[index];
+                var type = m_JobDependencyForReadingSystems.Ptr[index];
                 dependencyError = CheckJobDependencies(type);
             }
 
-            for (var index = 0; index < m_JobDependencyForWritingSystems.Count && dependencyError == null; index++)
+            for (var index = 0; index < m_JobDependencyForWritingSystems.Length && dependencyError == null; index++)
             {
-                var type = m_JobDependencyForWritingSystems.p[index];
+                var type = m_JobDependencyForWritingSystems.Ptr[index];
                 dependencyError = CheckJobDependencies(type);
             }
 
@@ -915,9 +928,9 @@ namespace Unity.Entities
                 EmergencySyncAllJobs();
 
                 if (throwException)
-                    throw new System.InvalidOperationException(dependencyError);
+                    throw new InvalidOperationException(dependencyError);
             }
-#endif
+        #endif
         }
 
         internal sealed override void InternalUpdate()
@@ -933,19 +946,19 @@ namespace Unity.Entities
                 var inputJob = BeforeOnUpdate();
                 JobHandle outputJob = new JobHandle();
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 var oldExecutingSystem = ms_ExecutingSystem;
                 ms_ExecutingSystem = this;
-#endif
+        #endif
                 try
                 {
                     outputJob = OnUpdate(inputJob);
                 }
                 catch
                 {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     ms_ExecutingSystem = oldExecutingSystem;
-#endif
+        #endif
 
                     AfterOnUpdate(outputJob, false);
                     throw;
@@ -999,7 +1012,7 @@ namespace Unity.Entities
         /// <returns>A Job handle that contains the dependencies of the Jobs in this system.</returns>
         protected abstract JobHandle OnUpdate(JobHandle inputDeps);
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
         unsafe string CheckJobDependencies(int type)
         {
             var h = m_SafetyManager->GetSafetyHandle(type, true);
@@ -1022,36 +1035,30 @@ namespace Unity.Entities
 
         unsafe void EmergencySyncAllJobs()
         {
-            for (int i = 0;i != m_JobDependencyForReadingSystems.Count;i++)
+            for (int i = 0;i != m_JobDependencyForReadingSystems.Length;i++)
             {
-                int type = m_JobDependencyForReadingSystems.p[i];
+                int type = m_JobDependencyForReadingSystems.Ptr[i];
                 AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_SafetyManager->GetSafetyHandle(type, true));
             }
 
-            for (int i = 0;i != m_JobDependencyForWritingSystems.Count;i++)
+            for (int i = 0;i != m_JobDependencyForWritingSystems.Length;i++)
             {
-                int type = m_JobDependencyForWritingSystems.p[i];
+                int type = m_JobDependencyForWritingSystems.Ptr[i];
                 AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_SafetyManager->GetSafetyHandle(type, true));
             }
         }
-#endif
+    #endif
 
         unsafe JobHandle GetDependency ()
         {
-            return m_SafetyManager->GetDependency(m_JobDependencyForReadingSystems.p, m_JobDependencyForReadingSystems.Count, m_JobDependencyForWritingSystems.p, m_JobDependencyForWritingSystems.Count);
+            return m_SafetyManager->GetDependency(m_JobDependencyForReadingSystems.Ptr, m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr, m_JobDependencyForWritingSystems.Length);
         }
 
         unsafe void AddDependencyInternal(JobHandle dependency)
         {
-            m_PreviousFrameDependency = m_SafetyManager->AddDependency(m_JobDependencyForReadingSystems.p, m_JobDependencyForReadingSystems.Count, m_JobDependencyForWritingSystems.p, m_JobDependencyForWritingSystems.Count, dependency);
+            m_PreviousFrameDependency = m_SafetyManager->AddDependency(m_JobDependencyForReadingSystems.Ptr, m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr, m_JobDependencyForWritingSystems.Length, dependency);
         }
-
-
     }
-
-    [Obsolete("BarrierSystem has been renamed. Use EntityCommandBufferSystem instead (UnityUpgradable) -> EntityCommandBufferSystem", true)]
-    [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
-    public struct BarrierSystem { }
 
     /// <summary>
     /// A system that provides <seealso cref="EntityCommandBuffer"/> objects for other systems.
@@ -1089,23 +1096,20 @@ namespace Unity.Entities
     /// your own logic. Typically, you create an EntityCommandBufferSystem subclass to create a named buffer system
     /// for other systems to use and update it at an appropriate place in a custom <see cref="ComponentSystemGroup"/>
     /// setup.</remarks>
-    public unsafe abstract class EntityCommandBufferSystem : ComponentSystem
+    public abstract class EntityCommandBufferSystem : ComponentSystem
     {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        private List<EntityCommandBuffer> m_PendingBuffers;
-        internal List<EntityCommandBuffer> PendingBuffers
-        {
-            get { return m_PendingBuffers; }
-        }
-#else
-        private NativeList<EntityCommandBuffer> m_PendingBuffers;
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+        List<EntityCommandBuffer> m_PendingBuffers;
+        internal List<EntityCommandBuffer> PendingBuffers => m_PendingBuffers;
+    #else
+        NativeList<EntityCommandBuffer> m_PendingBuffers;
         internal NativeList<EntityCommandBuffer> PendingBuffers
         {
             get { return m_PendingBuffers; }
         }
-#endif
+    #endif
 
-        private JobHandle m_ProducerHandle;
+        JobHandle m_ProducerHandle;
 
         /// <summary>
         /// Creates an <seealso cref="EntityCommandBuffer"/> and adds it to this system's list of command buffers.
@@ -1126,9 +1130,9 @@ namespace Unity.Entities
         public EntityCommandBuffer CreateCommandBuffer()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob, -1);
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
             cmds.SystemID = ms_ExecutingSystem != null ? ms_ExecutingSystem.m_SystemID : 0;
-#endif
+        #endif
             m_PendingBuffers.Add(cmds);
 
             return cmds;
@@ -1204,11 +1208,11 @@ namespace Unity.Entities
         {
             base.OnCreate();
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_PendingBuffers = new List<EntityCommandBuffer>();
-#else
+        #else
             m_PendingBuffers = new NativeList<EntityCommandBuffer>(Allocator.Persistent);
-#endif
+        #endif
         }
 
         /// <summary>
@@ -1221,9 +1225,9 @@ namespace Unity.Entities
             FlushPendingBuffers(false);
             m_PendingBuffers.Clear();
 
-#if !ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if !ENABLE_UNITY_COLLECTIONS_CHECKS
             m_PendingBuffers.Dispose();
-#endif
+        #endif
 
             base.OnDestroy();
         }
@@ -1245,16 +1249,16 @@ namespace Unity.Entities
             m_ProducerHandle = new JobHandle();
 
             int length;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
             length = m_PendingBuffers.Count;
-#else
+        #else
             length = m_PendingBuffers.Length;
-#endif
+        #endif
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
             List<string> playbackErrorLog = null;
             bool completeAllJobsBeforeDispose = false;
-#endif
+        #endif
             for (int i = 0; i < length; ++i)
             {
                 var buffer = m_PendingBuffers[i];
@@ -1264,7 +1268,7 @@ namespace Unity.Entities
                 }
                 if (playBack)
                 {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     try
                     {
                         buffer.Playback(EntityManager);
@@ -1281,11 +1285,11 @@ namespace Unity.Entities
                         playbackErrorLog.Add(error);
                         completeAllJobsBeforeDispose = true;
                     }
-#else
+        #else
                     buffer.Playback(EntityManager);
-#endif
+        #endif
                 }
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 try
                 {
                     if (completeAllJobsBeforeDispose)
@@ -1309,28 +1313,28 @@ namespace Unity.Entities
                     }
                     playbackErrorLog.Add(error);
                 }
-#else
+        #else
                 buffer.Dispose();
-#endif
+        #endif
                 m_PendingBuffers[i] = buffer;
             }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (playbackErrorLog != null)
             {
-#if !NET_DOTS
+        #if !NET_DOTS
                 string exceptionMessage = playbackErrorLog.Aggregate((str1, str2) => str1 + "\n" + str2);
-#else
+        #else
                 foreach (var err in playbackErrorLog)
                 {
                     Console.WriteLine(err);
                 }
                 string exceptionMessage = "Errors occurred during ECB playback; see stdout";
-#endif
+        #endif
                 Exception exception = new System.ArgumentException(exceptionMessage);
                 throw exception;
             }
-#endif
+        #endif
         }
     }
 }

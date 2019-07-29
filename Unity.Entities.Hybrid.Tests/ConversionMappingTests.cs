@@ -15,7 +15,7 @@ namespace UnityEngine.Entities.Tests
         {
             base.Setup();
             dstWorld = new World("Test dst world");
-            mappingSystem = World.CreateSystem<GameObjectConversionMappingSystem>(dstWorld, default(Unity.Entities.Hash128), GameObjectConversionUtility.ConversionFlags.None);
+            mappingSystem = World.CreateSystem<GameObjectConversionMappingSystem>((GameObjectConversionSettings)dstWorld);
         }
 
         [TearDown]

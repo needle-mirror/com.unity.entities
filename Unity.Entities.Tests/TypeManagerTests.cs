@@ -297,7 +297,7 @@ namespace Unity.Entities.Tests
         public void ManagedFieldLayoutWorks()
         {
             var t  = TypeManager.GetTypeInfo<EcsStringSharedComponent>();
-            var layout = t.FastEqualityTypeInfo;
+            var layout = TypeManager.GetFastEqualityTypeInfo(t);
             Assert.IsNull(layout.Layouts);
             Assert.IsNotNull(layout.GetHashFn);
             Assert.IsNotNull(layout.EqualFn);
@@ -306,28 +306,28 @@ namespace Unity.Entities.Tests
 
         [TestCase(typeof(UnityEngine.Transform))]
         [TestCase(typeof(TypeManagerTests))]
-        public void BuildComponentType_WithClass_WhenUnityEngineComponentTypeIsNull_ThrowsArgumentException(Type type)
+        public void BuildComponentType_WithClass_WhenUnityEngineObjectTypeIsNull_ThrowsArgumentException(Type type)
         {
-            var componentType = TypeManager.UnityEngineComponentType;
-            TypeManager.UnityEngineComponentType = null;
+            var componentType = TypeManager.UnityEngineObjectType;
+            TypeManager.UnityEngineObjectType = null;
             try
             {
                 Assert.That(
                     () => TypeManager.BuildComponentType(type),
-                    Throws.ArgumentException.With.Message.Matches($"\\bregister\\b.*\\b{nameof(TypeManager.UnityEngineComponentType)}\\b")
+                    Throws.ArgumentException.With.Message.Matches($"\\bregister\\b.*\\b{nameof(TypeManager.UnityEngineObjectType)}\\b")
                 );
             }
             finally
             {
-                TypeManager.UnityEngineComponentType = componentType;
+                TypeManager.UnityEngineObjectType = componentType;
             }
         }
 
         [Test]
-        public void BuildComponentType_WithNonComponent_WhenUnityEngineComponentTypeIsCorrect_ThrowsArgumentException()
+        public void BuildComponentType_WithNonComponent_WhenUnityEngineObjectTypeIsCorrect_ThrowsArgumentException()
         {
-            var componentType = TypeManager.UnityEngineComponentType;
-            TypeManager.UnityEngineComponentType = typeof(UnityEngine.Component);
+            var componentType = TypeManager.UnityEngineObjectType;
+            TypeManager.UnityEngineObjectType = typeof(UnityEngine.Component);
             try
             {
                 var type = typeof(TypeManagerTests);
@@ -338,22 +338,22 @@ namespace Unity.Entities.Tests
             }
             finally
             {
-                TypeManager.UnityEngineComponentType = componentType;
+                TypeManager.UnityEngineObjectType = componentType;
             }
         }
 
         [Test]
-        public void BuildComponentType_WithComponent_WhenUnityEngineComponentTypeIsCorrect_DoesNotThrowException()
+        public void BuildComponentType_WithComponent_WhenUnityEngineObjectTypeIsCorrect_DoesNotThrowException()
         {
-            var componentType = TypeManager.UnityEngineComponentType;
-            TypeManager.UnityEngineComponentType = typeof(UnityEngine.Component);
+            var componentType = TypeManager.UnityEngineObjectType;
+            TypeManager.UnityEngineObjectType = typeof(UnityEngine.Component);
             try
             {
                 TypeManager.BuildComponentType(typeof(UnityEngine.Transform));
             }
             finally
             {
-                TypeManager.UnityEngineComponentType = componentType;
+                TypeManager.UnityEngineObjectType = componentType;
             }
         }
 
@@ -362,9 +362,9 @@ namespace Unity.Entities.Tests
         [TestCase(typeof(InterfaceShared))]
         [TestCase(typeof(ClassShared))]
         [TestCase(typeof(UnityEngine.Transform))]
-        public void RegisterUnityEngineComponentType_WithWrongType_ThrowsArgumentException(Type type)
+        public void RegisterUnityEngineObjectType_WithWrongType_ThrowsArgumentException(Type type)
         {
-            Assert.Throws<ArgumentException>(() => TypeManager.RegisterUnityEngineComponentType(type));
+            Assert.Throws<ArgumentException>(() => TypeManager.RegisterUnityEngineObjectType(type));
         }
 
         [Test]

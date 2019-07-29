@@ -16,9 +16,9 @@ namespace Unity.Entities
         internal EntityQueryBuilder(ComponentSystem system)
         {
             m_System = system;
-            m_Any     = new ResizableArray64Byte<int>();
-            m_None    = new ResizableArray64Byte<int>();
-            m_All     = new ResizableArray64Byte<int>();
+            m_Any    = new ResizableArray64Byte<int>();
+            m_None   = new ResizableArray64Byte<int>();
+            m_All    = new ResizableArray64Byte<int>();
             m_AnyWritableBitField = m_AllWritableBitField = 0;
             m_Options = EntityQueryOptions.Default;
             m_Query  = null;
@@ -35,12 +35,12 @@ namespace Unity.Entities
             #endif
 
             return
-                m_Any .Equals(ref other.m_Any)  &&
-                m_None                  .Equals(ref other.m_None)           	&&
-                m_All 					.Equals(ref other.m_All)  				&&
-                m_AnyWritableBitField   .Equals(other.m_AnyWritableBitField) 	&&
-                m_AllWritableBitField   .Equals(other.m_AllWritableBitField) 	&&
-                m_Options   			.Equals(other.m_Options)  				&&
+                m_Any.Equals(ref other.m_Any) &&
+                m_None.Equals(ref other.m_None) &&
+                m_All.Equals(ref other.m_All) &&
+                m_AnyWritableBitField == other.m_AnyWritableBitField &&
+                m_AllWritableBitField == other.m_AllWritableBitField &&
+                m_Options == other.m_Options &&
                 ReferenceEquals(m_Query, other.m_Query);
         }
 
@@ -79,7 +79,7 @@ namespace Unity.Entities
             return this;
         }
 
-        public EntityQueryBuilder With(EntityQueryOptions options)
+		public EntityQueryBuilder With(EntityQueryOptions options)
         {
             ValidateHasNoQuery();
             m_Options = options;
@@ -87,6 +87,13 @@ namespace Unity.Entities
             return this;
         }
 
+        /// <summary>
+        /// This sets the options IncludeDisabled and EntityQueryOptions.IncludePrefab so that Entities with Disabled or
+        /// Prefab components will not be hidden from the query. 
+        /// </summary>
+        public EntityQueryBuilder WithIncludeAll() 
+            => With(EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab);
+        
         EntityQueryDesc ToEntityQueryDesc(int delegateTypeCount)
         {
             ComponentType[] ToComponentTypes(ref ResizableArray64Byte<int> typeIndices, uint writableBitField, int extraCapacity)
@@ -174,9 +181,9 @@ namespace Unity.Entities
             SanitizeTypes(delegateTypeIndices, ref delegateTypeCount);
             
             var hash
-                = (uint)m_Any    .GetHashCode() * 0xEA928FF9
-                ^ (uint)m_None   .GetHashCode() * 0x4B772F25
-                ^ (uint)m_All    .GetHashCode() * 0xBAEE8991
+                = (uint)m_Any 					.GetHashCode() * 0xEA928FF9
+                ^ (uint)m_None   				.GetHashCode() * 0x4B772F25
+                ^ (uint)m_All 					.GetHashCode() * 0xBAEE8991
                 ^ (uint)m_AnyWritableBitField   .GetHashCode() * 0x8F8BF1C7
                 ^ (uint)m_AllWritableBitField   .GetHashCode() * 0xB6D633F7
                 ^ (uint)m_Options               .GetHashCode() * 0xE0B7379B

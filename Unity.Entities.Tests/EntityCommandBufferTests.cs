@@ -331,6 +331,27 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void AddComponent()
+        {
+
+            var e = m_Manager.CreateEntity();
+
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            cmds.AddComponent(e, new EcsTestData(10));
+            cmds.AddComponent<EcsTestTag>(e);
+            cmds.AddComponent(e, ComponentType.ReadWrite<EcsTestData3>());
+
+            cmds.Playback(m_Manager);
+
+            cmds.Dispose();
+
+            Assert.AreEqual(10, m_Manager.GetComponentData<EcsTestData>(e).value);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(e));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData3>(e));
+        }
+
+        [Test]
         public void SetSharedComponent()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -387,125 +408,193 @@ namespace Unity.Entities.Tests
 
             cmds.Dispose();
         }
-        
+
+        [Test]
+        public void AddAndSetComponent_ComponentDoesNotExist_Succeeds()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            var entity = m_Manager.CreateEntity();
+            cmds.AddComponent(entity, ComponentType.ReadWrite<EcsTestData>());
+            cmds.SetComponent(entity, new EcsTestData(42));
+
+            Assert.DoesNotThrow(() => { cmds.Playback(m_Manager); });
+
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.AreEqual(42, m_Manager.GetComponentData<EcsTestData>(entity).value);
+
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void AddAndSetComponent_ComponentExists_NewValueWins()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            var entity = m_Manager.CreateEntity();
+            cmds.AddComponent(entity, new EcsTestData(17));
+
+            cmds.AddComponent(entity, ComponentType.ReadWrite<EcsTestData>());
+            cmds.SetComponent(entity, new EcsTestData(42));
+
+            Assert.DoesNotThrow(() => { cmds.Playback(m_Manager); });
+
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.AreEqual(42, m_Manager.GetComponentData<EcsTestData>(entity).value);
+
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void AddSharedComponent_ComponentDoesNotExist_Succeeds()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            var entity = m_Manager.CreateEntity();
+            cmds.AddSharedComponent(entity, new EcsTestSharedComp(42));
+
+            Assert.DoesNotThrow(() => { cmds.Playback(m_Manager); });
+
+            Assert.AreEqual(42, m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity).value);
+
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void AddSharedComponent_ComponentExists_NewValueWins()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            var entity = m_Manager.CreateEntity();
+            cmds.AddSharedComponent(entity, new EcsTestSharedComp(17));
+            cmds.AddSharedComponent(entity, new EcsTestSharedComp(42));
+
+            Assert.DoesNotThrow(() => { cmds.Playback(m_Manager); });
+
+            Assert.AreEqual(42, m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity).value);
+
+            cmds.Dispose();
+        }
+
+
         [Test]
         public void AddComponentToEntityQuery()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
-            
+
             var entity = cmds.CreateEntity();
             var data1 = new EcsTestData();
             cmds.AddComponent(entity, data1);
-            
+
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             cmds.AddComponent(entityQuery, typeof(EcsTestData2));
-            
+
             cmds.Playback(m_Manager);
 
             var entities = m_Manager.GetAllEntities(Allocator.TempJob);
-            
+
             Assert.AreEqual(1, entities.Length);
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entities[0]), "The component was not added to the entities within the entity query.");
-            
+
             cmds.Dispose();
             entityQuery.Dispose();
             m_Manager.DestroyEntity(entities);
             entities.Dispose();
         }
-        
+
         [Test]
         public void AddComponentToEntityQueryWithFilter()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp));
-            
+
             var entity1 = cmds.CreateEntity(archetype);
             var sharedComponent1 = new EcsTestSharedComp {value = 10};
             cmds.SetSharedComponent(entity1, sharedComponent1);
-            
+
             var entity2 = cmds.CreateEntity(archetype);
             var sharedComponent2 = new EcsTestSharedComp{value = 130};
             cmds.SetSharedComponent(entity2, sharedComponent2);
 
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp));
             entityQuery.SetFilter(sharedComponent2);
-            
+
             cmds.AddComponent(entityQuery, typeof(EcsTestData2));
-            
+
             cmds.Playback(m_Manager);
-            
+
             var entities = m_Manager.GetAllEntities(Allocator.TempJob);
-            
+
             Assert.AreEqual(2, entities.Length);
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entities[1]), "The component was not added to the entities within the entity query.");
             Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entities[0]), "The component was incorrectly added based on the EntityQueryFilter.");
-            
+
             cmds.Dispose();
             entityQuery.Dispose();
             m_Manager.DestroyEntity(entities);
             entities.Dispose();
         }
-        
+
         [Test]
         public void RemoveComponentFromEntityQuery()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp), typeof(EcsTestData));
-            
+
             var entity = cmds.CreateEntity(archetype);
             var data1 = new EcsTestData();
             cmds.SetComponent(entity, data1);
-            
+
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             cmds.RemoveComponent(entityQuery, typeof(EcsTestData));
-            
+
             cmds.Playback(m_Manager);
-            
+
             var entities = m_Manager.GetAllEntities(Allocator.TempJob);
-            
+
             Assert.AreEqual(1, entities.Length);
             Assert.IsFalse(m_Manager.HasComponent<EcsTestData>(entities[0]), "The component was not removed from the entities in the entity query.");
-            
+
             cmds.Dispose();
             entityQuery.Dispose();
             m_Manager.DestroyEntity(entities);
             entities.Dispose();
         }
-        
+
         [Test]
         public void RemoveComponentFromEntityQueryWithFilter()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp), typeof(EcsTestData));
-            
+
             var entity1 = cmds.CreateEntity(archetype);
             var sharedComponent1 = new EcsTestSharedComp {value = 10};
             cmds.SetSharedComponent(entity1, sharedComponent1);
-            
+
             var entity2 = cmds.CreateEntity(archetype);
             var sharedComponent2 = new EcsTestSharedComp{value = 130};
             cmds.SetSharedComponent(entity2, sharedComponent2);
 
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestData));
             entityQuery.SetFilter(sharedComponent2);
-            
+
             cmds.RemoveComponent(entityQuery, typeof(EcsTestData));
-            
+
             cmds.Playback(m_Manager);
-            
+
             var entities = m_Manager.GetAllEntities(Allocator.TempJob);
-            
+
             Assert.AreEqual(2, entities.Length);
-            
+
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entities[0]), "The component was incorrectly removed based on the EntityQueryFilter.");
             Assert.IsFalse(m_Manager.HasComponent<EcsTestData>(entities[1]), "The component was not removed from the entities in the entity query.");
-            
+
             cmds.Dispose();
             entityQuery.Dispose();
             m_Manager.DestroyEntity(entities);
             entities.Dispose();
         }
-        
+
         [Test]
         public void AddSharedComponentDataToEntityQuery()
         {
@@ -649,64 +738,64 @@ namespace Unity.Entities.Tests
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp));
-            
+
             var entity1 = cmds.CreateEntity(archetype);
             var sharedComponent1 = new EcsTestSharedComp {value = 10};
             cmds.SetSharedComponent(entity1, sharedComponent1);
-            
+
             var entity2 = cmds.CreateEntity(archetype);
             var sharedComponent2 = new EcsTestSharedComp{value = 130};
             cmds.SetSharedComponent(entity2, sharedComponent2);
 
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp));
             entityQuery.SetFilter(sharedComponent2);
-            
+
             cmds.AddComponent(entityQuery, typeof(EcsTestData2));
-            
+
             entityQuery.SetFilter(sharedComponent1);
-            
+
             cmds.Playback(m_Manager);
-            
+
             var entities = m_Manager.GetAllEntities(Allocator.TempJob);
-            
+
             Assert.AreEqual(2, entities.Length);
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entities[1]), "The EntityQueryFilter should have been recorded to add this component before it was changed.");
             Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entities[0]), "Changing the EntityQueryFilter after recording should not impact the command at playback.");
-            
+
             cmds.Dispose();
             entityQuery.Dispose();
             m_Manager.DestroyEntity(entities);
             entities.Dispose();
         }
-        
+
         [Test]
         public void DeleteEntityQueryDoesNotImpactRecordedCommand()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp));
-            
+
             var entity1 = cmds.CreateEntity(archetype);
             var sharedComponent1 = new EcsTestSharedComp {value = 10};
             cmds.SetSharedComponent(entity1, sharedComponent1);
-            
+
             var entity2 = cmds.CreateEntity(archetype);
             var sharedComponent2 = new EcsTestSharedComp{value = 130};
             cmds.SetSharedComponent(entity2, sharedComponent2);
 
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp));
             entityQuery.SetFilter(sharedComponent2);
-            
+
             cmds.AddComponent(entityQuery, typeof(EcsTestData2));
-            
+
             entityQuery.Dispose();
-            
+
             cmds.Playback(m_Manager);
-            
+
             var entities = m_Manager.GetAllEntities(Allocator.TempJob);
-            
+
             Assert.AreEqual(2, entities.Length);
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entities[1]), "The EntityQuery should be recorded and stored for playback regardless of disposal.");
-            
+
             cmds.Dispose();
             m_Manager.DestroyEntity(entities);
             entities.Dispose();
@@ -914,6 +1003,36 @@ namespace Unity.Entities.Tests
             cmds.Dispose();
 
             Assert.IsFalse(m_Manager.Exists(e));
+        }
+
+        [Test]
+        public void DestroyInvalidEntity()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var entityBuffer = new NativeArray<Entity>(1, Allocator.Temp);
+            var e = cmds.CreateEntity();
+            cmds.AddComponent(e, new EcsTestData { value = 12 });
+            entityBuffer[0] = e;
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            var savedEntity = entityBuffer[0];
+            entityBuffer.Dispose();
+
+            var cmds2 = new EntityCommandBuffer(Allocator.TempJob);
+            cmds2.DestroyEntity(savedEntity);
+
+            // savedEntity is invalid, so playing back this ECB should throw an exception
+#if !NET_DOTS
+            Assert.Throws<UnityEngine.Assertions.AssertionException>(() =>
+#else
+            Assert.Throws<NullReferenceException>(() =>
+#endif
+            {
+                cmds2.Playback(m_Manager);
+            });
+
+            cmds2.Dispose();
         }
 
         [Test]
@@ -1156,6 +1275,33 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void AddBuffer_BufferDoesNotExist_Succeeds()
+        {
+            var e = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>(e);
+            buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
+            cmds.Playback(m_Manager);
+            VerifySingleBuffer(3);
+            cmds.Dispose();
+        }
+
+        [Test]
+        public void AddBuffer_BufferExists_NewValueWins()
+        {
+            var e = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            DynamicBuffer<EcsIntElement> bufferOld = cmds.AddBuffer<EcsIntElement>(e);
+            DynamicBuffer<EcsIntElement> bufferNew = cmds.AddBuffer<EcsIntElement>(e);
+            bufferNew.CopyFrom(new EcsIntElement[] {1, 2, 3});
+            // Writes to old buffer at this point are still valid, but will be ignored.
+            Assert.DoesNotThrow(() => { bufferOld.CopyFrom(new EcsIntElement[] {4, 5, 6}); });
+            cmds.Playback(m_Manager);
+            VerifySingleBuffer(3);
+            cmds.Dispose();
+        }
+
+        [Test]
         public void NoConcurrentOnMainThread()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -1176,7 +1322,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob
+        [StandaloneFixme] // IJobParallelFor
         public void DeterminismTest()
         {
             const int kRepeat = 10000;
@@ -1301,13 +1447,13 @@ namespace Unity.Entities.Tests
             // We exp both command buffers to execute, and an exception thrown afterwards
             // Essentially we want isolation of two systems that might fail independently.
             Assert.Throws<ArgumentException>(() => { entityCommandBufferSystem.Update(); });
-            Assert.AreEqual(2, EmptySystem.GetEntityQuery(typeof(EcsTestData)).CalculateLength());
+            Assert.AreEqual(2, EmptySystem.GetEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
             // On second run, we expect all buffers to be removed...
             // So no more exceptions thrown.
             entityCommandBufferSystem.Update();
 
-            Assert.AreEqual(2, EmptySystem.GetEntityQuery(typeof(EcsTestData)).CalculateLength());
+            Assert.AreEqual(2, EmptySystem.GetEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
         }
 #endif
 

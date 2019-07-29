@@ -116,15 +116,8 @@ namespace Unity.Entities
         public NativeArray<ComponentType> GetComponentTypes(Entity entity, Allocator allocator = Allocator.Temp)
         {
             EntityComponentStore->AssertEntitiesExist(&entity, 1);
-
-            var archetype = EntityComponentStore->GetArchetype(entity);
-
-            var components = new NativeArray<ComponentType>(archetype->TypesCount - 1, allocator);
-
-            for (var i = 1; i < archetype->TypesCount; i++)
-                components[i - 1] = archetype->Types[i].ToComponentType();
-
-            return components;
+            var archetype = new EntityArchetype { Archetype = EntityComponentStore->GetArchetype(entity) };
+            return archetype.GetComponentTypes(allocator);
         }
         
         /// <summary>

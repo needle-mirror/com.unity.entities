@@ -94,10 +94,10 @@ namespace Unity.Entities.Editor
                 },
                 new MultiColumnHeaderState.Column
                 {
-                    headerContent = new GUIContent("System Name"),
+                    headerContent = new GUIContent("Systems"),
                     headerTextAlignment = TextAlignment.Left,
                     sortingArrowAlignment = TextAlignment.Right,
-                    canSort = true,
+                    canSort = false,
                     sortedAscending = true,
                     width = 100,
                     minWidth = 100,

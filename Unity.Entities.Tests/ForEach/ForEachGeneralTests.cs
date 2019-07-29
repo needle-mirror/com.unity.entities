@@ -83,7 +83,8 @@ namespace Unity.Entities.Tests.ForEach
                     Assert.AreEqual(6, testData.value);
                     testData.value++;
 
-                    Assert.AreEqual(7, m_Manager.GetComponentData<EcsTestData>(entity).value);
+                    // ForEach currently modifies a copy of EcsTestData to provide for safe mutation
+                    Assert.AreEqual(6, m_Manager.GetComponentData<EcsTestData>(entity).value);
 
                     counter++;
                 });
@@ -303,7 +304,7 @@ namespace Unity.Entities.Tests.ForEach
         }
 
         [Test]
-        public void Safety()
+        public void AllowMutationInForEach()
         {
             var entity = m_Manager.CreateEntity();
             m_Manager.AddComponentData(entity, new EcsTestData(0));
@@ -311,19 +312,15 @@ namespace Unity.Entities.Tests.ForEach
             var counter = 0;
             TestSystem.Entities.ForEach((Entity e, ref EcsTestData t0) =>
             {
-                Assert.Throws<InvalidOperationException>(() => m_Manager.CreateEntity());
-                Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(e));
-                Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent(e, typeof(EcsTestData2)));
-                Assert.Throws<InvalidOperationException>(() => m_Manager.RemoveComponent<EcsTestData>(e));
+                Assert.DoesNotThrow(() => m_Manager.CreateEntity());
+                Assert.DoesNotThrow(() => m_Manager.AddComponent(e, typeof(EcsTestData2)));
+                Assert.DoesNotThrow(() => m_Manager.RemoveComponent<EcsTestData2>(e));
+                Assert.DoesNotThrow(() => m_Manager.DestroyEntity(e));
+                
                 counter++;
             });
             Assert.AreEqual(1, counter);
-
-            Assert.Throws<ArgumentException>(() =>
-            {
-                TestSystem.Entities.ForEach((Entity e, ref EcsTestData t0) => throw new ArgumentException());
-            });
-
+            
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.IsFalse(m_Manager.IsInsideForEach);
             #endif

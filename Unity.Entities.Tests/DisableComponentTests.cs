@@ -17,7 +17,7 @@ namespace Unity.Entities.Tests
 			var entity0 = m_Manager.CreateEntity(archetype0);
 			var entity1 = m_Manager.CreateEntity(archetype1);
 
-			Assert.AreEqual(1, group.CalculateLength());
+			Assert.AreEqual(1, group.CalculateEntityCount());
             group.Dispose();
 
 			m_Manager.DestroyEntity(entity0);
@@ -57,7 +57,7 @@ namespace Unity.Entities.Tests
 			var entity1 = m_Manager.CreateEntity(archetype1);
 			var entity2 = m_Manager.CreateEntity(archetype1);
 
-			Assert.AreEqual(2, group.CalculateLength());
+			Assert.AreEqual(2, group.CalculateEntityCount());
 
             group.Dispose();
 			m_Manager.DestroyEntity(entity0);
@@ -124,7 +124,7 @@ namespace Unity.Entities.Tests
         void CheckPrefabAndDisabledQueryOptions(EntityQueryOptions options, int expected)
         {
             var group = m_Manager.CreateEntityQuery(new EntityQueryDesc { All = new[] {ComponentType.ReadWrite<EcsTestData>()}, Options = options });
-            Assert.AreEqual(expected, group.CalculateLength());
+            Assert.AreEqual(expected, group.CalculateEntityCount());
             group.Dispose();
         }
     }

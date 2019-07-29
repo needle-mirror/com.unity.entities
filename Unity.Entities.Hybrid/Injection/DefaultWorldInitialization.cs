@@ -1,4 +1,8 @@
-﻿using System;
+#if UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP
+#define UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP_EDITOR_WORLD
+#endif
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -146,7 +150,7 @@ namespace Unity.Entities
                 }
                 else
                 {
-#if !UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP
+#if !UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP_EDITOR_WORLD
                     Initialize("Editor World", true);
 #endif
                 }

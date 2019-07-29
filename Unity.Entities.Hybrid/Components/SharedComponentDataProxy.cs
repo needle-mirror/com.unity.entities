@@ -1,15 +1,7 @@
-using System;
 using UnityEngine;
 
 namespace Unity.Entities
 {
-    [Obsolete("SharedComponentDataWrapper has been renamed to SharedComponentDataProxy", true)]
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-    public abstract class SharedComponentDataWrapper<T> : ComponentDataProxyBase where T : struct, ISharedComponentData
-    {
-    }
-
-
     public abstract class SharedComponentDataProxy<T> : ComponentDataProxyBase where T : struct, ISharedComponentData
     {
         internal override void ValidateSerializedData()

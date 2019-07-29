@@ -7,70 +7,15 @@ using Unity.Collections;
 
 namespace Unity.Entities
 {
-    sealed class UintListDebugView
-    {
-        private UintList m_UintList;
-        public UintListDebugView(UintList UintList)
-        {
-            m_UintList = UintList;
-        }
-        public unsafe uint[] Items
-        {
-            get
-            {
-                uint[] result = new uint[m_UintList.Count];
-                for (var i = 0; i < result.Length; ++i)
-                    result[i] = m_UintList.p[i];
-                return result;
-            }
-        }
-    }
-
-    sealed class IntListDebugView
-    {
-        private IntList m_IntList;
-        public IntListDebugView(IntList intList)
-        {
-            m_IntList = intList;
-        }
-        public unsafe int[] Items
-        {
-            get
-            {
-                var result = new int[m_IntList.Count];
-                for (var i = 0; i < result.Length; ++i)
-                    result[i] = m_IntList.p[i];
-                return result;
-            }
-        }
-    }
-
-    sealed class ChunkListDebugView
-    {
-        private ChunkList m_ChunkList;
-        public ChunkListDebugView(ChunkList chunkList)
-        {
-            m_ChunkList = chunkList;
-        }
-        public unsafe ArchetypeChunk[] Items
-        {
-            get
-            {
-                var result = new ArchetypeChunk[m_ChunkList.Count];
-                for (var i = 0; i < result.Length; ++i)
-                    result[i] = *(ArchetypeChunk*)&m_ChunkList.p[i];
-                return result;
-            }
-        }
-    }
-
     sealed class ArchetypeChunkDataDebugView
     {
         private ArchetypeChunkData m_ChunkData;
+
         public ArchetypeChunkDataDebugView(ArchetypeChunkData chunkData)
         {
             m_ChunkData = chunkData;
         }
+
         public unsafe ArchetypeChunk[] Items
         {
             get
@@ -83,58 +28,22 @@ namespace Unity.Entities
         }
     }
 
-    sealed class ArchetypeListDebugView
-    {
-        private ArchetypeList m_ArchetypeList;
-        public ArchetypeListDebugView(ArchetypeList ArchetypeList)
+    sealed class UnsafeMatchingArchetypePtrListDebugView
         {
-            m_ArchetypeList = ArchetypeList;
-        }
-        public unsafe EntityArchetype[] Items
-        {
-            get
-            {
-                var result = new EntityArchetype[m_ArchetypeList.Count];
-                for (var i = 0; i < result.Length; ++i)
-                    result[i] = *(EntityArchetype*)&m_ArchetypeList.p[i];
-                return result;
-            }
-        }
-    }
+        private UnsafeMatchingArchetypePtrList m_MatchingArchetypeList;
 
-    sealed class MatchingArchetypeListDebugView
-    {
-        private MatchingArchetypeList m_MatchingArchetypeList;
-        public MatchingArchetypeListDebugView(MatchingArchetypeList MatchingArchetypeList)
+        public UnsafeMatchingArchetypePtrListDebugView(UnsafeMatchingArchetypePtrList MatchingArchetypeList)
         {
             m_MatchingArchetypeList = MatchingArchetypeList;
         }
+
         public unsafe MatchingArchetype*[] Items
         {
             get
             {
-                var result = new MatchingArchetype*[m_MatchingArchetypeList.Count];
+                var result = new MatchingArchetype*[m_MatchingArchetypeList.Length];
                 for (var i = 0; i < result.Length; ++i)
-                    result[i] = m_MatchingArchetypeList.p[i];
-                return result;
-            }
-        }
-    }
-
-    sealed class EntityGroupDataListDebugView
-    {
-        private EntityGroupDataList m_EntityGroupDataList;
-        public EntityGroupDataListDebugView(EntityGroupDataList EntityGroupDataList)
-        {
-            m_EntityGroupDataList = EntityGroupDataList;
-        }
-        public unsafe EntityGroupData*[] Items
-        {
-            get
-            {
-                var result = new EntityGroupData*[m_EntityGroupDataList.Count];
-                for (var i = 0; i < result.Length; ++i)
-                    result[i] = m_EntityGroupDataList.p[i];
+                    result[i] = m_MatchingArchetypeList.Ptr[i];
                 return result;
             }
         }
@@ -200,7 +109,7 @@ namespace Unity.Entities
                 if (componentType.IsSharedComponent)
                     continue;
                 var typeInfo = TypeManager.GetTypeInfo(componentType.TypeIndex);
-                var type = typeInfo.Type;
+                var type = TypeManager.GetType(typeInfo.TypeIndex);
                 var offset = archetype->Offsets[i];
                 var size = archetype->SizeOfs[i];
                 var pointer = chunk->Buffer + (offset + size * chunkIndex);
@@ -279,7 +188,7 @@ namespace Unity.Entities
                     if (componentType.IsSharedComponent)
                         continue;
                     var typeInfo = TypeManager.GetTypeInfo(componentType.TypeIndex);
-                    var type = typeInfo.Type;
+                    var type = TypeManager.GetType(typeInfo.TypeIndex);
                     var offset = archetype->Offsets[i];
                     var size = archetype->SizeOfs[i];
                     var listType = typeof(List<>);
@@ -319,7 +228,7 @@ namespace Unity.Entities
                         if (componentType.IsSharedComponent)
                             continue;
                         var typeInfo = TypeManager.GetTypeInfo(componentType.TypeIndex);
-                        var type = typeInfo.Type;
+                        var type = TypeManager.GetType(typeInfo.TypeIndex);
                         var offset = archetype->Offsets[i];
                         var size = archetype->SizeOfs[i];
                         var pointer = chunk->Buffer + (offset + size * j);
@@ -409,7 +318,7 @@ namespace Unity.Entities
                 var result = new Type[types];
                 for (var i = 0; i < types; ++i)
                 {
-                    var type = TypeManager.GetTypeInfo(archetype->Types[i].TypeIndex).Type;
+                    var type = TypeManager.GetType(TypeManager.GetTypeInfo(archetype->Types[i].TypeIndex).TypeIndex);
                     result[i] = type;
                 }
                 return result;
@@ -471,93 +380,6 @@ namespace Unity.Entities
 #else
     sealed class EntityArchetypeDebugView
     {
-    }
-#endif
-    
-#if !UNITY_DOTSPLAYER
-    sealed class DiffApplierDebugView
-    {
-        private WorldDiffer.DiffApplier target;
-
-        public DiffApplierDebugView(WorldDiffer.DiffApplier diffApplier)
-        {
-            target = diffApplier;
-        }
-                
-
-        bool Ready()
-        {
-            if (!target.DiffIndexToDestWorldEntities.IsCreated)
-                return false;
-            if (target.DestWorldManager == null)
-                return false;
-            if (target.diff.Entities.Length == 0)
-                return false;
-            return true;
-        }
-
-        [DebuggerDisplay("Entities = {entities.Count} GUID = {guid}")]
-        public struct Entities
-        {
-            [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-            public EntityGuid guid;
-            [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-            public List<DebugViewUtility.Components> entities;
-        }
-        
-        unsafe object DebugDestEntities(int begin, int end)
-        {
-            var entitiesForAllGuids = new List<Entities>();
-            for (var i = begin; i < end; ++i)
-            {
-                var entitiesForOneGuid = new List<DebugViewUtility.Components>();
-                if (target.DiffIndexToDestWorldEntities.TryGetFirstValue(i, out var entity, out var it))
-                {
-                    do
-                    {
-#if UNITY_EDITOR                        
-                        var name = target.DestWorldManager.EntityComponentStore->GetName(entity);
-                        entitiesForOneGuid.Add(DebugViewUtility.GetComponents(target.DestWorldManager,entity));
-#endif                        
-                    } while (target.DiffIndexToDestWorldEntities.TryGetNextValue(out entity, ref it));
-                }
-                entitiesForAllGuids.Add(new Entities{guid=target.diff.Entities[i], entities=entitiesForOneGuid});
-            }
-            return entitiesForAllGuids;                
-        }
-
-        public struct DebugViewStruct
-        {
-            public struct DestEntities
-            {
-                public object New;
-                public object Deleted;
-                public object Changed;
-                public object All;
-            }
-
-            public DestEntities m_DestEntities;
-        }
-
-        public DebugViewStruct DebugView
-        {
-            get
-            {
-                if (!Ready())
-                    return new DebugViewStruct();
-                return new DebugViewStruct
-                {
-                    m_DestEntities =
-                    {
-                        New = DebugDestEntities(0, target.diff.NewEntityCount),
-                        Deleted = DebugDestEntities(target.diff.NewEntityCount, target.diff.NewEntityCount + target.diff.DeletedEntityCount),
-                        Changed =
-                            DebugDestEntities(target.diff.NewEntityCount + target.diff.DeletedEntityCount, target.diff.Entities.Length),
-                        All = DebugDestEntities(0, target.diff.Entities.Length)
-                    }
-                };
-            }
-        }
     }
 #endif
     

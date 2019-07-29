@@ -132,9 +132,8 @@ namespace Unity.Entities
         public BlobAssetReference<T> CreateBlobAssetReference<T>(Allocator allocator) where T : struct
         {
             Assert.AreEqual(16, sizeof(BlobAssetHeader));
-            NativeArray<int> offsets = new NativeArray<int>(m_allocations.Length + 1, m_allocator);
-
-            var sortedAllocs = new NativeArray<SortedIndex>(m_allocations.Length, m_allocator);
+            var offsets = new NativeArray<int>(m_allocations.Length + 1, Allocator.Temp);
+            var sortedAllocs = new NativeArray<SortedIndex>(m_allocations.Length, Allocator.Temp);
 
             offsets[0] = 0;
             for (int i = 0; i < m_allocations.Length; ++i)
@@ -145,7 +144,7 @@ namespace Unity.Entities
             int dataSize = offsets[m_allocations.Length];
 
             sortedAllocs.Sort();
-            var sortedPatches = new NativeArray<SortedIndex>(m_patches.Length, m_allocator);
+            var sortedPatches = new NativeArray<SortedIndex>(m_patches.Length, Allocator.Temp);
             for (int i = 0; i < m_patches.Length; ++i)
                 sortedPatches[i] = new SortedIndex {p = (byte*)m_patches[i].offsetPtr, index = i};
             sortedPatches.Sort();
@@ -186,6 +185,7 @@ namespace Unity.Entities
 
             sortedPatches.Dispose();
             sortedAllocs.Dispose();
+            offsets.Dispose();
 
             BlobAssetHeader* header = (BlobAssetHeader*) buffer;
             *header = new BlobAssetHeader();

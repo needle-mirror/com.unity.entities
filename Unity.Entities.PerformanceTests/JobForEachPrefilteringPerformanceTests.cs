@@ -11,7 +11,7 @@ using Unity.Entities.Tests;
 namespace Unity.Entities.PerformanceTests
 {
     [TestFixture]
-    [NUnit.Framework.Category("Performance")]
+    [Category("Performance")]
     public sealed class JobForEachPrefilteringPerformanceTests
     {
         private World m_PreviousWorld;

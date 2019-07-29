@@ -1,27 +1,19 @@
-#if !UNITY_DOTSPLAYER
+#if false // !UNITY_DOTSPLAYER
 using System;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
-using UnityEngine.Profiling;
 
 namespace Unity.Entities.Tests.ForEach
 {
     class ForEachMemoryTestFixtureBase : EntityQueryBuilderTestFixture
     {
-        // TODO: implement equivalent in DOTS runtime and remove #if !UNITY_DOTSPLAYER from all ForEach memory tests
-        Recorder m_AllocRecorder;
-
         protected int m_Field;
         protected static int s_Static;
 
         [SetUp]
         public void SetUp()
         {
-            m_AllocRecorder = Recorder.Get("GC.Alloc");
-            m_AllocRecorder.FilterToCurrentThread();
-            m_AllocRecorder.enabled = false;
-
             m_Field = 3;
             s_Static = 4;
         }
@@ -46,8 +38,6 @@ namespace Unity.Entities.Tests.ForEach
                 }
             }
         }
-
-        protected Recorder AllocRecorder => m_AllocRecorder;
 
         protected delegate void TestDelegate(int i);
 

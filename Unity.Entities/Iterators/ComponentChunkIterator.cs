@@ -72,15 +72,15 @@ namespace Unity.Entities
     /// </summary>
     internal unsafe struct ComponentChunkIterator
     {
-        internal readonly MatchingArchetypeList m_MatchingArchetypeList;
+        internal readonly UnsafeMatchingArchetypePtrList m_MatchingArchetypeList;
         private int m_CurrentMatchingArchetypeIndex;
 
         private int m_CurrentMatchingArchetypeIndexNext => m_CurrentMatchingArchetypeIndex - 1;
 
-        private int m_FirstMatchingArchetypeIndex => m_MatchingArchetypeList.Count - 1;
+        private int m_FirstMatchingArchetypeIndex => m_MatchingArchetypeList.Length - 1;
 
         private MatchingArchetype* m_CurrentMatchingArchetype =>
-            m_MatchingArchetypeList.p[m_CurrentMatchingArchetypeIndex];
+            m_MatchingArchetypeList.Ptr[m_CurrentMatchingArchetypeIndex];
 
         [NativeDisableUnsafePtrRestriction] private Chunk** m_CurrentChunk;
 
@@ -104,11 +104,11 @@ namespace Unity.Entities
             return (*m_CurrentChunk)->GetSharedComponentValue(sharedComponentOffset);
         }
 
-        public ComponentChunkIterator(MatchingArchetypeList match, uint globalSystemVersion,
+        public ComponentChunkIterator(UnsafeMatchingArchetypePtrList match, uint globalSystemVersion,
             ref EntityQueryFilter filter)
         {
             m_MatchingArchetypeList = match;
-            m_CurrentMatchingArchetypeIndex = match.Count - 1;
+            m_CurrentMatchingArchetypeIndex = match.Length - 1;
             IndexInEntityQuery = -1;
             m_CurrentChunk = null;
             m_CurrentArchetypeIndex =
@@ -143,43 +143,25 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        ///     Total number of chunks in a given MatchingArchetype list.
-        /// </summary>
-        /// <param name="matchingArchetypes">List of matching archetypes.</param>
-        /// <returns>Number of chunks in a list of archetypes.</returns>
-        internal static int CalculateNumberOfChunksWithoutFiltering(MatchingArchetypeList matchingArchetypes)
-        {
-            var chunkCount = 0;
-
-            for (var m = matchingArchetypes.Count - 1; m >= 0; --m)
-            {
-                var match = matchingArchetypes.p[m];
-                chunkCount += match->Archetype->Chunks.Count;
-            }
-
-            return chunkCount;
-        }
-
-        /// <summary>
         ///     Creates a NativeArray with all the chunks in a given archetype.
         /// </summary>
         /// <param name="matchingArchetypes">List of matching archetypes.</param>
         /// <param name="allocator">Allocator to use for the array.</param>
         /// <param name="jobHandle">Handle to the GatherChunks job used to fill the output array.</param>
         /// <returns>NativeArray of all the chunks in the matchingArchetypes list.</returns>
-        public static NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(MatchingArchetypeList matchingArchetypes,
+        public static NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(UnsafeMatchingArchetypePtrList matchingArchetypes,
             Allocator allocator, out JobHandle jobHandle, ref EntityQueryFilter filter,
             JobHandle dependsOn = default(JobHandle))
         {
-            var archetypeCount = matchingArchetypes.Count;
+            var archetypeCount = matchingArchetypes.Length;
 
             var offsets =
                 new NativeArray<int>(archetypeCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
             var chunkCount = 0;
             {
-                for (int i = 0; i < matchingArchetypes.Count; ++i)
+                for (int i = 0; i < matchingArchetypes.Length; ++i)
                 {
-                    var archetype = matchingArchetypes.p[i]->Archetype;
+                    var archetype = matchingArchetypes.Ptr[i]->Archetype;
                     offsets[i] = chunkCount;
                     chunkCount += archetype->Chunks.Count;
                 }
@@ -190,7 +172,7 @@ namespace Unity.Entities
                 var chunks = new NativeArray<ArchetypeChunk>(chunkCount, allocator, NativeArrayOptions.UninitializedMemory);
                 var gatherChunksJob = new GatherChunks
                 {
-                    MatchingArchetypes = matchingArchetypes.p,
+                    MatchingArchetypes = matchingArchetypes.Ptr,
                     entityComponentStore = matchingArchetypes.entityComponentStore,
                     Offsets = offsets,
                     Chunks = chunks
@@ -206,7 +188,7 @@ namespace Unity.Entities
                 var sparseChunks = new NativeArray<ArchetypeChunk>(chunkCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
                 var gatherChunksJob = new GatherChunksWithFiltering
                 {
-                    MatchingArchetypes = matchingArchetypes.p,
+                    MatchingArchetypes = matchingArchetypes.Ptr,
                     Filter = filter,
                     Offsets = offsets,
                     FilteredCounts = filteredCounts,
@@ -250,7 +232,7 @@ namespace Unity.Entities
         /// <param name="jobHandle">Handle to the GatherEntitiesJob job used to fill the output array.</param>
         /// <param name="dependsOn">Handle to a job this GatherEntitiesJob must wait on.</param>
         /// <returns>NativeArray of the entities in a given EntityQuery.</returns>
-        public static NativeArray<Entity> CreateEntityArray(MatchingArchetypeList matchingArchetypes,
+        public static NativeArray<Entity> CreateEntityArray(UnsafeMatchingArchetypePtrList matchingArchetypes,
             Allocator allocator,
             ArchetypeChunkEntityType type,
             EntityQuery entityQuery,
@@ -259,7 +241,7 @@ namespace Unity.Entities
             JobHandle dependsOn)
 
         {
-            var entityCount = CalculateLength(matchingArchetypes, ref filter);
+            var entityCount = CalculateEntityCount(matchingArchetypes, ref filter);
 
             var job = new GatherEntitiesJob
             {
@@ -271,7 +253,7 @@ namespace Unity.Entities
             return job.Entities;
         }
 
-        public static NativeArray<T> CreateComponentDataArray<T>(MatchingArchetypeList matchingArchetypes,
+        public static NativeArray<T> CreateComponentDataArray<T>(UnsafeMatchingArchetypePtrList matchingArchetypes,
             Allocator allocator,
             ArchetypeChunkComponentType<T> type,
             EntityQuery entityQuery,
@@ -280,7 +262,7 @@ namespace Unity.Entities
             JobHandle dependsOn)
             where T :struct, IComponentData
         {
-            var entityCount = CalculateLength(matchingArchetypes, ref filter);
+            var entityCount = CalculateEntityCount(matchingArchetypes, ref filter);
 
             var job = new GatherComponentDataJob<T>
             {
@@ -292,7 +274,7 @@ namespace Unity.Entities
             return job.ComponentData;
         }
 
-        public static void CopyFromComponentDataArray<T>(MatchingArchetypeList matchingArchetypes,
+        public static void CopyFromComponentDataArray<T>(UnsafeMatchingArchetypePtrList matchingArchetypes,
             NativeArray<T> componentDataArray,
             ArchetypeChunkComponentType<T> type,
             EntityQuery entityQuery,
@@ -315,24 +297,24 @@ namespace Unity.Entities
         /// <param name="matchingArchetypes">List of matching archetypes.</param>
         /// <param name="filter">EntityQueryFilter to use when calculating total number of entities.</param>
         /// <returns>Number of entities</returns>
-        public static int CalculateLength(MatchingArchetypeList matchingArchetypes, ref EntityQueryFilter filter)
+        public static int CalculateEntityCount(UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter)
         {
             var filterCopy = filter; // Necessary to avoid a nasty compiler error cause by fixed buffer types
 
             var length = 0;
             if (!filter.RequiresMatchesFilter)
             {
-                for (var m = matchingArchetypes.Count - 1; m >= 0; --m)
+                for (var m = matchingArchetypes.Length - 1; m >= 0; --m)
                 {
-                    var match = matchingArchetypes.p[m];
+                    var match = matchingArchetypes.Ptr[m];
                     length += match->Archetype->EntityCount;
                 }
             }
             else
             {
-                for (var m = matchingArchetypes.Count - 1; m >= 0; --m)
+                for (var m = matchingArchetypes.Length - 1; m >= 0; --m)
                 {
-                    var match = matchingArchetypes.p[m];
+                    var match = matchingArchetypes.Ptr[m];
                     if (match->Archetype->EntityCount <= 0)
                         continue;
 
@@ -412,12 +394,109 @@ namespace Unity.Entities
 
             return length;
         }
+        
+         /// <summary>
+        ///     Total number of chunks in a given MatchingArchetype list.
+        /// </summary>
+        /// <param name="matchingArchetypes">List of matching archetypes.</param>
+        /// <returns>Number of chunks in a list of archetypes.</returns>
+        internal static int CalculateChunkCount(UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter)
+        {
+            var totalChunkCount = 0;
+
+            // If no filter, then fast path it
+            if (!filter.RequiresMatchesFilter)
+            {
+                for (var m = matchingArchetypes.Length - 1; m >= 0; --m)
+                {
+                    var match = matchingArchetypes.Ptr[m];
+                    totalChunkCount += match->Archetype->Chunks.Count;
+                }
+
+                return totalChunkCount;
+            }
+
+            // Otherwise do filtering
+            for (var m = matchingArchetypes.Length - 1; m >= 0; --m)
+            {
+                var match = matchingArchetypes.Ptr[m];
+                var archetype = match->Archetype;
+                int chunkCount = archetype->Chunks.Count;
+                
+                if (filter.Type == FilterType.SharedComponent)
+                {
+                    var indexInEntityQuery1 = filter.Shared.IndexInEntityQuery[0];
+                    var sharedComponentIndex1 = filter.Shared.SharedComponentIndex[0];
+                    var componentIndexInChunk1 =
+                        match->IndexInArchetype[indexInEntityQuery1] - archetype->FirstSharedComponent;
+                    var sharedComponents1 =
+                        archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk1);
+
+                    if (filter.Shared.Count == 1)
+                    {
+                        for (var i = 0; i < chunkCount; ++i)
+                        {
+                            if (sharedComponents1[i] == sharedComponentIndex1)
+                                totalChunkCount++;
+                        }
+                    }
+                    else
+                    {
+                        var indexInEntityQuery2 = filter.Shared.IndexInEntityQuery[1];
+                        var sharedComponentIndex2 = filter.Shared.SharedComponentIndex[1];
+                        var componentIndexInChunk2 =
+                            match->IndexInArchetype[indexInEntityQuery2] - archetype->FirstSharedComponent;
+                        var sharedComponents2 =
+                            archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk2);
+
+                        for (var i = 0; i < chunkCount; ++i)
+                        {
+
+                            if (sharedComponents1[i] == sharedComponentIndex1 &&
+                                sharedComponents2[i] == sharedComponentIndex2)
+                                totalChunkCount++;
+                        }
+                    }
+                }
+                else
+                {
+                    var indexInEntityQuery1 = filter.Changed.IndexInEntityQuery[0];
+                    var componentIndexInChunk1 = match->IndexInArchetype[indexInEntityQuery1];
+                    var changeVersions1 = archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk1);
+
+                    var requiredVersion = filter.RequiredChangeVersion;
+                    if (filter.Changed.Count == 1)
+                    {
+                        for (var i = 0; i < chunkCount; ++i)
+                        {
+                            if (ChangeVersionUtility.DidChange(changeVersions1[i], requiredVersion))
+                                totalChunkCount++;
+                        }
+                    }
+                    else
+                    {
+                        var indexInEntityQuery2 = filter.Changed.IndexInEntityQuery[1];
+                        var componentIndexInChunk2 = match->IndexInArchetype[indexInEntityQuery2];
+                        var changeVersions2 = archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk2);
+
+                        for (var i = 0; i < chunkCount; ++i)
+                        {
+                            if (ChangeVersionUtility.DidChange(changeVersions1[i], requiredVersion) ||
+                                ChangeVersionUtility.DidChange(changeVersions2[i], requiredVersion))
+                                totalChunkCount++;
+                        }
+                    }
+                }
+            }
+
+            return totalChunkCount;
+        }
 
         private void MoveToNextMatchingChunk()
         {
             var m = m_CurrentMatchingArchetypeIndex;
             var c = m_CurrentChunk;
-            var e = m_MatchingArchetypeList.p[m]->Archetype->Chunks.p + m_MatchingArchetypeList.p[m]->Archetype->Chunks.Count;
+            var e = m_MatchingArchetypeList.Ptr[m]->Archetype->Chunks.p + m_MatchingArchetypeList.Ptr[m]->Archetype->Chunks.Count;
 
             do
             {
@@ -434,10 +513,10 @@ namespace Unity.Entities
                         return;
                     }
 
-                    c = m_MatchingArchetypeList.p[m]->Archetype->Chunks.p;
-                    e = m_MatchingArchetypeList.p[m]->Archetype->Chunks.p + m_MatchingArchetypeList.p[m]->Archetype->Chunks.Count;
+                    c = m_MatchingArchetypeList.Ptr[m]->Archetype->Chunks.p;
+                    e = m_MatchingArchetypeList.Ptr[m]->Archetype->Chunks.p + m_MatchingArchetypeList.Ptr[m]->Archetype->Chunks.Count;
                 }
-            } while (!((*c)->MatchesFilter(m_MatchingArchetypeList.p[m], ref m_Filter) && (*c)->Capacity > 0));
+            } while (!((*c)->MatchesFilter(m_MatchingArchetypeList.Ptr[m], ref m_Filter) && (*c)->Capacity > 0));
 
             m_CurrentMatchingArchetypeIndex = m;
             m_CurrentChunk = c;
@@ -682,7 +761,7 @@ namespace Unity.Entities
 
             for(var m = m_FirstMatchingArchetypeIndex; m != m_CurrentMatchingArchetypeIndexNext; --m)
             {
-                var match = m_MatchingArchetypeList.p[m];
+                var match = m_MatchingArchetypeList.Ptr[m];
                 if (match->Archetype->EntityCount <= 0)
                     continue;
 
@@ -714,7 +793,7 @@ namespace Unity.Entities
 
             for(var m = m_FirstMatchingArchetypeIndex; m != m_CurrentMatchingArchetypeIndexNext; --m)
             {
-                var match = m_MatchingArchetypeList.p[m];
+                var match = m_MatchingArchetypeList.Ptr[m];
                 if (match->Archetype->EntityCount <= 0)
                     continue;
 
@@ -734,7 +813,7 @@ namespace Unity.Entities
             return index;
         }
 
-        internal static JobHandle PreparePrefilteredChunkLists(int unfilteredChunkCount, MatchingArchetypeList archetypes, EntityQueryFilter filter, JobHandle dependsOn, ScheduleMode mode, out NativeArray<byte> prefilterDataArray, out void* deferredCountData)
+        internal static JobHandle PreparePrefilteredChunkLists(int unfilteredChunkCount, UnsafeMatchingArchetypePtrList archetypes, EntityQueryFilter filter, JobHandle dependsOn, ScheduleMode mode, out NativeArray<byte> prefilterDataArray, out void* deferredCountData)
         {
             // Allocate one buffer for all prefilter data and distribute it
             // We keep the full buffer as a "dummy array" so we can deallocate it later with [DeallocateOnJobCompletion]

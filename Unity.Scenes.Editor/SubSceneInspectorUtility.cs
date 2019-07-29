@@ -10,7 +10,7 @@ using UnityEngine.SceneManagement;
 
 namespace Unity.Scenes.Editor
 {
-    static class SubSceneInspectorUtility
+    internal static class SubSceneInspectorUtility
     {
         public static Transform GetUncleanHierarchyObject(SubScene[] subscenes)
         {
@@ -209,17 +209,6 @@ namespace Unity.Scenes.Editor
             return false;
         }
     
-        public static bool IsEditingAnyConvertedEntityScenes(SubScene[] scenes)
-        {
-            foreach (var scene in scenes)
-            {
-                if (scene.LoadedScene.isLoaded)
-                    return true;
-            }
-    
-            return false;    
-        }
-
         public static void RebuildEntityCache(params SubScene[] scenes)
         {
             try
@@ -287,10 +276,74 @@ namespace Unity.Scenes.Editor
             return null;
         }
         
-        public static bool LiveLinkEnabled
+        public static LiveLinkMode LiveLinkMode
         {
-            get { return EditorPrefs.GetBool("Unity.Entities.Streaming.SubScene.LiveLinkEnabled2", false); }
-            set { EditorPrefs.SetBool("Unity.Entities.Streaming.SubScene.LiveLinkEnabled2", value); }
+            get => (LiveLinkMode)EditorPrefs.GetInt("Unity.Entities.Streaming.SubScene.LiveLinkEnabled3", 0);
+            set
+            {
+                SubSceneLiveLinkSystem.GlobalDirtyLiveLink();
+                EditorPrefs.SetInt("Unity.Entities.Streaming.SubScene.LiveLinkEnabled3", (int)value);
+            }
+        }
+
+        static class LiveLinkMenu
+        {
+            const string k_Menu                 = "DOTS/LiveLink";
+            const string k_Disabled             = k_Menu + "/Disabled";
+            const string k_ConvertWithoutDiff   = k_Menu + "/(Experimental) ConvertWithoutDiff";
+            const string k_LiveConvertGameView  = k_Menu + "/(Experimental) LiveConvertGameView";
+            const string k_LiveConvertSceneView = k_Menu + "/(Experimental) LiveConvertSceneView";
+
+            static bool IsEditingAnySubScenes()
+            {
+                for (var i = 0; i < SceneManager.sceneCount; ++i)
+                {
+                    var scene = SceneManager.GetSceneAt(i);
+                    if (scene.isLoaded && scene.isSubScene)
+                        return true;
+                }
+
+                return false;
+            }
+            
+            // would be nice if we could disable an entire menu, and not have to disable each individual one..
+            
+            [MenuItem(k_Disabled)]
+            static void Disabled() => LiveLinkMode = LiveLinkMode.Disabled;
+            [MenuItem(k_Disabled, true)]
+            static bool ValidateDisabled()
+            {
+                Menu.SetChecked(k_Disabled, LiveLinkMode == LiveLinkMode.Disabled);
+                return true;
+            }
+
+            [MenuItem(k_ConvertWithoutDiff)]
+            static void ConvertWithoutDiff() => LiveLinkMode = LiveLinkMode.ConvertWithoutDiff;   
+            [MenuItem(k_ConvertWithoutDiff, true)]
+            static bool ValidateConvertWithoutDiff()
+            {
+                Menu.SetChecked(k_ConvertWithoutDiff, LiveLinkMode == LiveLinkMode.ConvertWithoutDiff);
+                return true;
+            }
+
+            [MenuItem(k_LiveConvertGameView)]
+            static void LiveConvertGameView() => LiveLinkMode = LiveLinkMode.LiveConvertGameView;  
+            [MenuItem(k_LiveConvertGameView, true)]
+            static bool ValidateLiveConvertGameView()
+            {
+                Menu.SetChecked(k_LiveConvertGameView, LiveLinkMode == LiveLinkMode.LiveConvertGameView);
+                return true;
+            }
+
+            [MenuItem(k_LiveConvertSceneView)]
+            static void LiveConvertSceneView() => LiveLinkMode = LiveLinkMode.LiveConvertSceneView; 
+            [MenuItem(k_LiveConvertSceneView, true)]
+            static bool ValidateLiveConvertSceneView()
+            {
+                Menu.SetChecked(k_LiveConvertSceneView, LiveLinkMode == LiveLinkMode.LiveConvertSceneView);
+                return true;
+            }
+
         }
     }
 }

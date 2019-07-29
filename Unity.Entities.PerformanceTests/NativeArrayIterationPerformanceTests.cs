@@ -8,6 +8,7 @@ using Unity.PerformanceTesting;
 
 namespace Unity.Entities.PerformanceTests
 {
+    [Category("Performance")]
     public class NativeArrayIterationPerformanceTests
     {
         [BurstCompile(CompileSynchronously = true)]

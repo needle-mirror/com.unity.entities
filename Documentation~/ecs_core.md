@@ -3,115 +3,69 @@ uid: ecs-concepts
 ---
 # ECS concepts
 
-If you are familiar with [Entity-component-system](https://en.wikipedia.org/wiki/Entity%E2%80%93component%E2%80%93system) (ECS) concepts, you might see the potential for naming conflicts with Unity's existing __GameObject__/__Component__ setup. 
+An Entity Component System (ECS) architecture separates identity (entities), data (components), and behaviour (systems). The architecture focuses on the data. Systems transform the data from an input state to an output state by reading streams of component data, which are indexed by entities.
 
-The purpose of this page is:
-1. Clarify and disambiguate the concepts as used in the ECS.
-2. Provide a brief introduction to each concept as an entry point to a new user.
+The following diagram illustrates how these three basic parts work together:
 
-### EntityManager
-Manages memory and structural changes.
+![](images/ECSBlockDiagram.png)
 
-### ComponentData
-Parallel streams of concrete, [blittable](https://docs.microsoft.com/en-us/dotnet/framework/interop/blittable-and-non-blittable-types) data. 
+In this diagram, a system reads Translation and Rotation components, multiplies them and then updates the corresponding LocalToWorld components. 
 
-e.g.
+The fact that entities A and B have a Renderer component and entity C does not, doesn't affect the system, because the system does not care about Renderer components. (You could set up the system so that it required a Renderer component, in which case, the system would ignore entity C; or, alternately, you could set up the system to exclude entities with Renderer components, in which case, it would ignore the entities A and B.)
 
-| Position | HitPoints |
-| ---------- | -----------|
-| 64,30     | 69          |
-| 58,55     | 70          |
-| 95,81     | 81          |
+## Archetypes
 
-See: [General purpose components](component_data.md)
+A unique combination of component types is called an [Archetype](xref:Unity.Entities.Archetype). For example, a 3D object might have a component for its world transform, one for its linear movement, one for rotation, and one for its visual representation. Each instance of one of these 3D objects corresponds to a single entity, but because they share the same set of components, they can be classified as a single archetype: 
 
+![](images/ArchetypeDiagram.png)
 
-### Entity
-An ID which can be used for indirect component lookups for the purposes of graph traversal.
+In this diagram, entities A and B share archetype M, while entity C has archetype N. 
 
-e.g.
+You can fluidly change the archetype of an entity by adding or removing components at runtime. For example, if you remove the Renderer component from entity B, then B moves to archetype N.
 
-| Entity | Position | HitPoints |
-|--- | ---------- | -----------|
-|0 | 64,30     | 69          |
-|1 | 58,55     | 70          |
-|2 | 95,81     | 81          |
+## Memory Chunks
 
-See: [Entities](ecs_entities.md)
+The archetype of an entity determines where the components of that entity are stored. A chunk of memory, represented by an [ArchetypeChunk](xref:Unity.Entities.ArchetypeChunk) object, always contains entities of the same archetype. If a chunk of memory becomes full, a new chunk of memory is allocated for any new entities created with the same archetype. If you change an entity archetype by adding or removing components, the components for that entity are moved to a different chunk. 
 
-### SharedComponentData
-Type of ComponentData where each unique value is only stored once. ComponentData streams are divided into subsets by each value of all SharedComponentData.
+![](images/ArchetypeChunkDiagram.png)
 
-e.g. (Mesh SharedComponentData)
+This organizational scheme provides a one-to-many relationship between archetypes and chunks. It also means that finding all the entities with a given set of components only requires searching through the existing archetypes, which are typically small in number, rather than all of the entities, which are typically much larger in number. 
 
-__Mesh = RocketShip__
+Note that the components of an entity are not stored in a specific order. When an entity is added to an archetype, it goes into the first chunk in that archetype that has room. Chunks do remain tightly packed, however; when an entity is removed from an archetype, the components of the last entity in the chunk are moved into the newly vacated slots in the component arrays.
 
-| Position | HitPoints |
-| ---------- | -----------|
-| 64,30     | 69          |
-| 58,55     | 70          |
-| 95,81     | 81          |
+## Entity queries
 
-__Mesh = Bullet__
+To identify which entities a system should process, you use an [EntityQuery](xref:Unity.Entities.EntityQuery). An entity query searches the existing archetypes for those that match your requirements. You can specify the following requirements with a query:
 
-| Position | HitPoints |
-| ---------- | -----------|
-| 10,50     | 19          |
-| 36,24     | 38          |
-| 67,33     | 40          |
+* All — the archetype must contain all of the component types in the All category.
+* Any — the archetype must contain at least one of the component types in the Any category.
+* None — the archetype must not contain any of the component types in the None category.
 
-See: [Shared components](shared_component_data.md)
+An entity query provides a list of the chunks containing the types of components required by the query. You can then iterate over the components in those chunks directly with [IJobChunk](chunk_iteration_job.md), one of the specialized ECS Jobs, or implicitly with [IJobForEach](entity_iteration_job.md) or a [non-Job for-each loop](entity_iteration_foreach.md). 
 
-### Dynamic Buffers
-
-This is a type of component data that allows a variable-sized, "stretchy"
-buffer to be associated with an entity. Behaves as a component type that
-carries an internal capacity of a certain number of elements, but can allocate
-a heap memory block if the internal capacity is exhausted.
-
-See: [Dynamic Buffers](dynamic_buffers.md)
-
-### EntityArchetype
-Specific set of ComponentData types and SharedComponentData values which define the subsets of ComponentData streams stored in the EntityManager.
-
-e.g. In the above, there are two EntityArchetypes:
-1. Position, HitPoints, Mesh = RocketShip
-2. Position, HitPoints, Mesh = Bullet
-
-See: [EntityArchetype in detail](xref:Unity.Entities.EntityArchetype)
-
-### ComponentSystem
-Where gameplay/system logic/behavior occurs.
-
-See: [ComponentSystem in detail](ecs_in_detail.md)
-
-### World
-A unique EntityManager with specific instances of defined ComponentSystems. Multiple Worlds may exist and work on independent data sets.
-
-See: [World in detail](ecs_in_detail.md#world)
-
-### SystemStateComponentData
-A specific type of ComponentData which is not serialized or removed by default when an entity ID is deleted. Used for internal state and resource management inside a system. Allows you to manage construction and destruction of resources.
-
-See: [SystemStateComponentData in detail](ecs_in_detail.md#systemstatecomponentdata)
-
-### JobComponentSystem
-A type of ComponentSystem where jobs are queued independently of the JobComponentSystem's update, in the background. Those jobs are guaranteed to be completed in the same order as the systems. 
-
-See: [JobComponentSystem in detail](xref:Unity.Entities.JobComponentSystem)
-
-### EntityCommandBuffer
-A list of structural changes to the data in an EntityManager for later completion. Structural changes are:
-1. Adding Component
-2. Removing Component
-3. Changing SharedComponent value
-
-See: [EntityCommandBuffer in detail](ecs_in_detail.md#entitycommandbuffer)
-
-### EntityCommandBufferSystem
-A type of ComponentSystem, which provides an EntityCommandBuffer. i.e. A specific (synchronization) point in the frame where that EntityCommandBuffer will be resolved.
+**Note:** IJobForEach implicitly creates an entity query based on the Job parameters and attributes. You can override the implicit query when scheduling the Job.  
 
 
+## Jobs
+
+To take advantage of multiple threads, you can use the Unity C# Job system. ECS provides the [JobComponentSystem](xref:Unity.Entites.JobComponentSystem), along with the specialized Job types, [IJobForEach](entity_iteration_job.md) and [IJobChunk](chunk_iteration_job.md), to transform data outside the main thread. IJobForEach (and IJobForEachWithEntity) is typically the simplest to use. IJobChunk can be used for more complex situations that IJobForEach does not handle.
+
+These ECS Jobs use an [EntityQuery](ecs_entity_query.md) object that not only defines which components a Job accesses, but also specifies whether that access is read-only or read-write. This access-type information allows the Job scheduler to determine which Jobs it can run in parallel and which must run in sequence. Jobs that read the same data can run at the same time, but when one Job writes to data that another Job accesses, those Jobs must run in sequence. 
+
+The order in which such sequential Jobs are run is determined by how you set up the Job dependencies. When the core ECS code calls one of your JobComponentSystem OnUpdate() functions, it passes in a JobHandle parameter that encapsulates the existing Job dependencies. When you a schedule a Job, the  Job Schedule() function returns a new JobHandle, which includes the new Job dependencies. 
 
 
+## System organization
 
+ECS organizes systems by [World](xref:Unity.Entities.World) and then by [group](xref:Unity.Enties.ComponentSystemGroup). By default, ECS creates a default World with a predefined set of groups. It finds all available systems, instantiates them, and adds them to the predefined [simulation group](xref:Unity.Entities.SimulationSystemGroup) in the default World.
+
+You can specify the update order of systems within the same group. A group is a kind of system, so you can add a group to a group and specify its order just like a system. All systems within a group update before the next system or group. If you do not specify an order, systems are inserted into the update order in a deterministic manner that does not depend on creation order. In other words, the same set of systems always update in the same order within their group when you don't explicitly specify an order. [Entity component buffer systems](xref:Unity.Entities.EntityComponentBufferSystem) 
+
+System updates occur on the main thread. However, systems can use Jobs to offload work to other threads. [JobComponentSystems](xref:Unity.entities.JobComponentSystem) provide a straightforward way to create and schedule Jobs. 
+
+See [System Update Order](system_update_order.md) for more information about system creation, update order, and the attributes you can use to organize your systems.
+
+
+## ECS Authoring
+
+When creating your game or application in the Unity Editor, you can use GameObjects and MonoBehaviours and create a conversion system to map those UnityEngine objects and components to entities.

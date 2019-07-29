@@ -7,6 +7,12 @@ using UnityEngine.Assertions;
 
 namespace Unity.Entities
 {
+    public interface IRefCounted
+    {
+        void Retain();
+        void Release();
+    }
+
     internal unsafe class ManagedComponentStore
     {
         private struct ManagedArrayStorage
@@ -16,13 +22,13 @@ namespace Unity.Entities
 
         private NativeMultiHashMap<int, int> m_HashLookup = new NativeMultiHashMap<int, int>(128, Allocator.Persistent);
 
-        private List<object>    m_SharedComponentData = new List<object>();
+        private List<object> m_SharedComponentData = new List<object>();
         private NativeList<int> m_SharedComponentRefCount = new NativeList<int>(0, Allocator.Persistent);
         private NativeList<int> m_SharedComponentType = new NativeList<int>(0, Allocator.Persistent);
         private NativeList<int> m_SharedComponentVersion = new NativeList<int>(0, Allocator.Persistent);
-        private int             m_FreeListIndex;
-        
-        private ManagedArrayStorage[] m_ManagedArrays = new ManagedArrayStorage[1];
+        private int m_FreeListIndex;
+
+        private ManagedArrayStorage[] m_ManagedArrays = new ManagedArrayStorage[0];
 
         public ManagedComponentStore()
         {
@@ -36,14 +42,13 @@ namespace Unity.Entities
         public void Dispose()
         {
             for (var i = 1; i != m_SharedComponentData.Count; i++)
-                (m_SharedComponentData[i] as IDisposable)?.Dispose();
+                (m_SharedComponentData[i] as IRefCounted)?.Release();
             m_SharedComponentType.Dispose();
             m_SharedComponentRefCount.Dispose();
             m_SharedComponentVersion.Dispose();
             m_SharedComponentData.Clear();
             m_SharedComponentData = null;
             m_HashLookup.Dispose();
-            m_ManagedArrays = null;
         }
 
         public void GetAllUniqueSharedComponents<T>(List<T> sharedComponentValues)
@@ -94,7 +99,10 @@ namespace Unity.Entities
 
             var hashcode = TypeManager.GetHashCode<T>(ref newData);
 
-            return Add(typeIndex, hashcode, newData);
+            object newDataObj = newData;
+            
+            (newDataObj as IRefCounted)?.Retain();
+            return Add(typeIndex, hashcode, newDataObj);
         }
 
         private unsafe int FindSharedComponentIndex<T>(int typeIndex, T newData) where T : struct
@@ -154,13 +162,28 @@ namespace Unity.Entities
             var index = FindNonDefaultSharedComponentIndex(typeIndex, hashCode, newData);
 
             if (-1 == index)
+            {
+                (newData as IRefCounted)?.Retain();
                 index = Add(typeIndex, hashCode, newData);
+            }
             else
                 m_SharedComponentRefCount[index] += 1;
 
             return index;
         }
 
+        internal unsafe int InsertSharedComponentAssumeNonDefaultMove(int typeIndex, int hashCode, object newData)
+        {
+            var index = FindNonDefaultSharedComponentIndex(typeIndex, hashCode, newData);
+
+            if (-1 == index)
+                index = Add(typeIndex, hashCode, newData);
+            else
+                m_SharedComponentRefCount[index] += 1;
+
+            return index;
+        }
+        
         private int Add(int typeIndex, int hashCode, object newData)
         {
             int index;
@@ -187,7 +210,7 @@ namespace Unity.Entities
                 m_SharedComponentVersion.Add(1);
                 m_SharedComponentType.Add(typeIndex);
             }
-
+            
             return index;
         }
 
@@ -196,7 +219,7 @@ namespace Unity.Entities
         {
             m_SharedComponentVersion[index]++;
         }
-        
+
         public unsafe void IncrementComponentOrderVersion(Archetype* archetype,
             SharedComponentValues sharedComponentValues)
         {
@@ -259,7 +282,7 @@ namespace Unity.Entities
             var hashCode = TypeManager.GetHashCode(m_SharedComponentData[index], typeIndex);
 
             object sharedComponent = m_SharedComponentData[index];
-            (sharedComponent as IDisposable)?.Dispose();
+            (sharedComponent as IRefCounted)?.Release();
 
             m_SharedComponentData[index] = null;
             m_SharedComponentType[index] = -1;
@@ -277,8 +300,7 @@ namespace Unity.Entities
                         m_HashLookup.Remove(iter);
                         return;
                     }
-                }
-                while (m_HashLookup.TryGetNextValue(out itemIndex, ref iter))
+                } while (m_HashLookup.TryGetNextValue(out itemIndex, ref iter))
                     ;
             }
 
@@ -316,8 +338,7 @@ namespace Unity.Entities
                         {
                             if (itemIndex == i)
                                 found = true;
-                        }
-                        while (m_HashLookup.TryGetNextValue(out itemIndex, ref iter))
+                        } while (m_HashLookup.TryGetNextValue(out itemIndex, ref iter))
                             ;
                     }
 
@@ -352,8 +373,7 @@ namespace Unity.Entities
             return true;
         }
 
-        public unsafe void MoveSharedComponents(ManagedComponentStore srcManagedComponents,
-            int* sharedComponentIndices, int sharedComponentIndicesCount)
+        public unsafe void MoveSharedComponents(ManagedComponentStore srcManagedComponents, int* sharedComponentIndices, int sharedComponentIndicesCount)
         {
             for (var i = 0; i != sharedComponentIndicesCount; i++)
             {
@@ -363,7 +383,6 @@ namespace Unity.Entities
 
                 var srcData = srcManagedComponents.m_SharedComponentData[srcIndex];
                 var typeIndex = srcManagedComponents.m_SharedComponentType[srcIndex];
-
                 var hashCode = TypeManager.GetHashCode(srcData, typeIndex);
                 var dstIndex = InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, srcData);
 
@@ -393,9 +412,10 @@ namespace Unity.Entities
         public unsafe bool AllSharedComponentReferencesAreFromChunks(EntityComponentStore* entityComponentStore)
         {
             var refCounts = new NativeArray<int>(m_SharedComponentRefCount.Length, Allocator.Temp);
-            for(var i = entityComponentStore->m_Archetypes.Count - 1; i >= 0; --i)
+
+            for(var i = entityComponentStore->m_Archetypes.Length - 1; i >= 0; --i)
             {
-                var archetype = entityComponentStore->m_Archetypes.p[i];
+                var archetype = entityComponentStore->m_Archetypes.Ptr[i];
                 var chunkCount = archetype->Chunks.Count;
                 for (int j = 0; j < archetype->NumSharedComponents; ++j)
                 {
@@ -406,7 +426,8 @@ namespace Unity.Entities
             }
 
             refCounts[0] = 1;
-            int cmp = UnsafeUtility.MemCmp(m_SharedComponentRefCount.GetUnsafePtr(), refCounts.GetUnsafeReadOnlyPtr(), sizeof(int) * refCounts.Length);
+            int cmp = UnsafeUtility.MemCmp(m_SharedComponentRefCount.GetUnsafePtr(), refCounts.GetUnsafeReadOnlyPtr(),
+                sizeof(int) * refCounts.Length);
             refCounts.Dispose();
 
             return cmp == 0;
@@ -415,17 +436,19 @@ namespace Unity.Entities
         public static unsafe bool FastEquality_CompareElements(void* lhs, void* rhs, int count, int typeIndex)
         {
             var typeInfo = TypeManager.GetTypeInfo(typeIndex);
-            for(var i = 0; i < count; ++i)
+            for (var i = 0; i < count; ++i)
             {
                 if (!TypeManager.Equals(lhs, rhs, typeIndex))
                     return false;
                 lhs = (byte*) lhs + typeInfo.ElementSize;
                 rhs = (byte*) rhs + typeInfo.ElementSize;
             }
+
             return true;
         }
 
-        public unsafe NativeArray<int> MoveAllSharedComponents(ManagedComponentStore srcManagedComponents, Allocator allocator)
+        public unsafe NativeArray<int> MoveAllSharedComponents(ManagedComponentStore srcManagedComponents,
+            Allocator allocator)
         {
             var remap = new NativeArray<int>(srcManagedComponents.GetSharedComponentCount(), allocator);
             remap[0] = 0;
@@ -438,7 +461,7 @@ namespace Unity.Entities
                 var typeIndex = srcManagedComponents.m_SharedComponentType[srcIndex];
 
                 var hashCode = TypeManager.GetHashCode(srcData, typeIndex);
-                var dstIndex = InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, srcData);
+                var dstIndex = InsertSharedComponentAssumeNonDefaultMove(typeIndex, hashCode, srcData);
 
                 m_SharedComponentRefCount[dstIndex] += srcManagedComponents.m_SharedComponentRefCount[srcIndex] - 1;
 
@@ -457,7 +480,8 @@ namespace Unity.Entities
         }
 
         public unsafe NativeArray<int> MoveSharedComponents(ManagedComponentStore srcManagedComponents,
-            NativeArray<ArchetypeChunk> chunks, NativeArray<EntityRemapUtility.EntityRemapInfo> remapInfos, Allocator allocator)
+            NativeArray<ArchetypeChunk> chunks, NativeArray<EntityRemapUtility.EntityRemapInfo> remapInfos,
+            Allocator allocator)
         {
             var remap = new NativeArray<int>(srcManagedComponents.GetSharedComponentCount(), allocator);
 
@@ -466,7 +490,9 @@ namespace Unity.Entities
                 var chunk = chunks[i].m_Chunk;
                 var archetype = chunk->Archetype;
                 var sharedComponentValues = chunk->SharedComponentValues;
-                for (int sharedComponentIndex = 0; sharedComponentIndex < archetype->NumSharedComponents; ++sharedComponentIndex)
+                for (int sharedComponentIndex = 0;
+                    sharedComponentIndex < archetype->NumSharedComponents;
+                    ++sharedComponentIndex)
                 {
                     remap[sharedComponentValues[sharedComponentIndex]]++;
                 }
@@ -483,6 +509,7 @@ namespace Unity.Entities
                 var typeIndex = srcManagedComponents.m_SharedComponentType[srcIndex];
 
                 var hashCode = TypeManager.GetHashCode(srcData, typeIndex);
+                
                 var dstIndex = InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, srcData);
 
                 m_SharedComponentRefCount[dstIndex] += remap[srcIndex] - 1;
@@ -494,11 +521,27 @@ namespace Unity.Entities
             return remap;
         }
 
+        public void MoveManagedObjectArrays(NativeArray<int> srcIndices, NativeArray<int> dstIndices, ManagedComponentStore srcManagedComponentStore)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (srcIndices.Length != dstIndices.Length)
+                throw new ArgumentException($"The amount of source and destination indices when moving managed arrays should match! {srcIndices.Length} != {dstIndices.Length}");
+#endif
+
+            for (int i = 0; i < srcIndices.Length; ++i)
+            {
+                int src = srcIndices[i];
+                int dst = dstIndices[i];
+                m_ManagedArrays[dst] = srcManagedComponentStore.m_ManagedArrays[src];
+                srcManagedComponentStore.m_ManagedArrays[src] = new ManagedArrayStorage();
+            }
+        }
+
         public void PrepareForDeserialize()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (!IsEmpty())
-               throw new System.ArgumentException("SharedComponentManager must be empty when deserializing a scene");
+                throw new System.ArgumentException("SharedComponentManager must be empty when deserializing a scene");
 #endif
 
             m_HashLookup.Clear();
@@ -510,28 +553,29 @@ namespace Unity.Entities
 
             m_FreeListIndex = -1;
         }
-        
-                internal void DeallocateManagedArrayStorage(int index)
+
+        internal void DeallocateManagedArrayStorage(int index)
         {
+            Assert.IsTrue(m_ManagedArrays.Length > index);
             Assert.IsTrue(m_ManagedArrays[index].ManagedArray != null);
-            m_ManagedArrays[index].ManagedArray = null;
+            m_ManagedArrays[index] = new ManagedArrayStorage();
         }
 
-        internal int AllocateManagedArrayStorage(int length)
+        internal void AllocateManagedArrayStorage(int index, int length)
         {
-            for (var i = 0; i < m_ManagedArrays.Length; i++)
-                if (m_ManagedArrays[i].ManagedArray == null)
-                {
-                    m_ManagedArrays[i].ManagedArray = new object[length];
-                    return i;
-                }
+            var managedArray = new object[length];
+            var managedArrayStorage = new ManagedArrayStorage {ManagedArray = managedArray};
+            if (m_ManagedArrays.Length <= index)
+            {
+                Array.Resize(ref m_ManagedArrays, index+1);
+            }
+            
+            m_ManagedArrays[index] = managedArrayStorage;
+        }
 
-            var oldLength = m_ManagedArrays.Length;
-            Array.Resize(ref m_ManagedArrays, m_ManagedArrays.Length * 2);
-
-            m_ManagedArrays[oldLength].ManagedArray = new object[length];
-
-            return oldLength;
+        internal void ReserveManagedArrayStorage(int count)
+        {
+            Array.Resize(ref m_ManagedArrays, m_ManagedArrays.Length + count);
         }
 
         public object GetManagedObject(Chunk* chunk, ComponentType type, int index)
@@ -548,6 +592,12 @@ namespace Unity.Entities
             return m_ManagedArrays[chunk->ManagedArrayIndex].ManagedArray[index + managedStart];
         }
 
+        internal object GetManagedObject(Archetype* archetype, int managedArrayIndex, int chunkCapacity, int type, int index)
+        {
+            var managedStart = archetype->ManagedArrayOffset[type] * chunkCapacity;
+            return m_ManagedArrays[managedArrayIndex].ManagedArray[index + managedStart];
+        }
+        
         public object[] GetManagedObjectRange(Chunk* chunk, int type, out int rangeStart, out int rangeLength)
         {
             rangeStart = chunk->Archetype->ManagedArrayOffset[type] * chunk->Capacity;
@@ -560,6 +610,12 @@ namespace Unity.Entities
             var managedStart = chunk->Archetype->ManagedArrayOffset[type] * chunk->Capacity;
             m_ManagedArrays[chunk->ManagedArrayIndex].ManagedArray[index + managedStart] = val;
         }
+        
+        public void SetManagedObject(Archetype* archetype, int managedArrayIndex, int chunkCapacity, int type, int index, object val)
+        {
+            var managedStart = archetype->ManagedArrayOffset[type] * chunkCapacity;
+            m_ManagedArrays[managedArrayIndex].ManagedArray[index + managedStart] = val;
+        }
 
         public void SetManagedObject(Chunk* chunk, ComponentType type, int index, object val)
         {
@@ -568,13 +624,11 @@ namespace Unity.Entities
                 throw new InvalidOperationException("Trying to set managed object for non existing component");
             SetManagedObject(chunk, typeOfs, index, val);
         }
-        
-        public void CopyManagedObjects(Chunk* srcChunk, int srcStartIndex,
-            Chunk* dstChunk, int dstStartIndex, int count)
-        {
-            var srcArch = srcChunk->Archetype;
-            var dstArch = dstChunk->Archetype;
 
+        public static void CopyManagedObjects(
+            ManagedComponentStore srcStore, Archetype* srcArch, int srcManagedArrayIndex, int srcChunkCapacity, int srcStartIndex,
+            ManagedComponentStore dstStore, Archetype* dstArch, int dstManagedArrayIndex, int dstChunkCapacity, int dstStartIndex, int count)
+        {
             var srcI = 0;
             var dstI = 0;
             while (srcI < srcArch->TypesCount && dstI < dstArch->TypesCount)
@@ -591,8 +645,8 @@ namespace Unity.Entities
                     if (srcArch->ManagedArrayOffset[srcI] >= 0)
                         for (var i = 0; i < count; ++i)
                         {
-                            var obj = GetManagedObject(srcChunk, srcI, srcStartIndex + i);
-                            SetManagedObject(dstChunk, dstI, dstStartIndex + i, obj);
+                            var obj = srcStore.GetManagedObject(srcArch, srcManagedArrayIndex, srcChunkCapacity, srcI, srcStartIndex + i);
+                            dstStore.SetManagedObject(dstArch, dstManagedArrayIndex, dstChunkCapacity, dstI, dstStartIndex + i, obj);
                         }
 
                     ++srcI;
@@ -600,18 +654,116 @@ namespace Unity.Entities
                 }
         }
 
-        public void ClearManagedObjects(Chunk* chunk, int index, int count)
+        public void ClearManagedObjects(Archetype* archetype, int managedArrayIndex, int chunkCapacity, int index, int count)
         {
-            var arch = chunk->Archetype;
-
-            for (var type = 0; type < arch->TypesCount; ++type)
+            for (var type = 0; type < archetype->TypesCount; ++type)
             {
-                if (arch->ManagedArrayOffset[type] < 0)
+                if (archetype->ManagedArrayOffset[type] < 0)
                     continue;
 
                 for (var i = 0; i < count; ++i)
-                    SetManagedObject(chunk, type, index + i, null);
+                    SetManagedObject(archetype, managedArrayIndex, chunkCapacity, type, index + i, null);
             }
+        }
+        
+        public void ClearManagedObjects(Chunk* chunk, int index, int count)
+        {
+            var archetype = chunk->Archetype;
+            var managedArrayIndex = chunk->ManagedArrayIndex;
+            var chunkCapacity = chunk->Capacity;
+            
+            ClearManagedObjects(archetype,managedArrayIndex,chunkCapacity,index,count);
+        }
+
+        public void Playback(ref ManagedDeferredCommands managedDeferredCommands)
+        {
+            fixed (UnsafeAppendBuffer* buffer = &managedDeferredCommands.CommandBuffer)
+            {
+                var reader = buffer->AsReader();
+                while (!reader.EndOfBuffer)
+                {
+                    var cmd = reader.ReadNext<int>();
+                    switch ((ManagedDeferredCommands.Command) cmd)
+                    {
+                        case (ManagedDeferredCommands.Command.IncrementSharedComponentVersion):
+                        {
+                            var sharedIndex = reader.ReadNext<int>();
+                            IncrementSharedComponentVersion(sharedIndex);
+                        }
+                            break;
+
+                        case (ManagedDeferredCommands.Command.CopyManagedObjects):
+                        {
+                            var srcArchetype = (Archetype*) reader.ReadNext<IntPtr>();
+                            var srcManagedArrayIndex = reader.ReadNext<int>();
+                            var srcChunkCapacity = reader.ReadNext<int>();
+                            var srcStartIndex = reader.ReadNext<int>();
+                            var dstArchetype = (Archetype*) reader.ReadNext<IntPtr>();
+                            var dstManagedArrayIndex = reader.ReadNext<int>();
+                            var dstChunkCapacity = reader.ReadNext<int>();
+                            var dstStartIndex = reader.ReadNext<int>();
+                            var count = reader.ReadNext<int>();
+
+                            CopyManagedObjects(this, srcArchetype, srcManagedArrayIndex, srcChunkCapacity, srcStartIndex,
+                                this, dstArchetype, dstManagedArrayIndex, dstChunkCapacity, dstStartIndex, count);
+                        }
+                            break;
+
+                        case (ManagedDeferredCommands.Command.ClearManagedObjects):
+                        {
+                            var archetype = (Archetype*) reader.ReadNext<IntPtr>();
+                            var managedArrayIndex = reader.ReadNext<int>();
+                            var chunkCapacity = reader.ReadNext<int>();
+                            var index = reader.ReadNext<int>();
+                            var count = reader.ReadNext<int>();
+
+                            ClearManagedObjects(archetype, managedArrayIndex, chunkCapacity, index, count);
+                        }
+                            break;
+
+                        case (ManagedDeferredCommands.Command.AddReference):
+                        {
+                            var index = reader.ReadNext<int>();
+                            var numRefs = reader.ReadNext<int>();
+                            AddReference(index,numRefs);
+                        }
+                            break;
+
+                        case (ManagedDeferredCommands.Command.RemoveReference):
+                        {
+                            var index = reader.ReadNext<int>();
+                            var numRefs = reader.ReadNext<int>();
+                            RemoveReference(index,numRefs);
+                        }
+                            break;
+
+                        case (ManagedDeferredCommands.Command.DeallocateManagedArrayStorage):
+                        {
+                            var index = reader.ReadNext<int>();
+                            DeallocateManagedArrayStorage(index);
+                        }
+                            break;
+                        
+                        case (ManagedDeferredCommands.Command.AllocateManagedArrayStorage):
+                        {
+                            var index = reader.ReadNext<int>();
+                            var length = reader.ReadNext<int>();
+                            AllocateManagedArrayStorage(index, length);
+                        }
+                            break;
+
+                        case (ManagedDeferredCommands.Command.ReserveManagedArrayStorage):
+                        {
+                            var count = reader.ReadNext<int>();
+                            ReserveManagedArrayStorage(count);
+                        }
+                            break;
+
+                    }
+                }
+            }
+
+            managedDeferredCommands.Reset();
         }
     }
 }

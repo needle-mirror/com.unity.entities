@@ -348,7 +348,7 @@ namespace Unity.Entities
         {
             CheckGetOrCreateSystem();
 
-            return (T) GetExistingSystemInternal(typeof(T));
+            return (T)GetExistingSystemInternal(typeof(T));
         }
 
         public ComponentSystemBase GetExistingSystem(Type type)

@@ -32,8 +32,8 @@ namespace Unity.Entities
 var basicCombinations = GenCombinations();
 foreach(var combination in basicCombinations) {
     foreach (var withEntity in new[] { false, true }) {
-		if(combination[0] == Category.B)
-			continue;
+        if(combination[0] == Category.B)
+            continue;
         var comboString = GetComboString(withEntity, combination);
         var name = GetName(withEntity, comboString);
 #>
@@ -132,17 +132,17 @@ foreach(var combination in combinations) {
 
         var interfaceName = GetName(withEntity, comboString);
 
-		for (int i = 0; i != combination.Length; i++)
-		{
+        for (int i = 0; i != combination.Length; i++)
+        {
 
-		    typeLookupCache.AppendLine($@"				var typeLookupCache{i} = 0;");
+            typeLookupCache.AppendLine($@"				var typeLookupCache{i} = 0;");
 
-		    untypedGenericParams.Append(",");
+            untypedGenericParams.Append(",");
 
-		    genericParams.Append($"T{i}");
-		    if (i != combination.Length - 1)
-		        genericParams.Append(", ");
-		}
+            genericParams.Append($"T{i}");
+            if (i != combination.Length - 1)
+                genericParams.Append(", ");
+        }
 #>
 #if !UNITY_DOTSPLAYER
         internal static unsafe JobHandle ScheduleInternal_<#=comboString#><T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
@@ -184,11 +184,11 @@ foreach(var combination in combinations) {
         internal struct JobStruct_Process_<#=comboString#><T, <#=genericParams#>>
             where T : struct, <#=interfaceName#><<#=genericParams#>>
 <#
-	foreach(var constraint in genericConstraints){
+    foreach(var constraint in genericConstraints){
 #>
-			<#=constraint#>
+            <#=constraint#>
 <#
-	}
+    }
 #>
         {
             public ProcessIterationData Iterator;
@@ -235,10 +235,15 @@ foreach(var combination in combinations) {
 #endif
 <#=ptrs#>
 
-                    for (var i = 0; i != count; i++)
-                    {
-                        jobData.Data.Execute(<#=executeCallParams#>);
+                        for (var i = 0; i != count; i++)
+                        {
+                            jobData.Data.Execute(<#=executeCallParams#>);
+                        }
+<# if(combination[0] == Category.B) {#>
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     }
+#endif
+<# } #>
                 }
             }
         }
@@ -249,100 +254,6 @@ foreach(var combination in combinations) {
 }
 #>
 
-#if UNITY_DOTSPLAYER
-<#
-foreach(var combination in combinations) {
-    foreach (var withEntity in new[] { false, true }) {
-        var comboString         = GetComboString(withEntity, combination);
-		var isBuffer = comboString.Contains("B");
-		if(isBuffer)
-			continue;
-
-        var interfaceName       = GetName(withEntity, comboString);
-        var addFunctionName     = withEntity ? "E" : "";
-        var genericTypes        = "<" + Series("T{0}", combination.Length, ", ") + ">";
-        var genericTypesWithJob = "<TJob, " + Series("T{0}", combination.Length, ", ") + ">";
-        for(int bits=0; bits < (1 << combination.Length); ++bits) {
-            var accessID = "";
-            bool[] readOnly = new bool[combination.Length];
-            for(int i=0; i<combination.Length; ++i) {
-                if ((bits & (1<<i)) != 0) {
-                    accessID += isBuffer ? "wB" : "wD";
-                    readOnly[i] = false;
-                }
-                else {
-                    accessID += isBuffer ? "rB" : "rD";
-                    readOnly[i] = true;
-                }
-            }
-
-        // See "Code-Gen of Schedule()" IJobForEach.cs for an explanation of the code-gen steps and how this works.
-#>
-        internal unsafe static JobHandle Schedule_Query_<#=(addFunctionName + accessID)#><#=genericTypesWithJob#>(this TJob job, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where TJob : struct, <#=interfaceName#><#=genericTypes#>
-<#
-	var genericConstraints = GenericConstraints(combination);
-	foreach(var constraint in genericConstraints){
-#>
-			<#=constraint#>
-<#	} #>
-        {
-<#          if (withEntity) {#>
-            ArchetypeChunkEntityType entityType = World.Active.EntityManager.GetArchetypeChunkEntityType();
-<#          }#>
-<#			if(!isBuffer){ #>
-<#          for(var i=0; i<combination.Length; ++i) {#>
-            ArchetypeChunkComponentType<T<#=i#>> chunkComponentType<#=i#> = World.Active.EntityManager.GetArchetypeChunkComponentType<T<#=i#>>(<#=(readOnly[i] ? "true" : "false")#>);
-<#          }#>
-<#			}else{ #>
-<#          for(var i=0; i<combination.Length; ++i) {#>
-            ArchetypeChunkBufferType<T<#=i#>> chunkBufferType<#=i#> = World.Active.EntityManager.GetArchetypeChunkBufferType<T<#=i#>>(<#=(readOnly[i] ? "true" : "false")#>);
-<#          }#>
-<#			} #>
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                foreach (var chunk in chunks)
-                {
-<#                  if (withEntity) {#>
-                    var entityArray = (Entity*)chunk.GetNativeArray(entityType).GetUnsafeReadOnlyPtr();
-<#                  }#>
-<#					if (!isBuffer){ #>
-<#                  for(var i=0; i<combination.Length; ++i) {#>
-                    var array<#=i#> = chunk.GetNativeArray(chunkComponentType<#=i#>).<#=(readOnly[i] ? "GetUnsafeReadOnlyPtr()" : "GetUnsafePtr()")#>;
-<#                  }#>
-<#					} else { #>
-<#                  for(var i=0; i<combination.Length; ++i) {#>
-                    var array<#=i#> = chunk.GetBufferAccessor(chunkBufferType<#=i#>);
-<#                  }#>
-<#					} #>
-                    for (int i = 0, count = chunk.Count; i < count; ++i)
-                        job.Execute(
-<#                      if (withEntity) { #>
-                            entityArray[i], entityArray[i].Index,
-<#                      }#>
-<#						if(!isBuffer) { #>
-<#                      for(int i=0; i<combination.Length; ++i) {#>
-                            ref UnsafeUtilityEx.ArrayElementAsRef<T<#=i#>>(array<#=i#>, i)<#=(i < combination.Length - 1 ? "," : "")#>
-<#                      }#>
-<#						} else { #>
-<#                      for(int i=0; i<combination.Length; ++i) {#>
-                            array<#=i#>[i]<#=(i < combination.Length - 1 ? "," : "")#>
-<#                      }#>
-<#						} #>
-                        );
-                }
-            }
-            DoDeallocateOnJobCompletion(job);
-            return new JobHandle();
-        }
-
-<#
-        }
-    }
-}
-#>
-#endif
     }
 }
 
@@ -350,7 +261,7 @@ foreach(var combination in combinations) {
 // keep these alphabetical as a general rule
 enum Category
 {
-	B,  // IBufferElementData
+    B,  // IBufferElementData
     C   // IComponentData
 }
 
@@ -358,29 +269,29 @@ List<Category[]> GenCombinations()
 {
     var combinations = new List<Category[]>();
 
-	var categories = Enum.GetValues(typeof(Category));
+    var categories = Enum.GetValues(typeof(Category));
 
-	for(int combinationLength = 1; combinationLength <= 6; ++combinationLength)
-	{
-		for(int numBs = 0; numBs <= combinationLength; ++numBs)
-		{
-			var array = new Category[combinationLength];
+    for(int combinationLength = 1; combinationLength <= 6; ++combinationLength)
+    {
+        for(int numBs = 0; numBs <= combinationLength; ++numBs)
+        {
+            var array = new Category[combinationLength];
 
-			for(int i = 0; i < numBs; ++i)
-			{
-				array[i] = Category.B;
-			}
+            for(int i = 0; i < numBs; ++i)
+            {
+                array[i] = Category.B;
+            }
 
-			var numCs = combinationLength - numBs;
-			for(int i = 0; i < numCs; ++i)
-			{
-				array[numBs + i] = Category.C;
-			}
+            var numCs = combinationLength - numBs;
+            for(int i = 0; i < numCs; ++i)
+            {
+                array[numBs + i] = Category.C;
+            }
 
-			combinations.Add(array);
-		}
+            combinations.Add(array);
+        }
 
-	}
+    }
 
     return combinations;
 }
@@ -400,12 +311,12 @@ string GetName(bool withEntity, string comboString)
 {
     var name = new StringBuilder();
 
-	name.Append("IJobForEach");
+    name.Append("IJobForEach");
     if (withEntity)
         name.Append("WithEntity");
 
-	name.Append("_");
-	name.Append(comboString);
+    name.Append("_");
+    name.Append(comboString);
 
     return name.ToString();
 }
@@ -440,11 +351,11 @@ string ExecuteParams(bool withEntity, Category[] combination)
         executeParams.Append("Entity entity, int index, ");
     }
     for(int i=0; i<combination.Length; ++i)
-	{
-		if(combination[i] == Category.C)
+    {
+        if(combination[i] == Category.C)
             executeParams.Append($"ref T{i} c{i}");
-		else if(combination[i] == Category.B)
-			executeParams.Append($"DynamicBuffer<T{i}> b{i}");
+        else if(combination[i] == Category.B)
+            executeParams.Append($"DynamicBuffer<T{i}> b{i}");
 
         if (i != combination.Length - 1)
             executeParams.Append(", ");
@@ -456,17 +367,17 @@ string ExecuteCallParams(bool withEntity, Category[] combination)
 {
     var callParams = new StringBuilder();
 
-	if (withEntity)
-	{
+    if (withEntity)
+    {
         callParams.Append($"ptrE[i], i + beginIndex, ");
     }
 
     for(int i=0; i<combination.Length; ++i)
-	{
-		if(combination[i] == Category.C)
-            	callParams.Append($"ref UnsafeUtilityEx.ArrayElementAsRef<T{i}>(ptr{i}, i)");
-		else if(combination[i] == Category.B)
-			callParams.Append($"buffer{i}[i]");
+    {
+        if(combination[i] == Category.C)
+                callParams.Append($"ref UnsafeUtilityEx.ArrayElementAsRef<T{i}>(ptr{i}, i)");
+        else if(combination[i] == Category.B)
+            callParams.Append($"buffer{i}[i]");
 
         if (i != combination.Length - 1)
             callParams.Append(", ");
@@ -478,93 +389,96 @@ string DataAccessors(bool withEntity, Category[] combination)
 {
     var accessors = new StringBuilder();
 
-	if (withEntity)
+    if (withEntity)
     {
-		accessors.AppendLine
-		(
-$"		          var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));"
-		);
+        accessors.AppendLine
+        (
+$"					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));"
+        );
     }
 
-	for (int i = 0; i != combination.Length; i++)
-	{
-		accessors.AppendLine($"					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex{i}, ref typeLookupCache{i});"					);
-	}
+    for (int i = 0; i != combination.Length; i++)
+    {
+        accessors.AppendLine($"					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex{i}, ref typeLookupCache{i});"					);
+    }
 
-	bool insertSafetyChecks = (combination[0] == Category.B);
-	if(insertSafetyChecks)
-		accessors.AppendLine($@"#if ENABLE_UNITY_COLLECTIONS_CHECKS");
+    bool insertSafetyChecks = (combination[0] == Category.B);
+    if(insertSafetyChecks)
+        accessors.AppendLine($@"#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
+                    {{");
 
-	int numBs = 0;
-	for(;numBs < combination.Length; ++numBs)
-	{
-		if(combination[numBs] != Category.B)
-			break;
+    int numBs = 0;
+    for(;numBs < combination.Length; ++numBs)
+    {
+        if(combination[numBs] != Category.B)
+            break;
 
-		accessors.AppendLine($@"					var buffer{numBs} = ComponentChunkIterator.GetChunkBufferAccessor<T{numBs}>(chunk.m_Chunk, jobData.Iterator.IsReadOnly{numBs} == 0, typeLookupCache{numBs}, jobData.Iterator.GlobalSystemVersion, jobData.Iterator.m_Safety{numBs}, jobData.Iterator.m_BufferSafety{numBs});");
-	}
+        accessors.AppendLine($@"						var safety{numBs} = jobData.Iterator.IsReadOnly{numBs} != 0 ? {numBs * 2} : jobData.Iterator.m_SafetyReadOnlyCount + {numBs * 2};");
+        accessors.AppendLine($@"						var buffer{numBs} = ComponentChunkIterator.GetChunkBufferAccessor<T{numBs}>(chunk.m_Chunk, jobData.Iterator.IsReadOnly{numBs} == 0, typeLookupCache{numBs}, jobData.Iterator.GlobalSystemVersion, safety[safety{numBs}], safety[safety{numBs} + 1]);");
+    }
 
-	if(insertSafetyChecks)
-		accessors.AppendLine("#else");
+    if(insertSafetyChecks)
+        accessors.AppendLine("#else");
 
-	for(int i = 0; i < numBs; ++i)
-		accessors.AppendLine($@"					var buffer{i} = ComponentChunkIterator.GetChunkBufferAccessor<T{i}>(chunk.m_Chunk, jobData.Iterator.IsReadOnly{i} == 0, typeLookupCache{i}, jobData.Iterator.GlobalSystemVersion);");
+    for(int i = 0; i < numBs; ++i)
+        accessors.AppendLine($@"						var buffer{i} = ComponentChunkIterator.GetChunkBufferAccessor<T{i}>(chunk.m_Chunk, jobData.Iterator.IsReadOnly{i} == 0, typeLookupCache{i}, jobData.Iterator.GlobalSystemVersion);");
 
-	if(insertSafetyChecks)
-		accessors.AppendLine("#endif");
+    if(insertSafetyChecks)
+        accessors.AppendLine("#endif");
 
-	int numCs = combination.Length - numBs;
-	for(int i = numBs; i < combination.Length; ++i)
-	{
-		accessors.AppendLine($@"					var ptr{i} = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly{i} == 0, typeLookupCache{i}, jobData.Iterator.GlobalSystemVersion));");
-	}
+    int numCs = combination.Length - numBs;
+    for(int i = numBs; i < combination.Length; ++i)
+    {
+        accessors.AppendLine($@"						var ptr{i} = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly{i} == 0, typeLookupCache{i}, jobData.Iterator.GlobalSystemVersion));");
+    }
 
-	return accessors.ToString();
+    return accessors.ToString();
 }
 
 string Interface( Category[] combination, bool withEntity, string comboString )
 {
-	var name = GetName(withEntity, comboString);
-	var interfaceDec = new StringBuilder();
+    var name = GetName(withEntity, comboString);
+    var interfaceDec = new StringBuilder();
 
-	interfaceDec.Append(
+    interfaceDec.Append(
 $@"#if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_{comboString}<{GetUntypedGenericParams(combination)}>))]
-	#endif
-	public interface {name}<{GenericParams(combination)}> : JobForEachExtensions.IBaseJobForEach_{comboString}
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_{comboString}<{GetUntypedGenericParams(combination)}>))]
+    #endif
+    public interface {name}<{GenericParams(combination)}> : JobForEachExtensions.IBaseJobForEach_{comboString}
 ");
 
-	var genericConstraints = GenericConstraints(combination);
-	foreach(var constraint in genericConstraints)
-	{
-		interfaceDec.AppendLine("		" + constraint);
-	}
+    var genericConstraints = GenericConstraints(combination);
+    foreach(var constraint in genericConstraints)
+    {
+        interfaceDec.AppendLine("		" + constraint);
+    }
 
-	interfaceDec.Append($@"	{{
+    interfaceDec.Append($@"	{{
         void Execute({ExecuteParams(withEntity, combination)});
     }}");
-	return interfaceDec.ToString();
+    return interfaceDec.ToString();
 }
 
 string BasicInterface( Category[] combination, bool withEntity, string comboString )
 {
-	var name = withEntity ? "IJobForEachWithEntity" : "IJobForEach";
-	var interfaceDec = new StringBuilder();
+    var name = withEntity ? "IJobForEachWithEntity" : "IJobForEach";
+    var interfaceDec = new StringBuilder();
 
-	interfaceDec.AppendLine(
-	$@"#if !UNITY_ZEROPLAYER
-	[JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_{comboString}<{GetUntypedGenericParams(combination)}>))]
-	#endif
-	public interface {name}<{GenericParams(combination)}> : {name}_{comboString}<{GenericParams(combination)}>");
+    interfaceDec.AppendLine(
+    $@"#if !UNITY_ZEROPLAYER
+    [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_{comboString}<{GetUntypedGenericParams(combination)}>))]
+    #endif
+    public interface {name}<{GenericParams(combination)}> : {name}_{comboString}<{GenericParams(combination)}>");
 
-	var genericConstraints = GenericConstraints(combination);
-	foreach(var constraint in genericConstraints)
-	{
-		interfaceDec.AppendLine("		" + constraint);
-	}
+    var genericConstraints = GenericConstraints(combination);
+    foreach(var constraint in genericConstraints)
+    {
+        interfaceDec.AppendLine("		" + constraint);
+    }
 
-	interfaceDec.Append($@"	{{}}");
-	return interfaceDec.ToString();
+    interfaceDec.Append($@"	{{}}");
+    return interfaceDec.ToString();
 }
 
 static string Series(string formatString, int count, string separator) =>

@@ -5,6 +5,7 @@ using Unity.PerformanceTesting;
 
 namespace Unity.Entities.PerformanceTests
 {
+    [Category("Performance")]
     public sealed unsafe class ComponentJobSafetyManagerPerformanceTests : ECSTestsFixture
     {
         #if UNITY_2019_2_OR_NEWER

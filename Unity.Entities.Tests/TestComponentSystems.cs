@@ -15,7 +15,7 @@ namespace Unity.Entities.Tests
 
         protected override JobHandle OnUpdate(JobHandle inputDeps)
         {
-            NumChanged = ChangeGroup.CalculateLength();
+            NumChanged = ChangeGroup.CalculateEntityCount();
             return inputDeps;
         }
     }

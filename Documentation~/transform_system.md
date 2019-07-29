@@ -845,11 +845,11 @@ And a system which filters based on the WriteGroup of LocalToWorld:
 
     public class UserTransformSystem : JobComponentSystem
     {
-        private EntityQuery m_Group;
+        private EntityQuery m_Query;
 
         protected override void OnCreate()
         {
-            m_Group = GetEntityQuery(new EntityQueryDesc()
+            m_Query = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
                 {
@@ -874,11 +874,11 @@ And a system which filters based on the WriteGroup of LocalToWorld:
             var job = new UserTransform()
             {
             };
-            return job.ScheduleGroup(m_Group, inputDependencies);
+            return job.ScheduleGroup(m_Query, inputDependencies);
         }
     }
 
-m_Group in UserTransformSystem will only match the explicitly mentioned components.
+m_Query in UserTransformSystem will only match the explicitly mentioned components.
 
 For instance, the following with match and be included in the EntityQuery:
 
@@ -903,11 +903,11 @@ However, they may be explicitly supported by UserComponent systems by adding to 
 
     public class UserTransformExtensionSystem : JobComponentSystem
     {
-        private EntityQuery m_Group;
+        private EntityQuery m_Query;
 
         protected override void OnCreate()
         {
-            m_Group = GetEntityQuery(new EntityQueryDesc()
+            m_Query = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
                 {
@@ -938,7 +938,7 @@ However, they may be explicitly supported by UserComponent systems by adding to 
             var job = new UserTransform()
             {
             };
-            return job.ScheduleGroup(m_Group, inputDependencies);
+            return job.ScheduleGroup(m_Query, inputDependencies);
         }
     }
 
@@ -964,11 +964,11 @@ However, an explicit query can be created which can resolve the case and ensure 
 
     public class UserTransformComboSystem : JobComponentSystem
     {
-        private EntityQuery m_Group;
+        private EntityQuery m_Query;
 
         protected override void OnCreate()
         {
-            m_Group = GetEntityQuery(new EntityQueryDesc()
+            m_Query = GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
                 {
@@ -996,7 +996,7 @@ However, an explicit query can be created which can resolve the case and ensure 
             var job = new UserTransform()
             {
             };
-            return job.ScheduleGroup(m_Group, inputDependencies);
+            return job.ScheduleGroup(m_Query, inputDependencies);
         }
     }
 

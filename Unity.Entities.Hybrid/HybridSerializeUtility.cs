@@ -2,6 +2,7 @@
 using Unity.Collections;
 using UnityEditor;
 using UnityEngine;
+using Object = System.Object;
 
 namespace Unity.Entities.Serialization
 {
@@ -47,26 +48,38 @@ namespace Unity.Entities.Serialization
 
             var go = new GameObject("SharedComponents");
             go.SetActive(false);
-
-            for (int i = 0; i != sharedComponentIndices.Length; i++)
+            try
             {
-                var sharedData = manager.ManagedComponentStore.GetSharedComponentDataNonDefaultBoxed(sharedComponentIndices[i]);
 
-                var proxyType = TypeUtility.GetProxyForDataType(sharedData.GetType());
-                if (proxyType == null)
-                    throw new ArgumentException($"{sharedData.GetType()} has no valid proxy shared component data. Please create one..");
-                if (Attribute.IsDefined(proxyType, typeof(DisallowMultipleComponent), true))
-                    throw new ArgumentException($"{proxyType} is marked with {typeof(DisallowMultipleComponent)}, but current implementation of {nameof(SerializeSharedComponents)} serializes all shared components on a single GameObject.");
+                for (int i = 0; i != sharedComponentIndices.Length; i++)
+                {
+                    var sharedData =
+                        manager.ManagedComponentStore.GetSharedComponentDataNonDefaultBoxed(sharedComponentIndices[i]);
 
-                var com = go.AddComponent(proxyType) as ComponentDataProxyBase;
-                #if UNITY_EDITOR
-                if (!EditorUtility.IsPersistent(MonoScript.FromMonoBehaviour(com)))
-                    throw new ArgumentException($"{proxyType.Name} must be defined in a file named {proxyType.Name}.cs");
-                #endif
-                com.UpdateSerializedData(manager, sharedComponentIndices[i]);
+                    var proxyType = TypeUtility.GetProxyForDataType(sharedData.GetType());
+                    if (proxyType == null)
+                        throw new ArgumentException(
+                            $"{sharedData.GetType()} has no valid proxy shared component data. Please create one..");
+                    if (Attribute.IsDefined(proxyType, typeof(DisallowMultipleComponent), true))
+                        throw new ArgumentException(
+                            $"{proxyType} is marked with {typeof(DisallowMultipleComponent)}, but current implementation of {nameof(SerializeSharedComponents)} serializes all shared components on a single GameObject.");
+
+                    var com = go.AddComponent(proxyType) as ComponentDataProxyBase;
+#if UNITY_EDITOR
+                    if (!EditorUtility.IsPersistent(MonoScript.FromMonoBehaviour(com)))
+                        throw new ArgumentException(
+                            $"{proxyType.Name} must be defined in a file named {proxyType.Name}.cs");
+#endif
+                    com.UpdateSerializedData(manager, sharedComponentIndices[i]);
+                }
+
+            }
+            catch
+            {
+                GameObject.DestroyImmediate(go);
+                throw;
             }
 
-            
             return go;
         }
 
@@ -97,7 +110,7 @@ namespace Unity.Entities.Serialization
                     }
                     else
                     {
-                        throw new ArgumentException($"While loading {debugSceneName}. Shared Component {i} was inserted index 0 meaning default value. It should not have been serialized in the first place. \n{newComponent}");
+                        throw new ArgumentException($"While loading {debugSceneName}. Shared Component '{newComponent}' ({i}) was inserted with its default value, but default values should not be serialized at all. Are you missing [System.Serializable] on {newComponent.GetType()}? Are all fields being serialized?.");
                     }
                 }
 #endif

@@ -69,6 +69,7 @@ namespace Unity.Entities
         }
 #endif
 
+       
         /// <summary>
         /// Reports whether the specified <see cref="Entity"/> instance still refers to a valid entity and that it has a
         /// component of type T.
@@ -84,8 +85,24 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
-            //@TODO: out of bounds index checks...
+            return m_EntityComponentStore->HasComponent(entity, m_TypeIndex);
+        }
 
+        /// <summary>
+        /// Reports whether the specified <see cref="Entity"/> instance still refers to a valid entity and that it has a
+        /// component of type T.
+        /// </summary>
+        /// <param name="entity">The entity.</param>
+        /// <returns>True if the entity has a component of type T, and false if it does not. Also returns false if 
+        /// the Entity instance refers to an entity that has been destroyed.</returns>
+        /// <remarks>To report if the provided entity has a component of type T, this function confirms
+        /// whether the <see cref="EntityArchetype"/> of the provided entity includes components of type T.
+        /// </remarks>
+        public bool HasComponent(Entity entity)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+#endif
             return m_EntityComponentStore->HasComponent(entity, m_TypeIndex);
         }
 

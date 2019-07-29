@@ -39,12 +39,12 @@ namespace Unity.Entities.Tests
             var group1_filter_20 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
             group1_filter_20.SetFilter(new SharedData1(20));
 
-            Assert.AreEqual(0, group1.CalculateLength());
-            Assert.AreEqual(0, group2.CalculateLength());
-            Assert.AreEqual(0, group12.CalculateLength());
+            Assert.AreEqual(0, group1.CalculateEntityCount());
+            Assert.AreEqual(0, group2.CalculateEntityCount());
+            Assert.AreEqual(0, group12.CalculateEntityCount());
 
-            Assert.AreEqual(0, group1_filter_0.CalculateLength());
-            Assert.AreEqual(0, group1_filter_20.CalculateLength());
+            Assert.AreEqual(0, group1_filter_0.CalculateEntityCount());
+            Assert.AreEqual(0, group1_filter_20.CalculateEntityCount());
 
             Entity e1 = m_Manager.CreateEntity(archetype);
             m_Manager.SetComponentData(e1, new EcsTestData(117));
@@ -53,8 +53,8 @@ namespace Unity.Entities.Tests
 
             var group1_filter0_data = group1_filter_0.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 
-            Assert.AreEqual(2, group1_filter_0.CalculateLength());
-            Assert.AreEqual(0, group1_filter_20.CalculateLength());
+            Assert.AreEqual(2, group1_filter_0.CalculateEntityCount());
+            Assert.AreEqual(0, group1_filter_20.CalculateEntityCount());
             Assert.AreEqual(117, group1_filter0_data[0].value);
             Assert.AreEqual(243, group1_filter0_data[1].value);
 
@@ -64,8 +64,8 @@ namespace Unity.Entities.Tests
             group1_filter0_data = group1_filter_0.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             var group1_filter20_data = group1_filter_20.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 
-            Assert.AreEqual(1, group1_filter_0.CalculateLength());
-            Assert.AreEqual(1, group1_filter_20.CalculateLength());
+            Assert.AreEqual(1, group1_filter_0.CalculateEntityCount());
+            Assert.AreEqual(1, group1_filter_20.CalculateEntityCount());
             Assert.AreEqual(117, group1_filter20_data[0].value);
             Assert.AreEqual(243, group1_filter0_data[0].value);
 
@@ -74,8 +74,8 @@ namespace Unity.Entities.Tests
             group1_filter20_data.Dispose();
             group1_filter20_data = group1_filter_20.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 
-            Assert.AreEqual(0, group1_filter_0.CalculateLength());
-            Assert.AreEqual(2, group1_filter_20.CalculateLength());
+            Assert.AreEqual(0, group1_filter_0.CalculateEntityCount());
+            Assert.AreEqual(2, group1_filter_20.CalculateEntityCount());
             Assert.AreEqual(117, group1_filter20_data[0].value);
             Assert.AreEqual(243, group1_filter20_data[1].value);
 
@@ -221,13 +221,13 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype0);
             var entity1 = m_Manager.CreateEntity(archetype1);
 
-            Assert.AreEqual(2, group0.CalculateLength());
-            Assert.AreEqual(1, group1.CalculateLength());
+            Assert.AreEqual(2, group0.CalculateEntityCount());
+            Assert.AreEqual(1, group1.CalculateEntityCount());
 
             m_Manager.RemoveComponent<SharedData2>(entity1);
 
-            Assert.AreEqual(2, group0.CalculateLength());
-            Assert.AreEqual(0, group1.CalculateLength());
+            Assert.AreEqual(2, group0.CalculateEntityCount());
+            Assert.AreEqual(0, group1.CalculateEntityCount());
 
             group0.Dispose();
             group1.Dispose();
