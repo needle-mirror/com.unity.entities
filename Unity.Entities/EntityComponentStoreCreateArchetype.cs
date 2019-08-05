@@ -26,15 +26,13 @@ namespace Unity.Entities
 
                 var hasCleanup = false;
                 var removedTypes = 0;
-                var prefabTypeIndex = TypeManager.GetTypeIndex<Prefab>();
-                var cleanupTypeIndex = TypeManager.GetTypeIndex<CleanupEntity>();
                 for (var t = 0; t < srcArchetype->TypesCount; ++t)
                 {
                     var type = srcArchetype->Types[t];
 
-                    hasCleanup |= type.TypeIndex == cleanupTypeIndex;
+                    hasCleanup |= type.TypeIndex == m_CleanupEntityType;
 
-                    var skip = type.IsSystemStateComponent || type.TypeIndex == prefabTypeIndex;
+                    var skip = type.IsSystemStateComponent || type.TypeIndex == m_PrefabType;
                     if (skip)
                         ++removedTypes;
                     else
@@ -64,7 +62,7 @@ namespace Unity.Entities
             // Setup System state cleanup archetype
             if (srcArchetype->SystemStateCleanupNeeded)
             {
-                var cleanupEntityType = new ComponentTypeInArchetype(ComponentType.ReadWrite<CleanupEntity>());
+                var cleanupEntityType = new ComponentTypeInArchetype(ComponentType.FromTypeIndex(m_CleanupEntityType));
                 bool cleanupAdded = false;
 
                 types[0] = inTypesSorted[0];
@@ -101,7 +99,7 @@ namespace Unity.Entities
             // Setup meta chunk archetype
             if (count > 1)
             {
-                types[0] = new ComponentTypeInArchetype(typeof(Entity));
+                types[0] = new ComponentTypeInArchetype(m_EntityComponentType);
                 int metaArchetypeTypeCount = 1;
                 for (int i = 1; i < count; ++i)
                 {
@@ -111,7 +109,7 @@ namespace Unity.Entities
                     {
                         typeToInsert = new ComponentType
                         {
-                            TypeIndex = TypeManager.ChunkComponentToNormalTypeIndex(t.TypeIndex)
+                            TypeIndex = ChunkComponentToNormalTypeIndex(t.TypeIndex)
                         };
                         SortingUtilities.InsertSorted(types, metaArchetypeTypeCount++, typeToInsert);
                     }
@@ -119,8 +117,7 @@ namespace Unity.Entities
 
                 if (metaArchetypeTypeCount > 1)
                 {
-                    SortingUtilities.InsertSorted(types, metaArchetypeTypeCount++,
-                        new ComponentType(typeof(ChunkHeader)));
+                    SortingUtilities.InsertSorted(types, metaArchetypeTypeCount++, m_ChunkHeaderComponentType);
                     srcArchetype->MetaChunkArchetype = GetOrCreateArchetype(types, metaArchetypeTypeCount);
                 }
             }

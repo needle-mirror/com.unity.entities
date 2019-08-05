@@ -409,7 +409,7 @@ namespace Unity.Entities
                 return false;
 
             var componentInfo = TypeManager.GetTypeInfo(typeIndex);
-            var offsets = componentInfo.EntityOffsets;
+            var offsets = TypeManager.GetEntityOffsets(typeIndex);
             var offsetCount = componentInfo.EntityOffsetCount;
 
             for (int i = 0; i < offsetCount; i++)
@@ -543,7 +543,7 @@ namespace Unity.Entities
             var sizeNeeded = Align(sizeof(EntitySharedComponentCommand), 8);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (TypeManager.GetTypeInfo<T>().EntityOffsets != null)
+            if (TypeManager.GetTypeInfo<T>().HasEntities)
                 throw new System.ArgumentException("EntityCommandBuffer.AddSharedComponentData does not support shared components with Entity fields.");
 #endif
 
@@ -593,7 +593,7 @@ namespace Unity.Entities
             var sizeNeeded = Align(sizeof(EntityQuerySharedComponentCommand), 8);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (TypeManager.GetTypeInfo<T>().EntityOffsets != null)
+            if (TypeManager.GetTypeInfo<T>().HasEntities)
                 throw new System.ArgumentException("EntityCommandBuffer.AddSharedComponentDataEntity does not support shared components with Entity fields.");
 #endif
 
@@ -1234,9 +1234,9 @@ namespace Unity.Entities
         private static void FixupComponentData(byte* data, int count, int typeIndex, ECBSharedPlaybackState playbackState)
         {
             var componentTypeInfo = TypeManager.GetTypeInfo(typeIndex);
-            Assert.IsTrue(componentTypeInfo.EntityOffsets != null, "componentTypeInfo.EntityOffsets is null.");
+            Assert.IsTrue(componentTypeInfo.HasEntities, "componentTypeInfo.EntityOffsets is null.");
 
-            var offsets = componentTypeInfo.EntityOffsets;
+            var offsets = TypeManager.GetEntityOffsets(typeIndex);
             var offsetCount = componentTypeInfo.EntityOffsetCount;
             for (var componentCount = 0; componentCount < count; componentCount++, data += componentTypeInfo.ElementSize)
             {
@@ -1430,7 +1430,7 @@ namespace Unity.Entities
                             {
                                 var cmd = (EntitySharedComponentCommand*)header;
                                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                                mgr.AddSharedComponentDataBoxed(entity, cmd->ComponentTypeIndex, cmd->HashCode,
+                                mgr.AddSharedComponentDataBoxedDefaultMustBeNull(entity, cmd->ComponentTypeIndex, cmd->HashCode,
                                     cmd->GetBoxedObject());
                             }
                             break;
@@ -1439,7 +1439,7 @@ namespace Unity.Entities
                             {
                                 var cmd = (EntitySharedComponentCommand*)header;
                                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                                mgr.SetSharedComponentDataBoxed(entity, cmd->ComponentTypeIndex, cmd->HashCode,
+                                mgr.SetSharedComponentDataBoxedDefaultMustBeNull(entity, cmd->ComponentTypeIndex, cmd->HashCode,
                                     cmd->GetBoxedObject());
                             }
                             break;
@@ -1470,7 +1470,7 @@ namespace Unity.Entities
                         case ECBCommand.AddSharedComponentEntityQuery:
                         {
                             var cmd = (EntityQuerySharedComponentCommand*)header;
-                            mgr.AddSharedComponentDataBoxed(cmd->Header.QueryData->MatchingArchetypes, cmd->Header.EntityQueryFilter, cmd->ComponentTypeIndex, cmd->HashCode,
+                            mgr.AddSharedComponentDataBoxedDefaultMustBeNull(cmd->Header.QueryData->MatchingArchetypes, cmd->Header.EntityQueryFilter, cmd->ComponentTypeIndex, cmd->HashCode,
                                 cmd->GetBoxedObject());
                         }
                             break;

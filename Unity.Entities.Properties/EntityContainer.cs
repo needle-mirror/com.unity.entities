@@ -9,9 +9,8 @@ namespace Unity.Entities
     public readonly struct EntityContainer
     {
         static EntityContainer()
-        {
+        {            
             PropertyBagResolver.Register(new EntityContainerPropertyBag());
-            PropertyBagResolver.RegisterProvider(new ReflectedPropertyBagProvider());
         }
 
         internal readonly EntityManager EntityManager;
@@ -53,46 +52,47 @@ namespace Unity.Entities
         private struct ComponentsProperty : ICollectionProperty<EntityContainer, IEnumerable<object>>
         {
             private struct GetComponentDataCallback<TCallback> : IContainerTypeCallback
-                where TCallback : ICollectionElementGetter<EntityContainer>
+                where TCallback : ICollectionElementPropertyGetter<EntityContainer>
             {
                 public TCallback Callback;
                 public EntityContainer Container;
                 public int Index;
                 public int TypeIndex;
-                public IPropertyAttributeCollection Attributes => null;
+                public ChangeTracker ChangeTracker;
 
                 public void Invoke<TComponent>()
                 {
-                    Callback.VisitProperty<ComponentDataProperty<TComponent>, TComponent>(new ComponentDataProperty<TComponent>(Index, TypeIndex, Container.IsReadOnly), ref Container);
+                    Callback.VisitProperty<ComponentDataProperty<TComponent>, TComponent>(new ComponentDataProperty<TComponent>(Index, TypeIndex, Container.IsReadOnly), ref Container, ref ChangeTracker);
                 }
             }
 
             private struct GetSharedComponentDataCallback<TCallback> : IContainerTypeCallback
-                where TCallback : ICollectionElementGetter<EntityContainer>
+                where TCallback : ICollectionElementPropertyGetter<EntityContainer>
             {
                 public TCallback Callback;
                 public EntityContainer Container;
                 public int Index;
                 public int TypeIndex;
-                public IPropertyAttributeCollection Attributes => null;
+                public ChangeTracker ChangeTracker;
 
                 public void Invoke<TComponent>()
                 {
-                    Callback.VisitProperty<SharedComponentDataProperty<TComponent>, TComponent>(new SharedComponentDataProperty<TComponent>(Index, TypeIndex), ref Container);
+                    Callback.VisitProperty<SharedComponentDataProperty<TComponent>, TComponent>(new SharedComponentDataProperty<TComponent>(Index, TypeIndex), ref Container, ref ChangeTracker);
                 }
             }
 
             private struct GetBufferElementDataCallback<TCallback> : IContainerTypeCallback
-                where TCallback : ICollectionElementGetter<EntityContainer>
+                where TCallback : ICollectionElementPropertyGetter<EntityContainer>
             {
                 public TCallback Callback;
                 public EntityContainer Container;
                 public int Index;
                 public int TypeIndex;
+                public ChangeTracker ChangeTracker;
 
                 public void Invoke<TBuffer>()
                 {
-                    Callback.VisitProperty<DynamicBufferProperty<TBuffer>, DynamicBufferContainer<TBuffer>>(new DynamicBufferProperty<TBuffer>(Index, TypeIndex, Container.IsReadOnly), ref Container);
+                    Callback.VisitProperty<DynamicBufferProperty<TBuffer>, DynamicBufferContainer<TBuffer>>(new DynamicBufferProperty<TBuffer>(Index, TypeIndex, Container.IsReadOnly), ref Container, ref ChangeTracker);
                 }
             }
 
@@ -209,40 +209,49 @@ namespace Unity.Entities
             public void SetCount(ref EntityContainer container, int count)=> throw new InvalidOperationException("Property is ReadOnly");
 
             public void GetPropertyAtIndex<TGetter>(ref EntityContainer container, int index, ref ChangeTracker changeTracker, TGetter getter)
-                where TGetter : ICollectionElementGetter<EntityContainer>
+                where TGetter : ICollectionElementPropertyGetter<EntityContainer>
             {
                 var typeIndex = container.EntityManager.GetComponentTypeIndex(container.Entity, index);
                 var type = TypeManager.GetType(typeIndex);
 
                 if (typeof(IComponentData).IsAssignableFrom(type))
                 {
-                    PropertyBagResolver.Resolve(type)?.Cast(new GetComponentDataCallback<TGetter>
+                    var action = new GetComponentDataCallback<TGetter>
                     {
                         Callback = getter,
                         Container = container,
                         Index = index,
-                        TypeIndex = typeIndex
-                    });
+                        TypeIndex = typeIndex,
+                        ChangeTracker = changeTracker
+                    };
+                    PropertyBagResolver.Resolve(type)?.Cast(ref action);
+                    changeTracker = action.ChangeTracker;
                 }
                 else if (typeof(ISharedComponentData).IsAssignableFrom(type))
                 {
-                    PropertyBagResolver.Resolve(type)?.Cast(new GetSharedComponentDataCallback<TGetter>()
+                    var action = new GetSharedComponentDataCallback<TGetter>()
                     {
                         Callback = getter,
                         Container = container,
                         Index = index,
-                        TypeIndex = typeIndex
-                    });
+                        TypeIndex = typeIndex,
+                        ChangeTracker = changeTracker
+                    };
+                    PropertyBagResolver.Resolve(type)?.Cast(ref action);
+                    changeTracker = action.ChangeTracker;
                 }
                 else if (typeof(IBufferElementData).IsAssignableFrom(type))
                 {
-                    PropertyBagResolver.Resolve(type)?.Cast(new GetBufferElementDataCallback<TGetter>
+                    var action = new GetBufferElementDataCallback<TGetter>
                     {
                         Callback = getter,
                         Container = container,
                         Index = index,
-                        TypeIndex = typeIndex
-                    });
+                        TypeIndex = typeIndex,
+                        ChangeTracker = changeTracker
+                    };
+                    PropertyBagResolver.Resolve(type)?.Cast(ref action);
+                    changeTracker = action.ChangeTracker;
                 }
             }
         }

@@ -33,6 +33,7 @@ namespace Unity.Entities
                 using (var archetypeChunkChanges = ArchetypeChunkChangeUtility.GetArchetypeChunkChanges(srcChunks, dstChunks, Allocator.TempJob))
                 {
                     EntityManagerDifferUtility.CopyAndReplaceChunks(srcEntityManager, this, m_UniversalQueryWithChunks, archetypeChunkChanges);
+                    Unity.Entities.EntityComponentStore.AssertSameEntities(srcEntityManager.EntityComponentStore, EntityComponentStore);
                 }
             }
         }

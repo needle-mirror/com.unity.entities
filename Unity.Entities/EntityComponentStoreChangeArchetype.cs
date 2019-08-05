@@ -43,6 +43,17 @@ namespace Unity.Entities
         {
             Assert.IsTrue(componentType.IsSharedComponent);
 
+            // Create batch lists here with default(T) to avoid allocating any memory.
+            // The following loop will go over chunks and possibly add something to these lists.
+            // It's expected that the common case will not require touching these lists so
+            // we want to avoid allocating them unless absolutely necessary.
+            bool batchListsInitialized = false;
+            var sourceBlittableEntityBatchList = default(NativeList<EntityBatchInChunk>);
+            var destinationBlittableEntityBatchList = default(NativeList<EntityBatchInChunk>);
+            var sourceManagedEntityBatchList = default(NativeList<EntityBatchInChunk>);
+            var destinationManagedEntityBatchList = default(NativeList<EntityBatchInChunk>);
+            var sourceCountEntityBatchList = default(NativeList<EntityBatchInChunk>);
+
             for (int i = 0; i < chunkArray.Length; i++)
             {
                 var chunk = chunkArray[i];
@@ -64,10 +75,84 @@ namespace Unity.Entities
                     newType->NumSharedComponents, sharedComponentValues, temp);
                 sharedComponentValues = temp;
 
-                MoveChunkToNewArchetype(chunk.m_Chunk, newType, sharedComponentValues);
+                if (ChunkDataUtility.AreLayoutCompatible(archetype, newType))
+                {
+                    MoveChunkToNewArchetype(chunk.m_Chunk, newType, sharedComponentValues);
+                    ManagedChangesTracker.AddReference(sharedComponentIndex);
+                }
+                else
+                {
+                    // New archetype chunks are not layout compatible so we must copy over the
+                    // entities manually before exiting this function.  Build the batch lists that
+                    // will copy over the data from src to dst chunks.
+                    if (!batchListsInitialized)
+                    {
+                        batchListsInitialized = true;
+                        sourceBlittableEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent);
+                        destinationBlittableEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent);
+                        sourceManagedEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent);
+                        destinationManagedEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent);
+                        sourceCountEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent);
+                    }
+
+                    var srcRemainingCount = chunk.Count;
+                    var srcChunk = chunk.m_Chunk;
+                    var srcOffset = 0;
+                    var srcStartIndex = 0;
+                    var srcChunkManagedData = srcChunk->ManagedArrayIndex >= 0;
+                    sourceCountEntityBatchList.Add(new EntityBatchInChunk { Chunk = srcChunk, Count = srcRemainingCount, StartIndex = 0 });
+
+                    while (srcRemainingCount > 0)
+                    {
+                        var dstChunk = GetChunkWithEmptySlots(newType, sharedComponentValues);
+                        int dstIndexBase;
+                        var dstCount = AllocateIntoChunk(dstChunk, srcRemainingCount, out dstIndexBase);
+
+                        var partialSrcEntityBatch = new EntityBatchInChunk
+                        {
+                            Chunk = srcChunk,
+                            Count = dstCount,
+                            StartIndex = srcStartIndex + srcOffset
+                        };
+                        var partialDstEntityBatch = new EntityBatchInChunk
+                        {
+                            Chunk = dstChunk,
+                            Count = dstCount,
+                            StartIndex = dstIndexBase
+                        };
+
+                        sourceBlittableEntityBatchList.Add(partialSrcEntityBatch);
+                        destinationBlittableEntityBatchList.Add(partialDstEntityBatch);
+
+                        if (srcChunkManagedData)
+                        {
+                            sourceManagedEntityBatchList.Add(partialSrcEntityBatch);
+                            destinationManagedEntityBatchList.Add(partialDstEntityBatch);
+                        }
+
+                        srcOffset += dstCount;
+                        srcRemainingCount -= dstCount;
+                    }
+                }
             }
 
-            ManagedChangesTracker.AddReference(sharedComponentIndex, chunkArray.Length);
+            if (batchListsInitialized)
+            {
+                // Copy the data from old archetype chunk to new archetype chunk.
+                var copyBlittableChunkDataJobHandle = CopyBlittableChunkDataJob(sourceBlittableEntityBatchList,
+                    destinationBlittableEntityBatchList);
+                copyBlittableChunkDataJobHandle.Complete();
+                CopyManagedChunkData(sourceManagedEntityBatchList, destinationManagedEntityBatchList);
+
+                UpdateDestinationVersions(destinationBlittableEntityBatchList);
+                UpdateSourceCountsAndVersions(sourceCountEntityBatchList);
+
+                sourceBlittableEntityBatchList.Dispose();
+                destinationBlittableEntityBatchList.Dispose();
+                sourceManagedEntityBatchList.Dispose();
+                destinationManagedEntityBatchList.Dispose();
+                sourceCountEntityBatchList.Dispose();
+            }
         }
 
         public void AddComponentFromMainThread(NativeList<EntityBatchInChunk> entityBatchList,
@@ -562,6 +647,8 @@ namespace Unity.Entities
                 var srcEntityBatch = entityBatchList[i];
                 var srcRemainingCount = srcEntityBatch.Count;
                 var srcChunk = srcEntityBatch.Chunk;
+                if (srcChunk == null)
+                    continue;
                 var srcArchetype = srcChunk->Archetype;
                 var srcStartIndex = srcEntityBatch.StartIndex;
                 var srcTail = (srcStartIndex + srcRemainingCount) == srcChunk->Count;
@@ -667,6 +754,8 @@ namespace Unity.Entities
                 var srcEntityBatch = entityBatchList[i];
                 var srcRemainingCount = srcEntityBatch.Count;
                 var srcChunk = srcEntityBatch.Chunk;
+                if (srcChunk == null)
+                    continue;
                 var srcArchetype = srcChunk->Archetype;
                 var srcStartIndex = srcEntityBatch.StartIndex;
                 var srcTail = (srcStartIndex + srcRemainingCount) == srcChunk->Count;
@@ -681,6 +770,12 @@ namespace Unity.Entities
                 }
 
                 if (dstArchetype == null)
+                    continue;
+
+                if (dstArchetype == srcArchetype)
+                    continue;
+                
+                if (dstArchetype->SystemStateCleanupComplete)
                     continue;
 
                 var srcWholeChunk = srcEntityBatch.Count == srcChunk->Count;

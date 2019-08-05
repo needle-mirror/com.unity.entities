@@ -514,7 +514,7 @@ namespace Unity.Entities.Tests
 
             var builder = new BlobBuilder(Allocator.Temp);
             ref var blobArray = ref builder.ConstructRoot<BlobArray<float>>();
-            var array = builder.Allocate(5, ref blobArray);
+            var array = builder.Allocate(ref blobArray, 5);
             array[0] = 1.7f;
             array[1] = 2.6f;
             array[2] = 3.5f;

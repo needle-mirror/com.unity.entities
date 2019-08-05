@@ -736,9 +736,12 @@ namespace Unity.Entities
             {
                 var change = changes[i];
 
-                var afterValue = afterManagedComponentStore.GetSharedComponentDataBoxed(change.AfterSharedComponentIndex, change.TypeIndex);
+                object afterValue = null;
 
-                if (change.BeforeSharedComponentIndex > -1)
+                if (change.AfterSharedComponentIndex != 0)
+                    afterValue = afterManagedComponentStore.GetSharedComponentDataBoxed(change.AfterSharedComponentIndex, change.TypeIndex);
+                
+                if (change.BeforeSharedComponentIndex > -1 && change.AfterSharedComponentIndex != 0)
                 {
                     var beforeValue = beforeManagedComponentStore.GetSharedComponentDataBoxed(change.BeforeSharedComponentIndex, change.TypeIndex);
 

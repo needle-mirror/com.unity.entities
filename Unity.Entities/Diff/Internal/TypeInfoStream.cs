@@ -91,9 +91,9 @@ namespace Unity.Entities
                 EntityOffsetPosition = m_EntityOffsets.Length
             };
 
-            if (typeInfo.EntityOffsetCount > 0)
+            if (typeInfo.HasEntities)
             {
-                m_EntityOffsets.AddRange(typeInfo.EntityOffsets, typeInfo.EntityOffsetCount * sizeof(TypeManager.EntityOffsetInfo));
+                m_EntityOffsets.AddRange(TypeManager.GetEntityOffsets(typeInfo.TypeIndex), typeInfo.EntityOffsetCount * sizeof(TypeManager.EntityOffsetInfo));
             }
         }
     }

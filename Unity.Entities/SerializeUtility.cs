@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+#if !NET_TINY
 using System.Linq;
+#endif
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Unity.Assertions;
@@ -538,6 +540,7 @@ namespace Unity.Entities.Serialization
                         if(blobAssetRefCount == 0)
                             continue;
 
+                        var blobAssetRefOffsets = TypeManager.GetBlobAssetRefOffsets(ct);
                         var chunkBuffer = chunk->Buffer;
 
                         if (type.IsBuffer)
@@ -554,7 +557,7 @@ namespace Unity.Entities.Serialization
                             {
                                 for (int i = 0; i < blobAssetRefCount; ++i)
                                 {
-                                    var offset = ct.BlobAssetRefOffsets[i].Offset;
+                                    var offset = blobAssetRefOffsets[i].Offset;
                                     var blobAssetRefPtr = (BlobAssetReferenceData*)(componentData + offset);
                                     if(blobAssetRefPtr->m_Ptr == null)
                                         continue;
@@ -597,6 +600,7 @@ namespace Unity.Entities.Serialization
                 if(blobAssetRefCount == 0)
                     continue;
 
+                var blobAssetRefOffsets = TypeManager.GetBlobAssetRefOffsets(ct);
                 var chunkBuffer = tempChunk->Buffer;
 
                 if (type.IsBuffer)
@@ -613,7 +617,7 @@ namespace Unity.Entities.Serialization
                     {
                         for (int i = 0; i < blobAssetRefCount; ++i)
                         {
-                            var offset = ct.BlobAssetRefOffsets[i].Offset;
+                            var offset = blobAssetRefOffsets[i].Offset;
                             var blobAssetRefPtr = (BlobAssetReferenceData*)(componentData + offset);
                             int value = -1;
                             if (blobAssetRefPtr->m_Ptr != null)
@@ -648,6 +652,7 @@ namespace Unity.Entities.Serialization
                 if(blobAssetRefCount == 0)
                     continue;
 
+                var blobAssetRefOffsets = TypeManager.GetBlobAssetRefOffsets(ct);
                 var chunkBuffer = chunk->Buffer;
 
                 if (type.IsBuffer)
@@ -664,7 +669,7 @@ namespace Unity.Entities.Serialization
                     {
                         for (int i = 0; i < blobAssetRefCount; ++i)
                         {
-                            var offset = ct.BlobAssetRefOffsets[i].Offset;
+                            var offset = blobAssetRefOffsets[i].Offset;
                             var blobAssetRefPtr = (BlobAssetReferenceData*)(componentData + offset);
                             int value = (int) blobAssetRefPtr->m_Ptr;
                             byte* ptr = null;

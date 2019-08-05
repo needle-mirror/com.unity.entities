@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+#if !NET_TINY
 using System.Linq;
+#endif
 
 namespace Unity.Entities
 {
@@ -44,6 +46,7 @@ namespace Unity.Entities
     {
         private bool m_systemSortDirty = false;
         protected List<ComponentSystemBase> m_systemsToUpdate = new List<ComponentSystemBase>();
+        protected List<ComponentSystemBase> m_systemsToRemove = new List<ComponentSystemBase>();
 
         public virtual IEnumerable<ComponentSystemBase> Systems => m_systemsToUpdate;
 
@@ -74,9 +77,7 @@ namespace Unity.Entities
 
         public void RemoveSystemFromUpdateList(ComponentSystemBase sys)
         {
-            m_systemsToUpdate.Remove(sys);
-            m_systemSortDirty = true;
-            m_systemSortDirty = true;
+            m_systemsToRemove.Add(sys);
         }
 
         class Heap<T>
@@ -365,11 +366,14 @@ namespace Unity.Entities
                             throw new ArgumentException($"Invalid [UpdateBefore] BeginPreesntationEntityCommandBufferSystem, because that system is already restricted to be first.");
 #endif
                         }
+#pragma warning disable 0618
+                        // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
                         if (dep.SystemType == typeof(EndPresentationEntityCommandBufferSystem))
                         {
                             WarningForBeforeCheck(sys.GetType(), dep.SystemType);
                             continue;
                         }
+#pragma warning restore 0618
                     } 
 
                     int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
@@ -470,6 +474,8 @@ namespace Unity.Entities
                             WarningForAfterCheck(sys.GetType(), dep.SystemType);
                             continue; 
                         }
+#pragma warning disable 0618
+                        // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
                         if (dep.SystemType == typeof(EndPresentationEntityCommandBufferSystem))
                         {
 #if !NET_DOTS
@@ -478,6 +484,7 @@ namespace Unity.Entities
                             throw new ArgumentException($"Invalid [UpdateAfter] EndPresentationEntityCommandBufferSystem, because that system is already restricted to be last.");
 #endif
                         }
+#pragma warning restore 0618
                     } 
 
                     int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
@@ -597,9 +604,18 @@ namespace Unity.Entities
                 catch (Exception e)
                 {
                     Debug.LogException(e);
+                    RemoveSystemFromUpdateList(sys);
                 }
                 if (World.QuitUpdate)
                     break;
+            }
+
+            if (m_systemsToRemove.Count > 0)
+            {
+                foreach (var sys in m_systemsToRemove)
+                    m_systemsToUpdate.Remove(sys);
+                m_systemSortDirty = true;
+                m_systemsToRemove.Clear();
             }
         }
     }

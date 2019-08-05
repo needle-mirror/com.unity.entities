@@ -6,7 +6,9 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs.LowLevel.Unsafe;
 using System.Collections.Generic;
 using System.Diagnostics;
+#if !NET_TINY
 using System.Linq;
+#endif
 
 namespace Unity.Entities
 {
@@ -133,8 +135,7 @@ namespace Unity.Entities
         Profiling.ProfilerMarker m_ProfilerMarker;
     #endif
 
-    #if !NET_DOTS
-    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+    #if (!NET_DOTS) && ENABLE_UNITY_COLLECTIONS_CHECKS
         static HashSet<Type> s_ObsoleteAPICheckedTypes = new HashSet<Type>();
 
         void CheckForObsoleteAPI()
@@ -149,12 +150,12 @@ namespace Unity.Entities
 
                 if (type.GetMethod("OnCreateManager", BindingFlags.NonPublic | BindingFlags.Instance)?.DeclaringType != typeof(ComponentSystemBase))
                 {
-                    Debug.LogWarning($"OnCreateManager in {type} is obsolete and shall be renamed to OnCreate. This message will be (RemovedAfter 2019-10-22) and OnCreateManager will no longer be called");
+                    Debug.LogWarning($"OnCreateManager in {type} is obsolete and shall be renamed to OnCreate. This message will be (RemovedAfter 2019-10-22) and OnCreateManager will no longer be called by Unity");
                 }
 
                 if (type.GetMethod("OnDestroyManager", BindingFlags.NonPublic | BindingFlags.Instance)?.DeclaringType != typeof(ComponentSystemBase))
                 {
-                    Debug.LogWarning($"OnDestroyManager in {type} is obsolete and shall be renamed to OnDestroy. This message will be (RemovedAfter 2019-10-22) and OnDestroyManager will no longer be called");
+                    Debug.LogWarning($"OnDestroyManager in {type} is obsolete and shall be renamed to OnDestroy. This message will be (RemovedAfter 2019-10-22) and OnDestroyManager will no longer be called by Unity");
                 }
 
                 s_ObsoleteAPICheckedTypes.Add(type);
@@ -163,24 +164,25 @@ namespace Unity.Entities
             }
         }
     #endif
-    #endif
 
         internal void CreateInstance(World world)
         {
             OnBeforeCreateInternal(world);
             try
             {
-        #if !NET_DOTS
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            #if (!NET_DOTS) && ENABLE_UNITY_COLLECTIONS_CHECKS
                 CheckForObsoleteAPI();
-        #endif
-        #endif
-                CallOnCreateManagerAndLogIfOverrideDetected();
+            #endif
+
+            #if !NET_DOTS
+                OnCreateManager();
+            #endif
                 OnCreate();
-#if !NET_DOTS && (ENABLE_PROFILER || UNITY_EDITOR)
+
+            #if !NET_DOTS && (ENABLE_PROFILER || UNITY_EDITOR)
                 var type = GetType();
                 m_ProfilerMarker = new Profiling.ProfilerMarker($"{world.Name} {type.FullName}");
-#endif
+            #endif
             }
             catch
             {
@@ -194,7 +196,10 @@ namespace Unity.Entities
         {
             OnBeforeDestroyInternal();
             OnDestroy();
-            CallOnDestroyManagerAndLogIfOverrideDetected();
+
+        #if !NET_DOTS
+            OnDestroyManager();
+        #endif
             OnAfterDestroyInternal();
         }
 
@@ -210,59 +215,23 @@ namespace Unity.Entities
         {
         }
 
-    #if ENABLE_UNITY_COLLECTIONS_CHECKS && NET_DOTS
-        bool m_OnDestroyManagerOverwritten = true;
-    #endif
+        #if !NET_DOTS
         /// <summary>
         /// WARNING: OnDestroyManager() is obsolete and should be renamed to OnDestroy. OnDestroyManager will not be called by Unity after 2019-10-22
         /// </summary>
         protected virtual void OnDestroyManager()
         {
-            // base.OnDestroyManager() could also be called, the reflection code path is used to detect that.
-            // As this is disabled for the tiny profile though, there is this little check with which
-            // we can only detect if it was overwritten without calling into that base function here.
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS && NET_DOTS
-            m_OnDestroyManagerOverwritten = false;
-        #endif
         }
+        #endif
 
-    #if ENABLE_UNITY_COLLECTIONS_CHECKS && NET_DOTS
-        bool m_OnCreateManagerOverwritten = true;
-    #endif
+        #if !NET_DOTS
         /// <summary>
         /// WARNING: OnCreateManager() is obsolete and should be renamed to OnCreate. OnCreateManager will not be called by Unity after 2019-10-22
         /// </summary>
         protected virtual void OnCreateManager()
         {
-            // base.OnCreateManager() could also be called, the reflection code path is used to detect that.
-            // As this is disabled for the tiny profile though, there is this little check with which
-            // we can only detect if it was overwritten without calling into that base function here.
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS && NET_DOTS
-            m_OnCreateManagerOverwritten = false;
-        #endif
         }
-
-        void CallOnCreateManagerAndLogIfOverrideDetected()
-        {
-            OnCreateManager();
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS && NET_DOTS
-            if (m_OnCreateManagerOverwritten)
-            {
-                Debug.LogWarning("OnCreateManager is obsolete and shall be renamed to OnCreate. This message will be (RemovedAfter 2019-10-22) and OnCreateManager will no longer be called");
-            }
         #endif
-        }
-
-        void CallOnDestroyManagerAndLogIfOverrideDetected()
-        {
-            OnDestroyManager();
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS && NET_DOTS
-            if (m_OnDestroyManagerOverwritten)
-            {
-                Debug.LogWarning("OnDestroyManager is obsolete and shall be renamed to OnDestroy. This message will be (RemovedAfter 2019-10-22) and OnDestroyManager will no longer be called");
-            }
-        #endif
-        }
 
         /// <summary>
         /// Called before the first call to OnUpdate and when a system resumes updating after being stopped or disabled.

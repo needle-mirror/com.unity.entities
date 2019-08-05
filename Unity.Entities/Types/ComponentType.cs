@@ -19,18 +19,22 @@ namespace Unity.Entities
         public int TypeIndex;
         public AccessMode AccessModeType;
 
-        public bool IsBuffer => TypeManager.IsBuffer(TypeIndex);
-        public bool IsSystemStateComponent => TypeManager.IsSystemStateComponent(TypeIndex);
-        public bool IsSystemStateSharedComponent => TypeManager.IsSystemStateSharedComponent(TypeIndex);
-        public bool IsSharedComponent => TypeManager.IsSharedComponent(TypeIndex);
-        public bool IsZeroSized => TypeManager.IsZeroSized(TypeIndex);
-        public bool IsChunkComponent => TypeManager.IsChunkComponent(TypeIndex);
-        public bool HasEntityReferences => TypeManager.HasEntityReferences(TypeIndex);
+        public bool IsBuffer => (TypeIndex & TypeManager.BufferComponentTypeFlag) != 0;
+        public bool IsSystemStateComponent => (TypeIndex & TypeManager.SystemStateTypeFlag) != 0;
+        public bool IsSystemStateSharedComponent => (TypeIndex & TypeManager.SystemStateSharedComponentTypeFlag) == TypeManager.SystemStateSharedComponentTypeFlag;
+        public bool IsSharedComponent => (TypeIndex & TypeManager.SharedComponentTypeFlag) != 0;
+        public bool IsZeroSized => (TypeIndex & TypeManager.ZeroSizeInChunkTypeFlag) != 0;
+        public bool IsChunkComponent => (TypeIndex & TypeManager.ChunkComponentTypeFlag) != 0;
+        public bool HasEntityReferences => (TypeIndex & TypeManager.HasNoEntityReferencesFlag) == 0;
 
         public bool IgnoreDuplicateAdd => TypeManager.IgnoreDuplicateAdd(TypeIndex);
 
-        [Obsolete("Create<T> has been renamed. Use ReadWrite<T> instead. (RemovedAfter 2019-08-25) (UnityUpgradable) -> ReadWrite<T>", false)]
         [EditorBrowsable(EditorBrowsableState.Never)]
+        #if UNITY_2019_3_OR_NEWER
+        [Obsolete("Create<T> has been renamed. Use ReadWrite<T> instead. (RemovedAfter 2019-08-25) (UnityUpgradable) -> ReadWrite<T>()", false)]
+        #else
+        [Obsolete("Create<T> has been renamed. Use ReadWrite<T> instead. (RemovedAfter 2019-08-25)", false)]
+        #endif
         public static ComponentType Create<T>() => ReadWrite<T>();
 
 

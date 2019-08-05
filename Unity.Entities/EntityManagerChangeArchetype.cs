@@ -301,6 +301,20 @@ namespace Unity.Entities
             RemoveComponent(iterator.m_MatchingArchetypeList, iterator.m_Filter, componentType);
         }
 
+        /// <summary>
+        /// Removes a set of components from a set of entities defined by a EntityQuery.
+        /// </summary>
+        /// <remarks>
+        /// Removing a component changes an entity's archetype and results in the entity being moved to a different
+        /// chunk.
+        ///
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before removing the component and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="entityQuery">The EntityQuery defining the entities to modify.</param>
+        /// <param name="types">The types of components to add.</param>
         public void RemoveComponent(EntityQuery entityQuery, ComponentTypes types)
         {
             if (entityQuery.CalculateEntityCount() == 0)
@@ -496,19 +510,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of component to remove.</typeparam>
         public void RemoveChunkComponentData<T>(EntityQuery entityQuery)
         {
-            using (var chunks = entityQuery.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                if (chunks.Length == 0)
-                    return;
-                BeforeStructuralChange();
-                var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
-
-                EntityComponentStore->RemoveComponent(chunks, ComponentType.ChunkComponent<T>());
-
-                var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-                EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
-                ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
-            }
+            RemoveComponent(entityQuery, ComponentType.ChunkComponent<T>());
         }
 
         /// <summary>
@@ -619,20 +621,8 @@ namespace Unity.Entities
             var componentType = ComponentType.ReadWrite<T>();
             using (var chunks = entityQuery.CreateArchetypeChunkArray(Allocator.TempJob))
             {
-                if (chunks.Length == 0)
-                    return;
-
-                BeforeStructuralChange();
-                var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
-
                 var newSharedComponentDataIndex = m_ManagedComponentStore.InsertSharedComponent(componentData);
-                EntityComponentStore->AssertCanAddComponent(chunks, componentType);
-                EntityComponentStore->AddSharedComponent(chunks, componentType, newSharedComponentDataIndex);
-
-                var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-                EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
-                ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
-                ManagedComponentStore.RemoveReference(newSharedComponentDataIndex);
+                AddSharedComponentData(chunks, newSharedComponentDataIndex, componentType);
             }
         }
 
@@ -670,8 +660,7 @@ namespace Unity.Entities
             if (HasComponent<LinkedEntityGroup>(entity))
             {
                 //@TODO: AddComponent / Remove component should support Allocator.Temp
-                using (var linkedEntities = GetBuffer<LinkedEntityGroup>(entity).Reinterpret<Entity>()
-                    .ToNativeArray(Allocator.TempJob))
+                using (var linkedEntities = GetBuffer<LinkedEntityGroup>(entity).Reinterpret<Entity>().ToNativeArray(Allocator.TempJob))
                 {
                     if (enabled)
                         RemoveComponent(linkedEntities, disabledType);
@@ -716,9 +705,8 @@ namespace Unity.Entities
         internal void AddComponent(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, ComponentType componentType)
         {
             var jobHandle = new JobHandle();
-            using (var chunks =
-                ComponentChunkIterator.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, out jobHandle,
-                    ref filter))
+            //@TODO: Missing EntityQuery.SyncFilter
+            using (var chunks = ComponentChunkIterator.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, out jobHandle, ref filter))
             {
                 jobHandle.Complete();
                 if (chunks.Length == 0)
@@ -740,49 +728,79 @@ namespace Unity.Entities
             }
         }
 
-        internal void AddSharedComponentDataBoxed(Entity entity, int typeIndex, int hashCode, object componentData)
+        internal void AddSharedComponentDataBoxedDefaultMustBeNull(Entity entity, int typeIndex, int hashCode, object componentData)
         {
             //TODO: optimize this (no need to move the entity to a new chunk twice)
             AddComponent(entity, ComponentType.FromTypeIndex(typeIndex));
-            SetSharedComponentDataBoxed(entity, typeIndex, hashCode, componentData);
+            SetSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData);
         }
 
-        internal void AddSharedComponentDataBoxed(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, int typeIndex, int hashCode, object componentData)
+        internal void AddSharedComponentDataBoxedDefaultMustBeNull(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, int typeIndex, int hashCode, object componentData)
         {
-            //TODO: optimize this (no need to move the entity to a new chunk twice)
-
             var newSharedComponentDataIndex = 0;
             if (componentData != null) // null means default
-                newSharedComponentDataIndex = ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex,
-                    hashCode, componentData);
+                newSharedComponentDataIndex = ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, componentData);
 
-            AddSharedComponentData(archetypeList, filter, newSharedComponentDataIndex,
-                ComponentType.FromTypeIndex(typeIndex));
+            AddSharedComponentData(archetypeList, filter, newSharedComponentDataIndex, ComponentType.FromTypeIndex(typeIndex));
         }
 
-        internal void AddSharedComponentData(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, int sharedComponentIndex, ComponentType componentType)
+        internal void AddSharedComponentData(NativeArray<ArchetypeChunk> chunks, int sharedComponentIndex, ComponentType componentType)
+        {
+            if (chunks.Length == 0)
+                return;
+            
+            BeforeStructuralChange();
+            var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
+
+            EntityComponentStore->AssertCanAddComponent(chunks, componentType);
+            EntityComponentStore->AddSharedComponent(chunks, componentType, sharedComponentIndex);
+
+            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+            EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
+            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+            ManagedComponentStore.RemoveReference(sharedComponentIndex);
+        }
+
+        internal void AddSharedComponentData(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
+            int sharedComponentIndex, ComponentType componentType)
         {
             var jobHandle = new JobHandle();
-            using (var chunks =
-                ComponentChunkIterator.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, out jobHandle,
-                    ref filter))
+            //@TODO: Missing EntityQuery.SyncFilter
+            using (var chunks = ComponentChunkIterator.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, out jobHandle, ref filter))
             {
                 jobHandle.Complete();
-                if (chunks.Length == 0)
-                    return;
-                BeforeStructuralChange();
-                var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
-
-                EntityComponentStore->AssertCanAddComponent(chunks, componentType);
-                EntityComponentStore->AddSharedComponent(chunks, componentType, sharedComponentIndex);
-
-                var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-                EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
-                ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
-                ManagedComponentStore.RemoveReference(sharedComponentIndex);
+                AddSharedComponentData(chunks, sharedComponentIndex, componentType);
             }
         }
+        
+        internal void RemoveComponent(NativeArray<ArchetypeChunk> chunks, ComponentType componentType)
+        {
+            if (chunks.Length == 0)
+                return;
 
+            BeforeStructuralChange();
+
+            var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
+            EntityComponentStore->AssertCanRemoveComponent(chunks, componentType);
+
+            EntityComponentStore->RemoveComponent(chunks, componentType);
+
+            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
+            EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
+            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+        }
+
+        internal void RemoveComponent(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, ComponentType componentType)
+        {
+            //@TODO: Missing EntityQuery.SyncFilter
+            var jobHandle = new JobHandle();
+            using (var chunks = ComponentChunkIterator.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, out jobHandle, ref filter))
+            {
+                jobHandle.Complete();
+                RemoveComponent(chunks, componentType);
+            }
+        }
+        
         internal void AddComponentRaw(Entity entity, int typeIndex)
         {
             AddComponent(entity, ComponentType.FromTypeIndex(typeIndex));
@@ -791,29 +809,6 @@ namespace Unity.Entities
         internal void RemoveComponentRaw(Entity entity, int typeIndex)
         {
             RemoveComponent(entity, ComponentType.FromTypeIndex(typeIndex));
-        }
-
-        internal void RemoveComponent(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, ComponentType componentType)
-        {
-            var jobHandle = new JobHandle();
-            using (var chunks =
-                ComponentChunkIterator.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, out jobHandle,
-                    ref filter))
-            {
-                jobHandle.Complete();
-                if (chunks.Length == 0)
-                    return;
-
-                BeforeStructuralChange();
-                var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
-
-                EntityComponentStore->AssertCanRemoveComponent(chunks, componentType);
-                EntityComponentStore->RemoveComponent(chunks, componentType);
-
-                var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-                EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
-                ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
-            }
         }
     }
 }

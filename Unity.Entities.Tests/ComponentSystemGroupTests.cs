@@ -286,7 +286,10 @@ namespace Unity.Entities.Tests
         class BeforeSimEndSystem : TestSystemBase
         {
         }
+#pragma warning disable 0618
+        // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
         [UpdateBefore(typeof(EndPresentationEntityCommandBufferSystem))]
+#pragma warning restore 0618
         class BeforePresEndSystem : TestSystemBase
         {
         }
@@ -416,7 +419,10 @@ namespace Unity.Entities.Tests
         class AfterSimEndSystem : TestSystemBase
         {
         }
+#pragma warning disable 0618
+        // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
         [UpdateAfter(typeof(EndPresentationEntityCommandBufferSystem))]
+#pragma warning restore 0618
         class AfterPresEndSystem : TestSystemBase
         {
         }

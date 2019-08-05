@@ -23,6 +23,7 @@ public class BlobTests : ECSTestsFixture
         public BlobPtr<Vector3> oneVector3;
         public float embeddedFloat;
         public BlobArray<BlobArray<int>> nestedArray;
+        public BlobString str;
     }
 
     static unsafe BlobAssetReference<MyData> ConstructBlobData()
@@ -31,12 +32,14 @@ public class BlobTests : ECSTestsFixture
 
         ref var root = ref builder.ConstructRoot<MyData>();
 
-        var floatArray = builder.Allocate(3, ref root.floatArray);
+        var floatArray = builder.Allocate(ref root.floatArray, 3);
         ref Vector3 oneVector3 = ref builder.Allocate(ref root.oneVector3);
-        var nestedArrays = builder.Allocate(2, ref root.nestedArray);
+        var nestedArrays = builder.Allocate(ref root.nestedArray, 2);
 
-        var nestedArray0 = builder.Allocate(1, ref nestedArrays[0]);
-        var nestedArray1 = builder.Allocate(2, ref nestedArrays[1]);
+        var nestedArray0 = builder.Allocate(ref nestedArrays[0], 1);
+        var nestedArray1 = builder.Allocate(ref nestedArrays[1], 2);
+
+        builder.AllocateString(ref root.str, "Blah");
 
         nestedArray0[0] = 0;
         nestedArray1[0] = 1;
@@ -48,7 +51,7 @@ public class BlobTests : ECSTestsFixture
 
         root.embeddedFloat = 4;
         oneVector3 = new Vector3(3, 3, 3);
-
+        
         var blobAsset = builder.CreateBlobAssetReference<MyData>(Allocator.Persistent);
 
         builder.Dispose();
@@ -68,7 +71,6 @@ public class BlobTests : ECSTestsFixture
             throw new AssertionException("ValidateBlobData didn't match");
         if (2 != root.floatArray[2])
             throw new AssertionException("ValidateBlobData didn't match");
-        
         if (new Vector3(3, 3, 3) != root.oneVector3.Value)
             throw new AssertionException("ValidateBlobData didn't match");
         
@@ -85,7 +87,17 @@ public class BlobTests : ECSTestsFixture
             throw new AssertionException("ValidateBlobData didn't match");
         if (2 != root.nestedArray[1][1])
             throw new AssertionException("ValidateBlobData didn't match");
+        ValidateBlobString(ref root);
     }
+
+    [BurstDiscard]
+    static void ValidateBlobString(ref MyData root)
+    {
+        var str = root.str.ToString();
+        if ("Blah" != str)
+            throw new AssertionException("ValidateBlobData didn't match");
+    }
+
 
     static void ValidateBlobDataBurst(ref MyData root)
     {
@@ -259,7 +271,7 @@ public class BlobTests : ECSTestsFixture
             var root = builder.ConstructRoot<MyData>();
 
             // Throw here because root was copied by value instead of ref
-            builder.Allocate(3, ref root.floatArray);
+            builder.Allocate(ref root.floatArray, 3);
         });
 
         builder.Dispose();
@@ -274,7 +286,7 @@ public class BlobTests : ECSTestsFixture
         {
             //can't access ref variable if it's created outside of the lambda
             ref var root = ref builder.ConstructRoot<MyData>();
-            builder.Allocate(3, ref root.floatArray);
+            builder.Allocate(ref root.floatArray, 3);
             
             // Throw on access expected here
             root.floatArray[0] = 7;
@@ -323,13 +335,13 @@ public class BlobTests : ECSTestsFixture
         Assert.AreEqual(4, UnsafeUtility.AlignOf<int>());
 
         const int count = 100;
-        var topLevelArray = builder.Allocate(count, ref root);
+        var topLevelArray = builder.Allocate(ref root, count);
         for (int x = 0; x < count; ++x)
         {
             builder.Allocate(ref topLevelArray[x].shortPointer);
             builder.Allocate(ref topLevelArray[x].intPointer);
             builder.Allocate(ref topLevelArray[x].bytePointer);
-            builder.Allocate(x + 1, ref topLevelArray[x].intArray);
+            builder.Allocate(ref topLevelArray[x].intArray, x + 1);
         }
 
         var blob = builder.CreateBlobAssetReference<BlobArray<AlignmentTest>>(Allocator.Temp);
@@ -353,7 +365,7 @@ public class BlobTests : ECSTestsFixture
             Assert.Throws<IndexOutOfRangeException>(() =>
             {
                 ref var root = ref builder.ConstructRoot<BlobArray<int>>();
-                var array = builder.Allocate(100, ref root);
+                var array = builder.Allocate(ref root, 100);
                 array[100] = 7;
             });
         }
@@ -365,7 +377,7 @@ public class BlobTests : ECSTestsFixture
         var builder = new BlobBuilder(Allocator.Temp, 128);
         ref var root = ref builder.ConstructRoot<BlobArray<int>>();
         const int count = 100;
-        var array = builder.Allocate(count, ref root);
+        var array = builder.Allocate(ref root, count);
         for (int i = 0; i < count; i++)
             array[i] = i;
 
@@ -387,13 +399,13 @@ public class BlobTests : ECSTestsFixture
         const int topLevelCount = 100;
 
         int expectedValue = 42;
-        var level0 = builder.Allocate(topLevelCount, ref root);
+        var level0 = builder.Allocate(ref root, topLevelCount);
         for (int x = 0; x < topLevelCount; x++)
         {
-            var level1 = builder.Allocate(x + 1, ref level0[x]);
+            var level1 = builder.Allocate(ref level0[x], x + 1);
             for (int y = 0; y < x + 1; y++)
             {
-                var level2 = builder.Allocate(y + 1, ref level1[y]);
+                var level2 = builder.Allocate(ref level1[y], y + 1);
                 for (int z = 0; z < y + 1; z++)
                 {
                     ref var i = ref builder.Allocate(ref level2[z]);
@@ -440,7 +452,7 @@ public class BlobTests : ECSTestsFixture
         var builder = new BlobBuilder(Allocator.Temp, 128);
         ref var root = ref builder.ConstructRoot<TestStruct256bytes>();
 
-        var array = builder.Allocate(100, ref root.intArray);
+        var array = builder.Allocate(ref root.intArray, 100);
         for (int i = 0; i < array.Length; ++i)
         {
             array[i] = i;

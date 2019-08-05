@@ -1,3 +1,4 @@
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
@@ -60,6 +61,25 @@ namespace Unity.Entities
             EntityComponentStore->CreateEntities(GetEntityOnlyArchetype().Archetype, &entity, 1);
             ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
             return entity;
+        }
+        
+        /// <summary>
+        /// Creates a set of entities of the specified archetype.
+        /// </summary>
+        /// <remarks>Fills the [NativeArray](https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeArray_1.html)
+        /// object assigned to the `entities` parameter with the Entity objects of the created entities. Each entity
+        /// has the components specified by the <see cref="EntityArchetype"/> object assigned
+        /// to the `archetype` parameter. The EntityManager adds these entities to the <see cref="World"/> entity list. Use the
+        /// Entity objects in the array for further processing, such as setting the component values.</remarks>
+        /// <param name="archetype">The archetype defining the structure for the new entities.</param>
+        /// <param name="entities">An array to hold the Entity objects needed to access the new entities.
+        /// The length of the array determines how many entities are created.</param>
+        public void CreateEntity(EntityArchetype archetype, NativeArray<Entity> entities)
+        {
+            BeforeStructuralChange();
+            EntityComponentStore->CreateEntities(archetype.Archetype, (Entity*) entities.GetUnsafePtr(),
+                entities.Length);
+            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
         }
 
         /// <summary>
@@ -165,25 +185,6 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Creates a set of entities of the specified archetype.
-        /// </summary>
-        /// <remarks>Fills the [NativeArray](https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeArray_1.html)
-        /// object assigned to the `entities` parameter with the Entity objects of the created entities. Each entity
-        /// has the components specified by the <see cref="EntityArchetype"/> object assigned
-        /// to the `archetype` parameter. The EntityManager adds these entities to the <see cref="World"/> entity list. Use the
-        /// Entity objects in the array for further processing, such as setting the component values.</remarks>
-        /// <param name="archetype">The archetype defining the structure for the new entities.</param>
-        /// <param name="entities">An array to hold the Entity objects needed to access the new entities.
-        /// The length of the array determines how many entities are created.</param>
-        public void CreateEntity(EntityArchetype archetype, NativeArray<Entity> entities)
-        {
-            BeforeStructuralChange();
-            EntityComponentStore->CreateEntities(archetype.Archetype, (Entity*) entities.GetUnsafePtr(),
-                entities.Length);
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
-        }
-
-        /// <summary>
         /// Creates a set of chunks containing the specified number of entities having the specified archetype.
         /// </summary>
         /// <remarks>
@@ -199,7 +200,6 @@ namespace Unity.Entities
         /// <param name="entityCount">The number of entities to create.</param>
         public void CreateChunk(EntityArchetype archetype, NativeArray<ArchetypeChunk> chunks, int entityCount)
         {
-            ;
             BeforeStructuralChange();
 
             EntityComponentStore->CreateChunks(archetype.Archetype, (ArchetypeChunk*) chunks.GetUnsafePtr(),
@@ -228,15 +228,27 @@ namespace Unity.Entities
             ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
         }
 
+        [BurstCompile]
+        struct DestroyChunks : IJob
+        {
+            [NativeDisableUnsafePtrRestriction]
+            public EntityComponentStore* EntityComponentStore;
+            public NativeArray<ArchetypeChunk> Chunks;
+
+            public void Execute()
+            {
+                EntityComponentStore->DestroyEntities(Chunks); 
+            }
+        }
+
         internal void DestroyEntity(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter)
         {
             Profiler.BeginSample("DestroyEntity(EntityQuery entityQueryFilter)");
 
             Profiler.BeginSample("GetAllMatchingChunks");
             var jobHandle = new JobHandle();
-            using (var chunks =
-                ComponentChunkIterator.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, out jobHandle,
-                    ref filter))
+            // @TODO: Missing EntityQuery.SyncFilter
+            using (var chunks = ComponentChunkIterator.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, out jobHandle, ref filter))
             {
                 jobHandle.Complete();
                 Profiler.EndSample();
@@ -247,12 +259,15 @@ namespace Unity.Entities
 
                     Profiler.BeginSample("EditorOnlyChecks");
                     EntityComponentStore->AssertCanDestroy(chunks);
-                    EntityComponentStore->AssertWillDestroyAllInLinkedEntityGroup(chunks,
-                        GetArchetypeChunkBufferType<LinkedEntityGroup>(false));
+                    EntityComponentStore->AssertWillDestroyAllInLinkedEntityGroup(chunks, GetArchetypeChunkBufferType<LinkedEntityGroup>(false));
                     Profiler.EndSample();
 
+                    // #todo @macton DestroyEntities should support IJobChunk. But internal writes need to be handled.
                     Profiler.BeginSample("DeleteChunks");
-                    EntityComponentStore->DestroyEntities(chunks);
+                    new DestroyChunks { EntityComponentStore = EntityComponentStore, Chunks = chunks }.Run();
+                    Profiler.EndSample();
+                    
+                    Profiler.BeginSample("Managed Playback");
                     ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
                     Profiler.EndSample();
                 }

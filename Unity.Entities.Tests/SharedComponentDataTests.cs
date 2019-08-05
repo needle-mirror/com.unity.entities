@@ -186,6 +186,114 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void AddSharedComponentCompatibleChunkLayouts()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var archetypeWithShared = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(SharedData1));
+            unsafe
+            {
+                Assert.IsTrue(ChunkDataUtility.AreLayoutCompatible(archetype.Archetype, archetypeWithShared.Archetype));
+            }
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            Entity e = m_Manager.CreateEntity(archetype);
+
+            Assert.IsFalse(m_Manager.HasComponent<SharedData1>(e));
+
+            m_Manager.AddSharedComponentData(query, new SharedData1(17));
+
+            Assert.IsTrue(m_Manager.HasComponent<SharedData1>(e));
+            Assert.AreEqual(17, m_Manager.GetSharedComponentData<SharedData1>(e).value);
+        }
+
+        [Test]
+        public void AddSharedComponentIncompatibleChunkLayouts()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var archetypeWithShared = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedCompWithMaxChunkCapacity));
+            unsafe
+            {
+                Assert.IsFalse(ChunkDataUtility.AreLayoutCompatible(archetype.Archetype, archetypeWithShared.Archetype));
+            }
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            Entity e = m_Manager.CreateEntity(archetype);
+
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestSharedCompWithMaxChunkCapacity>(e));
+
+            m_Manager.AddSharedComponentData(query, new EcsTestSharedCompWithMaxChunkCapacity(17));
+
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestSharedCompWithMaxChunkCapacity>(e));
+            Assert.AreEqual(17, m_Manager.GetSharedComponentData<EcsTestSharedCompWithMaxChunkCapacity>(e).Value);
+        }
+
+        [Test]
+        public void AddSharedComponentToMultipleEntitiesIncompatibleChunkLayouts()
+        {
+            // The goal of this test is to verify that the moved IComponentData keeps the same values from
+            // before the addition of the shared component.
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var archetypeWithShared = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedCompWithMaxChunkCapacity));
+            unsafe
+            {
+                Assert.IsFalse(ChunkDataUtility.AreLayoutCompatible(archetype.Archetype, archetypeWithShared.Archetype));
+            }
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            const int numEntities = 5000;
+            using (var entities = new NativeArray<Entity>(numEntities, Allocator.Persistent))
+            {
+                m_Manager.CreateEntity(archetype, entities);
+
+                for (int i = 0; i < entities.Length; ++i)
+                {
+                    m_Manager.SetComponentData(entities[i], new EcsTestData(i));
+                }
+
+                foreach (var e in entities)
+                {
+                    Assert.IsFalse(m_Manager.HasComponent<EcsTestSharedCompWithMaxChunkCapacity>(e));
+                }
+
+                m_Manager.AddSharedComponentData(query, new EcsTestSharedCompWithMaxChunkCapacity(17));
+                var chunk = m_Manager.GetChunk(entities[0]);
+                int maxChunkCapacity = TypeManager.GetTypeInfo<EcsTestSharedCompWithMaxChunkCapacity>().MaximumChunkCapacity;
+                int expectedChunkCount = (numEntities + maxChunkCapacity - 1) / maxChunkCapacity;
+                Assert.AreEqual(expectedChunkCount, chunk.Archetype.ChunkCount);
+
+                // Ensure that the moved components have the correct values.
+                for (int i = 0; i < entities.Length; ++i)
+                {
+                    Assert.IsTrue(m_Manager.HasComponent<EcsTestSharedCompWithMaxChunkCapacity>(entities[i]));
+                    Assert.AreEqual(17, m_Manager.GetSharedComponentData<EcsTestSharedCompWithMaxChunkCapacity>(entities[i]).Value);
+                    Assert.AreEqual(i, m_Manager.GetComponentData<EcsTestData>(entities[i]).value);
+                }
+            }
+        }
+
+        [Test]
+        public void AddSharedComponentViaAddComponentWithIncompatibleChunkLayouts()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var archetypeWithShared = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedCompWithMaxChunkCapacity));
+            unsafe
+            {
+                Assert.IsFalse(ChunkDataUtility.AreLayoutCompatible(archetype.Archetype, archetypeWithShared.Archetype));
+            }
+
+            using (var entities = new NativeArray<Entity>(1, Allocator.TempJob))
+            {
+                m_Manager.CreateEntity(archetype, entities);
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestSharedCompWithMaxChunkCapacity>(entities[0]));
+
+                m_Manager.AddComponent(entities, typeof(EcsTestSharedCompWithMaxChunkCapacity));
+
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestSharedCompWithMaxChunkCapacity>(entities[0]));
+                Assert.AreEqual(0, m_Manager.GetSharedComponentData<EcsTestSharedCompWithMaxChunkCapacity>(entities[0]).Value);
+            }
+        }
+
+        [Test]
         public void RemoveSharedComponent()
         {
             Entity e = m_Manager.CreateEntity();
@@ -266,7 +374,42 @@ namespace Unity.Entities.Tests
             postChunks0.Dispose();
             postChunks1.Dispose();
         }
+        
+        [Test]
+        public void SCG_SetSharedComponentDataWithQuery()
+        {
+            var noShared = m_Manager.CreateEntity(typeof(EcsTestData));
+            
+            var e0 = m_Manager.CreateEntity(typeof(SharedData1), typeof(EcsTestData));
+            var e1 = m_Manager.CreateEntity(typeof(SharedData1));
+            var e2 = m_Manager.CreateEntity(typeof(SharedData1), typeof(EcsTestData));
 
+            m_Manager.SetSharedComponentData(e0, new SharedData1 {value = 0});
+            m_Manager.SetSharedComponentData(e1, new SharedData1 {value = 1});
+            m_Manager.SetSharedComponentData(e2, new SharedData1 {value = 2});
+
+            var c0 = m_Manager.GetChunk(e0);
+            var c1 = m_Manager.GetChunk(e1);
+            var c2 = m_Manager.GetChunk(e2);
+            var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<SharedData1>(), ComponentType.ReadWrite<EcsTestData>());
+            m_Manager.SetSharedComponentData(query, new SharedData1 {value = 10});
+            
+            Assert.AreEqual(10, m_Manager.GetSharedComponentData<SharedData1>(e0).value);
+            Assert.AreEqual(1, m_Manager.GetSharedComponentData<SharedData1>(e1).value);
+            Assert.AreEqual(10, m_Manager.GetSharedComponentData<SharedData1>(e2).value);
+            Assert.IsFalse(m_Manager.HasComponent<SharedData1>(noShared));
+            
+            // This is not required but describes current behaviour,
+            // Query based shared component does not reorder or merge chunks. (Even though in this case e0 & e2 could be in the same chunk)
+            Assert.AreEqual(c0, m_Manager.GetChunk(e0));
+            Assert.AreEqual(c1, m_Manager.GetChunk(e1));
+            Assert.AreEqual(c2, m_Manager.GetChunk(e2));
+            Assert.AreNotEqual(c0, c2);
+
+            query.Dispose();
+        }
+
+        
 #if !NET_DOTS
         [Test]
         public void GetSharedComponentDataWithTypeIndex()

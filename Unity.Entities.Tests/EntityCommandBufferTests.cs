@@ -294,11 +294,14 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity();
             cmds.AddSharedComponent(entity, new EcsTestSharedComp(10));
             cmds.AddSharedComponent(entity, new EcsTestSharedComp2(20));
+            cmds.AddSharedComponent(entity, new EcsTestSharedComp3(0));
 
             cmds.Playback(m_Manager);
 
             Assert.AreEqual(10, m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity).value);
             Assert.AreEqual(20, m_Manager.GetSharedComponentData<EcsTestSharedComp2>(entity).value1);
+            Assert.AreEqual(0, m_Manager.GetSharedComponentData<EcsTestSharedComp3>(entity).value0);
+            Assert.AreEqual(0, m_Manager.GetSharedComponentDataIndex<EcsTestSharedComp3>(entity));
 
             cmds.Dispose();
         }
@@ -317,8 +320,8 @@ namespace Unity.Entities.Tests
             var sharedComp1List = new List<EcsTestSharedComp>();
             var sharedComp2List = new List<EcsTestSharedComp2>();
 
-            m_Manager.GetAllUniqueSharedComponentData<EcsTestSharedComp>(sharedComp1List);
-            m_Manager.GetAllUniqueSharedComponentData<EcsTestSharedComp2>(sharedComp2List);
+            m_Manager.GetAllUniqueSharedComponentData(sharedComp1List);
+            m_Manager.GetAllUniqueSharedComponentData(sharedComp2List);
 
             // the count must be 2 - the default value of the shared component and the one we actually set
             Assert.AreEqual(2, sharedComp1List.Count);
@@ -371,13 +374,14 @@ namespace Unity.Entities.Tests
             cmds.Dispose();
         }
 
+
         [Test]
         public void SetSharedComponentDefault()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
 
             var e = cmds.CreateEntity();
-            cmds.AddSharedComponent(e, new EcsTestSharedComp());
+            cmds.AddSharedComponent(e, new EcsTestSharedComp(10));
             cmds.SetSharedComponent(e, new EcsTestSharedComp());
 
             cmds.Playback(m_Manager);

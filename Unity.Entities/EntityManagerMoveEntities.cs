@@ -339,7 +339,6 @@ namespace Unity.Entities
                 var dstArchetype = EntityComponentStore->GetOrCreateArchetype(archetype->Types, archetype->TypesCount);
 
                 remapChunks[i] = new RemapChunk {chunk = chunk, dstArchetype = dstArchetype};
-                chunk->SequenceNumber = EntityComponentStore->AssignSequenceNumber(chunk);
 
                 if (archetype->NumManagedArrays > 0)
                 {

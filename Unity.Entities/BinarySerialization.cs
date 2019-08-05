@@ -1,5 +1,7 @@
 using System;
+#if !NET_TINY
 using System.IO;
+#endif
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 

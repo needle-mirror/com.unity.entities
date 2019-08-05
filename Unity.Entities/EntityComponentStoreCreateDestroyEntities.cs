@@ -197,11 +197,9 @@ namespace Unity.Entities
 
         public void InstantiateEntities(Entity srcEntity, Entity* outputEntities, int instanceCount)
         {
-            var linkedType = TypeManager.GetTypeIndex<LinkedEntityGroup>();
-
-            if (HasComponent(srcEntity, linkedType))
+            if (HasComponent(srcEntity, m_LinkedGroupType))
             {
-                var header = (BufferHeader*) GetComponentDataWithTypeRO(srcEntity, linkedType);
+                var header = (BufferHeader*) GetComponentDataWithTypeRO(srcEntity, m_LinkedGroupType);
                 var entityPtr = (Entity*) BufferHeader.GetElementPointer(header);
                 var entityCount = header->Length;
 
@@ -303,7 +301,7 @@ namespace Unity.Entities
 
         void DestroyMetaChunkEntity(Entity entity)
         {
-            RemoveComponent(entity, ComponentType.ReadWrite<ChunkHeader>());
+            RemoveComponent(entity, m_ChunkHeaderComponentType);
             DestroyEntities(&entity, 1);
         }
 
@@ -313,11 +311,8 @@ namespace Unity.Entities
             {
                 CreateEntities(chunk->Archetype->MetaChunkArchetype, &chunk->metaChunkEntity, 1);
 
-                var typeIndex = TypeManager.GetTypeIndex<ChunkHeader>();
-                var chunkHeader =
-                    (ChunkHeader*) GetComponentDataWithTypeRW(chunk->metaChunkEntity, typeIndex,
-                        GlobalSystemVersion);
-
+                var chunkHeader = (ChunkHeader*) GetComponentDataWithTypeRW(chunk->metaChunkEntity, m_ChunkHeaderType, GlobalSystemVersion);
+                
                 chunkHeader->ArchetypeChunk = new ArchetypeChunk(chunk, entityComponentStore);
             }
         }
@@ -333,11 +328,10 @@ namespace Unity.Entities
         void AddToDestroyList(Chunk* chunk, int indexInChunk, int batchCount, int inputDestroyCount,
             ref UnsafeList entitiesList, ref int minBufferLength, ref int maxBufferLength)
         {
-            var linkedGroupType = TypeManager.GetTypeIndex<LinkedEntityGroup>();
-            int indexInArchetype = ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, linkedGroupType);
+            int indexInArchetype = ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, m_LinkedGroupType);
             if (indexInArchetype != -1)
             {
-                var baseHeader = ChunkDataUtility.GetComponentDataWithTypeRO(chunk, indexInChunk, linkedGroupType);
+                var baseHeader = ChunkDataUtility.GetComponentDataWithTypeRO(chunk, indexInChunk, m_LinkedGroupType);
                 var stride = chunk->Archetype->SizeOfs[indexInArchetype];
                 for (int i = 0; i != batchCount; i++)
                 {

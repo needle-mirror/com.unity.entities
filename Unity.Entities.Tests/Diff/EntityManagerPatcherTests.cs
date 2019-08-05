@@ -235,7 +235,6 @@ namespace Unity.Entities.Tests
                 }
             }
         }
-#endif
 
         [Test]
         public void EntityManagerPatcher_ApplyChanges_ChangeSharedComponent()
@@ -246,17 +245,28 @@ namespace Unity.Entities.Tests
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity();
                 SrcEntityManager.AddComponentData(entity, entityGuid);
-                SrcEntityManager.AddSharedComponentData(entity, new EcsTestSharedComp {value = 1});
+                SrcEntityManager.AddComponent<EcsTestSharedComp>(entity);
 
                 PushChanges(differ, patcher);
-                Assert.AreEqual(1, GetSharedComponentData<EcsTestSharedComp>(DstEntityManager, entityGuid).value);
+                var dstEntity = GetEntity(DstEntityManager, entityGuid);
+                Assert.AreEqual(0, DstEntityManager.GetSharedComponentDataIndex<EcsTestSharedComp>(dstEntity));
+                Assert.AreEqual(0, DstEntityManager.GetSharedComponentData<EcsTestSharedComp>(dstEntity).value);
 
                 SrcEntityManager.SetSharedComponentData(entity, new EcsTestSharedComp {value = 2});
-
                 PushChanges(differ, patcher);
-                Assert.AreEqual(2, GetSharedComponentData<EcsTestSharedComp>(DstEntityManager, entityGuid).value);
+                Assert.AreEqual(2, DstEntityManager.GetSharedComponentData<EcsTestSharedComp>(dstEntity).value);
+
+                SrcEntityManager.SetSharedComponentData(entity, new EcsTestSharedComp {value = 3});
+                PushChanges(differ, patcher);
+                Assert.AreEqual(3, DstEntityManager.GetSharedComponentData<EcsTestSharedComp>(dstEntity).value);
+
+                SrcEntityManager.SetSharedComponentData(entity, new EcsTestSharedComp {value = 0});
+                PushChanges(differ, patcher);
+                Assert.AreEqual(0, DstEntityManager.GetSharedComponentDataIndex<EcsTestSharedComp>(dstEntity));
+                Assert.AreEqual(0, DstEntityManager.GetSharedComponentData<EcsTestSharedComp>(dstEntity).value);
             }
         }
+#endif
 
         [Test]
         public void EntityManagerPatcher_ApplyChanges_ChangeAppliesToAllPrefabInstances([Values] bool prefabTag)

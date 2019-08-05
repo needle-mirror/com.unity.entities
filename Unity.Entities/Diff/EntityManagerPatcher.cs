@@ -559,7 +559,7 @@ namespace Unity.Entities
                     if (!entityManager.EntityComponentStore->HasComponent(entity, component))
                     {
                         entityManager.AddComponent(entity, component);
-                    
+
                         // magic is required to force the first entity in the LinkedEntityGroup to be the entity
                         // that owns the component. this magic doesn't seem to exist at a lower level, so let's
                         // shim it in here. we'll probably need to move the magic lower someday.
@@ -650,7 +650,7 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        entityManager.SetSharedComponentDataBoxed(entity, component.TypeIndex, packedSharedComponentDataChange.BoxedSharedValue);
+                        entityManager.SetSharedComponentDataBoxedDefaultMustBeNull(entity, component.TypeIndex, packedSharedComponentDataChange.BoxedSharedValue);
                     }
                 }
                 while (packedEntities.TryGetNextValue(out entity, ref iterator));

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
@@ -188,6 +189,37 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Sets the shared component of all entities in the query.
+        /// </summary>
+        /// <remarks>
+        /// The component data stays in the same chunk, the internal shared component data indices will be adjusted.
+        ///
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before setting the component and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="entity">The entity</param>
+        /// <param name="componentData">A shared component object containing the values to set.</param>
+        /// <typeparam name="T">The shared component type.</typeparam>
+        public void SetSharedComponentData<T>(EntityQuery query, T componentData) where T : struct, ISharedComponentData
+        {
+            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
+            {
+                if (chunks.Length == 0)
+                    return;
+
+                BeforeStructuralChange();
+
+                var type = ComponentType.ReadWrite<T>();
+                RemoveComponent(chunks, type);
+
+                int sharedComponentIndex = ManagedComponentStore.InsertSharedComponent(componentData);
+                AddSharedComponentData(chunks, sharedComponentIndex, type);
+            }
+        }
+        
+        /// <summary>
         /// Gets a shared component from an entity.
         /// </summary>
         /// <param name="entity">The entity.</param>
@@ -200,6 +232,14 @@ namespace Unity.Entities
 
             var sharedComponentIndex = EntityComponentStore->GetSharedComponentDataIndex(entity, typeIndex);
             return m_ManagedComponentStore.GetSharedComponentData<T>(sharedComponentIndex);
+        }
+
+        public int GetSharedComponentDataIndex<T>(Entity entity) where T : struct, ISharedComponentData
+        {
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
+
+            return EntityComponentStore->GetSharedComponentDataIndex(entity, typeIndex);
         }
 
         /// <summary>
@@ -220,7 +260,7 @@ namespace Unity.Entities
         {
             return m_ManagedComponentStore.GetSharedComponentData<T>(sharedComponentIndex);
         }
-
+        
         /// <summary>
         /// Gets a list of all the unique instances of a shared component type.
         /// </summary>
@@ -345,13 +385,16 @@ namespace Unity.Entities
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------
 
-        internal void SetSharedComponentDataBoxed(Entity entity, int typeIndex, object componentData)
+        internal void SetSharedComponentDataBoxedDefaultMustBeNull(Entity entity, int typeIndex, object componentData)
         {
-            var hashCode = TypeManager.GetHashCode(componentData, typeIndex);
-            SetSharedComponentDataBoxed(entity, typeIndex, hashCode, componentData);
+            var hashCode = 0;
+            if (componentData != null)
+                hashCode = TypeManager.GetHashCode(componentData, typeIndex);
+            
+            SetSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData);
         }
 
-        internal void SetSharedComponentDataBoxed(Entity entity, int typeIndex, int hashCode, object componentData)
+        internal void SetSharedComponentDataBoxedDefaultMustBeNull(Entity entity, int typeIndex, int hashCode, object componentData)
         {
             BeforeStructuralChange();
 

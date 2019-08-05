@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+#if !NET_TINY
 using System.Linq;
+#endif
 using System.Reflection;
 using Unity.Assertions;
 using Unity.Collections;
@@ -208,87 +210,48 @@ namespace Unity.Entities
                 }
             }
 
-                public readonly int TypeIndex;
-                // Note that this includes internal capacity and header overhead for buffers.
-                public readonly int SizeInChunk;
-                // Normally the same as SizeInChunk (for components), but for buffers means size of an individual element.
-                public readonly int ElementSize;
-                // Sometimes we need to know not only the size, but the alignment.  For buffers this is the alignment
-                // of an individual element.
-                public readonly int AlignmentInBytes;
-                public readonly int BufferCapacity;
-                public readonly int FastEqualityIndex;
-                public readonly TypeCategory Category;
-                // While this information is available in the Array for EntityOffsets this field allows us to keep Tiny vs non-Tiny code paths the same
-                public readonly int EntityOffsetCount;
-                internal readonly int EntityOffsetStartIndex;
-                public readonly int BlobAssetRefOffsetCount;
-                internal readonly int BlobAssetRefOffsetStartIndex;
-                public readonly ulong MemoryOrdering;
-                public readonly ulong StableTypeHash;
-                public readonly int WriteGroupStartIndex;
-                public readonly int WriteGroupCount;
-                public readonly int MaximumChunkCapacity;
-                // True when a component is valid to using in world serialization. A component IsSerializable when it is valid to blit
-                // the data across storage media. Thus components containing pointers have an IsSerializable of false as the component
-                // is blittable but no longer valid upon deserialization.
-                public readonly bool IsSerializable;
+            public readonly int TypeIndex;
+            // Note that this includes internal capacity and header overhead for buffers.
+            public readonly int SizeInChunk;
+            // Normally the same as SizeInChunk (for components), but for buffers means size of an individual element.
+            public readonly int ElementSize;
+            // Sometimes we need to know not only the size, but the alignment.  For buffers this is the alignment
+            // of an individual element.
+            public readonly int AlignmentInBytes;
+            public readonly int BufferCapacity;
+            public readonly int FastEqualityIndex;
+            public readonly TypeCategory Category;
+            // While this information is available in the Array for EntityOffsets this field allows us to keep Tiny vs non-Tiny code paths the same
+            public readonly int EntityOffsetCount;
+            internal readonly int EntityOffsetStartIndex;
+            public readonly int BlobAssetRefOffsetCount;
+            internal readonly int BlobAssetRefOffsetStartIndex;
+            public readonly ulong MemoryOrdering;
+            public readonly ulong StableTypeHash;
+            public readonly int WriteGroupStartIndex;
+            public readonly int WriteGroupCount;
+            public readonly int MaximumChunkCapacity;
+            // True when a component is valid to using in world serialization. A component IsSerializable when it is valid to blit
+            // the data across storage media. Thus components containing pointers have an IsSerializable of false as the component
+            // is blittable but no longer valid upon deserialization.
+            public readonly bool IsSerializable;
 
-                // Alignment of this type in a chunk.  Normally the same
-                // as AlignmentInBytes, but that might be less than this
-                // for buffer elements, whereas the buffer itself must
-                // be aligned to the maximum.
-                public int AlignmentInChunkInBytes {
-                    get {
-                        if (Category == TypeCategory.BufferData)
-                            return MaximumSupportedAlignment;
-                        return AlignmentInBytes;
-                    }
+            // Alignment of this type in a chunk.  Normally the same
+            // as AlignmentInBytes, but that might be less than this
+            // for buffer elements, whereas the buffer itself must
+            // be aligned to the maximum.
+            public int AlignmentInChunkInBytes {
+                get {
+                    if (Category == TypeCategory.BufferData)
+                        return MaximumSupportedAlignment;
+                    return AlignmentInBytes;
                 }
+            } 
             
-                public EntityOffsetInfo* EntityOffsets
-                {
-                    get
-                    {
-                        if (EntityOffsetCount > 0)
-                        {
-                            return (EntityOffsetInfo*)s_EntityOffsetList.GetUnsafePtr() + EntityOffsetStartIndex;
-                        }
-        
-                        return null;
-                    }
-                }
-                public EntityOffsetInfo* BlobAssetRefOffsets
-                {
-                    get
-                    {
-                        if (BlobAssetRefOffsetCount > 0)
-                        {
-                            return (EntityOffsetInfo*)s_BlobAssetRefOffsetList.GetUnsafePtr() + BlobAssetRefOffsetStartIndex;
-                        }
-        
-                        return null;
-                    }
-                }
-            
-                public int* WriteGroups
-                {
-                    get
-                    {
-                        if (WriteGroupCount> 0)
-                        {
-                            return (int*)s_WriteGroupList.GetUnsafePtr() + WriteGroupStartIndex;
-                        }
-        
-                        return null;
-                    }
-                }
+            public Type Type => TypeManager.GetType(TypeIndex);
 
-                public Type Type => TypeManager.GetType(TypeIndex);
-            
-
-                public bool IsZeroSized => SizeInChunk == 0;
-                public bool HasWriteGroups => WriteGroupCount > 0;
+            public bool IsZeroSized => SizeInChunk == 0;
+            public bool HasWriteGroups => WriteGroupCount > 0;
 #else
             // NOTE: Any change to this constructor prototype requires a change in the TypeRegGen to match
             public TypeInfo(int typeIndex, TypeCategory category, int entityOffsetCount, int entityOffsetStartIndex,
@@ -357,45 +320,10 @@ namespace Unity.Entities
 
             // NOTE: We explictly exclude Type as a member of TypeInfo so the type can remain a ValueType
             public Type Type => StaticTypeRegistry.StaticTypeRegistry.Types[TypeIndex & ClearFlagsMask];
-
-            // To consider: pinning the static array ptr and storing the correct offset pinned ptr for TypeInfo and the nremove these getters
-            public EntityOffsetInfo* EntityOffsets
-            {
-                get
-                {
-                    if (EntityOffsetCount > 0)
-                    {
-                        return ((EntityOffsetInfo*)UnsafeUtility.AddressOf(ref StaticTypeRegistry.StaticTypeRegistry.EntityOffsets[0])) + EntityOffsetStartIndex;
-                    }
-
-                    return null;
-                }
-            }
-            public EntityOffsetInfo* BlobAssetRefOffsets
-            {
-                get
-                {
-                    if (BlobAssetRefOffsetCount > 0)
-                    {
-                        return ((EntityOffsetInfo*)UnsafeUtility.AddressOf(ref StaticTypeRegistry.StaticTypeRegistry.BlobAssetReferenceOffsets[0])) + BlobAssetRefOffsetStartIndex;
-                    }
-
-                    return null;
-                }
-            }
-            public int* WriteGroups
-            {
-                get
-                {
-                    if (WriteGroupCount> 0)
-                    {
-                        return ((int*)UnsafeUtility.AddressOf(ref StaticTypeRegistry.StaticTypeRegistry.WriteGroups[0])) + WriteGroupStartIndex;
-                    }
-
-                    return null;
-                }
-            }
 #endif
+            
+           public bool HasEntities => EntityOffsetCount > 0;
+           
             /// <summary>
             /// Provides debug type information. This information may be stripped in non-debug builds
             /// </summary>
@@ -433,52 +361,77 @@ namespace Unity.Entities
                 }
             }
         }
+
+        internal static EntityOffsetInfo* GetEntityOffsetsPointer()
+        {
+#if !NET_DOTS
+            return (EntityOffsetInfo*)s_EntityOffsetList.GetUnsafePtr();
+#else
+            return ((EntityOffsetInfo*)UnsafeUtility.AddressOf(ref StaticTypeRegistry.StaticTypeRegistry.EntityOffsets[0]));
+#endif
+        }
         
         internal static EntityOffsetInfo* GetEntityOffsets (TypeInfo typeInfo)
         {
-            if (typeInfo.EntityOffsetCount > 0)
-            {
-                return (EntityOffsetInfo*)s_EntityOffsetList.GetUnsafePtr() + typeInfo.EntityOffsetStartIndex;
-            }
-    
-            return null;
+            if (!typeInfo.HasEntities)
+                return null;
+            return GetEntityOffsetsPointer() + typeInfo.EntityOffsetStartIndex;
         }
+        
+        public static EntityOffsetInfo* GetEntityOffsets(int typeIndex)
+        {
+            var typeInfo = s_TypeInfos[typeIndex & ClearFlagsMask];
+            return GetEntityOffsets(typeInfo);
+        }
+        
+        internal static EntityOffsetInfo* GetBlobAssetRefOffsetsPointer()
+        {
+#if !NET_DOTS
+            return (EntityOffsetInfo*)s_BlobAssetRefOffsetList.GetUnsafePtr();
+#else
+            return ((EntityOffsetInfo*)UnsafeUtility.AddressOf(ref StaticTypeRegistry.StaticTypeRegistry.BlobAssetReferenceOffsets[0]));
+#endif
+        }
+
         internal static EntityOffsetInfo* GetBlobAssetRefOffsets (TypeInfo typeInfo)
         {
-            if (typeInfo.BlobAssetRefOffsetCount > 0)
-            {
-                return (EntityOffsetInfo*)s_BlobAssetRefOffsetList.GetUnsafePtr() + typeInfo.BlobAssetRefOffsetStartIndex;
-            }
-    
-            return null;
+            if (typeInfo.BlobAssetRefOffsetCount == 0)
+                return null;
+            
+            return GetBlobAssetRefOffsetsPointer() + typeInfo.BlobAssetRefOffsetStartIndex;
+        }
+
+        internal static int* GetWriteGroupsPointer()
+        {
+#if !NET_DOTS
+            return (int*) s_WriteGroupList.GetUnsafePtr();
+#else
+            return ((int*)UnsafeUtility.AddressOf(ref StaticTypeRegistry.StaticTypeRegistry.WriteGroups[0]));
+#endif
         }
             
         internal static int* GetWriteGroups (TypeInfo typeInfo)
         {
-            if (typeInfo.WriteGroupCount> 0)
-            {
-                return (int*)s_WriteGroupList.GetUnsafePtr() + typeInfo.WriteGroupStartIndex;
-            }
+            if (typeInfo.WriteGroupCount == 0)
+                return null;
     
-            return null;
+            return GetWriteGroupsPointer() + typeInfo.WriteGroupStartIndex;
         }
 
         public static unsafe TypeInfo GetTypeInfo(int typeIndex)
         {
             return s_TypeInfos[typeIndex & ClearFlagsMask];
         }
-
+        
         public static TypeInfo GetTypeInfo<T>() where T : struct
         {
             return s_TypeInfos[GetTypeIndex<T>() & ClearFlagsMask];
         }
 
-        #if !NET_DOTS
-        internal static unsafe TypeInfo* GetTypeInfoPointer<T>() where T : struct
+        internal static TypeInfo* GetTypeInfoPointer() 
         {
             return (TypeInfo*)s_TypeInfos.GetUnsafePtr();
         }
-        #endif
 
         public static Type GetType(int typeIndex)
         {
@@ -1259,37 +1212,13 @@ namespace Unity.Entities
         public static NativeArray<int> GetWriteGroupTypes(int typeIndex)
         {
             var type = GetTypeInfo(typeIndex);
-            var writeGroups = type.WriteGroups;
+            var writeGroups = GetWriteGroups(type);
             var writeGroupCount = type.WriteGroupCount;
             var arr = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<int>(writeGroups, writeGroupCount, Allocator.None);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref arr, AtomicSafetyHandle.Create());
 #endif
             return arr;
-        }
-
-        internal static int NextPowerOfTwo(int n)
-        {
-            if (n == 0)
-                return 1;
-            n--;
-            n |= n >> 1;
-            n |= n >> 2;
-            n |= n >> 4;
-            n |= n >> 8;
-            n |= n >> 16;
-            return n + 1;
-        }
-
-        internal static int AlignUp(int value, int pow2_alignment)
-        {
-            int mask = pow2_alignment - 1;
-            return pow2_alignment <= 0 ? value : (value + mask) & ~mask;
-        }
-
-        internal static bool IsPowerOfTwo(int value)
-        {
-            return (value & (value - 1)) == 0;
         }
 
         // TODO: Fix our wild alignment requirements for chunk memory (easier said than done)
@@ -1305,7 +1234,7 @@ namespace Unity.Entities
         internal static int CalculateAlignmentInChunk(int sizeOfTypeInBytes)
         {
             int alignmentInBytes = MaximumSupportedAlignment;
-            if (sizeOfTypeInBytes < alignmentInBytes && IsPowerOfTwo(sizeOfTypeInBytes))
+            if (sizeOfTypeInBytes < alignmentInBytes && CollectionHelper.IsPowerOfTwo(sizeOfTypeInBytes))
                 alignmentInBytes = sizeOfTypeInBytes;
 
             return alignmentInBytes;

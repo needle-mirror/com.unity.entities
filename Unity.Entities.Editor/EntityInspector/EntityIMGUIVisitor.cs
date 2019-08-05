@@ -183,7 +183,7 @@ namespace Unity.Entities.Editor
                 GUILayout.BeginVertical(GUILayout.MinHeight(scrollData.PageHeight));
                 for (var i = scrollData.Page*kBufferPageLength; i < (scrollData.Page+1)*kBufferPageLength && i < count; i++)
                 {
-                    var callback = new VisitCollectionElementCallback<TContainer>(this, changeTracker.VersionStorage);
+                    var callback = new VisitCollectionElementCallback<TContainer>(this);
                     property.GetPropertyAtIndex(ref container, i, ref changeTracker, callback);
                 }
                 GUILayout.EndVertical();
@@ -197,32 +197,25 @@ namespace Unity.Entities.Editor
             return VisitStatus.Handled;
         }
         
-        /// <summary>
-        /// Copied from PropertyVisitor for now.
-        /// </summary>
-        private struct VisitCollectionElementCallback<TContainer> : ICollectionElementGetter<TContainer>
+        internal struct VisitCollectionElementCallback<TContainer> : ICollectionElementPropertyGetter<TContainer>
         {
             private readonly IPropertyVisitor m_Visitor;
-            private ChangeTracker m_ChangeTracker;
-
-            public bool IsChanged() => m_ChangeTracker.IsChanged();
-
-            public VisitCollectionElementCallback(IPropertyVisitor visitor, IVersionStorage versionStorage)
+        
+            public VisitCollectionElementCallback(IPropertyVisitor visitor)
             {
                 m_Visitor = visitor;
-                m_ChangeTracker = new ChangeTracker(versionStorage);
             }
 
-            public void VisitProperty<TElementProperty, TElement>(TElementProperty property, ref TContainer container)
+            public void VisitProperty<TElementProperty, TElement>(TElementProperty property, ref TContainer container, ref ChangeTracker changeTracker)
                 where TElementProperty : ICollectionElementProperty<TContainer, TElement>
             {
-                m_Visitor.VisitProperty<TElementProperty, TContainer, TElement>(property, ref container, ref m_ChangeTracker);
+                m_Visitor.VisitProperty<TElementProperty, TContainer, TElement>(property, ref container, ref changeTracker);
             }
 
-            public void VisitCollectionProperty<TElementProperty, TElement>(TElementProperty property, ref TContainer container)
+            public void VisitCollectionProperty<TElementProperty, TElement>(TElementProperty property, ref TContainer container, ref ChangeTracker changeTracker)
                 where TElementProperty : ICollectionProperty<TContainer, TElement>, ICollectionElementProperty<TContainer, TElement>
             {
-                m_Visitor.VisitCollectionProperty<TElementProperty, TContainer, TElement>(property, ref container, ref m_ChangeTracker);
+                m_Visitor.VisitCollectionProperty<TElementProperty, TContainer, TElement>(property, ref container, ref changeTracker);
             }
         }
     }

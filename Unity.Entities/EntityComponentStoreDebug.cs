@@ -12,7 +12,7 @@ namespace Unity.Entities
         // PUBLIC
         // ----------------------------------------------------------------------------------------------------------
 
-        [Conditional("ENABLE_UNITY_COLLECTION")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void CheckInternalConsistency()
         {
             // Iterate by archetype
@@ -73,11 +73,25 @@ namespace Unity.Entities
                 entityCountByArchetype += countInArchetype;
             }
 
-            // iterate by entitiees
+            // Iterate by free list
+            Assert.IsTrue(m_EntityInChunkByEntity[m_NextFreeEntityIndex].Chunk == null);
 
+            var entityCountByFreeList = EntitiesCapacity;
+            int freeIndex = m_NextFreeEntityIndex;
+            while (freeIndex != -1)
+            {
+                Assert.IsTrue(m_EntityInChunkByEntity[freeIndex].Chunk == null);
+                Assert.IsTrue(freeIndex < EntitiesCapacity);
+                
+                freeIndex = m_EntityInChunkByEntity[freeIndex].IndexInChunk;
+
+                entityCountByFreeList--;
+            }
+            
+            
+            // iterate by entities
             var entityCountByEntities = 0;
             var entityType = TypeManager.GetTypeIndex<Entity>();
-
             for (var i = 0; i != EntitiesCapacity; i++)
             {
                 var chunk = m_EntityInChunkByEntity[i].Chunk;
@@ -96,9 +110,33 @@ namespace Unity.Entities
 
                 Assert.IsTrue(Exists(entity));
             }
+            
 
             Assert.AreEqual(entityCountByEntities, entityCountByArchetype);
+            
+            // Enabling this fails SerializeEntitiesWorksWithBlobAssetReferences.
+            // There is some special entity 0 usage in the serialization code.
+            
+            // @TODO: Review with simon looks like a potential leak?
+            //Assert.AreEqual(entityCountByEntities, entityCountByFreeList);
+            
         }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public static void AssertSameEntities(EntityComponentStore* rhs, EntityComponentStore* lhs)
+        {
+            Assert.AreEqual(rhs->EntitiesCapacity, lhs->EntitiesCapacity);
+            var lhsEntities = lhs->m_EntityInChunkByEntity;
+            var rhsEntities = rhs->m_EntityInChunkByEntity;
+            int capacity = lhs->EntitiesCapacity;
+            for (int i = 0; i != capacity; i++)
+            {
+                if (lhsEntities[i].IndexInChunk != rhsEntities[i].IndexInChunk)
+                    Assert.AreEqual(lhsEntities[i].IndexInChunk, rhsEntities[i].IndexInChunk);
+            }
+            Assert.AreEqual(rhs->m_NextFreeEntityIndex, lhs->m_NextFreeEntityIndex);
+        }
+
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void ValidateEntity(Entity entity)
@@ -112,13 +150,13 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        public static void AssertArchetypeComponents(ComponentTypeInArchetype* types, int count)
+        void AssertArchetypeComponents(ComponentTypeInArchetype* types, int count)
         {
             if (count < 1)
                 throw new ArgumentException($"Invalid component count");
             if (types[0].TypeIndex == 0)
                 throw new ArgumentException($"Component type may not be null");
-            if (types[0].TypeIndex != TypeManager.GetTypeIndex<Entity>())
+            if (types[0].TypeIndex != m_EntityType)
                 throw new ArgumentException($"The Entity ID must always be the first component");
 
             for (var i = 1; i < count; i++)

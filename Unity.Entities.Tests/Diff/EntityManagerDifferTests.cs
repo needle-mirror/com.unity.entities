@@ -248,5 +248,29 @@ namespace Unity.Entities.Tests
             }
         }
         
+        
+        [Test]
+        public void EntityManagerDiffer_AddingZeroSizeComponentToWholeChunk()
+        {
+            using (var tracker = new EntityManagerDiffer(SrcWorld, Allocator.TempJob))
+            {
+                for (int i = 0; i != 10; i++)
+                {
+                    var entityGuid = CreateEntityGuid();
+                    var entity = SrcEntityManager.CreateEntity();
+                    SrcEntityManager.AddComponentData(entity, entityGuid);
+                }
+                
+                using (var changes = tracker.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp)) {}
+
+                SrcEntityManager.AddSharedComponentData(SrcEntityManager.UniversalQuery, new SharedData1(9));
+                
+                using (var changes = tracker.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsTrue(changes.AnyChanges);
+                    Assert.AreEqual(10, changes.ForwardChangeSet.AddComponents.Length);
+                }
+            }
+        }
     }
 }

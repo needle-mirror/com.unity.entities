@@ -107,6 +107,17 @@ namespace Unity.Entities.Tests
         }
     }
 
+    [MaximumChunkCapacity(500)]
+    struct EcsTestSharedCompWithMaxChunkCapacity : ISharedComponentData
+    {
+        public int Value;
+
+        public EcsTestSharedCompWithMaxChunkCapacity(int value)
+        {
+            Value = value;
+        }
+    }
+
     public struct EcsTestDataEntity : IComponentData
     {
         public int value0;

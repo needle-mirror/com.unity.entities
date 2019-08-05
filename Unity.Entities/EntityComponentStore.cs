@@ -210,11 +210,24 @@ namespace Unity.Entities
         uint m_GlobalSystemVersion;
         int m_EntitiesCapacity; 
         uint m_ArchetypeTrackingVersion;
-
+        
+        int m_LinkedGroupType;
+        int m_ChunkHeaderType;
+        int m_PrefabType;
+        int m_CleanupEntityType;
+        int m_DisabledType;
+        int m_EntityType;
+        
+        ComponentType m_ChunkHeaderComponentType;
+        ComponentType m_EntityComponentType;
+        
+        TypeManager.TypeInfo* m_TypeInfos;
+        TypeManager.EntityOffsetInfo* m_EntityOffsetInfos;
+        
         const int kMaximumEmptyChunksInPool = 16; // can't alloc forever
         const int kDefaultCapacity = 1024;
 
-        public int EntityOrderVersion => GetComponentTypeOrderVersion(TypeManager.GetTypeIndex<Entity>());
+        public int EntityOrderVersion => GetComponentTypeOrderVersion(m_EntityType);
         public int EntitiesCapacity => m_EntitiesCapacity;
         public uint GlobalSystemVersion => m_GlobalSystemVersion;
 
@@ -275,6 +288,11 @@ namespace Unity.Entities
             m_EntitiesCapacity = value;
             InitializeAdditionalCapacity(startNdx);
         }
+
+        public void CopyNextFreeEntityIndex(EntityComponentStore* src)
+        {
+            m_NextFreeEntityIndex = src->m_NextFreeEntityIndex;
+        }
         
         private void InitializeAdditionalCapacity(int start)
         {
@@ -315,7 +333,18 @@ namespace Unity.Entities
             entities->ManagedChangesTracker.Init();
             entities->m_ManagedArrayIndex = 0;
             entities->m_ManagedArrayFreeIndex = new UnsafeAppendBuffer(1024, 16, Allocator.Persistent);
-
+            entities->m_LinkedGroupType = TypeManager.GetTypeIndex<LinkedEntityGroup>();
+            entities->m_ChunkHeaderType = TypeManager.GetTypeIndex<ChunkHeader>();
+            entities->m_PrefabType = TypeManager.GetTypeIndex<Prefab>();
+            entities->m_CleanupEntityType = TypeManager.GetTypeIndex<CleanupEntity>();
+            entities->m_DisabledType = TypeManager.GetTypeIndex<Disabled>();
+            entities->m_EntityType = TypeManager.GetTypeIndex<Entity>();
+            
+            entities->m_ChunkHeaderComponentType = ComponentType.ReadWrite<ChunkHeader>();
+            entities->m_EntityComponentType = ComponentType.ReadWrite<Entity>();
+            entities->m_TypeInfos = TypeManager.GetTypeInfoPointer();
+            entities->m_EntityOffsetInfos = TypeManager.GetEntityOffsetsPointer();
+            
             // Sanity check a few alignments
 #if UNITY_ASSERTIONS
             // Buffer should be 16 byte aligned to ensure component data layout itself can gurantee being aligned
@@ -331,7 +360,27 @@ namespace Unity.Entities
 
             return entities;
         }
-
+        
+        public TypeManager.TypeInfo GetTypeInfo(int typeIndex)
+        {
+            return m_TypeInfos[typeIndex & TypeManager.ClearFlagsMask];
+        }
+        
+        public TypeManager.EntityOffsetInfo* GetEntityOffsets (TypeManager.TypeInfo typeInfo)
+        {
+            if (!typeInfo.HasEntities)
+                return null;
+            return m_EntityOffsetInfos + typeInfo.EntityOffsetStartIndex;
+        }
+        
+        public TypeManager.EntityOffsetInfo* GetEntityOffsets(int typeIndex)
+        {
+            var typeInfo = m_TypeInfos[typeIndex & TypeManager.ClearFlagsMask];
+            return GetEntityOffsets(typeInfo);
+        }
+        
+        public int ChunkComponentToNormalTypeIndex(int typeIndex) => m_TypeInfos[typeIndex & TypeManager.ClearFlagsMask].TypeIndex;
+        
         public static void Destroy(EntityComponentStore* entityComponentStore)
         {
             entityComponentStore->Dispose();
@@ -830,6 +879,14 @@ namespace Unity.Entities
                 entityIndex++;
                 while (entityIndex < EntityChunkData.Length)
                 {
+                    // Skip this entity if it's a duplicate.  Checking previous entityIndex is sufficient
+                    // since arrays are sorted.
+                    if (EntityChunkData[entityIndex].Equals(EntityChunkData[entityIndex - 1]))
+                    {
+                        entityIndex++;
+                        continue;
+                    }
+
                     var chunk = EntityChunkData[entityIndex].Chunk;
                     var indexInChunk = EntityChunkData[entityIndex].IndexInChunk;
                     var chunkBreak = (chunk != entityBatch.Chunk);
@@ -999,7 +1056,7 @@ namespace Unity.Entities
             var NumSharedComponents = 0;
             for (var i = 0; i < count; ++i)
             {
-                var ct = TypeManager.GetTypeInfo(types[i].TypeIndex);
+                var ct = GetTypeInfo(types[i].TypeIndex);
                 switch (ct.Category)
                 {
                     case TypeManager.TypeCategory.ISharedComponentData:
@@ -1009,9 +1066,10 @@ namespace Unity.Entities
                         ++NumManagedArrays;
                         break;
                 }
-                var entityOffsets = ct.EntityOffsets;
-                if (entityOffsets == null)
+
+                if (!ct.HasEntities)
                     continue;
+                
                 if (ct.BufferCapacity >= 0)
                     bufferEntityPatchCount += ct.EntityOffsetCount;
                 else if (ct.SizeInChunk > 0)
@@ -1041,9 +1099,6 @@ namespace Unity.Entities
             type->SystemStateResidueArchetype = null;
             type->NumSharedComponents = 0;
 
-            var disabledTypeIndex = TypeManager.GetTypeIndex<Disabled>();
-            var prefabTypeIndex = TypeManager.GetTypeIndex<Prefab>();
-            var chunkHeaderTypeIndex = TypeManager.GetTypeIndex<ChunkHeader>();
             type->Disabled = false;
             type->Prefab = false;
             type->HasChunkHeader = false;
@@ -1056,15 +1111,15 @@ namespace Unity.Entities
                     type->NonZeroSizedTypesCount++;
                 if (types[i].IsSharedComponent)
                     ++type->NumSharedComponents;
-                if (types[i].TypeIndex == disabledTypeIndex)
+                if (types[i].TypeIndex == m_DisabledType)
                     type->Disabled = true;
-                if (types[i].TypeIndex == prefabTypeIndex)
+                if (types[i].TypeIndex == m_PrefabType)
                     type->Prefab = true;
-                if (types[i].TypeIndex == chunkHeaderTypeIndex)
+                if (types[i].TypeIndex == m_ChunkHeaderType)
                     type->HasChunkHeader = true;
                 if (types[i].IsChunkComponent)
                     type->HasChunkComponents = true;
-                if (TypeManager.GetTypeInfo(types[i].TypeIndex).BlobAssetRefOffsetCount > 0)
+                if (GetTypeInfo(types[i].TypeIndex).BlobAssetRefOffsetCount > 0)
                     type->ContainsBlobAssetRefs = true;
             }
 
@@ -1082,7 +1137,7 @@ namespace Unity.Entities
             int maxCapacity = TypeManager.MaximumChunkCapacity;
             for (var i = 0; i < count; ++i)
             {
-                var cType = TypeManager.GetTypeInfo(types[i].TypeIndex);
+                var cType = GetTypeInfo(types[i].TypeIndex);
                 var sizeOf = cType.SizeInChunk; // Note that this includes internal capacity and header overhead for buffers.
                 if (types[i].IsChunkComponent)
                 {
@@ -1100,8 +1155,11 @@ namespace Unity.Entities
                 alignExtraSpace += alignments[i];
             }
 
-            Assert.IsTrue(maxCapacity >= 1, "MaximumChunkCapacity must be larger than 1");
-
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (maxCapacity < 1)
+                throw new ArgumentException("MaximumChunkCapacity must be larger than 1");
+#endif
+            
             type->ChunkCapacity = math.min((chunkDataSize - alignExtraSpace) / type->BytesPerInstance, maxCapacity);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -1119,7 +1177,7 @@ namespace Unity.Entities
             // memory ordering is used instead.
             var memoryOrderings = stackalloc UInt64[count];
             for (int i = 0; i < count; ++i)
-                memoryOrderings[i] = TypeManager.GetTypeInfo(types[i].TypeIndex).MemoryOrdering;
+                memoryOrderings[i] = GetTypeInfo(types[i].TypeIndex).MemoryOrdering;
             for (int i = 0; i < count; ++i)
             {
                 int index = i;
@@ -1141,7 +1199,7 @@ namespace Unity.Entities
                 // this component actually starts at its required alignment.
                 // Assumption is that the start of the entire data segment is at the
                 // maximum possible alignment.
-                usedBytes = TypeManager.AlignUp(usedBytes, alignments[index]);
+                usedBytes = CollectionHelper.Align(usedBytes, alignments[index]);
                 type->Offsets[index] = usedBytes;
 
                 usedBytes += sizeOf * type->ChunkCapacity;
@@ -1154,7 +1212,7 @@ namespace Unity.Entities
                 for (var i = 0; i < count; ++i)
                 {
                     var index = type->TypeMemoryOrder[i];
-                    var cType = TypeManager.GetTypeInfo(types[index].TypeIndex);
+                    var cType = GetTypeInfo(types[index].TypeIndex);
                     if (cType.Category == TypeManager.TypeCategory.Class)
                         type->ManagedArrayOffset[index] = mi++;
                     else
@@ -1177,16 +1235,12 @@ namespace Unity.Entities
             var bufferPatchInfo = type->BufferEntityPatches;
             for (var i = 0; i != count; i++)
             {
-                var ct = TypeManager.GetTypeInfo(types[i].TypeIndex);
-                #if !NET_DOTS
-                    ulong handle = ~0UL;
-                    //var offsets = ct.EntityOffsets == null ? null : (TypeManager.EntityOffsetInfo*) UnsafeUtility.PinGCArrayAndGetDataAddress(ct.EntityOffsets, out handle);
-                    var offsets = ct.EntityOffsets;
-                    var offsetCount = ct.EntityOffsetCount;
-                #else
-                    var offsets = ct.EntityOffsets;
-                    var offsetCount = ct.EntityOffsetCount;
-                #endif
+                var ct = GetTypeInfo(types[i].TypeIndex);
+ #if !NET_DOTS
+                ulong handle = ~0UL;
+ #endif
+                var offsets = GetEntityOffsets(ct);
+                var offsetCount = ct.EntityOffsetCount;
 
                 if (ct.BufferCapacity >= 0)
                 {
@@ -1223,7 +1277,7 @@ namespace Unity.Entities
 
         private bool ArchetypeSystemStateCleanupComplete(Archetype* archetype)
         {
-            if (archetype->TypesCount == 2 && archetype->Types[1].TypeIndex == TypeManager.GetTypeIndex<CleanupEntity>()) return true;
+            if (archetype->TypesCount == 2 && archetype->Types[1].TypeIndex == m_CleanupEntityType) return true;
             return false;
         }
 

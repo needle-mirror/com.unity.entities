@@ -5,6 +5,7 @@ using System.Threading;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Entities.Serialization;
 
 namespace Unity.Entities
 {
@@ -211,7 +212,8 @@ namespace Unity.Entities
     }
 
     [ChunkSerializable]
-    public unsafe struct BlobAssetReference<T> : IEquatable<BlobAssetReference<T>> where T : struct
+    public unsafe struct BlobAssetReference<T> : IDisposable, IEquatable<BlobAssetReference<T>> 
+        where T : struct
     {
         internal BlobAssetReferenceData m_data;
         public bool IsCreated
@@ -225,7 +227,13 @@ namespace Unity.Entities
             return m_data.m_Ptr;
         }
 
+        //[Obsolete("Use Dispose instead")]
         public void Release()
+        {
+            Dispose();
+        }
+
+        public void Dispose()
         {
             m_data.ValidateNotNull();
             var header = m_data.Header;
@@ -265,7 +273,7 @@ namespace Unity.Entities
             header->ValidationPtr = blobAssetReference.m_data.m_Ptr = buffer + sizeof(BlobAssetHeader);
             return blobAssetReference;
         }
-
+        
         public static BlobAssetReference<T> Create(byte[] data)
         {
             fixed (byte* ptr = &data[0])
@@ -373,6 +381,60 @@ namespace Unity.Entities
                     return ref UnsafeUtilityEx.ArrayElementAsRef<T>((byte*) thisPtr + m_OffsetPtr, index);
                 }
             }
+        }
+    }
+
+    unsafe public struct BlobString
+    {
+        internal BlobArray<char> Data;
+        public int Length
+        {
+            get { return Data.Length; }
+        }
+
+        public new string ToString()
+        {
+            return new string((char*) Data.GetUnsafePtr(), 0, Data.Length);
+        }
+    }
+    
+    public static class BlobStringExtensions
+    {
+        unsafe public static void AllocateString(ref this BlobBuilder builder, ref BlobString blobStr, string value)
+        {
+            var res = builder.Allocate(ref blobStr.Data, value.Length);
+            var len = value.Length;
+            fixed (char* p = value)
+            {
+                UnsafeUtility.MemCpy(res.GetUnsafePtr(), p, sizeof(char) * len);
+            }
+        }
+    }
+
+    public static class BlobAssetSerializeExtensions
+    {
+        unsafe public static void Write<T>(this BinaryWriter binaryWriter, BlobAssetReference<T> blob) where T : struct
+        {
+            binaryWriter.WriteBytes(blob.m_data.Header, blob.m_data.Header->Length + sizeof(BlobAssetHeader));
+        }
+
+        unsafe public static BlobAssetReference<T> Read<T>(this BinaryReader binaryReader) where T : struct
+        {
+            BlobAssetHeader header;
+            binaryReader.ReadBytes(&header, sizeof(BlobAssetHeader));
+            
+            var buffer = (byte*) UnsafeUtility.Malloc(sizeof(BlobAssetHeader) + header.Length, 16, Allocator.Persistent);
+            binaryReader.ReadBytes(buffer + sizeof(BlobAssetHeader), header.Length);
+
+            var bufferHeader = (BlobAssetHeader*) buffer;
+            bufferHeader->Allocator = Allocator.Persistent;
+            bufferHeader->Length = header.Length;
+            bufferHeader->ValidationPtr = buffer + sizeof(BlobAssetHeader);
+            
+            BlobAssetReference<T> blobAssetReference;
+            blobAssetReference.m_data.m_Ptr = buffer + sizeof(BlobAssetHeader);
+            
+            return blobAssetReference;
         }
     }
 }

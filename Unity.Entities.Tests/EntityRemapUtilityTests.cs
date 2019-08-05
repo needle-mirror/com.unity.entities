@@ -74,7 +74,7 @@ namespace Unity.Entities.Tests
                 if (info.EntityOffsetCount > 0) {
                     TypeManager.EntityOffsetInfo[] ei = new TypeManager.EntityOffsetInfo[info.EntityOffsetCount];
                     for (var i = 0; i < info.EntityOffsetCount; ++i)
-                        ei[i] = info.EntityOffsets[i];
+                        ei[i] = TypeManager.GetEntityOffsets(info)[i];
                     return ei;
                 }
                 return null;

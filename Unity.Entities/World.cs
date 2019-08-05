@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+#if !NET_TINY
 using System.Collections.ObjectModel;
+#endif
 using System.Reflection;
 
 namespace Unity.Entities

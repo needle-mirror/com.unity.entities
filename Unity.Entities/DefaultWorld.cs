@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 #if UNITY_2019_3_OR_NEWER
 using UnityEngine.PlayerLoop;
@@ -119,6 +120,7 @@ namespace Unity.Entities
 
     [DisableAutoCreation]
     [UnityEngine.ExecuteAlways]
+    [Obsolete("please use BeginInitializationEntityCommandBufferSystem instead. (RemovedAfter 2019-11-06)")]
     public class EndPresentationEntityCommandBufferSystem : EntityCommandBufferSystem {}
 
     public class PresentationSystemGroup : ComponentSystemGroup
@@ -126,12 +128,21 @@ namespace Unity.Entities
         [Preserve] public PresentationSystemGroup() {}
 
         BeginPresentationEntityCommandBufferSystem m_BeginEntityCommandBufferSystem;
+
+#pragma warning disable 0618
+        // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
         EndPresentationEntityCommandBufferSystem m_EndEntityCommandBufferSystem;
+#pragma warning restore 0618
 
         protected override void OnCreate()
         {
             m_BeginEntityCommandBufferSystem = World.GetOrCreateSystem<BeginPresentationEntityCommandBufferSystem>();
+
+#pragma warning disable 0618
+            // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
             m_EndEntityCommandBufferSystem = World.GetOrCreateSystem<EndPresentationEntityCommandBufferSystem>();
+#pragma warning restore 0618
+
             m_systemsToUpdate.Add(m_BeginEntityCommandBufferSystem);
             m_systemsToUpdate.Add(m_EndEntityCommandBufferSystem);
         }
@@ -143,7 +154,10 @@ namespace Unity.Entities
             foreach (var s in m_systemsToUpdate)
             {
                 if (s is BeginPresentationEntityCommandBufferSystem ||
+#pragma warning disable 0618
+                    // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
                     s is EndPresentationEntityCommandBufferSystem)
+#pragma warning restore 0618
                 {
                     continue;
                 }

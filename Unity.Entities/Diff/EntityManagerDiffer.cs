@@ -499,6 +499,7 @@ namespace Unity.Entities
 
             // Ensure capacity in the dst world before we start linking entities.
             dstEntityManager.EntityComponentStore->ReallocCapacity(srcEntityManager.EntityCapacity);
+            dstEntityManager.EntityComponentStore->CopyNextFreeEntityIndex(srcEntityManager.EntityComponentStore);
 
             new PatchClonedChunks
             {
@@ -507,6 +508,7 @@ namespace Unity.Entities
                 DstEntityComponentStore = dstEntityManager.EntityComponentStore
             }.Schedule(createdChunks.Length, 64).Complete();
 
+            
             dstClonedChunks.Dispose();
 
             var changedArchetypes = dstEntityManager.EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);

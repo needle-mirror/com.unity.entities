@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 
 namespace Unity.Entities.Editor.Tests
@@ -62,6 +63,14 @@ namespace Unity.Entities.Editor.Tests
                 Assert.AreEqual(EntityDebuggerStyles.ComponentExclude, ui2.styles[1]);
             }
 
+        }
+
+        [Test]
+        public void EntityQueryGUI_ZeroComponentsHasZeroHeight()
+        {
+            var ui = new EntityQueryGUIControl(new List<ComponentType>(), true);
+            ui.UpdateSize(100f);
+            Assert.AreEqual(0, ui.Height);
         }
     }
 }

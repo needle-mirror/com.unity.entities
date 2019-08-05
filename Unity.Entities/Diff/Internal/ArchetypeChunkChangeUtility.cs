@@ -210,18 +210,20 @@ namespace Unity.Entities
             private static bool ChunksAreDifferent(Chunk* srcChunk, Chunk* dstChunk)
             {
                 if (srcChunk->Count != dstChunk->Count)
-                {
                     return true;
-                }
+
+                if (srcChunk->Archetype->TypesCount != dstChunk->Archetype->TypesCount)
+                    return true;
 
                 var typeCount = srcChunk->Archetype->TypesCount;
 
                 for (var typeIndex = 0; typeIndex < typeCount; ++typeIndex)
                 {
-                    if (srcChunk->GetChangeVersion(typeIndex) != dstChunk->GetChangeVersion(typeIndex))
-                    {
+                    if (srcChunk->Archetype->Types[typeIndex] != dstChunk->Archetype->Types[typeIndex])
                         return true;
-                    }
+
+                    if (srcChunk->GetChangeVersion(typeIndex) != dstChunk->GetChangeVersion(typeIndex))
+                        return true;
                 }
 
                 return false;

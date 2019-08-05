@@ -116,7 +116,7 @@ namespace Unity.Entities.Editor
                 rects.Add(rect);
             }
 
-            height = rects.Last().yMax;
+            height = rects.Count > 0 ? rects.Last().yMax : 0f;
         }
     }
 }

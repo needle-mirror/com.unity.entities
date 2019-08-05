@@ -1,5 +1,28 @@
 # Change log
 
+## [0.1.1-preview] - 2019-08-06
+
+### New Features
+* EntityManager.SetSharedComponentData(EntityQuery query, T componentData) has been added which lets you efficiently swap a shared component data for a whole query. (Without moving any component data)
+
+### Upgrade guide
+
+* The deprecated `OnCreateManager` and `OnDestroyManager` are now compilation errors in the `NET_DOTS` profile as overrides can not be detected reliably (without reflection). 
+To avoid the confusion of "why is that not being called", especially when there is no warning issued, this will now be a compilation error. Use `OnCreate` and `OnDestroy` instead. 
+
+### Changes
+
+* Updated default version of burst to `1.1.2` 
+
+### Fixes
+
+* Fixed potential memory corruption when calling RemoveComponent on a batch of entities that didn't have the component.
+* Fixed an issue where an assert about chunk layout compatibility could be triggered when adding a shared component via EntityManager.AddSharedComponentData<T>(EntityQuery entityQuery, T componentData).
+* Fixed an issue where Entities without any Components would cause UI errors in the Chunk Info view
+* Fixed EntityManager.AddComponent(NativeArray<Entity> entities, ComponentType componentType) so that it handles duplicate entities in the input NativeArray. Duplicate entities are discarded and the component is added only once. Prior to this fix, an assert would be triggered when checking for chunk layout compatibility.
+* Fixed invalid update path for `ComponentType.Create`. Auto-update is available in Unity `2019.3` and was removed for previous versions where it would fail (the fallback implementation will work as before).
+
+
 ## [0.1.0-preview] - 2019-07-30
 
 ### New Features
@@ -27,6 +50,7 @@
 
 * EntityArchetype.GetComponentTypes no longer includes Entity in the list of components (it is implied). Behaviour now matches the EntityMangager.GetComponentTypes method. This matches the behavior of the corresponding `EntityManager` function.
 * `EntityCommandBuffer.AddComponent(Entity, ComponentType)` no longer fails if the target entity already has the specified component.
+*  DestroyEntity(EntityQuery entityQuery) now uses burst internally.
 
 ### Fixes
 

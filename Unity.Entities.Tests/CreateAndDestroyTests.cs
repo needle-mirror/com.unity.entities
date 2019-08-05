@@ -577,6 +577,45 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void AddComponentTagWithDuplicateEntities()
+        {
+            var entities = new NativeArray<Entity>(2, Allocator.TempJob);
+            var e = m_Manager.CreateEntity();
+            entities[0] = e;
+            entities[1] = e;
+
+            m_Manager.AddComponent(entities, typeof(EcsTestTag));
+
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(e));
+
+            entities.Dispose();
+        }
+
+        [Test]
+        public void AddComponentTagWithMultipleDuplicateEntities()
+        {
+            var entities = new NativeArray<Entity>(5, Allocator.TempJob);
+            var e1 = m_Manager.CreateEntity();
+            var e2 = m_Manager.CreateEntity();
+            var e3 = m_Manager.CreateEntity();
+
+            // e1 and e2 have duplicates, e3 is unique.
+            entities[0] = e1;
+            entities[1] = e2;
+            entities[2] = e1;
+            entities[3] = e3;
+            entities[4] = e2;
+
+            m_Manager.AddComponent(entities, typeof(EcsTestTag));
+
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(e1));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(e2));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(e3));
+
+            entities.Dispose();
+        }
+
+        [Test]
         public void AddComponentTwiceWithEntityCommandBuffer()
         {
             using(var ecb = new EntityCommandBuffer(Allocator.TempJob))
