@@ -51,7 +51,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void DeleteWhenEmpty()
         {
             var entity = m_Manager.CreateEntity(
@@ -80,7 +79,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void DeleteWhenEmptyArray()
         {
             var entities = new Entity[512];
@@ -136,7 +134,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void DeleteWhenEmptyArray2()
         {
             var entities = new Entity[512];
@@ -192,7 +189,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void DoNotInstantiateSystemState()
         {
             var entity0 = m_Manager.CreateEntity(
@@ -219,7 +215,6 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [StandaloneFixme] // Test Error
         public void DeleteFromEntity()
         {
             var entities = new Entity[512];

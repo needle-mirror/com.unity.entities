@@ -1,12 +1,17 @@
 {
     "name": "Unity.Entities.Editor",
     "references": [
+        "Unity.Build",
+        "Unity.Build.Common",
+        "Unity.Collections",
         "Unity.Entities",
         "Unity.Entities.Hybrid",
         "Unity.Entities.Properties",
         "Unity.Mathematics",
         "Unity.Properties",
-        "Unity.Collections"
+        "Unity.Scenes.Editor",
+        "Unity.Scenes.Hybrid",
+        "Unity.Serialization"
     ],
     "optionalUnityReferences": [],
     "includePlatforms": [

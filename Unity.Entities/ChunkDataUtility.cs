@@ -34,7 +34,7 @@ namespace Unity.Entities
             var types = archetype->Types;
             var typeCount = archetype->TypesCount;
 
-            if (typeLookupCache < typeCount && types[typeLookupCache].TypeIndex == typeIndex)
+            if (typeLookupCache >= 0 && typeLookupCache < typeCount && types[typeLookupCache].TypeIndex == typeIndex)
                 return;
 
             for (var i = 0; i != typeCount; i++)
@@ -271,7 +271,7 @@ namespace Unity.Entities
                         BufferHeader* srcHdr = (BufferHeader*) src;
                         BufferHeader* dstHdr = (BufferHeader*) dst;
                         BufferHeader.Initialize(dstHdr, srcBufferCapacity);
-                        BufferHeader.Assign(dstHdr, BufferHeader.GetElementPointer(srcHdr), srcHdr->Length, elementSize, alignment);
+                        BufferHeader.Assign(dstHdr, BufferHeader.GetElementPointer(srcHdr), srcHdr->Length, elementSize, alignment, false, 0);
 
                         dst += srcSizeOf;
                     }
@@ -393,85 +393,6 @@ namespace Unity.Entities
             }
         }
 
-        public static void Convert(Chunk* srcChunk, int srcIndex, Chunk* dstChunk, int dstIndex)
-        {
-            var srcArch = srcChunk->Archetype;
-            var dstArch = dstChunk->Archetype;
-
-            //Debug.Log($"Convert {EntityManager.EntityManagerDebug.GetArchetypeDebugString(srcArch)} to {EntityManager.EntityManagerDebug.GetArchetypeDebugString(dstArch)}");
-
-            var srcI = 0;
-            var dstI = 0;
-            while (srcI < srcArch->TypesCount && dstI < dstArch->TypesCount)
-            {
-                var src = srcChunk->Buffer + srcArch->Offsets[srcI] + srcIndex * srcArch->SizeOfs[srcI];
-                var dst = dstChunk->Buffer + dstArch->Offsets[dstI] + dstIndex * dstArch->SizeOfs[dstI];
-
-                if (srcArch->Types[srcI] < dstArch->Types[dstI])
-                {
-                    // Clear any buffers we're not going to keep.
-                    if (srcArch->Types[srcI].IsBuffer)
-                    {
-                        BufferHeader.Destroy((BufferHeader*)src);
-                    }
-
-                    ++srcI;
-                }
-                else if (srcArch->Types[srcI] > dstArch->Types[dstI])
-                {
-                    // Clear components in the destination that aren't copied
-
-                    if (dstArch->Types[dstI].IsBuffer)
-                    {
-                        BufferHeader.Initialize((BufferHeader*)dst, dstArch->BufferCapacities[dstI]);
-                    }
-                    else
-                    {
-                        UnsafeUtility.MemClear(dst, dstArch->SizeOfs[dstI]);
-                    }
-
-                    ++dstI;
-                }
-                else
-                {
-                    UnsafeUtility.MemCpy(dst, src, srcArch->SizeOfs[srcI]);
-
-                    // Poison source buffer to make sure there is no aliasing.
-                    if (srcArch->Types[srcI].IsBuffer)
-                    {
-                        BufferHeader.Initialize((BufferHeader*)src, srcArch->BufferCapacities[srcI]);
-                    }
-
-                    ++srcI;
-                    ++dstI;
-                }
-            }
-
-            // Handle remaining components in the source that aren't copied
-            for (; srcI < srcArch->TypesCount; ++srcI)
-            {
-                var src = srcChunk->Buffer + srcArch->Offsets[srcI] + srcIndex * srcArch->SizeOfs[srcI];
-                if (srcArch->Types[srcI].IsBuffer)
-                {
-                    BufferHeader.Destroy((BufferHeader*)src);
-                }
-            }
-
-            // Clear remaining components in the destination that aren't copied
-            for (; dstI < dstArch->TypesCount; ++dstI)
-            {
-                var dst = dstChunk->Buffer + dstArch->Offsets[dstI] + dstIndex * dstArch->SizeOfs[dstI];
-                if (dstArch->Types[dstI].IsBuffer)
-                {
-                    BufferHeader.Initialize((BufferHeader*)dst, dstArch->BufferCapacities[dstI]);
-                }
-                else
-                {
-                    UnsafeUtility.MemClear(dst, dstArch->SizeOfs[dstI]);
-                }
-            }
-        }
-
         public static void MemsetUnusedChunkData(Chunk* chunk, byte value)
         {
             var arch = chunk->Archetype;
@@ -482,20 +403,47 @@ namespace Unity.Entities
             for (int i = 0; i<arch->TypesCount-1; ++i)
             {
                 var index = arch->TypeMemoryOrder[i];
+
                 var nextIndex = arch->TypeMemoryOrder[i + 1];
-                var startOffset = arch->Offsets[index] + count * arch->SizeOfs[index];
+                var componentSize = arch->SizeOfs[index];
+                var startOffset = arch->Offsets[index] + count * componentSize;
                 var endOffset = arch->Offsets[nextIndex];
-                UnsafeUtilityEx.MemSet(buffer + startOffset, value, endOffset - startOffset);
+                var componentDataType = &arch->Types[index];
+                
+                // Start Offset needs to be fixed if we have a Dynamic Buffer
+                if (componentDataType->IsBuffer)
+                {
+                    var elementSize = TypeManager.GetTypeInfo(componentDataType->TypeIndex).ElementSize;
+                    var bufferCapacity = arch->BufferCapacities[index];
+                    
+                    for (int chunkI = 0; chunkI < count; chunkI++)
+                    {
+                        var bufferHeader = (BufferHeader*)(buffer + arch->Offsets[index] + (chunkI * componentSize));
+                        
+                        // If bufferHeader->Pointer is not null it means with rely on a dedicated buffer instead of the internal one (that follows the header) to store the elements
+                        //  in this case we wipe everything after the header. Otherwise we wipe after the used elements.
+                        var elementCountToClean = bufferHeader->Pointer != null ? bufferCapacity : (bufferHeader->Capacity - bufferHeader->Length);
+                        var firstElementToClean = bufferHeader->Pointer != null ? 0 : bufferHeader->Length;
+
+                        byte* internalBuffer = (byte*)(bufferHeader + 1);
+
+                        UnsafeUtility.MemSet(internalBuffer + (firstElementToClean*elementSize), value, elementCountToClean*elementSize);
+                    }
+                }
+                
+                UnsafeUtility.MemSet(buffer + startOffset, value, endOffset - startOffset);
             }
             var lastIndex = arch->TypeMemoryOrder[arch->TypesCount - 1];
             var lastStartOffset = arch->Offsets[lastIndex] + count * arch->SizeOfs[lastIndex];
-            UnsafeUtilityEx.MemSet(buffer + lastStartOffset, value, bufferSize - lastStartOffset);
+            UnsafeUtility.MemSet(buffer + lastStartOffset, value, bufferSize - lastStartOffset);
+            
+            // 0 the sequence number and the chunk header padding zone
+            UnsafeUtility.MemClear(40 + (byte*)chunk, 24);    // End of chunk header at 40, we clear the header padding (24) and the Buffer value which is the very first data after the header
         }
 
         public static bool AreLayoutCompatible(Archetype* a, Archetype* b)
         {
             if ((a == null) || (b == null) ||
-                (a->BytesPerInstance != b->BytesPerInstance) ||
                 (a->ChunkCapacity != b->ChunkCapacity))
                 return false;
 

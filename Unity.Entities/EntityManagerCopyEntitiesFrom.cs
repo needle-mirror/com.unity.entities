@@ -1,6 +1,6 @@
-
 using System;
 using Unity.Collections;
+using Unity.Jobs;
 
 namespace Unity.Entities
 {
@@ -10,7 +10,7 @@ namespace Unity.Entities
         /// Copies all entities from srcEntityManager and replaces all entities in this EntityManager
         /// </summary>
         /// <remarks>
-        /// Gurantees that the chunk layout & order of the entities will match exactly, thus this method can be used for deterministic rollback.
+        /// Guarantees that the chunk layout & order of the entities will match exactly, thus this method can be used for deterministic rollback.
         /// This feature is not complete and only supports a subset of the EntityManager features at the moment:
         /// * Currently it copies all SystemStateComponents (They should not be copied)
         /// * Currently does not support class based components
@@ -27,12 +27,19 @@ namespace Unity.Entities
             srcEntityManager.CompleteAllJobs();
             CompleteAllJobs();
 
-            using (var srcChunks = srcEntityManager.m_UniversalQueryWithChunks.CreateArchetypeChunkArray(Allocator.TempJob))
-            using (var dstChunks = m_UniversalQueryWithChunks.CreateArchetypeChunkArray(Allocator.TempJob))
+            using (var srcChunks = srcEntityManager.m_UniversalQueryWithChunks.CreateArchetypeChunkArray(Allocator.TempJob, out var srcChunksJob))
+            using (var dstChunks = m_UniversalQueryWithChunks.CreateArchetypeChunkArray(Allocator.TempJob, out var dstChunksJob))
             {
-                using (var archetypeChunkChanges = ArchetypeChunkChangeUtility.GetArchetypeChunkChanges(srcChunks, dstChunks, Allocator.TempJob))
+                using (var archetypeChunkChanges = EntityDiffer.GetArchetypeChunkChanges(
+                    srcChunks, 
+                    dstChunks, 
+                    Allocator.TempJob,                                                     
+                    jobHandle: out var archetypeChunkChangesJob, 
+                    dependsOn: JobHandle.CombineDependencies(srcChunksJob, dstChunksJob)))
                 {
-                    EntityManagerDifferUtility.CopyAndReplaceChunks(srcEntityManager, this, m_UniversalQueryWithChunks, archetypeChunkChanges);
+                    archetypeChunkChangesJob.Complete();
+                    
+                    EntityDiffer.CopyAndReplaceChunks(srcEntityManager, this, m_UniversalQueryWithChunks, archetypeChunkChanges);
                     Unity.Entities.EntityComponentStore.AssertSameEntities(srcEntityManager.EntityComponentStore, EntityComponentStore);
                 }
             }

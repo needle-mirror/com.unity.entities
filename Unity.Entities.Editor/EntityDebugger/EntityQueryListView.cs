@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Unity.Collections;
 using UnityEngine;
 
 namespace Unity.Entities.Editor
@@ -10,27 +9,10 @@ namespace Unity.Entities.Editor
     internal delegate void SetEntityListSelection(EntityListQuery query);
 
     internal class EntityQueryListView : TreeView {
-        private static Dictionary<ComponentSystemBase, List<EntityQueryDesc>> queriesBySystem = new Dictionary<ComponentSystemBase, List<EntityQueryDesc>>();
-        private static readonly Dictionary<EntityQuery, EntityQueryDesc> queriesByGroup = new Dictionary<EntityQuery, EntityQueryDesc>();
+        private static Dictionary<ComponentSystemBase, List<EntityQueryDesc>> queryDescsBySystem = new Dictionary<ComponentSystemBase, List<EntityQueryDesc>>();
 
-        private static EntityQueryDesc GetQueryForGroup(EntityQuery group)
-        {
-            if (!queriesByGroup.ContainsKey(group))
-            {
-                var query = new EntityQueryDesc()
-                {
-                    All = group.GetQueryTypes().Where(x => x.AccessModeType != ComponentType.AccessMode.Exclude).ToArray(),
-                    Any = new ComponentType[0],
-                    None = group.GetQueryTypes().Where(x => x.AccessModeType == ComponentType.AccessMode.Exclude).ToArray()
-                };
-                queriesByGroup.Add(group, query);
-            }
-
-            return queriesByGroup[group];
-        }
-
-        private readonly Dictionary<int, EntityQuery> componentGroupsById = new Dictionary<int, EntityQuery>();
-        private readonly Dictionary<int, EntityQueryDesc> queriesById = new Dictionary<int, EntityQueryDesc>();
+        private readonly Dictionary<int, EntityQuery> queriesById = new Dictionary<int, EntityQuery>();
+        private readonly Dictionary<int, EntityQueryDesc> queryDescsById = new Dictionary<int, EntityQueryDesc>();
         private readonly Dictionary<int, EntityQueryGUIControl> controlsById = new Dictionary<int, EntityQueryGUIControl>();
 
         public ComponentSystemBase SelectedSystem
@@ -93,13 +75,13 @@ namespace Unity.Entities.Editor
             return controlsById.ContainsKey(item.id) ? controlsById[item.id].Height + 2 : rowHeight;
         }
 
-        private static List<EntityQueryDesc> GetQueriesForSystem(ComponentSystemBase system)
+        private static List<EntityQueryDesc> GetQueryDescsForSystem(ComponentSystemBase system)
         {
-            List<EntityQueryDesc> queries;
-            if (queriesBySystem.TryGetValue(system, out queries))
-                return queries;
+            List<EntityQueryDesc> queryDescs;
+            if (queryDescsBySystem.TryGetValue(system, out queryDescs))
+                return queryDescs;
 
-            queries = new List<EntityQueryDesc>();
+            queryDescs = new List<EntityQueryDesc>();
 
             var currentType = system.GetType();
 
@@ -108,19 +90,19 @@ namespace Unity.Entities.Editor
                 foreach (var field in currentType.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
                 {
                     if (field.FieldType == typeof(EntityQueryDesc))
-                        queries.Add(field.GetValue(system) as EntityQueryDesc);
+                        queryDescs.Add(field.GetValue(system) as EntityQueryDesc);
                 }
 
                 currentType = currentType.BaseType;
             }
 
-            return queries;
+            return queryDescs;
         }
 
         protected override TreeViewItem BuildRoot()
         {
-            componentGroupsById.Clear();
             queriesById.Clear();
+            queryDescsById.Clear();
             controlsById.Clear();
             var currentId = 0;
             var root  = new TreeViewItem { id = currentId++, depth = -1, displayName = "Root" };
@@ -134,40 +116,40 @@ namespace Unity.Entities.Editor
             }
             else
             {
-                var queries = GetQueriesForSystem(SelectedSystem);
+                var queryDescs = GetQueryDescsForSystem(SelectedSystem);
                 var entityManager = getWorldSelection().EntityManager;
 
-                foreach (var query in queries)
+                foreach (var queryDesc in queryDescs)
                 {
-                    var group = entityManager.CreateEntityQuery(query);
-                    queriesById.Add(currentId, query);
-                    componentGroupsById.Add(currentId, group);
+                    var group = entityManager.CreateEntityQuery(queryDesc);
+                    queryDescsById.Add(currentId, queryDesc);
+                    queriesById.Add(currentId, group);
 
                     var groupItem = new TreeViewItem { id = currentId++ };
                     root.AddChild(groupItem);
                 }
                 if (SelectedSystem.EntityQueries != null)
                 {
-                    foreach (var group in SelectedSystem.EntityQueries)
+                    foreach (var query in SelectedSystem.EntityQueries)
                     {
-                        componentGroupsById.Add(currentId, group);
+                        queriesById.Add(currentId, query);
 
-                        var groupItem = new TreeViewItem { id = currentId++ };
-                        root.AddChild(groupItem);
+                        var queryItem = new TreeViewItem { id = currentId++ };
+                        root.AddChild(queryItem);
                     }
                 }
-                if (componentGroupsById.Count == 0)
+                if (queriesById.Count == 0)
                 {
-                    root.AddChild(new TreeViewItem { id = currentId, displayName = "No Component Groups or Queries in Manager"});
+                    root.AddChild(new TreeViewItem { id = currentId, displayName = "No Entity Queries in System"});
                 }
                 else
                 {
                     SetupDepthsFromParentsAndChildren(root);
 
-                    foreach (var idGroupPair in componentGroupsById)
+                    foreach (var idQueryPair in queriesById)
                     {
-                        var newControl = new EntityQueryGUIControl(idGroupPair.Value.GetQueryTypes(), idGroupPair.Value.GetReadAndWriteTypes(), true);
-                        controlsById.Add(idGroupPair.Key, newControl);
+                        var newControl = new EntityQueryGUIControl(idQueryPair.Value.GetQueryTypes(), idQueryPair.Value.GetReadAndWriteTypes(), true);
+                        controlsById.Add(idQueryPair.Key, newControl);
                     }
                 }
             }
@@ -208,7 +190,7 @@ namespace Unity.Entities.Editor
         protected void DrawCount(RowGUIArgs args)
         {
             EntityQuery entityQuery;
-            if (componentGroupsById.TryGetValue(args.item.id, out entityQuery))
+            if (queriesById.TryGetValue(args.item.id, out entityQuery))
             {
                 var countString = entityQuery.CalculateEntityCount().ToString();
                 DefaultGUI.LabelRightAligned(args.rowRect, countString, args.selected, args.focused);
@@ -235,7 +217,7 @@ namespace Unity.Entities.Editor
             if (selectedIds.Count > 0)
             {
                 EntityQuery entityQuery;
-                if (componentGroupsById.TryGetValue(selectedIds[0], out entityQuery))
+                if (queriesById.TryGetValue(selectedIds[0], out entityQuery))
                     entityListSelectionCallback(new EntityListQuery(entityQuery));
             }
             else
@@ -258,7 +240,7 @@ namespace Unity.Entities.Editor
             }
             if (newListQuery.Group != null)
             {
-                foreach (var pair in componentGroupsById)
+                foreach (var pair in queriesById)
                 {
                     if (pair.Value == newListQuery.Group)
                     {
@@ -269,7 +251,7 @@ namespace Unity.Entities.Editor
             }
             else
             {
-                foreach (var pair in queriesById)
+                foreach (var pair in queryDescsById)
                 {
                     if (pair.Value == newListQuery.QueryDesc)
                     {
@@ -296,7 +278,7 @@ namespace Unity.Entities.Editor
             get
             {
                 var expectedGroupCount = SelectedSystem?.EntityQueries?.Length ?? 0;
-                return expectedGroupCount != componentGroupsById.Count;
+                return expectedGroupCount != queriesById.Count;
             }
 
         }

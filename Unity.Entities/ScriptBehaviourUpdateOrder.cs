@@ -75,9 +75,17 @@ namespace Unity.Entities
             subsystemList[insertIndex].updateDelegate = del.TriggerUpdate;
         }
 
-        public static void UpdatePlayerLoop(World world)
+        /// <summary>
+        /// Update the player loop with a world's root-level systems
+        /// </summary>
+        /// <param name="world">World with root-level systems that need insertion into the player loop</param>
+        /// <param name="existingPlayerLoop">Optional parameter to preserve existing player loops (e.g. ScriptBehaviourUpdateOrder.CurrentPlayerLoop)</param>
+        public static void UpdatePlayerLoop(World world, PlayerLoopSystem? existingPlayerLoop = null)
         {
-            var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
+            // TODO: PlayerLoop.GetCurrentPlayerLoop was added in 2019.3, so when minspec is updated revisit whether
+            // we can drop the optional parameter
+            var playerLoop = existingPlayerLoop ?? PlayerLoop.GetDefaultPlayerLoop();
+
             if (world != null)
             {
                 // Insert the root-level systems into the appropriate PlayerLoopSystem subsystems:

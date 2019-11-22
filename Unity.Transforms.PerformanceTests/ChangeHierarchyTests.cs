@@ -25,11 +25,7 @@ namespace Unity.Entities.PerformanceTests
             m_Manager.CompleteAllJobs();             
         }
         
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
+    [Test, Performance]
         public void ChangeParents()
         {
             var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld));

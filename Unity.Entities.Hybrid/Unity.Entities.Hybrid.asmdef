@@ -1,13 +1,18 @@
 {
     "name": "Unity.Entities.Hybrid",
     "references": [
-        "Unity.Entities",
+        "Unity.Build",
+        "Unity.Burst",
         "Unity.Collections",
+        "Unity.Entities",
         "Unity.Jobs",
-        "Unity.Mathematics.Extensions"
+        "Unity.Mathematics",
+        "Unity.Mathematics.Extensions",
+        "Unity.Properties",
+        "Unity.Properties.Editor"
     ],
     "optionalUnityReferences": [],
     "includePlatforms": [],
     "excludePlatforms": [],
-	"allowUnsafeCode": true
+    "allowUnsafeCode": true
 }

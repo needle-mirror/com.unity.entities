@@ -1,8 +1,11 @@
-﻿using Unity.Entities;
+﻿using System.Collections.Generic;
+using System.IO;
+using Unity.Entities;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes.Editor
 {
@@ -10,6 +13,9 @@ namespace Unity.Scenes.Editor
     [CanEditMultipleObjects]
     class SubSceneInspector : UnityEditor.Editor
     {
+        Dictionary<Hash128, bool> m_ConversionLogLoaded = new Dictionary<Hash128, bool>();
+        string m_ConversionLog = "";
+
         public override void OnInspectorGUI()
         {
             var subScene = target as SubScene;
@@ -18,7 +24,7 @@ namespace Unity.Scenes.Editor
             var prevColor = subScene.HierarchyColor;
     
             base.OnInspectorGUI();
-    
+
             if (subScene.SceneAsset != prevSceneAsset || subScene.HierarchyColor != prevColor)
                 SceneHierarchyHooks.ReloadAllSceneHierarchies();
     
@@ -26,7 +32,7 @@ namespace Unity.Scenes.Editor
             var subscenes = new SubScene[targetsArray.Length];
             targetsArray.CopyTo(subscenes, 0);
            
-            
+
             EditorGUILayout.TextArea("",GUI.skin.horizontalSlider);
             
             GUILayout.BeginHorizontal();
@@ -61,21 +67,11 @@ namespace Unity.Scenes.Editor
 
             EditorGUILayout.TextArea("",GUI.skin.horizontalSlider);
     
-            bool requireRebuild;
-            var warning = SubSceneInspectorUtility.GetEntitySceneWarning(subscenes, out requireRebuild);
-    
-            if (warning != null)
-            {
-                EditorGUILayout.HelpBox(warning, MessageType.Warning, true);
-            }
-            if (GUILayout.Button("Rebuild Entity Cache"))
-                SubSceneInspectorUtility.RebuildEntityCache(subscenes);
-    
             GUILayout.Space(10);
             
-            if (World.Active != null)
+            if (World.DefaultGameObjectInjectionWorld != null)
             {
-                var entityManager = World.Active.EntityManager;
+                var entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
 
                 foreach (var scene in scenes)
                 {
@@ -97,9 +93,9 @@ namespace Unity.Scenes.Editor
                     }
                 }
             }
-       
-            
-    #if false        
+
+
+    #if false
             // @TODO: TEMP for debugging
             if (GUILayout.Button("ClearWorld"))
             {
@@ -136,47 +132,81 @@ namespace Unity.Scenes.Editor
             {
                 EditorGUILayout.HelpBox($"SubScenes can not have child game objects. Close the scene and delete the child game objects.", MessageType.Warning, true);
             }
-        }
 
-        MinMaxAABB GetMinMax()
-        {
-            MinMaxAABB bounds = MinMaxAABB.Empty;
-            foreach (SubScene subScene in targets)
-                bounds.Encapsulate(subScene.SceneBoundingVolume);
-            
-            return bounds;
-        }
+            if (CheckConversionLog(subScene))
+            {
+                GUILayout.Space(10);
+                GUILayout.Label("Importing...");
+                Repaint();
+            }
+            if (m_ConversionLog.Length != 0)
+            {
+                GUILayout.Space(10);
 
+                GUILayout.Label("Conversion Log");
+                GUILayout.TextArea(m_ConversionLog);
+            }
+        }
 
         // Invoked by Unity magically for FrameSelect command.
         // Frames the whole sub scene in scene view
-        bool HasFrameBounds()     { return !GetMinMax().Equals(MinMaxAABB.Empty); }
-        Bounds OnGetFrameBounds() { AABB aabb = GetMinMax(); return new Bounds(aabb.Center, aabb.Size); }
-        
+        bool HasFrameBounds()
+        {
+            return !SubSceneInspectorUtility.GetActiveWorldMinMax(World.DefaultGameObjectInjectionWorld, targets).Equals(MinMaxAABB.Empty);
+        }
+
+        Bounds OnGetFrameBounds()
+        {
+            AABB aabb = SubSceneInspectorUtility.GetActiveWorldMinMax(World.DefaultGameObjectInjectionWorld, targets); 
+            return new Bounds(aabb.Center, aabb.Size);
+        }
         
         // Visualize SubScene using bounding volume when it is selected.
         [DrawGizmo(GizmoType.Selected)]
         static void DrawSubsceneBounds(SubScene scene, GizmoType gizmoType)
         {
-            var isEditing = scene.IsLoaded;
+            SubSceneInspectorUtility.DrawSubsceneBounds(scene);
+        }
+        
+        bool CheckConversionLog(SubScene subScene)
+        {
+            var pendingWork = false;
 
-            if (scene.SceneData == null)
-                return;
-                
-            foreach (var sceneData in scene.SceneData)
+            foreach (var world in World.AllWorlds)
             {
-                if (sceneData.BoundingVolume.IsEmpty)
+                var sceneSystem = world.GetExistingSystem<SceneSystem>();
+                if (sceneSystem is null)
                     continue;
 
-                if (isEditing)
-                    Gizmos.color = Color.green;
-                else
-                    Gizmos.color = Color.gray;
-                
-                AABB aabb = sceneData.BoundingVolume;
-                Gizmos.DrawWireCube(aabb.Center, aabb.Size);
+                if (!m_ConversionLogLoaded.TryGetValue(sceneSystem.BuildSettingsGUID, out var loaded))
+                    m_ConversionLogLoaded.Add(sceneSystem.BuildSettingsGUID, false);
+                else if (loaded)
+                    continue;
+
+                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, sceneSystem.BuildSettingsGUID, UnityEditor.Experimental.AssetDatabaseExperimental.ImportSyncMode.Queue);
+                if (!hash.IsValid)
+                {
+                    pendingWork = true;
+                    continue;
+                }
+
+                m_ConversionLogLoaded[sceneSystem.BuildSettingsGUID] = true;
+
+                UnityEditor.Experimental.AssetDatabaseExperimental.GetArtifactPaths(hash, out var paths);
+                var logPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesConversionLog);
+                if (logPath == null)
+                    continue;
+
+                var log = File.ReadAllText(logPath);
+                if (log.Trim().Length != 0)
+                {
+                    if (m_ConversionLog.Length != 0)
+                        m_ConversionLog += "\n\n";
+                    m_ConversionLog += log;
+                }
             }
+
+            return pendingWork;
         }
     }
 }
-

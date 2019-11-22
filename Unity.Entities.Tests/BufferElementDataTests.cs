@@ -21,82 +21,82 @@ using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
-	class BufferElementDataTests : ECSTestsFixture
-	{
+    class BufferElementDataTests : ECSTestsFixture
+    {
         [InternalBufferCapacity(1024*1024)]
         public struct OverSizedCapacity : IBufferElementData
         {
             public int Value;
         }
 
-		[Test]
-		public void BufferTypeClassificationWorks()
-		{
+        [Test]
+        public void BufferTypeClassificationWorks()
+        {
             var t  = TypeManager.GetTypeInfo<EcsIntElement>();
             Assert.AreEqual(TypeManager.TypeCategory.BufferData, t.Category);
             Assert.AreEqual(8, t.BufferCapacity);
-		}
+        }
 
-		[Test]
-		public void BufferComponentTypeCreationWorks()
-		{
+        [Test]
+        public void BufferComponentTypeCreationWorks()
+        {
             var bt = ComponentType.ReadWrite<EcsIntElement>();
             var typeInfo = TypeManager.GetTypeInfo(bt.TypeIndex);
             Assert.AreEqual(ComponentType.AccessMode.ReadWrite, bt.AccessModeType);
             Assert.AreEqual(8, typeInfo.BufferCapacity);
-		}
+        }
 
-		[Test]
-		public void CreateEntityWithIntThrows()
-		{
-			Assert.Throws<System.ArgumentException>(() => { m_Manager.CreateEntity(typeof(int));});
-		}
+        [Test]
+        public void CreateEntityWithIntThrows()
+        {
+            Assert.Throws<System.ArgumentException>(() => { m_Manager.CreateEntity(typeof(int));});
+        }
 
-		[Test]
-		public void AddComponentWithIntThrows()
-		{
-			var entity = m_Manager.CreateEntity();
-			Assert.Throws<System.ArgumentException>(() => { m_Manager.AddComponent(entity, ComponentType.ReadWrite<int>()); });
-		}
+        [Test]
+        public void AddComponentWithIntThrows()
+        {
+            var entity = m_Manager.CreateEntity();
+            Assert.Throws<System.ArgumentException>(() => { m_Manager.AddComponent(entity, ComponentType.ReadWrite<int>()); });
+        }
 
-		[Test]
-		// Invalid because chunk size is too small to hold a single entity
-		public void CreateEntityWithInvalidInternalCapacity()
-		{
+        [Test]
+        // Invalid because chunk size is too small to hold a single entity
+        public void CreateEntityWithInvalidInternalCapacity()
+        {
             var arrayType = ComponentType.ReadWrite<OverSizedCapacity>();
-			Assert.Throws<ArgumentException>(() => m_Manager.CreateEntity(arrayType));
-		}
+            Assert.Throws<ArgumentException>(() => m_Manager.CreateEntity(arrayType));
+        }
 
-		[Test]
-		public void HasComponent()
-		{
+        [Test]
+        public void HasComponent()
+        {
             var arrayType = ComponentType.ReadWrite<EcsIntElement>();
-			var entity = m_Manager.CreateEntity(arrayType);
+            var entity = m_Manager.CreateEntity(arrayType);
             Assert.IsTrue(m_Manager.HasComponent(entity, arrayType));
-		}
+        }
 
-		[Test]
-		public void InitialCapacityWorks()
-		{
+        [Test]
+        public void InitialCapacityWorks()
+        {
             var arrayType = ComponentType.ReadWrite<EcsIntElement>();
-			var entity = m_Manager.CreateEntity(arrayType);
+            var entity = m_Manager.CreateEntity(arrayType);
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             Assert.AreEqual(8, buffer.Capacity);
-		}
+        }
 
-		[Test]
-		public void InitialCapacityWorks2()
-		{
-			var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+        [Test]
+        public void InitialCapacityWorks2()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             Assert.AreEqual(8, buffer.Capacity);
-		}
+        }
 
-		[Test]
-		public void AddWorks()
-		{
+        [Test]
+        public void AddWorks()
+        {
             var arrayType = ComponentType.ReadWrite<EcsIntElement>();
-			var entity = m_Manager.CreateEntity(arrayType);
+            var entity = m_Manager.CreateEntity(arrayType);
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             for (int i = 0; i < 189; ++i)
                 buffer.Add(i);
@@ -106,55 +106,55 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(i, buffer[i].Value);
             }
-		}
+        }
 
-	    [Test]
-	    public void InsertWorks()
-	    {
-	        var arrayType = ComponentType.ReadWrite<EcsIntElement>();
-	        var entity = m_Manager.CreateEntity(arrayType);
-	        var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
-	        // Insert at end
-	        for (int i = 0; i < 189; ++i)
-	            buffer.Insert(i, i);
-
-	        Assert.AreEqual(189, buffer.Length);
-	        for (int i = 0; i < 189; ++i)
-	        {
-	            Assert.AreEqual(i, buffer[i].Value);
-	        }
-
-	        buffer.Clear();
-
-	        // Insert at beginning
-	        for (int i = 0; i < 189; ++i)
-	            buffer.Insert(0, i);
-
-	        Assert.AreEqual(189, buffer.Length);
-	        for (int i = 0; i < 189; ++i)
-	        {
-	            Assert.AreEqual(188-i, buffer[i].Value);
-	        }
-
-	        buffer.Clear();
-
-	        // Insert in middle
-	        for (int i = 0; i < 189; ++i)
-	            buffer.Insert(i/2, i);
-
-	        Assert.AreEqual(189, buffer.Length);
-	        for (int i = 0; i < 189; ++i)
-	        {
-	            int expectedValue = i<94 ? i*2+1 : (188-i)*2;
-	            Assert.AreEqual(expectedValue, buffer[i].Value);
-	        }
-	    }
-
-		[Test]
-		public void AddRangeWorks()
-		{
+        [Test]
+        public void InsertWorks()
+        {
             var arrayType = ComponentType.ReadWrite<EcsIntElement>();
-			var entity = m_Manager.CreateEntity(arrayType);
+            var entity = m_Manager.CreateEntity(arrayType);
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            // Insert at end
+            for (int i = 0; i < 189; ++i)
+                buffer.Insert(i, i);
+
+            Assert.AreEqual(189, buffer.Length);
+            for (int i = 0; i < 189; ++i)
+            {
+                Assert.AreEqual(i, buffer[i].Value);
+            }
+
+            buffer.Clear();
+
+            // Insert at beginning
+            for (int i = 0; i < 189; ++i)
+                buffer.Insert(0, i);
+
+            Assert.AreEqual(189, buffer.Length);
+            for (int i = 0; i < 189; ++i)
+            {
+                Assert.AreEqual(188-i, buffer[i].Value);
+            }
+
+            buffer.Clear();
+
+            // Insert in middle
+            for (int i = 0; i < 189; ++i)
+                buffer.Insert(i/2, i);
+
+            Assert.AreEqual(189, buffer.Length);
+            for (int i = 0; i < 189; ++i)
+            {
+                int expectedValue = i<94 ? i*2+1 : (188-i)*2;
+                Assert.AreEqual(expectedValue, buffer[i].Value);
+            }
+        }
+
+        [Test]
+        public void AddRangeWorks()
+        {
+            var arrayType = ComponentType.ReadWrite<EcsIntElement>();
+            var entity = m_Manager.CreateEntity(arrayType);
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             for (int i = 0; i < 7; ++i)
                 buffer.Add(i);
@@ -177,10 +177,10 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(i, buffer[i].Value);
             for (int i = 0; i < 1024; ++i)
                 Assert.AreEqual(i, buffer[7 + i].Value);
-		}
+        }
 
-		[Test]
-		public void RemoveAtWorks()
+        [Test]
+        public void RemoveAtWorks()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
@@ -203,9 +203,9 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-		public void RemoveAtWorksFromStart()
-		{
-			var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+        public void RemoveAtWorksFromStart()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             for (int i = 0; i < 9; ++i)
                 buffer.Add(i);
@@ -213,12 +213,12 @@ namespace Unity.Entities.Tests
             buffer.RemoveAt(0);
 
             CheckBufferContents(buffer, new int[] { 1, 2, 3, 4, 5, 6, 7, 8 });
-		}
+        }
 
-		[Test]
-		public void RemoveAtWorksFromEnd()
-		{
-			var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+        [Test]
+        public void RemoveAtWorksFromEnd()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             for (int i = 0; i < 9; ++i)
                 buffer.Add(i);
@@ -227,12 +227,12 @@ namespace Unity.Entities.Tests
             buffer.RemoveAt(7);
 
             CheckBufferContents(buffer, new int[] { 0, 1, 2, 3, 4, 5, 6 });
-		}
+        }
 
-		[Test]
-		public void RemoveRangeWorksFromEnd()
-		{
-			var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+        [Test]
+        public void RemoveRangeWorksFromEnd()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             for (int i = 0; i < 9; ++i)
                 buffer.Add(i);
@@ -240,35 +240,35 @@ namespace Unity.Entities.Tests
             buffer.RemoveRange(5, 4);
 
             CheckBufferContents(buffer, new int[] { 0, 1, 2, 3, 4 });
-		}
+        }
 
-		[Test]
-		public void InitialCapacityWorksWithAddComponment()
-		{
-			var entity = m_Manager.CreateEntity();
+        [Test]
+        public void InitialCapacityWorksWithAddComponment()
+        {
+            var entity = m_Manager.CreateEntity();
             m_Manager.AddComponent(entity, ComponentType.ReadWrite<EcsIntElement>());
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             Assert.AreEqual(8, buffer.Capacity);
-		}
+        }
 
-		[Test]
-		public void RemoveComponent()
-		{
+        [Test]
+        public void RemoveComponent()
+        {
             var arrayType = ComponentType.ReadWrite<EcsIntElement>();
-			var entity = m_Manager.CreateEntity(arrayType);
+            var entity = m_Manager.CreateEntity(arrayType);
             Assert.IsTrue(m_Manager.HasComponent(entity, arrayType));
             m_Manager.RemoveComponent(entity, arrayType);
             Assert.IsFalse(m_Manager.HasComponent(entity, arrayType));
-		}
+        }
 
-		[Test]
-		public void MutateBufferData()
-		{
-			var entity = m_Manager.CreateEntity();
+        [Test]
+        public void MutateBufferData()
+        {
+            var entity = m_Manager.CreateEntity();
             m_Manager.AddBuffer<EcsIntElement>(entity);
 
-			var array = m_Manager.GetBuffer<EcsIntElement>(entity);
-			Assert.AreEqual(0, array.Length);
+            var array = m_Manager.GetBuffer<EcsIntElement>(entity);
+            Assert.AreEqual(0, array.Length);
 
             using (var array2 = new NativeArray<EcsIntElement>(6, Allocator.Temp))
             {
@@ -280,7 +280,7 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(5, array[3].Value);
                 Assert.AreNotEqual(5, array2[3].Value); // no aliasing
             }
-		}
+        }
 
         [Test]
         public void BufferComponentGroupChunkIteration()
@@ -314,23 +314,23 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-		public void BufferFromEntityWorks()
-		{
-			var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
+        public void BufferFromEntityWorks()
+        {
+            var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
             m_Manager.GetBuffer<EcsIntElement>(entityInt).CopyFrom(new EcsIntElement[] { 1, 2, 3 });
 
-			var intLookup = EmptySystem.GetBufferFromEntity<EcsIntElement>();
-			Assert.IsTrue(intLookup.Exists(entityInt));
-			Assert.IsFalse(intLookup.Exists(new Entity()));
+            var intLookup = EmptySystem.GetBufferFromEntity<EcsIntElement>();
+            Assert.IsTrue(intLookup.Exists(entityInt));
+            Assert.IsFalse(intLookup.Exists(new Entity()));
 
-			Assert.AreEqual(2, intLookup[entityInt][1].Value);
-		}
+            Assert.AreEqual(2, intLookup[entityInt][1].Value);
+        }
 
         [Test]
         public void OutOfBoundsAccessThrows()
         {
-			var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
-			var intArray = m_Manager.GetBuffer<EcsIntElement>(entityInt);
+            var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var intArray = m_Manager.GetBuffer<EcsIntElement>(entityInt);
             intArray.Add(12);
             m_Manager.DestroyEntity(entityInt);
 
@@ -343,8 +343,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void UseAfterStructuralChangeThrows()
         {
-			var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
-			var intArray = m_Manager.GetBuffer<EcsIntElement>(entityInt);
+            var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var intArray = m_Manager.GetBuffer<EcsIntElement>(entityInt);
             m_Manager.DestroyEntity(entityInt);
 
             Assert.Throws<InvalidOperationException>(() =>
@@ -356,8 +356,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void UseAfterStructuralChangeThrows2()
         {
-			var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
-			var buffer = m_Manager.GetBufferFromEntity<EcsIntElement>();
+            var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBufferFromEntity<EcsIntElement>();
             var array = buffer[entityInt];
             m_Manager.DestroyEntity(entityInt);
 
@@ -367,22 +367,22 @@ namespace Unity.Entities.Tests
             });
         }
 
-	    [Test]
-	    public void UseAfterStructuralChangeThrows3()
-	    {
-	        var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
-	        var buffer = m_Manager.GetBuffer<EcsIntElement>(entityInt);
-	        buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
-	        m_Manager.AddComponentData(entityInt, new EcsTestData() { value = 20 });
-	        Assert.Throws<InvalidOperationException>(() => { buffer.Add(4); });
-	    }
+        [Test]
+        public void UseAfterStructuralChangeThrows3()
+        {
+            var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entityInt);
+            buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
+            m_Manager.AddComponentData(entityInt, new EcsTestData() { value = 20 });
+            Assert.Throws<InvalidOperationException>(() => { buffer.Add(4); });
+        }
 
 
         [Test]
         public void WritingReadOnlyThrows()
         {
-			var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
-			var buffer = m_Manager.GetBufferFromEntity<EcsIntElement>(true);
+            var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBufferFromEntity<EcsIntElement>(true);
             var array = buffer[entityInt];
             Assert.Throws<InvalidOperationException>(() =>
             {
@@ -393,8 +393,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void ReinterpretWorks()
         {
-			var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
-			var intBuffer = m_Manager.GetBuffer<EcsIntElement>(entityInt);
+            var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var intBuffer = m_Manager.GetBuffer<EcsIntElement>(entityInt);
             var floatBuffer = intBuffer.Reinterpret<float>();
 
             intBuffer.Add(0x3f800000);
@@ -412,8 +412,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void ReinterpretWrongSizeThrows()
         {
-			var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
-			var buffer = m_Manager.GetBuffer<EcsIntElement>(entityInt);
+            var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entityInt);
             Assert.Throws<InvalidOperationException>(() =>
             {
                 buffer.Reinterpret<ushort>();
@@ -424,8 +424,8 @@ namespace Unity.Entities.Tests
         public void TrimExcessWorks()
         {
 
-			var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
-			var intBuffer = m_Manager.GetBuffer<EcsIntElement>(entityInt);
+            var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var intBuffer = m_Manager.GetBuffer<EcsIntElement>(entityInt);
 
             Assert.AreEqual(0, intBuffer.Length);
             Assert.AreEqual(8, intBuffer.Capacity);
@@ -456,147 +456,145 @@ namespace Unity.Entities.Tests
             }
         }
 
-	    [Test]
-	    public void BufferSurvivesArchetypeChange()
-	    {
-	        var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
-	        var buffer = m_Manager.GetBuffer<EcsIntElement>(entityInt);
-	        buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
+        [Test]
+        public void BufferSurvivesArchetypeChange()
+        {
+            var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entityInt);
+            buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
 
-	        m_Manager.AddComponentData(entityInt, new EcsTestData() { value = 20 });
+            m_Manager.AddComponentData(entityInt, new EcsTestData() { value = 20 });
 
-	        CheckBufferContents(m_Manager.GetBuffer<EcsIntElement>(entityInt), new int[] { 1, 2, 3 });
-	    }
+            CheckBufferContents(m_Manager.GetBuffer<EcsIntElement>(entityInt), new int[] { 1, 2, 3 });
+        }
 
-	    internal struct ElementWithoutCapacity : IBufferElementData
-	    {
-	        public float Value;
-	    }
+        internal struct ElementWithoutCapacity : IBufferElementData
+        {
+            public float Value;
+        }
 
-	    [Test]
-	    public void NoCapacitySpecifiedWorks()
-	    {
-	        var original = m_Manager.CreateEntity(typeof(ElementWithoutCapacity));
-	        var buffer = m_Manager.GetBuffer<ElementWithoutCapacity>(original);
-	        Assert.AreEqual(buffer.Capacity, 32);
-	    }
+        [Test]
+        public void NoCapacitySpecifiedWorks()
+        {
+            var original = m_Manager.CreateEntity(typeof(ElementWithoutCapacity));
+            var buffer = m_Manager.GetBuffer<ElementWithoutCapacity>(original);
+            Assert.AreEqual(buffer.Capacity, 32);
+        }
 
-	    [Test]
-	    public void ArrayInvalidationWorks()
-	    {
-	        var original = m_Manager.CreateEntity(typeof(EcsIntElement));
-	        var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
-	        buffer.Add(1);
-	        var array = buffer.AsNativeArray();
-	        Assert.AreEqual(1, array[0].Value);
-	        Assert.AreEqual(1, array.Length);
-	        buffer.Add(2);
-	        Assert.Throws<InvalidOperationException>(() =>
-	        {
-	            int value = array[0].Value;
-	        });
+        [Test]
+        public void ArrayInvalidationWorks()
+        {
+            var original = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
+            buffer.Add(1);
+            var array = buffer.AsNativeArray();
+            Assert.AreEqual(1, array[0].Value);
+            Assert.AreEqual(1, array.Length);
+            buffer.Add(2);
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                int value = array[0].Value;
+            });
 
-	        Assert.Throws<InvalidOperationException>(() =>
-	        {
-	            array[0] = 5;
-	        });
-	    }
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                array[0] = 5;
+            });
+        }
 
-	    [Test]
-	    public void ArrayInvalidationHappensForAllInstances()
-	    {
-	        var e0 = m_Manager.CreateEntity(typeof(EcsIntElement));
-	        var e1 = m_Manager.CreateEntity(typeof(EcsIntElement));
+        [Test]
+        public void ArrayInvalidationHappensForAllInstances()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var e1 = m_Manager.CreateEntity(typeof(EcsIntElement));
 
-	        var b0 = m_Manager.GetBuffer<EcsIntElement>(e0);
-	        var b1 = m_Manager.GetBuffer<EcsIntElement>(e1);
+            var b0 = m_Manager.GetBuffer<EcsIntElement>(e0);
+            var b1 = m_Manager.GetBuffer<EcsIntElement>(e1);
 
-	        b0.Add(1);
-	        b1.Add(1);
+            b0.Add(1);
+            b1.Add(1);
 
-	        var a0 = b0.AsNativeArray();
-	        var a1 = b1.AsNativeArray();
+            var a0 = b0.AsNativeArray();
+            var a1 = b1.AsNativeArray();
 
-	        b0.Add(1);
+            b0.Add(1);
 
-	        Assert.Throws<InvalidOperationException>(() =>
-	        {
-	            int value = a0[0].Value;
-	        });
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                int value = a0[0].Value;
+            });
 
-	        Assert.Throws<InvalidOperationException>(() =>
-	        {
-	            int value = a1[0].Value;
-	        });
-	    }
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                int value = a1[0].Value;
+            });
+        }
 
-	    [Test]
-	    public void ArraysAreNotInvalidateByWrites()
-	    {
-	        var original = m_Manager.CreateEntity(typeof(EcsIntElement));
-	        var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
-	        buffer.Add(1);
-	        var array = buffer.AsNativeArray();
-	        Assert.AreEqual(1, array[0].Value);
-	        Assert.AreEqual(1, array.Length);
-	        buffer[0] = 2;
-	        Assert.AreEqual(2, array[0].Value);
-	    }
+        [Test]
+        public void ArraysAreNotInvalidateByWrites()
+        {
+            var original = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
+            buffer.Add(1);
+            var array = buffer.AsNativeArray();
+            Assert.AreEqual(1, array[0].Value);
+            Assert.AreEqual(1, array.Length);
+            buffer[0] = 2;
+            Assert.AreEqual(2, array[0].Value);
+        }
 
-	    struct ArrayConsumingJob : IJob
-	    {
-	        public NativeArray<EcsIntElement> Array;
+        struct ArrayConsumingJob : IJob
+        {
+            public NativeArray<EcsIntElement> Array;
 
-	        public void Execute()
-	        {
-	        }
-	    }
+            public void Execute()
+            {
+            }
+        }
 
-	    [Test]
-	    [StandaloneFixme] // IJob
-	    public void BufferInvalidationNotPossibleWhenArraysAreGivenToJobs()
-	    {
-	        var original = m_Manager.CreateEntity(typeof(EcsIntElement));
-	        var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
-	        buffer.Add(1);
-	        var handle = new ArrayConsumingJob {Array = buffer.AsNativeArray()}.Schedule();
-	        Assert.Throws<InvalidOperationException>(() => buffer.Add(2));
-	        Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(original));
-	        handle.Complete();
-	    }
+        [Test]
+        [StandaloneFixme] // IJob
+        public void BufferInvalidationNotPossibleWhenArraysAreGivenToJobs()
+        {
+            var original = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
+            buffer.Add(1);
+            var handle = new ArrayConsumingJob {Array = buffer.AsNativeArray()}.Schedule();
+            Assert.Throws<InvalidOperationException>(() => buffer.Add(2));
+            Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(original));
+            handle.Complete();
+        }
 
-	    struct WriteJob : IJobChunk
-	    {
-	        public ArchetypeChunkBufferType<EcsIntElement> Int;
+        struct WriteJob : IJobChunk
+        {
+            public ArchetypeChunkBufferType<EcsIntElement> Int;
 
-	        public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
-	        {
-	            var intValue = chunk.GetBufferAccessor(Int)[0];
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
+            {
+                var intValue = chunk.GetBufferAccessor(Int)[0];
 
-	            Assert.AreEqual(intValue.Length, 1);
+                Assert.AreEqual(intValue.Length, 1);
 
-	            var intValueArray = intValue.AsNativeArray();
+                var intValueArray = intValue.AsNativeArray();
 
                 Assert.AreEqual(5, intValue[0].Value);
                 Assert.AreEqual(5, intValueArray[0].Value);
 
-	            intValueArray[0] = 6;
+                intValueArray[0] = 6;
 
                 Assert.AreEqual(intValueArray.Length, 1);
                 Assert.AreEqual(6, intValue[0].Value);
-	            
+
                 // Invalidate intValueArray
                 intValue.Add(10);
-#if UNITY_2019_3_OR_NEWER       
                 Assert.Throws<InvalidOperationException>(() => { var p = intValueArray[0]; });
                 Assert.Throws<InvalidOperationException>(() => { intValueArray[0] = 5; });
-#endif
-	        }
-	    }
+            }
+        }
 
-	    [Test]
-	    public void ReadWriteDynamicBuffer()
-	    {
+        [Test]
+        public void ReadWriteDynamicBuffer()
+        {
             // Create multiple chunks so we ensure we are doing parallel for writing to buffers
             for (int i = 0; i != 10; i++)
             {
@@ -605,42 +603,42 @@ namespace Unity.Entities.Tests
                 var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
                 buffer.Add(5);
             }
-            
-	        var group = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntElement)}});
-	        var job = new WriteJob
-	        {
-	            Int = EmptySystem.GetArchetypeChunkBufferType<EcsIntElement>()
-	        };
 
-	        job.Schedule(group).Complete();
-	    }
+            var group = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntElement)}});
+            var job = new WriteJob
+            {
+                Int = EmptySystem.GetArchetypeChunkBufferType<EcsIntElement>()
+            };
 
-	    struct ReadOnlyJob : IJobChunk
-	    {
-	        [ReadOnly]
-	        public ArchetypeChunkBufferType<EcsIntElement> Int;
+            job.Schedule(group).Complete();
+        }
 
-	        public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
-	        {
-	            var intValue = chunk.GetBufferAccessor(Int)[0];
+        struct ReadOnlyJob : IJobChunk
+        {
+            [ReadOnly]
+            public ArchetypeChunkBufferType<EcsIntElement> Int;
 
-	            // Reading buffer
-	            Assert.AreEqual(intValue.Length, 1);
-	            Assert.AreEqual(5, intValue[0].Value);
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
+            {
+                var intValue = chunk.GetBufferAccessor(Int)[0];
 
-	            // Reading casted native array
-	            var intValueArray = intValue.AsNativeArray();
-	            Assert.AreEqual(intValueArray.Length, 1);
-	            Assert.AreEqual(5, intValueArray[0].Value);
+                // Reading buffer
+                Assert.AreEqual(intValue.Length, 1);
+                Assert.AreEqual(5, intValue[0].Value);
 
-	            // Can't write to buffer...
-	            Assert.Throws<InvalidOperationException>(() => { intValue[0] = 5; });
-	            Assert.Throws<InvalidOperationException>(() => { intValueArray[0] = 5; });
-	        }
-	    }
+                // Reading casted native array
+                var intValueArray = intValue.AsNativeArray();
+                Assert.AreEqual(intValueArray.Length, 1);
+                Assert.AreEqual(5, intValueArray[0].Value);
 
-	    public void ReadOnlyDynamicBufferImpl(bool readOnlyType)
-	    {
+                // Can't write to buffer...
+                Assert.Throws<InvalidOperationException>(() => { intValue[0] = 5; });
+                Assert.Throws<InvalidOperationException>(() => { intValueArray[0] = 5; });
+            }
+        }
+
+        public void ReadOnlyDynamicBufferImpl(bool readOnlyType)
+        {
             // Create multiple chunks so we ensure we are doing parallel for reading from buffers
             for (int i = 0; i != 10; i++)
             {
@@ -650,95 +648,93 @@ namespace Unity.Entities.Tests
                 buffer.Add(5);
             }
 
-	        var group = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntElement)}});
-	        var job = new ReadOnlyJob
+            var group = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntElement)}});
+            var job = new ReadOnlyJob
             {
                 Int = EmptySystem.GetArchetypeChunkBufferType<EcsIntElement>(readOnlyType)
             };
 
             job.Schedule(group).Complete();
-	    }
+        }
 
-	    [Test]
+        [Test]
         [StandaloneFixme] // IJob
-	    public void ReadOnlyDynamicBufferReadOnly()
-	    {
-	        ReadOnlyDynamicBufferImpl(true);
-	    }
+        public void ReadOnlyDynamicBufferReadOnly()
+        {
+            ReadOnlyDynamicBufferImpl(true);
+        }
 
-        #if UNITY_2019_3_OR_NEWER
-	    [Test]
+        [Test]
         [StandaloneFixme] // IJob
-	    public void ReadOnlyDynamicBufferWritable()
-	    {
-	        ReadOnlyDynamicBufferImpl(false);
-	    }
-        #endif
-        
-	    struct BufferConsumingJob : IJob
-	    {
-	        public DynamicBuffer<EcsIntElement> Buffer;
+        public void ReadOnlyDynamicBufferWritable()
+        {
+            ReadOnlyDynamicBufferImpl(false);
+        }
 
-	        public void Execute()
-	        {
-	        }
-	    }
+        struct BufferConsumingJob : IJob
+        {
+            public DynamicBuffer<EcsIntElement> Buffer;
 
-	    [Test]
-	    [StandaloneFixme] // IJob + Safety Handles
-	    public void BufferInvalidationNotPossibleWhenBuffersAreGivenToJobs()
-	    {
-	        var original = m_Manager.CreateEntity(typeof(EcsIntElement));
-	        var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
-	        buffer.Add(1);
-	        var handle = new BufferConsumingJob {Buffer = buffer}.Schedule();
-	        Assert.Throws<InvalidOperationException>(() => buffer.Add(2));
-	        Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(original));
-	        handle.Complete();
-	    }
+            public void Execute()
+            {
+            }
+        }
 
-	    struct ReadOnlyNativeArrayJob : IJob
-	    {
-	        [ReadOnly]
-	        public NativeArray<EcsIntElement> IntArray;
+        [Test]
+        [StandaloneFixme] // IJob + Safety Handles
+        public void BufferInvalidationNotPossibleWhenBuffersAreGivenToJobs()
+        {
+            var original = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
+            buffer.Add(1);
+            var handle = new BufferConsumingJob {Buffer = buffer}.Schedule();
+            Assert.Throws<InvalidOperationException>(() => buffer.Add(2));
+            Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(original));
+            handle.Complete();
+        }
 
-	        public void Execute()
-	        {
-	            var array = IntArray;
+        struct ReadOnlyNativeArrayJob : IJob
+        {
+            [ReadOnly]
+            public NativeArray<EcsIntElement> IntArray;
 
-	            // Reading casted native array
-	            Assert.AreEqual(array.Length, 1);
-	            Assert.AreEqual(5, array[0].Value);
+            public void Execute()
+            {
+                var array = IntArray;
 
-	            // Can't write to buffer...
-	            Assert.Throws<InvalidOperationException>(() => { array[0] = 5; });
-	        }
-	    }
+                // Reading casted native array
+                Assert.AreEqual(array.Length, 1);
+                Assert.AreEqual(5, array[0].Value);
 
-	    [Test]
-	    [StandaloneFixme] // IJob
-	    public void NativeArrayInJobReadOnly()
-	    {
-	        var original = m_Manager.CreateEntity(typeof(EcsIntElement));
-	        var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
-	        buffer.Add(5);
+                // Can't write to buffer...
+                Assert.Throws<InvalidOperationException>(() => { array[0] = 5; });
+            }
+        }
 
-	        var job = new ReadOnlyNativeArrayJob
-	        {
-	            IntArray = buffer.AsNativeArray()
-	        };
+        [Test]
+        [StandaloneFixme] // IJob
+        public void NativeArrayInJobReadOnly()
+        {
+            var original = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
+            buffer.Add(5);
+
+            var job = new ReadOnlyNativeArrayJob
+            {
+                IntArray = buffer.AsNativeArray()
+            };
             var jobHandle = job.Schedule();
 
-	        Assert.Throws<InvalidOperationException>(() => { buffer.Add(5); });
-	        Assert.Throws<InvalidOperationException>(() => { buffer[0] = 6; });
-	        Assert.Throws<InvalidOperationException>(() => { job.IntArray[0] = 6; });
-	        Assert.Throws<InvalidOperationException>(() => { job.IntArray[0] = 6; });
+            Assert.Throws<InvalidOperationException>(() => { buffer.Add(5); });
+            Assert.Throws<InvalidOperationException>(() => { buffer[0] = 6; });
+            Assert.Throws<InvalidOperationException>(() => { job.IntArray[0] = 6; });
+            Assert.Throws<InvalidOperationException>(() => { job.IntArray[0] = 6; });
 
-	        Assert.AreEqual(5, buffer[0].Value);
-	        Assert.AreEqual(5, job.IntArray[0].Value);
+            Assert.AreEqual(5, buffer[0].Value);
+            Assert.AreEqual(5, job.IntArray[0].Value);
 
             jobHandle.Complete();
-	    }
+        }
 
         [Test]
         public void DynamicBuffer_Default_IsCreated_IsFalse()
@@ -759,9 +755,9 @@ namespace Unity.Entities.Tests
         [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_AllocateBufferWithLongSize_DoesNotThrow()
         {
-	        if (IntPtr.Size == 4)
-		        Assert.Ignore("Test makes no sense in 32bit");
-	        
+            if (IntPtr.Size == 4)
+                Assert.Ignore("Test makes no sense in 32bit");
+
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             int capacity = (int)(((long)int.MaxValue + 1) / UnsafeUtility.SizeOf<EcsIntElement>() + 1); //536870913
@@ -773,9 +769,9 @@ namespace Unity.Entities.Tests
         [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_Insert_BufferHasLongSize_DoesNotThrow()
         {
-	        if (IntPtr.Size == 4)
-		        Assert.Ignore("Test makes no sense in 32bit");
-	        
+            if (IntPtr.Size == 4)
+                Assert.Ignore("Test makes no sense in 32bit");
+
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             int capacity = (int)(((long)int.MaxValue + 1) / UnsafeUtility.SizeOf<EcsIntElement>() + 1); //536870913
@@ -789,9 +785,9 @@ namespace Unity.Entities.Tests
         [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_AddRange_NewBufferHasLongSize_DoesNotThrow()
         {
-	        if (IntPtr.Size == 4)
-		        Assert.Ignore("Test makes no sense in 32bit");
-	        
+            if (IntPtr.Size == 4)
+                Assert.Ignore("Test makes no sense in 32bit");
+
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             int capacity = (int)(((long)int.MaxValue + 1) / UnsafeUtility.SizeOf<EcsIntElement>() + 1); //536870913
@@ -806,9 +802,9 @@ namespace Unity.Entities.Tests
         [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_RemoveRange_MovedBufferHasLongSize_DoesNotThrow()
         {
-	        if (IntPtr.Size == 4)
-		        Assert.Ignore("Test makes no sense in 32bit");
-	        
+            if (IntPtr.Size == 4)
+                Assert.Ignore("Test makes no sense in 32bit");
+
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             int capacity = (int)(((long)int.MaxValue + 1) / UnsafeUtility.SizeOf<EcsIntElement>() + 2);
@@ -823,9 +819,9 @@ namespace Unity.Entities.Tests
         [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_Add_NewBufferHasLongSize_DoesNotThrow()
         {
-	        if (IntPtr.Size == 4)
-		        Assert.Ignore("Test makes no sense in 32bit");
-	        
+            if (IntPtr.Size == 4)
+                Assert.Ignore("Test makes no sense in 32bit");
+
             var arrayType = ComponentType.ReadWrite<EcsIntElement>();
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
@@ -840,9 +836,9 @@ namespace Unity.Entities.Tests
         [Explicit("Takes a long time (order of seconds).")]
         public void DynamicBuffer_TrimExcess_NewBufferHasLongSize_DoesNotThrow()
         {
-	        if (IntPtr.Size == 4)
-		        Assert.Ignore("Test makes no sense in 32bit");
-	        
+            if (IntPtr.Size == 4)
+                Assert.Ignore("Test makes no sense in 32bit");
+
             var arrayType = ComponentType.ReadWrite<EcsIntElement>();
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
@@ -896,4 +892,3 @@ namespace Unity.Entities.Tests
 
 #pragma warning restore 0649
 #pragma warning restore 0219 // assigned but its value is never used
-

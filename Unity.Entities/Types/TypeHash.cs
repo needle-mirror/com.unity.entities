@@ -2,6 +2,7 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using Unity.Burst;
 
 namespace Unity.Entities
 {
@@ -23,6 +24,7 @@ namespace Unity.Entities
             return result;
         }
 
+        [BurstCompile]
         public static ulong FNV1A64(int val)
         {
             ulong result = kFNV1A64OffsetBasis;
@@ -37,6 +39,7 @@ namespace Unity.Entities
             return result;
         }
 
+        [BurstCompile]
         public static ulong CombineFNV1A64(ulong hash, params ulong[] values)
         {
             foreach (var value in values)

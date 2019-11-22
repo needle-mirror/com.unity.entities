@@ -9,6 +9,7 @@ namespace Unity.Entities
         private byte* m_FirstChunk;
         private byte* m_LastChunk;
         private int m_LastChunkUsedSize;
+        
         private const int ms_ChunkSize = 64 * 1024;
         private const int ms_ChunkAlignment = 64;
 
@@ -26,6 +27,10 @@ namespace Unity.Entities
 
         public byte* Allocate(int size, int alignment)
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (size > ms_ChunkSize)
+                throw new ArgumentException($"Cannot allocate more than {ms_ChunkSize} in ChunkAllocator. Requested: {size}");
+#endif
             var alignedChunkSize = (m_LastChunkUsedSize + alignment - 1) & ~(alignment - 1);
             if (m_LastChunk == null || size > ms_ChunkSize - alignedChunkSize)
             {

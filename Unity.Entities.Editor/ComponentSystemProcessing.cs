@@ -1,5 +1,3 @@
-#if UNITY_2019_3_OR_NEWER
-
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -23,6 +21,16 @@ namespace Unity.Entities.IL2CPPProcessing
 
             var csb = typeof(ComponentSystemBase);
 
+            void ExtractComponentSystemTypes(Type[] inputTypes, Assembly hostingAssembly)
+            {
+                var types = inputTypes.Where(type => type != null && type.IsSubclassOf(csb)).ToList();
+
+                if (types.Count > 0)
+                {
+                    typesByAssemblies.Add(hostingAssembly, types);
+                }
+            }
+
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 if (!TypeManager.IsAssemblyReferencingEntities(assembly))
@@ -31,15 +39,11 @@ namespace Unity.Entities.IL2CPPProcessing
                 try
                 {
                     var allTypes = assembly.GetTypes();
-                    var types = allTypes.Where(type => type.IsSubclassOf(csb)).ToList();
-
-                    if (types.Count > 0)
-                    {
-                        typesByAssemblies.Add(assembly, types);
-                    }
+                    ExtractComponentSystemTypes(allTypes, assembly);
                 }
-                catch (ReflectionTypeLoadException)
+                catch (ReflectionTypeLoadException ex)
                 {
+                    ExtractComponentSystemTypes(ex.Types, assembly);
                     Debug.LogWarning($"Couldn't load types from assembly: {assembly.FullName}");
                 }
             }
@@ -97,5 +101,3 @@ namespace Unity.Entities.IL2CPPProcessing
         }
     }
 }
-
-#endif

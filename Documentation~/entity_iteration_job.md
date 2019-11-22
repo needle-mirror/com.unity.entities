@@ -15,15 +15,22 @@ public class RotationSpeedSystem : JobComponentSystem
    {
        public float DeltaTime;
        // The [ReadOnly] attribute tells the job scheduler that this job will not write to rotSpeed
-       public void Execute(ref RotationQuaternion rotationQuaternion, [ReadOnly] ref RotationSpeed rotSpeed)
+       public void Execute(ref RotationQuaternion rotationQuaternion, 
+                           [ReadOnly] ref RotationSpeed rotSpeed)
        {
            // Rotate something about its up vector at the speed given by RotationSpeed.  
-           rotationQuaternion.Value = math.mul(math.normalize(rotationQuaternion.Value), quaternion.AxisAngle(math.up(), rotSpeed.RadiansPerSecond * DeltaTime));
+           rotationQuaternion.Value 
+               = math.mul(math.normalize(rotationQuaternion.Value), 
+                          quaternion.AxisAngle(
+                              math.up(), 
+                              rotSpeed.RadiansPerSecond * DeltaTime
+                          )
+                 );
        }
    }
 
-// OnUpdate runs on the main thread.
-// Any previously scheduled jobs reading/writing from Rotation or writing to RotationSpeed 
+// OnUpdate runs on the main thread. Any previously scheduled jobs
+// reading/writing from Rotation or writing to RotationSpeed 
 // will automatically be included in the inputDependencies.
 protected override JobHandle OnUpdate(JobHandle inputDependencies)
    {
@@ -38,6 +45,7 @@ protected override JobHandle OnUpdate(JobHandle inputDependencies)
 
 Note: the above system is based on the HelloCube IJobForEach sample in the [ECS Samples repository](https://github.com/Unity-Technologies/EntityComponentSystemSamples).
 
+`IJobForEach` processes all entities stored in the same chunk as a batch. When the set of entities spans more than one chunk, the job process each batch of entities in parallel. Iterating over a set of entities by chunk is generally the most efficient method since it prevents multiple threads from attempting to access the same block of memory. However, if you have a very expensive process to run on a small number of entities, `IJobForEach` may not provide optimal performance because it cannot run the process on each entity in parallel. In such cases, you can use [IJobParallelFor](https://docs.unity3d.com/ScriptReference/Unity.Jobs.IJobParallelFor.html), which gives you control over batch size and work stealing. See [Manual Iteration](manual_iteration.md) for an example.
 
 ## Defining the IJobForEach signature
 
@@ -65,7 +73,8 @@ The JobComponentSystem calls your Execute() method for each eligible entity, pas
 
 For example, the following Execute() method reads a RotationSpeed component and reads and writes a RotationQuaternion component. (Read/write is the default, so no attribute is needed.)
 
-    public void Execute(ref RotationQuaternion rotationQuaternion, [ReadOnly] ref RotationSpeed rotSpeed){}
+    public void Execute(ref RotationQuaternion rotationQuaternion, 
+                        [ReadOnly] ref RotationSpeed rotSpeed){}
 
 You can add attributes to the function parameters to help ECS optimize your system:
 

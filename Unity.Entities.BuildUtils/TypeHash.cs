@@ -1,3 +1,5 @@
+#if !UNITY_EDITOR
+
 using System;
 using System.Linq;
 using System.Reflection;
@@ -48,6 +50,36 @@ namespace Unity.Entities.BuildUtils
             return hash;
         }
 
+        static string GetSanitizedFullName(TypeReference type)
+        {
+            string name = type.FullName;
+
+            if (type.IsGenericInstance)
+            {
+                // Cecil produces a different field name than System.Reflection when a field contains a generic,
+                // so we convert the name to System.Reflection's form since it is a more precise string
+                var genericField = type as GenericInstanceType;
+                name = genericField.FullName.Substring(0, type.FullName.IndexOf('<'));
+                name += "[";
+                for (int i = 0; i < genericField.GenericArguments.Count; ++i)
+                {
+                    var genericType = genericField.GenericArguments[i].Resolve();
+                    name += "[";
+                    name += Assembly.CreateQualifiedName(genericType.Module.Assembly.FullName, genericType.FullName);
+                    name += "]";
+
+                    if (i < genericField.GenericArguments.Count - 1)
+                        name += ",";
+                }
+                name += "]";
+            }
+
+            // Reflection uses '+' as a delimiter for nested classes whereas cecil uses ECMA notation which uses '/'
+            name = name.Replace('/', '+');
+
+            return name;
+        }
+
         public static ulong HashType(TypeDefinition typeDef, int fieldIndex = 0)
         {
             ulong hash = kFNV1A64OffsetBasis;
@@ -56,7 +88,8 @@ namespace Unity.Entities.BuildUtils
             {
                 if (!field.IsStatic)
                 {
-                    hash = CombineFNV1A64(hash, FNV1A64(field.FieldType.FullName));
+                    string fieldName = GetSanitizedFullName(field.FieldType);
+                    hash = CombineFNV1A64(hash, FNV1A64(fieldName));
                     hash = CombineFNV1A64(hash, FNV1A64(fieldIndex));
                     ++fieldIndex;
                 }
@@ -130,7 +163,6 @@ namespace Unity.Entities.BuildUtils
         // of the method to require an assembly reference on System.Reflection AND Mono.Cecil
         public static ulong CalculateStableTypeHashRefl(Type type)
         {
-
             ulong asmNameHash = FNV1A64(type.AssemblyQualifiedName);
             ulong typeHash = HashType(type);
             ulong versionHash = HashVersionAttribute(type);
@@ -188,3 +220,5 @@ namespace Unity.Entities.BuildUtils
         }
     }
 }
+
+#endif

@@ -1,4 +1,5 @@
 ﻿using System;
+using Unity.Burst;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Collections;
@@ -6,7 +7,6 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-#if !UNITY_DOTSPLAYER
     /// <summary>
     /// IJobChunk is a type of [Job](https://docs.unity3d.com/ScriptReference/Unity.Jobs.IJob.html) that iterates over
     /// a set of <see cref="ArchetypeChunk"/> instances.
@@ -26,7 +26,6 @@ namespace Unity.Entities
     /// For more information see [Using IJobChunk](xref:ecs-ijobchunk).
     /// </remarks>
     [JobProducerType(typeof(JobChunkExtensions.JobChunk_Process<>))]
-#endif
     public interface IJobChunk
     {
         // firstEntityIndex refers to the index of the first entity in the current chunk within the EntityQuery the job was scheduled with
@@ -53,10 +52,9 @@ namespace Unity.Entities
         [NativeContainer]
         internal struct EntitySafetyHandle
         {
-            public AtomicSafetyHandle m_Safety;
+            internal AtomicSafetyHandle m_Safety;
         }
 #endif
-
         internal struct JobChunkData<T> where T : struct
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -64,7 +62,7 @@ namespace Unity.Entities
             [ReadOnly] public EntitySafetyHandle safety;
 #pragma warning restore
 #endif
-            public T Data;          
+            public T Data;
 
             [DeallocateOnJobCompletion]
             [NativeDisableContainerSafetyRestriction]
@@ -94,23 +92,41 @@ namespace Unity.Entities
         /// <param name="jobData">An IJobChunk instance.</param>
         /// <param name="query">The query selecting chunks with the necessary components.</param>
         /// <typeparam name="T">The specific IJobChunk implementation type.</typeparam>
-        public static void Run<T>(this T jobData, EntityQuery query)
+        public static unsafe void Run<T>(this T jobData, EntityQuery query)
             where T : struct, IJobChunk
         {
             ScheduleInternal(ref jobData, query, default(JobHandle), ScheduleMode.Run);
         }
+        
+        /// <summary>
+        /// Runs the job using an ArchetypeChunkIterator instead of the jobs API.
+        /// </summary>
+        /// <param name="jobData">The job to execute.</param>
+        /// <param name="chunkIterator">The ArchetypeChunkIterator of the EntityQuery to run over.</param>
+        /// <typeparam name="T">The specific IJobChunk implementation type.</typeparam>
+        public static unsafe void RunWithoutJobs<T>(this ref T jobData, ref ArchetypeChunkIterator chunkIterator)
+            where T : struct, IJobChunk
+        {
+            var chunkCount = 0;
+            
+            while (chunkIterator.MoveNext())
+            {
+                var archetypeChunk = chunkIterator.CurrentArchetypeChunk;
+                jobData.Execute(archetypeChunk, chunkCount, chunkIterator.CurrentChunkFirstEntityIndex);
 
-#if !UNITY_DOTSPLAYER
+                chunkCount++;
+            }
+        }
+
         internal static unsafe JobHandle ScheduleInternal<T>(ref T jobData, EntityQuery query, JobHandle dependsOn, ScheduleMode mode)
             where T : struct, IJobChunk
         {
-            ComponentChunkIterator iterator = query.GetComponentChunkIterator();
-            
             var unfilteredChunkCount = query.CalculateChunkCountWithoutFiltering();
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount,
-                iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out var prefilterData,
-                out var deferredCountData);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount,
+                query.m_QueryData->MatchingArchetypes, query.m_Filter, dependsOn, mode,
+                out NativeArray<byte> prefilterData,
+                out void* deferredCountData);
 
             JobChunkData<T> fullData = new JobChunkData<T>
             {
@@ -119,6 +135,7 @@ namespace Unity.Entities
                 // jobs without any other safety handles are still running (haven't been synced).
                 safety = new EntitySafetyHandle{m_Safety = query.SafetyManager->GetEntityManagerSafetyHandle()},
 #endif
+
                 Data = jobData,
                 PrefilterData = prefilterData,
             };
@@ -127,19 +144,18 @@ namespace Unity.Entities
                 UnsafeUtility.AddressOf(ref fullData),
                 JobChunk_Process<T>.Initialize(),
                 prefilterHandle,
-                mode);           
-      
+                mode);
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             try 
             {          
 #endif
             if(mode == ScheduleMode.Batched)
                 return JobsUtility.ScheduleParallelForDeferArraySize(ref scheduleParams, 1, deferredCountData, null);
-            else
-            {
-                var count = unfilteredChunkCount;
-                return JobsUtility.ScheduleParallelFor(ref scheduleParams, count, 1);
-            }
+
+            var count = unfilteredChunkCount;
+            return JobsUtility.ScheduleParallelFor(ref scheduleParams, count, count);
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             }
             catch (InvalidOperationException e)
@@ -165,52 +181,28 @@ namespace Unity.Entities
             }
             public delegate void ExecuteJobFunction(ref JobChunkData<T> data, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
 
-            public unsafe static void Execute(ref JobChunkData<T> jobData, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
+            public static void Execute(ref JobChunkData<T> jobData, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
                 ExecuteInternal(ref jobData, ref ranges, jobIndex);
             }
 
             internal unsafe static void ExecuteInternal(ref JobChunkData<T> jobData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var filteredChunks, out var entityIndices, out var chunkCount);
-                
-                int chunkIndex, end;
-                while (JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out chunkIndex, out end))
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var filteredChunks, out var entityIndices, out var chunkCount);
+
+                while (JobsUtility.GetWorkStealingRange(
+                    ref ranges,
+                    jobIndex, out int chunkIndex, out int end))
                 {
-                    var chunk = filteredChunks[chunkIndex];
-                    var entityOffset = entityIndices[chunkIndex];
-                    
-                    jobData.Data.Execute(chunk, chunkIndex, entityOffset);
+                    for (int index = chunkIndex; index < end; ++index)
+                    {
+                        var chunk = filteredChunks[index];
+                        var entityOffset = entityIndices[index];
+
+                        jobData.Data.Execute(chunk, chunkIndex, entityOffset);
+                    }
                 }
             }
         }
-#else
-        static internal unsafe JobHandle ScheduleInternal<T>(ref T jobData, EntityQuery query, JobHandle dependsOn, ScheduleMode mode)
-            where T : struct, IJobChunk
-        {
-            dependsOn.Complete();
-
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.Temp))
-            {
-                int currentChunk = 0;
-                int currentEntity = 0;
-                foreach (var chunk in chunks)
-                {
-                    jobData.Execute(chunk, currentChunk, currentEntity);
-                    currentChunk++;
-                    currentEntity += chunk.Count;
-                }
-            }
-
-            DoDeallocateOnJobCompletion(jobData);
-
-            return new JobHandle();
-        }
-
-        static internal void DoDeallocateOnJobCompletion(object jobData)
-        {
-            throw new CodegenShouldReplaceException();
-        }
-#endif
     }
 }

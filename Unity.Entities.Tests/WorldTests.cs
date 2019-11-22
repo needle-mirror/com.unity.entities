@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using Unity.Core;
 
 namespace Unity.Entities.Tests
 {
@@ -12,27 +13,26 @@ namespace Unity.Entities.Tests
         [SetUp]
         public virtual void Setup()
         {
-            m_PreviousWorld = World.Active;
+            m_PreviousWorld = World.DefaultGameObjectInjectionWorld;
         }
 
         [TearDown]
         public virtual void TearDown()
         {
-            World.Active = m_PreviousWorld;
+            World.DefaultGameObjectInjectionWorld = m_PreviousWorld;
         }
 
 
         [Test]
-        [StandaloneFixme]
         public void ActiveWorldResets()
         {
             int count = World.AllWorlds.Count();
             var worldA = new World("WorldA");
             var worldB = new World("WorldB");
 
-            World.Active = worldB;
+            World.DefaultGameObjectInjectionWorld = worldB;
 
-            Assert.AreEqual(worldB, World.Active);
+            Assert.AreEqual(worldB, World.DefaultGameObjectInjectionWorld);
             Assert.AreEqual(count + 2, World.AllWorlds.Count());
             Assert.AreEqual(worldA, World.AllWorlds[World.AllWorlds.Count()-2]);
             Assert.AreEqual(worldB, World.AllWorlds[World.AllWorlds.Count()-1]);
@@ -41,7 +41,7 @@ namespace Unity.Entities.Tests
 
             Assert.IsFalse(worldB.IsCreated);
             Assert.IsTrue(worldA.IsCreated);
-            Assert.AreEqual(null, World.Active);
+            Assert.AreEqual(null, World.DefaultGameObjectInjectionWorld);
 
             worldA.Dispose();
 
@@ -54,7 +54,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
         public void WorldVersionIsConsistent()
         {
             var world = new World("WorldX");
@@ -77,7 +76,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
         public void UsingDisposedWorldThrows()
         {
             var world = new World("WorldX");
@@ -91,7 +89,7 @@ namespace Unity.Entities.Tests
             public AddWorldDuringConstructorThrowsSystem()
             {
                 Assert.AreEqual(null, World);
-                World.Active.AddSystem(this);
+                World.DefaultGameObjectInjectionWorld.AddSystem(this);
             }
 
             protected override void OnUpdate() { }
@@ -101,7 +99,7 @@ namespace Unity.Entities.Tests
         public void AddWorldDuringConstructorThrows ()
         {
             var world = new World("WorldX");
-            World.Active = world;
+            World.DefaultGameObjectInjectionWorld = world;
             // Adding a manager during construction is not allowed
             Assert.Throws<TargetInvocationException>(() => world.CreateSystem<AddWorldDuringConstructorThrowsSystem>());
             // The manager will not be added to the list of managers if throws
@@ -120,7 +118,6 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate() { }
         }
         [Test]
-        [StandaloneFixme]
         public void SystemThrowingInOnCreateIsRemoved()
         {
             var world = new World("WorldX");
@@ -144,7 +141,6 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate() { }
         }
         [Test]
-        [StandaloneFixme]
         public void SystemIsAccessibleDuringOnCreateManager ()
         {
             var world = new World("WorldX");
@@ -158,13 +154,12 @@ namespace Unity.Entities.Tests
         //@TODO: Test for adding a manager from one world to another.
         
         [Test]
-        [StandaloneFixme]
         public unsafe void WorldNoOverlappingChunkSequenceNumbers()
         {
             var worldA = new World("WorldA");
             var worldB = new World("WorldB");
 
-            World.Active = worldB;
+            World.DefaultGameObjectInjectionWorld = worldB;
 
             worldA.EntityManager.CreateEntity();
             worldB.EntityManager.CreateEntity();
@@ -187,10 +182,12 @@ namespace Unity.Entities.Tests
 
             worldAChunks.Dispose();
             worldBChunks.Dispose();
+
+            worldA.Dispose();
+            worldB.Dispose();
         }
         
         [Test]
-        [StandaloneFixme]
         public unsafe void WorldChunkSequenceNumbersNotReused()
         {
             var worldA = new World("WorldA");
@@ -217,6 +214,7 @@ namespace Unity.Entities.Tests
                 worldA.EntityManager.DestroyEntity(entity);
             }
 
+            worldA.Dispose();
         }
     }
 }

@@ -56,11 +56,7 @@ namespace Unity.Entities.PerformanceTests
 
 
 
-        #if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-        #else
-        [PerformanceTest]
-        #endif
         [Category("Performance")] // bug: this redundant category here required because our current test runner ignores Category on a fixture for generated test methods  
         public void InstantiateBatch_100k([Values(1, 10, 100, 1000)]int batchSize, [Values]EntityType entityType)
         {
@@ -95,11 +91,7 @@ namespace Unity.Entities.PerformanceTests
         }
 
         //@TODO: Couldn't figure out how to make this test be a single one with above...
-        #if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-        #else
-        [PerformanceTest]
-        #endif
         [Category("Performance")] // bug: this redundant category here required because our current test runner ignores Category on a fixture for generated test methods  
         public void DestroyBatch_100k([Values(1, 10, 100, 1000)]int batchSize, [Values]EntityType entityType)
         {

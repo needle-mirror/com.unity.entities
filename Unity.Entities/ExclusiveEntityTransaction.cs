@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 
 namespace Unity.Entities
 {
@@ -10,33 +11,27 @@ namespace Unity.Entities
     public unsafe struct ExclusiveEntityTransaction
     {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        private AtomicSafetyHandle m_Safety;
+        AtomicSafetyHandle m_Safety;
 #endif
-        [NativeDisableUnsafePtrRestriction] private GCHandle m_EntityQueryManager;
 
-        [NativeDisableUnsafePtrRestriction] private GCHandle m_ManagedComponentStore;
+        internal EntityDataAccess EntityDataAccess => m_EntityDataAccess;
+        internal EntityComponentStore* EntityComponentStore => m_EntityDataAccess.EntityComponentStore;
+        internal ManagedComponentStore ManagedComponentStore => m_EntityDataAccess.ManagedComponentStore;
+        internal EntityQueryManager EntityQueryManager => m_EntityDataAccess.EntityQueryManager;
 
-        [NativeDisableUnsafePtrRestriction] internal EntityComponentStore* EntityComponentStore;
+        EntityDataAccess m_EntityDataAccess;
 
-        internal ManagedComponentStore ManagedComponentStore => (ManagedComponentStore) m_ManagedComponentStore.Target;
-        internal EntityQueryManager EntityQueryManager => (EntityQueryManager) m_EntityQueryManager.Target;
-
-        internal ExclusiveEntityTransaction(EntityQueryManager entityQueryManager,
-            ManagedComponentStore managedComponentStore, EntityComponentStore* componentStore)
+        internal ExclusiveEntityTransaction(EntityManager entityManager)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_Safety = new AtomicSafetyHandle();
 #endif
-            EntityComponentStore = componentStore;
-            m_EntityQueryManager = GCHandle.Alloc(entityQueryManager, GCHandleType.Weak);
-            m_ManagedComponentStore = GCHandle.Alloc(managedComponentStore, GCHandleType.Weak);
+            m_EntityDataAccess = new EntityDataAccess(entityManager, false);
         }
 
         internal void OnDestroy()
         {
-            m_EntityQueryManager.Free();
-            m_ManagedComponentStore.Free();
-            EntityComponentStore = null;
+            m_EntityDataAccess.Dispose();
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -57,14 +52,7 @@ namespace Unity.Entities
         internal EntityArchetype CreateArchetype(ComponentType* types, int count)
         {
             CheckAccess();
-
-            ComponentTypeInArchetype* typesInArchetype = stackalloc ComponentTypeInArchetype[count + 1];
-            var componentCount = EntityManager.FillSortedArchetypeArray(typesInArchetype, types, count);
-
-            EntityArchetype type;
-            type.Archetype = EntityComponentStore->GetOrCreateArchetype(typesInArchetype, componentCount);
-
-            return type;
+            return m_EntityDataAccess.CreateArchetype(types, count);
         }
 
         public EntityArchetype CreateArchetype(params ComponentType[] types)
@@ -78,19 +66,13 @@ namespace Unity.Entities
         public Entity CreateEntity(EntityArchetype archetype)
         {
             CheckAccess();
-
-            Entity entity;
-            EntityComponentStore->CreateEntities(archetype.Archetype, &entity, 1);
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
-            return entity;
+            return m_EntityDataAccess.CreateEntity(archetype);
         }
 
         public void CreateEntity(EntityArchetype archetype, NativeArray<Entity> entities)
         {
             CheckAccess();
-            EntityComponentStore->CreateEntities(archetype.Archetype, (Entity*) entities.GetUnsafePtr(),
-                entities.Length);
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+            m_EntityDataAccess.CreateEntity(archetype, entities);
         }
 
         public Entity CreateEntity(params ComponentType[] types)
@@ -110,11 +92,10 @@ namespace Unity.Entities
             InstantiateInternal(srcEntity, (Entity*) outputEntities.GetUnsafePtr(), outputEntities.Length);
         }
 
-        private void InstantiateInternal(Entity srcEntity, Entity* outputEntities, int count)
+        void InstantiateInternal(Entity srcEntity, Entity* outputEntities, int count)
         {
             CheckAccess();
-            EntityComponentStore->InstantiateEntities(srcEntity, outputEntities, count);
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+            m_EntityDataAccess.InstantiateInternal(srcEntity, outputEntities, count);
         }
 
         public void DestroyEntity(NativeArray<Entity> entities)
@@ -135,103 +116,98 @@ namespace Unity.Entities
         private void DestroyEntityInternal(Entity* entities, int count)
         {
             CheckAccess();
-            EntityComponentStore->AssertCanDestroy(entities, count);
-            EntityComponentStore->DestroyEntities(entities, count);
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+            m_EntityDataAccess.DestroyEntityInternal(entities, count);
+        }
+
+        void SetComponentDataRaw(Entity entity, int typeIndex, void* data, int size)
+        {
+            CheckAccess();
+            m_EntityDataAccess.SetComponentDataRaw(entity, typeIndex, data, size);
         }
 
         public void AddComponent(Entity entity, ComponentType componentType)
         {
             CheckAccess();
-            EntityComponentStore->AssertCanAddComponent(entity, componentType);
-            var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
-
-            EntityComponentStore->AddComponent(entity, componentType);
-
-            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-            EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+            m_EntityDataAccess.AddComponent(entity, componentType);
         }
 
         public DynamicBuffer<T> AddBuffer<T>(Entity entity) where T : struct, IBufferElementData
         {
-            AddComponent(entity, ComponentType.ReadWrite<T>());
+            CheckAccess();
+            m_EntityDataAccess.AddComponent(entity, ComponentType.ReadWrite<T>());
             return GetBuffer<T>(entity);
         }
 
         public void RemoveComponent(Entity entity, ComponentType type)
         {
             CheckAccess();
-            var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
-
-            EntityComponentStore->RemoveComponent(entity, type);
-
-            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-            EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+            m_EntityDataAccess.RemoveComponent(entity, type);
         }
 
         public bool Exists(Entity entity)
         {
             CheckAccess();
+            return m_EntityDataAccess.Exists(entity);
+        }
 
-            return EntityComponentStore->Exists(entity);
+        void SetSharedComponentDataBoxedDefaultMustBeNull(Entity entity, int typeIndex, int hashCode, object componentData)
+        {
+            CheckAccess();
+            m_EntityDataAccess.SetSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData);
+        }
+
+        void AddSharedComponentDataBoxedDefaultMustBeNull(Entity entity, int typeIndex, int hashCode, object componentData)
+        {
+            CheckAccess();
+            m_EntityDataAccess.AddSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData);
+        }
+
+        void SetComponentObject(Entity entity, ComponentType componentType, object componentObject)
+        {
+            CheckAccess();
+            m_EntityDataAccess.SetComponentObject(entity, componentType, componentObject);
+        }
+
+        void SetBufferRaw(Entity entity, int componentTypeIndex, BufferHeader* tempBuffer, int sizeInChunk)
+        {
+            CheckAccess();
+            m_EntityDataAccess.SetBufferRaw(entity, componentTypeIndex, tempBuffer, sizeInChunk);
         }
 
         public bool HasComponent(Entity entity, ComponentType type)
         {
             CheckAccess();
-
-            return EntityComponentStore->HasComponent(entity, type);
+            return m_EntityDataAccess.HasComponent(entity, type);
         }
 
         public T GetComponentData<T>(Entity entity) where T : struct, IComponentData
         {
             CheckAccess();
-
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-            var ptr = EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex);
-
-            T data;
-            UnsafeUtility.CopyPtrToStructure(ptr, out data);
-            return data;
+            return m_EntityDataAccess.GetComponentData<T>(entity);
         }
 
-        internal void* GetComponentDataRawRW(Entity entity, int typeIndex)
+        void* GetComponentDataRawRW(Entity entity, int typeIndex)
         {
             CheckAccess();
-
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-            return EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex,
-                EntityComponentStore->GlobalSystemVersion);
+            return m_EntityDataAccess.GetComponentDataRawRW(entity, typeIndex);
         }
 
         public void SetComponentData<T>(Entity entity, T componentData) where T : struct, IComponentData
         {
             CheckAccess();
-
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-            var ptr = EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex,
-                EntityComponentStore->GlobalSystemVersion);
-            UnsafeUtility.CopyStructureToPtr(ref componentData, ptr);
+            m_EntityDataAccess.SetComponentData(entity, componentData);
         }
 
         public T GetSharedComponentData<T>(Entity entity) where T : struct, ISharedComponentData
         {
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-            var sharedComponentIndex = EntityComponentStore->GetSharedComponentDataIndex(entity, typeIndex);
-            return ManagedComponentStore.GetSharedComponentData<T>(sharedComponentIndex);
+            CheckAccess();
+            return m_EntityDataAccess.GetSharedComponentData<T>(entity);
         }
 
         internal object GetSharedComponentData(Entity entity, int typeIndex)
         {
+            CheckAccess();
+
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
 
             var sharedComponentIndex = EntityComponentStore->GetSharedComponentDataIndex(entity, typeIndex);
@@ -241,75 +217,44 @@ namespace Unity.Entities
         public void SetSharedComponentData<T>(Entity entity, T componentData) where T : struct, ISharedComponentData
         {
             CheckAccess();
-
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-            var newSharedComponentDataIndex = ManagedComponentStore.InsertSharedComponent(componentData);
-
-            EntityComponentStore->SetSharedComponentDataIndex(entity, typeIndex, newSharedComponentDataIndex);
-
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
-            ManagedComponentStore.RemoveReference(newSharedComponentDataIndex);
+            m_EntityDataAccess.SetSharedComponentData(entity, componentData);
         }
 
         internal void AddSharedComponent<T>(NativeArray<ArchetypeChunk> chunks, T componentData)
             where T : struct, ISharedComponentData
         {
             CheckAccess();
-
-            var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
-
             var componentType = ComponentType.ReadWrite<T>();
-            var newSharedComponentDataIndex = ManagedComponentStore.InsertSharedComponent(componentData);
-            EntityComponentStore->AssertCanAddComponent(chunks, componentType);
-
-            EntityComponentStore->AddSharedComponent(chunks, componentType, newSharedComponentDataIndex);
-
-            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-            EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
-            ManagedComponentStore.RemoveReference(newSharedComponentDataIndex);
+            int sharedComponentIndex = ManagedComponentStore.InsertSharedComponent(componentData);
+            m_EntityDataAccess.AddSharedComponentData(chunks, sharedComponentIndex, componentType);
+            ManagedComponentStore.RemoveReference(sharedComponentIndex);
         }
 
         public DynamicBuffer<T> GetBuffer<T>(Entity entity) where T : struct, IBufferElementData
         {
             CheckAccess();
-
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
+            return m_EntityDataAccess.GetBuffer<T>(entity
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (!TypeManager.IsBuffer(typeIndex))
-                throw new ArgumentException(
-                    $"GetBuffer<{typeof(T)}> may not be IComponentData or ISharedComponentData; currently {TypeManager.GetTypeInfo<T>().Category}");
+                ,m_Safety, m_Safety
 #endif
-
-            BufferHeader* header =
-                (BufferHeader*) EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex,
-                    EntityComponentStore->GlobalSystemVersion);
-
-            int internalCapacity = TypeManager.GetTypeInfo(typeIndex).BufferCapacity;
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new DynamicBuffer<T>(header, m_Safety, m_Safety, false, internalCapacity);
-#else
-            return new DynamicBuffer<T>(header, internalCapacity);
-#endif
+                );
         }
 
         internal void AllocateConsecutiveEntitiesForLoading(int count)
         {
+            CheckAccess();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (EntityComponentStore->CountEntities() != 0)
+                throw new ArgumentException("loading into non-empty entity manager is not supported");
+#endif       
             EntityComponentStore->AllocateConsecutiveEntitiesForLoading(count);
         }
 
         public void SwapComponents(ArchetypeChunk leftChunk, int leftIndex, ArchetypeChunk rightChunk, int rightIndex)
         {
             CheckAccess();
-            var globalVersion = EntityComponentStore->GlobalSystemVersion;
-            ChunkDataUtility.SwapComponents(leftChunk.m_Chunk, leftIndex, rightChunk.m_Chunk, rightIndex, 1,
-                globalVersion, globalVersion);
+            m_EntityDataAccess.SwapComponents(leftChunk, leftIndex, rightChunk, rightIndex);
         }
     }
 }

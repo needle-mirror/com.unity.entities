@@ -6,13 +6,9 @@ using Unity.PerformanceTesting;
 namespace Unity.Entities.PerformanceTests
 {
     [Category("Performance")]
-    public sealed unsafe class ComponentJobSafetyManagerPerformanceTests : ECSTestsFixture
+    public sealed class ComponentJobSafetyManagerPerformanceTests : ECSTestsFixture
     {
-        #if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-        #else
-        [PerformanceTest]
-        #endif
         public void AddGetBufferComponentLoop()
         {
             const int entityCount = 16 * 1024;

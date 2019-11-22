@@ -1,10 +1,8 @@
 using System;
 using Unity.Assertions;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
-using UnityEngine.Profiling;
+using Unity.Mathematics;
 
 namespace Unity.Entities
 {
@@ -14,1233 +12,466 @@ namespace Unity.Entities
         // PUBLIC
         // ----------------------------------------------------------------------------------------------------------
 
-        public void AddComponent(Entity entity, ComponentType type)
+        public bool AddComponent(Entity entity, ComponentType type)
         {
-            var archetype = GetArchetype(entity);
+            var dstChunk = GetChunkWithEmptySlotsWithAddedComponent(entity, type);
+            if (dstChunk == null)
+                return false;
+
+            Move(entity, dstChunk);
+            return true;
+        }
+
+        public bool RemoveComponent(Entity entity, ComponentType type)
+        {
+            var dstChunk = GetChunkWithEmptySlotsWithRemovedComponent(entity, type);
+            if (dstChunk == null)
+                return false;
+
+            Move(entity, dstChunk);
+            return true;
+        }
+
+        bool AddComponent(EntityBatchInChunk entityBatchInChunk, ComponentType componentType, int sharedComponentIndex = 0)
+        {
+            var srcChunk = entityBatchInChunk.Chunk;
+            var archetypeChunkFilter = GetArchetypeChunkFilterWithAddedComponent(srcChunk, componentType, sharedComponentIndex);
+            if (archetypeChunkFilter.Archetype == null)
+                return false;
+
+            Move(entityBatchInChunk, ref archetypeChunkFilter);
+            return true;
+        }
+        
+        bool RemoveComponent(EntityBatchInChunk entityBatchInChunk, ComponentType componentType)
+        {
+            var srcChunk = entityBatchInChunk.Chunk;
+            var archetypeChunkFilter = GetArchetypeChunkFilterWithRemovedComponent(srcChunk, componentType);
+            if (archetypeChunkFilter.Archetype == null)
+                return false;
+
+            Move(entityBatchInChunk, ref archetypeChunkFilter);
+            return true;
+        }
+
+        public void AddComponent(ArchetypeChunk* chunks, int chunkCount, ComponentType componentType, int sharedComponentIndex = 0)
+        {
+            Archetype* prevArchetype = null;
+            Archetype* dstArchetype = null;
             int indexInTypeArray = 0;
-            var newType = GetArchetypeWithAddedComponentType(archetype, type, &indexInTypeArray);
-            if (newType == null)
+            
+            for (int i = 0; i < chunkCount; i++)
             {
-                // This can happen if we are adding a tag component to an entity that already has it.
-                return;
-            }
-
-            var sharedComponentValues = GetChunk(entity)->SharedComponentValues;
-            if (type.IsSharedComponent)
-            {
-                int* temp = stackalloc int[newType->NumSharedComponents];
-                int indexOfNewSharedComponent = indexInTypeArray - newType->FirstSharedComponent;
-                BuildSharedComponentIndicesWithAddedComponent(indexOfNewSharedComponent, 0,
-                    newType->NumSharedComponents, sharedComponentValues, temp);
-                sharedComponentValues = temp;
-            }
-
-            SetArchetype(entity, newType, sharedComponentValues);
-        }
-
-        public void AddSharedComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType componentType,
-            int sharedComponentIndex)
-        {
-            Assert.IsTrue(componentType.IsSharedComponent);
-
-            // Create batch lists here with default(T) to avoid allocating any memory.
-            // The following loop will go over chunks and possibly add something to these lists.
-            // It's expected that the common case will not require touching these lists so
-            // we want to avoid allocating them unless absolutely necessary.
-            bool batchListsInitialized = false;
-            var sourceBlittableEntityBatchList = default(NativeList<EntityBatchInChunk>);
-            var destinationBlittableEntityBatchList = default(NativeList<EntityBatchInChunk>);
-            var sourceManagedEntityBatchList = default(NativeList<EntityBatchInChunk>);
-            var destinationManagedEntityBatchList = default(NativeList<EntityBatchInChunk>);
-            var sourceCountEntityBatchList = default(NativeList<EntityBatchInChunk>);
-
-            for (int i = 0; i < chunkArray.Length; i++)
-            {
-                var chunk = chunkArray[i];
-                var archetype = chunk.Archetype.Archetype;
-                int indexInTypeArray = 0;
-                var newType = GetArchetypeWithAddedComponentType(archetype, componentType, &indexInTypeArray);
-                if (newType == null)
+                var chunk = chunks[i].m_Chunk;
+                var srcArchetype = chunk->Archetype;
+                if (prevArchetype != chunk->Archetype)
                 {
-                    // This can happen if we are adding a tag component to an entity that already has it.
-                    Assert.AreEqual(0, sharedComponentIndex);
+                    dstArchetype = GetArchetypeWithAddedComponent(srcArchetype, componentType, &indexInTypeArray);
+                    prevArchetype = chunk->Archetype;
+                }
+                
+                if (dstArchetype == null)
                     continue;
-                }
+                
+                var archetypeChunkFilter = GetArchetypeChunkFilterWithAddedComponent(chunk, dstArchetype, indexInTypeArray, componentType, sharedComponentIndex);
 
-                var sharedComponentValues = chunk.m_Chunk->SharedComponentValues;
-
-                int* temp = stackalloc int[newType->NumSharedComponents];
-                int indexOfNewSharedComponent = indexInTypeArray - newType->FirstSharedComponent;
-                BuildSharedComponentIndicesWithAddedComponent(indexOfNewSharedComponent, sharedComponentIndex,
-                    newType->NumSharedComponents, sharedComponentValues, temp);
-                sharedComponentValues = temp;
-
-                if (ChunkDataUtility.AreLayoutCompatible(archetype, newType))
-                {
-                    MoveChunkToNewArchetype(chunk.m_Chunk, newType, sharedComponentValues);
-                    ManagedChangesTracker.AddReference(sharedComponentIndex);
-                }
-                else
-                {
-                    // New archetype chunks are not layout compatible so we must copy over the
-                    // entities manually before exiting this function.  Build the batch lists that
-                    // will copy over the data from src to dst chunks.
-                    if (!batchListsInitialized)
-                    {
-                        batchListsInitialized = true;
-                        sourceBlittableEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent);
-                        destinationBlittableEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent);
-                        sourceManagedEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent);
-                        destinationManagedEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent);
-                        sourceCountEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent);
-                    }
-
-                    var srcRemainingCount = chunk.Count;
-                    var srcChunk = chunk.m_Chunk;
-                    var srcOffset = 0;
-                    var srcStartIndex = 0;
-                    var srcChunkManagedData = srcChunk->ManagedArrayIndex >= 0;
-                    sourceCountEntityBatchList.Add(new EntityBatchInChunk { Chunk = srcChunk, Count = srcRemainingCount, StartIndex = 0 });
-
-                    while (srcRemainingCount > 0)
-                    {
-                        var dstChunk = GetChunkWithEmptySlots(newType, sharedComponentValues);
-                        int dstIndexBase;
-                        var dstCount = AllocateIntoChunk(dstChunk, srcRemainingCount, out dstIndexBase);
-
-                        var partialSrcEntityBatch = new EntityBatchInChunk
-                        {
-                            Chunk = srcChunk,
-                            Count = dstCount,
-                            StartIndex = srcStartIndex + srcOffset
-                        };
-                        var partialDstEntityBatch = new EntityBatchInChunk
-                        {
-                            Chunk = dstChunk,
-                            Count = dstCount,
-                            StartIndex = dstIndexBase
-                        };
-
-                        sourceBlittableEntityBatchList.Add(partialSrcEntityBatch);
-                        destinationBlittableEntityBatchList.Add(partialDstEntityBatch);
-
-                        if (srcChunkManagedData)
-                        {
-                            sourceManagedEntityBatchList.Add(partialSrcEntityBatch);
-                            destinationManagedEntityBatchList.Add(partialDstEntityBatch);
-                        }
-
-                        srcOffset += dstCount;
-                        srcRemainingCount -= dstCount;
-                    }
-                }
-            }
-
-            if (batchListsInitialized)
-            {
-                // Copy the data from old archetype chunk to new archetype chunk.
-                var copyBlittableChunkDataJobHandle = CopyBlittableChunkDataJob(sourceBlittableEntityBatchList,
-                    destinationBlittableEntityBatchList);
-                copyBlittableChunkDataJobHandle.Complete();
-                CopyManagedChunkData(sourceManagedEntityBatchList, destinationManagedEntityBatchList);
-
-                UpdateDestinationVersions(destinationBlittableEntityBatchList);
-                UpdateSourceCountsAndVersions(sourceCountEntityBatchList);
-
-                sourceBlittableEntityBatchList.Dispose();
-                destinationBlittableEntityBatchList.Dispose();
-                sourceManagedEntityBatchList.Dispose();
-                destinationManagedEntityBatchList.Dispose();
-                sourceCountEntityBatchList.Dispose();
+                Move(chunk, ref archetypeChunkFilter);
             }
         }
 
-        public void AddComponentFromMainThread(NativeList<EntityBatchInChunk> entityBatchList,
-            ComponentType type,
-            int existingSharedComponentIndex)
+        public void AddComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType componentType, int sharedComponentIndex = 0)
         {
-            using (var sourceBlittableEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            using (var destinationBlittableEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            using (var sourceManagedEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            using (var destinationManagedEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            using (var packBlittableEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            using (var packManagedEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            using (var sourceCountEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            using (var moveChunkList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
+            AddComponent((ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunkArray), chunkArray.Length, componentType, sharedComponentIndex);
+        }
+        
+        public void RemoveComponent(ArchetypeChunk* chunks, int chunkCount, ComponentType componentType)
+        {
+            Archetype* prevArchetype = null;
+            Archetype* dstArchetype = null;
+            int indexInTypeArray = 0;
+            
+            for (int i = 0; i < chunkCount; i++)
             {
-                AllocateChunksForAddComponent(entityBatchList, type, existingSharedComponentIndex,
-                    sourceCountEntityBatchList, packBlittableEntityBatchList, packManagedEntityBatchList,
-                    sourceBlittableEntityBatchList, destinationBlittableEntityBatchList, sourceManagedEntityBatchList,
-                    destinationManagedEntityBatchList, moveChunkList);
+                var chunk = chunks[i].m_Chunk;
+                var srcArchetype = chunk->Archetype;
+                
+                if (prevArchetype != chunk->Archetype)
+                {
+                    dstArchetype = GetArchetypeWithRemovedComponent(srcArchetype, componentType, &indexInTypeArray);
+                    prevArchetype = chunk->Archetype;
+                }
+                
+                if (dstArchetype == srcArchetype)
+                    continue;
+                
+                var archetypeChunkFilter = GetArchetypeChunkFilterWithRemovedComponent(chunk, dstArchetype, indexInTypeArray, componentType);
 
-                var copyBlittableChunkDataJobHandle = CopyBlittableChunkDataJob(sourceBlittableEntityBatchList,
-                    destinationBlittableEntityBatchList);
-                var packBlittableChunkDataJobHandle =
-                    PackBlittableChunkDataJob(packBlittableEntityBatchList,
-                        copyBlittableChunkDataJobHandle);
-                packBlittableChunkDataJobHandle.Complete();
-
-                CopyManagedChunkData(sourceManagedEntityBatchList, destinationManagedEntityBatchList);
-                PackManagedChunkData(packManagedEntityBatchList);
-
-                UpdateDestinationVersions(destinationBlittableEntityBatchList);
-                UpdateSourceCountsAndVersions(sourceCountEntityBatchList);
-                MoveChunksForAddComponent(moveChunkList, type, existingSharedComponentIndex);
+                Move(chunk, ref archetypeChunkFilter);
             }
         }
         
-        public void RemoveComponentFromMainThread(NativeList<EntityBatchInChunk> entityBatchList,
-            ComponentType type,
-            int existingSharedComponentIndex)
+        public void AddComponent(UnsafeList* sortedEntityBatchList, ComponentType type, int existingSharedComponentIndex)
         {
-            using (var sourceBlittableEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            using (var destinationBlittableEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            using (var sourceManagedEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            using (var destinationManagedEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            using (var packBlittableEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            using (var packManagedEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            using (var sourceCountEntityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            using (var moveChunkList = new NativeList<EntityBatchInChunk>(Allocator.Persistent))
-            {
-                AllocateChunksForRemoveComponent(entityBatchList, type, existingSharedComponentIndex,
-                    sourceCountEntityBatchList, packBlittableEntityBatchList, packManagedEntityBatchList,
-                    sourceBlittableEntityBatchList, destinationBlittableEntityBatchList, sourceManagedEntityBatchList,
-                    destinationManagedEntityBatchList, moveChunkList);
+            Assert.IsFalse(type.IsChunkComponent);
 
-                var copyBlittableChunkDataJobHandle = CopyBlittableChunkDataJob(sourceBlittableEntityBatchList,
-                    destinationBlittableEntityBatchList);
-                var packBlittableChunkDataJobHandle =
-                    PackBlittableChunkDataJob(packBlittableEntityBatchList,
-                        copyBlittableChunkDataJobHandle);
-                packBlittableChunkDataJobHandle.Complete();
+            // Reverse order so that batch indices do not change while iterating.
+            for (int i = sortedEntityBatchList->Length - 1; i >= 0; i--)
+                AddComponent(((EntityBatchInChunk*)sortedEntityBatchList->Ptr)[i], type, existingSharedComponentIndex);
+        }
 
-                CopyManagedChunkData(sourceManagedEntityBatchList, destinationManagedEntityBatchList);
-                PackManagedChunkData(packManagedEntityBatchList);
+        public void RemoveComponent(UnsafeList* sortedEntityBatchList, ComponentType type)
+        {
+            Assert.IsFalse(type.IsChunkComponent);
 
-                UpdateDestinationVersions(destinationBlittableEntityBatchList);
-                UpdateSourceCountsAndVersions(sourceCountEntityBatchList);
-                MoveChunksForRemoveComponent(moveChunkList, type, existingSharedComponentIndex);
-            }
+            // Reverse order so that batch indices do not change while iterating.
+            for (int i = sortedEntityBatchList->Length - 1; i >= 0; i--)
+                RemoveComponent(((EntityBatchInChunk*)sortedEntityBatchList->Ptr)[i], type);
         }
 
         public void AddComponents(Entity entity, ComponentTypes types)
         {
-            var oldArchetype = GetArchetype(entity);
-            var oldTypes = oldArchetype->Types;
-
-            var newTypesCount = oldArchetype->TypesCount + types.Length;
-            ComponentTypeInArchetype* newTypes = stackalloc ComponentTypeInArchetype[newTypesCount];
-
-            var indexOfNewTypeInNewArchetype = stackalloc int[types.Length];
-
-            // zipper the two sorted arrays "type" and "componentTypeInArchetype" into "componentTypeInArchetype"
-            // because this is done in-place, it must be done backwards so as not to disturb the existing contents.
-
-            var unusedIndices = 0;
-            {
-                var oldThings = oldArchetype->TypesCount;
-                var newThings = types.Length;
-                var mixedThings = oldThings + newThings;
-                while (oldThings > 0 && newThings > 0) // while both are still zippering,
-                {
-                    var oldThing = oldTypes[oldThings - 1];
-                    var newThing = types.GetComponentType(newThings - 1);
-                    if (oldThing.TypeIndex > newThing.TypeIndex) // put whichever is bigger at the end of the array
-                    {
-                        newTypes[--mixedThings] = oldThing;
-                        --oldThings;
-                    }
-                    else
-                    {
-                        if (oldThing.TypeIndex == newThing.TypeIndex && newThing.IgnoreDuplicateAdd)
-                            --oldThings;
-
-                        var componentTypeInArchetype = new ComponentTypeInArchetype(newThing);
-                        newTypes[--mixedThings] = componentTypeInArchetype;
-                        --newThings;
-                        indexOfNewTypeInNewArchetype[newThings] = mixedThings; // "this new thing ended up HERE"
-                    }
-                }
-
-                Assert.AreEqual(0, newThings); // must not be any new things to copy remaining, oldThings contain entity
-
-                while (oldThings > 0) // if there are remaining old things, copy them here
-                {
-                    newTypes[--mixedThings] = oldTypes[--oldThings];
-                }
-
-                unusedIndices = mixedThings; // In case we ignored duplicated types, this will be > 0
-            }
-
-            var newArchetype =
-                GetOrCreateArchetype(newTypes + unusedIndices, newTypesCount);
-
-            var sharedComponentValues = GetChunk(entity)->SharedComponentValues;
-            if (types.m_masks.m_SharedComponentMask != 0)
-            {
-                int* alloc2 = stackalloc int[newArchetype->NumSharedComponents];
-                var oldSharedComponentValues = sharedComponentValues;
-                sharedComponentValues = alloc2;
-                BuildSharedComponentIndicesWithAddedComponents(oldArchetype, newArchetype,
-                    oldSharedComponentValues, alloc2);
-            }
-
-            SetArchetype(entity, newArchetype, sharedComponentValues);
-        }
-
-        public void RemoveComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType type)
-        {
-            var chunks = (ArchetypeChunk*) chunkArray.GetUnsafeReadOnlyPtr();
-            if (type.IsZeroSized)
-            {
-                Archetype* prevOldArchetype = null;
-                Archetype* newArchetype = null;
-                int indexInOldTypeArray = 0;
-                for (int i = 0; i < chunkArray.Length; ++i)
-                {
-                    var chunk = chunks[i].m_Chunk;
-                    var oldArchetype = chunk->Archetype;
-                    if (oldArchetype != prevOldArchetype)
-                    {
-                        if (ChunkDataUtility.GetIndexInTypeArray(oldArchetype, type.TypeIndex) != -1)
-                            newArchetype = GetArchetypeWithRemovedComponentType(
-                                oldArchetype, type,
-                                &indexInOldTypeArray);
-                        else
-                            newArchetype = null;
-                        prevOldArchetype = oldArchetype;
-                    }
-
-                    if (newArchetype == null)
-                        continue;
-
-                    if (newArchetype->SystemStateCleanupComplete)
-                    {
-                        DeleteChunk(chunk);
-                        continue;
-                    }
-
-                    var sharedComponentValues = chunk->SharedComponentValues;
-                    if (type.IsSharedComponent)
-                    {
-                        int* temp = stackalloc int[newArchetype->NumSharedComponents];
-                        int indexOfRemovedSharedComponent = indexInOldTypeArray - oldArchetype->FirstSharedComponent;
-                        var sharedComponentDataIndex = chunk->GetSharedComponentValue(indexOfRemovedSharedComponent);
-                        ManagedChangesTracker.RemoveReference(sharedComponentDataIndex);
-                        BuildSharedComponentIndicesWithRemovedComponent(indexOfRemovedSharedComponent,
-                            newArchetype->NumSharedComponents, sharedComponentValues, temp);
-                        sharedComponentValues = temp;
-                    }
-
-                    MoveChunkToNewArchetype(chunk, newArchetype, sharedComponentValues);
-                }
-            }
-            else
-            {
-                Archetype* prevOldArchetype = null;
-                Archetype* newArchetype = null;
-                for (int i = 0; i < chunkArray.Length; ++i)
-                {
-                    var chunk = chunks[i].m_Chunk;
-                    var oldArchetype = chunk->Archetype;
-                    if (oldArchetype != prevOldArchetype)
-                    {
-                        if (ChunkDataUtility.GetIndexInTypeArray(oldArchetype, type.TypeIndex) != -1)
-                            newArchetype =
-                                GetArchetypeWithRemovedComponentType(oldArchetype,
-                                    type);
-                        else
-                            newArchetype = null;
-                        prevOldArchetype = oldArchetype;
-                    }
-
-                    if (newArchetype != null)
-                        if (newArchetype->SystemStateCleanupComplete)
-                        {
-                            DeleteChunk(chunk);
-                        }
-                        else
-                        {
-                            SetArchetype(chunk, newArchetype, chunk->SharedComponentValues);
-                        }
-                }
-            }
-        }
-
-        public void RemoveComponent(Entity entity, ComponentType type)
-        {
-            if (!HasComponent(entity, type))
+            var archetypeChunkFilter = GetArchetypeChunkFilterWithAddedComponents(GetChunk(entity), types);
+            if (archetypeChunkFilter.Archetype == null)
                 return;
 
-            var archetype = GetArchetype(entity);
-            var chunk = GetChunk(entity);
-
-            if (chunk->Locked || chunk->LockedEntityOrder)
-            {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                throw new InvalidOperationException(
-                    "Cannot remove components in locked Chunks. Unlock Chunk first.");
-#else
-                return;
-#endif
-            }
-
-            int indexInOldTypeArray = -1;
-            var newType =
-                GetArchetypeWithRemovedComponentType(archetype, type, &indexInOldTypeArray);
-
-            var sharedComponentValues = chunk->SharedComponentValues;
-
-            if (type.IsSharedComponent)
-            {
-                int* temp = stackalloc int[newType->NumSharedComponents];
-                int indexOfRemovedSharedComponent = indexInOldTypeArray - archetype->FirstSharedComponent;
-                BuildSharedComponentIndicesWithRemovedComponent(indexOfRemovedSharedComponent,
-                    newType->NumSharedComponents, sharedComponentValues, temp);
-                sharedComponentValues = temp;
-            }
-
-            SetArchetype(entity, newType, sharedComponentValues);
-
-            // Cleanup residue component
-            if (newType->SystemStateCleanupComplete)
-                DestroyEntities(&entity, 1);
+            Move(entity, ref archetypeChunkFilter);
         }
 
-        public void SetSharedComponentDataIndex(Entity entity, int typeIndex, int newSharedComponentDataIndex)
+        public void SetSharedComponentDataIndex(Entity entity, ComponentType componentType, int dstSharedComponentDataIndex)
         {
-            var archetype = GetArchetype(entity);
-            var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex);
-            var srcChunk = GetChunk(entity);
-            var srcSharedComponentValueArray = srcChunk->SharedComponentValues;
-            var sharedComponentOffset = indexInTypeArray - archetype->FirstSharedComponent;
-            var oldSharedComponentDataIndex = srcSharedComponentValueArray[sharedComponentOffset];
-
-            if (newSharedComponentDataIndex == oldSharedComponentDataIndex)
+            var archetypeChunkFilter = GetArchetypeChunkFilterWithChangedSharedComponent(GetChunk(entity), componentType, dstSharedComponentDataIndex);
+            if (archetypeChunkFilter.Archetype == null)
                 return;
 
-            var sharedComponentIndices = stackalloc int[archetype->NumSharedComponents];
-
-            srcSharedComponentValueArray.CopyTo(sharedComponentIndices, 0, archetype->NumSharedComponents);
-
-            sharedComponentIndices[sharedComponentOffset] = newSharedComponentDataIndex;
-
-            var newChunk = GetChunkWithEmptySlots(archetype, sharedComponentIndices);
-            var newChunkIndex = AllocateIntoChunk(newChunk);
-
-            ManagedChangesTracker.IncrementComponentOrderVersion(archetype, srcChunk->SharedComponentValues);
-            IncrementComponentTypeOrderVersion(archetype);
-
-            MoveEntityToChunk(entity, newChunk, newChunkIndex);
+            Move(entity, ref archetypeChunkFilter);
         }
-        
 
-        public void SetArchetype(Entity entity, EntityArchetype archetype)
+        // Note previously called SetArchetype: SetArchetype is used internally to refer to the function which only creates the cross-reference between the
+        // entity id and the archetype (m_ArchetypeByEntity). This is not "Setting" the archetype, it is moving the components to a different archetype.
+        public void Move(Entity entity, Archetype* dstArchetype)
         {
-            var oldArchetype = GetArchetype(entity);
-            var newArchetype = archetype.Archetype;
+            var archetypeChunkFilter = GetArchetypeChunkFilterWithChangedArchetype(GetChunk(entity), dstArchetype);
+            if (archetypeChunkFilter.Archetype == null)
+                return;
 
-            var sharedComponentValues = GetChunk(entity)->SharedComponentValues;
-            int* temp = stackalloc int[archetype.Archetype->NumSharedComponents];
-            Unity.Entities.EntityComponentStore.BuildSharedComponentIndicesWithChangedArchetype(oldArchetype, newArchetype, sharedComponentValues, temp);
-            sharedComponentValues = temp;
-
-            SetArchetype(entity, newArchetype, sharedComponentValues);
+            Move(entity, ref archetypeChunkFilter);
         }
 
         // ----------------------------------------------------------------------------------------------------------
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------
 
-        void SetArchetype(Entity entity, Archetype* archetype, SharedComponentValues sharedComponentValues)
+        void Move(Entity entity, Chunk* dstChunk)
         {
-            var oldArchetype = GetArchetype(entity);
-            var oldEntityInChunk = GetEntityInChunk(entity);
-            var oldChunk = oldEntityInChunk.Chunk;
-            var oldChunkIndex = oldEntityInChunk.IndexInChunk;
-            if (oldArchetype == archetype)
-                return;
+            var srcEntityInChunk = GetEntityInChunk(entity);
+            var srcChunk = srcEntityInChunk.Chunk;
+            var srcChunkIndex = srcEntityInChunk.IndexInChunk;
+            var entityBatch = new EntityBatchInChunk { Chunk = srcChunk, Count = 1, StartIndex = srcChunkIndex };
 
-            var chunk = GetChunkWithEmptySlots(archetype, sharedComponentValues);
-            var chunkIndex = AllocateIntoChunk(chunk);
-
-            ChunkDataUtility.Convert(oldChunk, oldChunkIndex, chunk, chunkIndex);
-            if (chunk->ManagedArrayIndex >= 0 && oldChunk->ManagedArrayIndex >= 0)
-                ManagedChangesTracker.CopyManagedObjects(oldChunk, oldChunkIndex, chunk,
-                    chunkIndex, 1);
-
-            SetArchetype(entity, archetype);
-            SetEntityInChunk(entity, new EntityInChunk {Chunk = chunk, IndexInChunk = chunkIndex});
-
-            var lastIndex = oldChunk->Count - 1;
-            // No need to replace with ourselves
-            if (lastIndex != oldChunkIndex)
-            {
-                var lastEntity = *(Entity*) ChunkDataUtility.GetComponentDataRO(oldChunk, lastIndex, 0);
-                var lastEntityInChunk = new EntityInChunk
-                {
-                    Chunk = oldChunk,
-                    IndexInChunk = oldChunkIndex
-                };
-                SetEntityInChunk(lastEntity, lastEntityInChunk);
-
-                ChunkDataUtility.Copy(oldChunk, lastIndex, oldChunk, oldChunkIndex, 1);
-                if (oldChunk->ManagedArrayIndex >= 0)
-                    ManagedChangesTracker.CopyManagedObjects(oldChunk, lastIndex, oldChunk,
-                        oldChunkIndex,
-                        1);
-            }
-
-            if (oldChunk->ManagedArrayIndex >= 0)
-                ManagedChangesTracker.ClearManagedObjects(oldChunk, lastIndex, 1);
-
-            --oldArchetype->EntityCount;
-
-            chunk->SetAllChangeVersions(GlobalSystemVersion);
-            oldChunk->SetAllChangeVersions(GlobalSystemVersion);
-
-            ManagedChangesTracker.IncrementComponentOrderVersion(oldArchetype, oldChunk->SharedComponentValues);
-            IncrementComponentTypeOrderVersion(oldArchetype);
-
-            SetChunkCount(oldChunk, lastIndex);
-
-            // #todo @macton Validate whether or not this is necessary. But tests would need to be fixed up if not.
-            IncrementComponentTypeOrderVersion(archetype);
-            
-            ManagedChangesTracker.IncrementComponentOrderVersion(archetype, chunk->SharedComponentValues);
+            Move(entityBatch, dstChunk);
         }
 
-        void SetArchetype(Chunk* chunk, Archetype* archetype, SharedComponentValues sharedComponentValues)
+        void Move(Entity entity, ref ArchetypeChunkFilter archetypeChunkFilter)
         {
-            var srcChunk = chunk;
-            var srcArchetype = srcChunk->Archetype;
-            if (srcArchetype == archetype)
+            var srcEntityInChunk = GetEntityInChunk(entity);
+            var entityBatch = new EntityBatchInChunk { Chunk = srcEntityInChunk.Chunk, Count = 1, StartIndex = srcEntityInChunk.IndexInChunk };
+
+            Move(entityBatch, ref archetypeChunkFilter);
+        }
+
+        void Move(Chunk* srcChunk, ref ArchetypeChunkFilter archetypeChunkFilter)
+        {
+            if (archetypeChunkFilter.Archetype->SystemStateCleanupComplete)
+            {
+                DeleteChunk(srcChunk);
                 return;
+            }
 
-            var srcEntities = (Entity*) srcChunk->Buffer;
-            var srcEntitiesCount = srcChunk->Count;
-            var srcRemainingCount = srcEntitiesCount;
-            var srcOffset = 0;
+            var srcArchetype = srcChunk->Archetype;
+            if (ChunkDataUtility.AreLayoutCompatible(srcArchetype, archetypeChunkFilter.Archetype))
+            {
+                ChangeArchetypeInPlace(srcChunk, ref archetypeChunkFilter);
+                return;
+            }
 
-            var dstArchetype = archetype;
+            var entityBatch = new EntityBatchInChunk { Chunk = srcChunk, Count = srcChunk->Count, StartIndex = 0 };
+            Move(entityBatch, ref archetypeChunkFilter);
+        }
+
+        void Move(EntityBatchInChunk entityBatchInChunk, ref ArchetypeChunkFilter archetypeChunkFilter)
+        {
+            var systemStateCleanupComplete = archetypeChunkFilter.Archetype->SystemStateCleanupComplete;
+
+            var srcChunk = entityBatchInChunk.Chunk;
+            var srcRemainingCount = entityBatchInChunk.Count;
+            var startIndex = entityBatchInChunk.StartIndex;
+
+            if ((srcRemainingCount == srcChunk->Count) && systemStateCleanupComplete)
+            {
+                DeleteChunk(srcChunk);
+                return;
+            }
 
             while (srcRemainingCount > 0)
             {
-                var dstChunk = GetChunkWithEmptySlots(archetype, sharedComponentValues);
-                int dstIndexBase;
-                var dstCount = AllocateIntoChunk(dstChunk, srcRemainingCount, out dstIndexBase);
-                ChunkDataUtility.Convert(srcChunk, srcOffset, dstChunk, dstIndexBase, dstCount);
-
-                dstChunk->SetAllChangeVersions(GlobalSystemVersion);
-
-                ManagedChangesTracker.IncrementComponentOrderVersion(archetype,
-                    dstChunk->SharedComponentValues);
-                IncrementComponentTypeOrderVersion(archetype);
-
-                for (int i = 0; i < dstCount; i++)
-                {
-                    var entity = srcEntities[srcOffset + i];
-
-                    SetArchetype(entity, dstArchetype);
-                    SetEntityInChunk(entity,
-                        new EntityInChunk {Chunk = dstChunk, IndexInChunk = dstIndexBase + i});
-                }
-
-                if (srcChunk->ManagedArrayIndex >= 0 && dstChunk->ManagedArrayIndex >= 0)
-                    ManagedChangesTracker.CopyManagedObjects(srcChunk, srcOffset, dstChunk,
-                        dstIndexBase,
-                        dstCount);
-
+                var dstChunk = GetChunkWithEmptySlots(ref archetypeChunkFilter);
+                var dstCount = Move(new EntityBatchInChunk { Chunk = srcChunk, Count = srcRemainingCount, StartIndex = startIndex }, dstChunk);
                 srcRemainingCount -= dstCount;
-                srcOffset += dstCount;
-            }
-
-            srcArchetype->EntityCount -= srcEntitiesCount;
-
-            if (srcChunk->ManagedArrayIndex >= 0)
-                ManagedChangesTracker.ClearManagedObjects(srcChunk, 0, srcEntitiesCount);
-            SetChunkCount(srcChunk, 0);
-        }
-
-        static void BuildSharedComponentIndicesWithAddedComponent(int indexOfNewSharedComponent, int value,
-            int newCount, SharedComponentValues srcSharedComponentValues, int* dstSharedComponentValues)
-        {
-            srcSharedComponentValues.CopyTo(dstSharedComponentValues, 0, indexOfNewSharedComponent);
-            dstSharedComponentValues[indexOfNewSharedComponent] = value;
-            srcSharedComponentValues.CopyTo(dstSharedComponentValues + indexOfNewSharedComponent + 1,
-                indexOfNewSharedComponent, newCount - indexOfNewSharedComponent - 1);
-        }
-
-        static void BuildSharedComponentIndicesWithRemovedComponent(int indexOfRemovedSharedComponent,
-            int newCount, SharedComponentValues srcSharedComponentValues, int* dstSharedComponentValues)
-        {
-            srcSharedComponentValues.CopyTo(dstSharedComponentValues, 0, indexOfRemovedSharedComponent);
-            srcSharedComponentValues.CopyTo(dstSharedComponentValues + indexOfRemovedSharedComponent,
-                indexOfRemovedSharedComponent + 1, newCount - indexOfRemovedSharedComponent);
-        }
-
-        static void BuildSharedComponentIndicesWithAddedComponents(Archetype* srcArchetype,
-            Archetype* dstArchetype, SharedComponentValues srcSharedComponentValues, int* dstSharedComponentValues)
-        {
-            int oldFirstShared = srcArchetype->FirstSharedComponent;
-            int newFirstShared = dstArchetype->FirstSharedComponent;
-            int oldCount = srcArchetype->NumSharedComponents;
-            int newCount = dstArchetype->NumSharedComponents;
-
-            for (int oldIndex = oldCount - 1, newIndex = newCount - 1; newIndex >= 0; --newIndex)
-            {
-                // oldIndex might become -1 which is ok since oldFirstShared is always at least 1. The comparison will then always be false
-                if (dstArchetype->Types[newIndex + newFirstShared] == srcArchetype->Types[oldIndex + oldFirstShared])
-                    dstSharedComponentValues[newIndex] = srcSharedComponentValues[oldIndex--];
-                else
-                    dstSharedComponentValues[newIndex] = 0;
             }
         }
 
-        static void BuildSharedComponentIndicesWithChangedArchetype(Archetype* srcArchetype,
-            Archetype* dstArchetype, SharedComponentValues srcSharedComponentValues, int* dstSharedComponentValues)
+        // ----------------------------------------------------------------------------------------------------------
+        // Core, self-contained functions to change chunks. No other functions should actually move data from
+        // one Chunk to another, or otherwise change the structure of a Chunk after creation.
+        // ----------------------------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Move subset of chunk data into another chunk.
+        /// - Chunks can be of same archetype (but differ by shared component values)
+        /// - Returns number moved. Caller handles if less than indicated in srcBatch.
+        /// </summary>
+        /// <returns></returns>
+        int Move(EntityBatchInChunk srcBatch, Chunk* dstChunk)
         {
-            int oldFirstShared = srcArchetype->FirstSharedComponent;
-            int newFirstShared = dstArchetype->FirstSharedComponent;
-            int oldCount = srcArchetype->NumSharedComponents;
-            int newCount = dstArchetype->NumSharedComponents;
+            var srcChunk = srcBatch.Chunk;
+            var srcChunkIndex = srcBatch.StartIndex;
+            var srcCount = srcBatch.Count;
+            var srcArchetype = srcChunk->Archetype;
+            var dstArchetype = dstChunk->Archetype;
 
-            int o = 0;
-            int n = 0;
-            
-            for (; n < newCount && o < oldCount;)
+            // Note (srcArchetype == dstArchetype) is valid
+            // Archetypes can the the same, but chunks still differ because filter is different (e.g. shared component)
+
+            int dstChunkIndex;
+            var dstCount = AllocateIntoChunk(dstChunk, srcCount, out dstChunkIndex);
+
+            // If can only move partial batch, move from the end so that remainder of batch isn't affected.
+            srcChunkIndex = srcChunkIndex + srcCount - dstCount;
+
+            ChunkDataUtility.Convert(srcChunk, srcChunkIndex, dstChunk, dstChunkIndex, dstCount);
+
+            if (dstChunk->ManagedArrayIndex >= 0 && srcChunk->ManagedArrayIndex >= 0)
+                ManagedChangesTracker.CopyManagedObjects(srcChunk, srcChunkIndex, dstChunk, dstChunkIndex, dstCount);
+
+            var dstEntities = (Entity*)ChunkDataUtility.GetComponentDataRO(dstChunk, dstChunkIndex, 0);
+            for (int i = 0; i < dstCount; i++)
             {
-                int srcType = srcArchetype->Types[o + oldFirstShared].TypeIndex;
-                int dstType = dstArchetype->Types[n + newFirstShared].TypeIndex;
-                if (srcType == dstType)
-                    dstSharedComponentValues[n++] = srcSharedComponentValues[o++];
-                else if (dstType > srcType)
-                    o++;
-                else
-                    dstSharedComponentValues[n++] = 0;
-            }
-            
-            for (;n < newCount;n++)
-                dstSharedComponentValues[n] = 0;
-        }
-        
-        void AllocateChunksForAddComponent(NativeList<EntityBatchInChunk> entityBatchList, ComponentType type,
-            int existingSharedComponentIndex,
-            NativeList<EntityBatchInChunk> sourceCountEntityBatchList,
-            NativeList<EntityBatchInChunk> packBlittableEntityBatchList,
-            NativeList<EntityBatchInChunk> packManagedEntityBatchList,
-            NativeList<EntityBatchInChunk> sourceBlittableEntityBatchList,
-            NativeList<EntityBatchInChunk> destinationBlittableEntityBatchList,
-            NativeList<EntityBatchInChunk> sourceManagedEntityBatchList,
-            NativeList<EntityBatchInChunk> destinationManagedEntityBatchList,
-            NativeList<EntityBatchInChunk> moveChunkList)
-        {
-            Profiler.BeginSample("Allocate Chunks");
+                var entity = dstEntities[i];
 
-            Archetype* prevSrcArchetype = null;
-            Archetype* dstArchetype = null;
-            int indexInTypeArray = 0;
-            var layoutCompatible = false;
-
-            for (int i = 0; i < entityBatchList.Length; i++)
-            {
-                var srcEntityBatch = entityBatchList[i];
-                var srcRemainingCount = srcEntityBatch.Count;
-                var srcChunk = srcEntityBatch.Chunk;
-                if (srcChunk == null)
-                    continue;
-                var srcArchetype = srcChunk->Archetype;
-                var srcStartIndex = srcEntityBatch.StartIndex;
-                var srcTail = (srcStartIndex + srcRemainingCount) == srcChunk->Count;
-                var srcChunkManagedData = srcChunk->ManagedArrayIndex >= 0;
-
-                if (prevSrcArchetype != srcArchetype)
-                {
-                    dstArchetype = GetArchetypeWithAddedComponentType(srcArchetype,
-                        type, &indexInTypeArray);
-                    layoutCompatible = ChunkDataUtility.AreLayoutCompatible(srcArchetype, dstArchetype);
-                    prevSrcArchetype = srcArchetype;
-                }
-
-                if (dstArchetype == null)
-                    continue;
-
-                var srcWholeChunk = srcEntityBatch.Count == srcChunk->Count;
-                if (srcWholeChunk && layoutCompatible)
-                {
-                    moveChunkList.Add(srcEntityBatch);
-                    continue;
-                }
-
-                var sharedComponentValues = srcChunk->SharedComponentValues;
-                if (type.IsSharedComponent)
-                {
-                    int* temp = stackalloc int[dstArchetype->NumSharedComponents];
-                    int indexOfNewSharedComponent = indexInTypeArray - dstArchetype->FirstSharedComponent;
-                    BuildSharedComponentIndicesWithAddedComponent(indexOfNewSharedComponent,
-                        existingSharedComponentIndex,
-                        dstArchetype->NumSharedComponents, sharedComponentValues, temp);
-
-                    sharedComponentValues = temp;
-                }
-
-                sourceCountEntityBatchList.Add(srcEntityBatch);
-                if (!srcTail)
-                {
-                    packBlittableEntityBatchList.Add(srcEntityBatch);
-                    if (srcChunkManagedData)
-                    {
-                        packManagedEntityBatchList.Add(srcEntityBatch);
-                    }
-                }
-
-                var srcOffset = 0;
-                while (srcRemainingCount > 0)
-                {
-                    var dstChunk = GetChunkWithEmptySlots(dstArchetype, sharedComponentValues);
-                    int dstIndexBase;
-                    var dstCount = AllocateIntoChunk(dstChunk, srcRemainingCount, out dstIndexBase);
-
-                    var partialSrcEntityBatch = new EntityBatchInChunk
-                    {
-                        Chunk = srcChunk,
-                        Count = dstCount,
-                        StartIndex = srcStartIndex + srcOffset
-                    };
-                    var partialDstEntityBatch = new EntityBatchInChunk
-                    {
-                        Chunk = dstChunk,
-                        Count = dstCount,
-                        StartIndex = dstIndexBase
-                    };
-
-                    sourceBlittableEntityBatchList.Add(partialSrcEntityBatch);
-                    destinationBlittableEntityBatchList.Add(partialDstEntityBatch);
-
-                    if (srcChunkManagedData)
-                    {
-                        sourceManagedEntityBatchList.Add(partialSrcEntityBatch);
-                        destinationManagedEntityBatchList.Add(partialDstEntityBatch);
-                    }
-
-                    srcOffset += dstCount;
-                    srcRemainingCount -= dstCount;
-                }
+                SetArchetype(entity, dstArchetype);
+                SetEntityInChunk(entity, new EntityInChunk { Chunk = dstChunk, IndexInChunk = dstChunkIndex + i });
             }
 
-            Profiler.EndSample();
-        }
-        
-        void AllocateChunksForRemoveComponent(NativeList<EntityBatchInChunk> entityBatchList, ComponentType type,
-            int existingSharedComponentIndex,
-            NativeList<EntityBatchInChunk> sourceCountEntityBatchList,
-            NativeList<EntityBatchInChunk> packBlittableEntityBatchList,
-            NativeList<EntityBatchInChunk> packManagedEntityBatchList,
-            NativeList<EntityBatchInChunk> sourceBlittableEntityBatchList,
-            NativeList<EntityBatchInChunk> destinationBlittableEntityBatchList,
-            NativeList<EntityBatchInChunk> sourceManagedEntityBatchList,
-            NativeList<EntityBatchInChunk> destinationManagedEntityBatchList,
-            NativeList<EntityBatchInChunk> moveChunkList)
-        {
-            Profiler.BeginSample("Allocate Chunks");
-
-            Archetype* prevSrcArchetype = null;
-            Archetype* dstArchetype = null;
-            int indexInTypeArray = 0;
-            var layoutCompatible = false;
-
-            for (int i = 0; i < entityBatchList.Length; i++)
+            // Fill in moved component data from the end.
+            var srcTailIndex = srcChunkIndex + dstCount;
+            var srcTailCount = srcChunk->Count - srcTailIndex;
+            var fillCount = math.min(dstCount, srcTailCount);
+            if (fillCount > 0)
             {
-                var srcEntityBatch = entityBatchList[i];
-                var srcRemainingCount = srcEntityBatch.Count;
-                var srcChunk = srcEntityBatch.Chunk;
-                if (srcChunk == null)
-                    continue;
-                var srcArchetype = srcChunk->Archetype;
-                var srcStartIndex = srcEntityBatch.StartIndex;
-                var srcTail = (srcStartIndex + srcRemainingCount) == srcChunk->Count;
-                var srcChunkManagedData = srcChunk->ManagedArrayIndex >= 0;
+                var fillStartIndex = srcChunk->Count - fillCount;
 
-                if (prevSrcArchetype != srcArchetype)
+                ChunkDataUtility.Copy(srcChunk, fillStartIndex, srcChunk, srcChunkIndex, fillCount);
+
+                var fillEntities = (Entity*)ChunkDataUtility.GetComponentDataRO(srcChunk, srcChunkIndex, 0);
+                for (int i = 0; i < fillCount; i++)
                 {
-                    dstArchetype = GetArchetypeWithRemovedComponentType(srcArchetype,
-                        type, &indexInTypeArray);
-                    layoutCompatible = ChunkDataUtility.AreLayoutCompatible(srcArchetype, dstArchetype);
-                    prevSrcArchetype = srcArchetype;
+                    var entity = fillEntities[i];
+                    SetEntityInChunk(entity, new EntityInChunk { Chunk = srcChunk, IndexInChunk = srcChunkIndex + i });
                 }
-
-                if (dstArchetype == null)
-                    continue;
-
-                if (dstArchetype == srcArchetype)
-                    continue;
-                
-                if (dstArchetype->SystemStateCleanupComplete)
-                    continue;
-
-                var srcWholeChunk = srcEntityBatch.Count == srcChunk->Count;
-                if (srcWholeChunk && layoutCompatible)
-                {
-                    moveChunkList.Add(srcEntityBatch);
-                    continue;
-                }
-
-                var sharedComponentValues = srcChunk->SharedComponentValues;
-                if (type.IsSharedComponent)
-                {
-                    int* temp = stackalloc int[dstArchetype->NumSharedComponents];
-                    BuildSharedComponentIndicesWithRemovedComponent(existingSharedComponentIndex,
-                        dstArchetype->NumSharedComponents, sharedComponentValues, temp);
-
-                    sharedComponentValues = temp;
-                }
-
-                sourceCountEntityBatchList.Add(srcEntityBatch);
-                if (!srcTail)
-                {
-                    packBlittableEntityBatchList.Add(srcEntityBatch);
-                    if (srcChunkManagedData)
-                    {
-                        packManagedEntityBatchList.Add(srcEntityBatch);
-                    }
-                }
-
-                var srcOffset = 0;
-                while (srcRemainingCount > 0)
-                {
-                    var dstChunk = GetChunkWithEmptySlots(dstArchetype, sharedComponentValues);
-                    int dstIndexBase;
-                    var dstCount = AllocateIntoChunk(dstChunk, srcRemainingCount, out dstIndexBase);
-
-                    var partialSrcEntityBatch = new EntityBatchInChunk
-                    {
-                        Chunk = srcChunk,
-                        Count = dstCount,
-                        StartIndex = srcStartIndex + srcOffset
-                    };
-                    var partialDstEntityBatch = new EntityBatchInChunk
-                    {
-                        Chunk = dstChunk,
-                        Count = dstCount,
-                        StartIndex = dstIndexBase
-                    };
-
-                    sourceBlittableEntityBatchList.Add(partialSrcEntityBatch);
-                    destinationBlittableEntityBatchList.Add(partialDstEntityBatch);
-
-                    if (srcChunkManagedData)
-                    {
-                        sourceManagedEntityBatchList.Add(partialSrcEntityBatch);
-                        destinationManagedEntityBatchList.Add(partialDstEntityBatch);
-                    }
-
-                    srcOffset += dstCount;
-                    srcRemainingCount -= dstCount;
-                }
-            }
-
-            Profiler.EndSample();
-        }
-
-        [BurstCompile]
-        struct CopyBlittableChunkData : IJobParallelFor
-        {
-            [ReadOnly] public NativeList<EntityBatchInChunk> DestinationEntityBatchList;
-            [ReadOnly] public NativeList<EntityBatchInChunk> SourceEntityBatchList;
-            [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
-
-            public void Execute(int i)
-            {
-                var srcEntityBatch = SourceEntityBatchList[i];
-                var dstEntityBatch = DestinationEntityBatchList[i];
-
-                var srcChunk = srcEntityBatch.Chunk;
-                var srcOffset = srcEntityBatch.StartIndex;
-                var dstChunk = dstEntityBatch.Chunk;
-                var dstIndexBase = dstEntityBatch.StartIndex;
-                var dstCount = dstEntityBatch.Count;
-                var srcEntities = (Entity*) srcChunk->Buffer;
-                var dstEntities = (Entity*) dstChunk->Buffer;
-                var dstArchetype = dstChunk->Archetype;
-
-                ChunkDataUtility.Convert(srcChunk, srcOffset, dstChunk, dstIndexBase, dstCount);
-
-                for (int entityIndex = 0; entityIndex < dstCount; entityIndex++)
-                {
-                    var entity = dstEntities[dstIndexBase + entityIndex];
-                    srcEntities[srcOffset + entityIndex] = Entity.Null;
-
-                    entityComponentStore->SetArchetype(entity, dstArchetype);
-                    entityComponentStore->SetEntityInChunk(entity,
-                        new EntityInChunk {Chunk = dstChunk, IndexInChunk = dstIndexBase + entityIndex});
-                }
-            }
-        }
-
-        JobHandle CopyBlittableChunkDataJob(NativeList<EntityBatchInChunk> sourceEntityBatchList,
-            NativeList<EntityBatchInChunk> destinationEntityBatchList,
-            JobHandle inputDeps = new JobHandle())
-        {
-            fixed (EntityComponentStore* entityComponentStore = &this)
-            {
-                Profiler.BeginSample("Copy Blittable Chunk Data");
-                var copyBlittableChunkDataJob = new CopyBlittableChunkData
-                {
-                    DestinationEntityBatchList = destinationEntityBatchList,
-                    SourceEntityBatchList = sourceEntityBatchList,
-                    entityComponentStore = entityComponentStore
-                };
-                var copyBlittableChunkDataJobHandle =
-                    copyBlittableChunkDataJob.Schedule(sourceEntityBatchList.Length, 64, inputDeps);
-                Profiler.EndSample();
-                return copyBlittableChunkDataJobHandle;
-            }
-        }
-
-        [BurstCompile]
-        struct PackBlittableChunkData : IJob
-        {
-            [ReadOnly] public NativeList<EntityBatchInChunk> PackBlittableEntityBatchList;
-            [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
-
-            public void Execute()
-            {
-                // Packing is done in reverse (sorted) so that order is preserved of to-be packed batches in same chunk
-                for (int i = PackBlittableEntityBatchList.Length - 1; i >= 0; i--)
-                {
-                    var srcEntityBatch = PackBlittableEntityBatchList[i];
-                    var srcChunk = srcEntityBatch.Chunk;
-                    var dstIndexBase = srcEntityBatch.StartIndex;
-                    var dstCount = srcEntityBatch.Count;
-                    var srcOffset = dstIndexBase + dstCount;
-                    var srcCount = srcChunk->Count - srcOffset;
-                    var srcEntities = (Entity*) srcChunk->Buffer;
-
-                    ChunkDataUtility.Copy(srcChunk, srcOffset, srcChunk, dstIndexBase, srcCount);
-
-                    // Update EntityInChunk in reverse order to ensure that the moved entity is used for computing
-                    // IndexInChunk instead of the stale entity that was left behind before the packing was done.
-                    //
-                    // Before packing where A and B are the live entities that need to be packed:
-                    //
-                    // 0 1 2 3 4 5 6 7
-                    // x x x A x x x B
-                    //
-                    // After packing B:
-                    //
-                    // 0 1 2 3 4 5 6 7
-                    // x x x A B x x B
-                    //
-                    // After packing AB (plus all elements to the end of chunk):
-                    //
-                    // 0 1 2 3 4 5 6 7
-                    // A B x x B x x B
-                    //
-                    // By going back to front, we ensure that A's IndexInChunk is 0 and B's IndexInChunk is 1, whereas
-                    // front to back would mean A's IndexInChunk is 0 and B's IndexInChunk is 7, since there's still
-                    // a stale copy of B at the end of the chunk.
-                    for (int entityIndex = srcCount - 1; entityIndex >= 0; entityIndex--)
-                    {
-                        var entity = srcEntities[dstIndexBase + entityIndex];
-                        if (entity == Entity.Null)
-                            continue;
-
-                        entityComponentStore->SetEntityInChunk(entity,
-                            new EntityInChunk {Chunk = srcChunk, IndexInChunk = dstIndexBase + entityIndex});
-                    }
-                }
-            }
-        }
-
-        JobHandle PackBlittableChunkDataJob(NativeList<EntityBatchInChunk> packBlittableEntityBatchList,
-            JobHandle inputDeps = new JobHandle())
-        {
-            fixed (EntityComponentStore* entityComponentStore = &this)
-            {
-                var packBlittableChunkDataJob = new PackBlittableChunkData
-                {
-                    PackBlittableEntityBatchList = packBlittableEntityBatchList,
-                    entityComponentStore = entityComponentStore
-                };
-                var packBlittableChunkDataJobHandle = packBlittableChunkDataJob.Schedule(inputDeps);
-                return packBlittableChunkDataJobHandle;
-            }
-        }
-
-        void CopyManagedChunkData(NativeList<EntityBatchInChunk> sourceEntityBatchList,
-            NativeList<EntityBatchInChunk> destinationEntityBatchList)
-        {
-            Profiler.BeginSample("Copy Managed Chunk Data");
-            for (int i = 0; i < sourceEntityBatchList.Length; i++)
-            {
-                var srcEntityBatch = sourceEntityBatchList[i];
-                var dstEntityBatch = destinationEntityBatchList[i];
-
-                var srcChunk = srcEntityBatch.Chunk;
-                var srcOffset = srcEntityBatch.StartIndex;
-                var dstChunk = dstEntityBatch.Chunk;
-                var dstIndexBase = dstEntityBatch.StartIndex;
-                var dstCount = dstEntityBatch.Count;
-
-                if (srcChunk->ManagedArrayIndex >= 0 && dstChunk->ManagedArrayIndex >= 0)
-                    ManagedChangesTracker.CopyManagedObjects(srcChunk, srcOffset, dstChunk, dstIndexBase, dstCount);
 
                 if (srcChunk->ManagedArrayIndex >= 0)
-                    ManagedChangesTracker.ClearManagedObjects(srcChunk, srcOffset, dstCount);
+                    ManagedChangesTracker.CopyManagedObjects(srcChunk, fillStartIndex, srcChunk, srcChunkIndex, fillCount);
             }
 
-            Profiler.EndSample();
+            if (srcChunk->ManagedArrayIndex >= 0)
+                ManagedChangesTracker.ClearManagedObjects(srcChunk, srcChunk->Count - dstCount, dstCount);
+
+            srcArchetype->EntityCount -= dstCount;
+
+            dstChunk->SetAllChangeVersions(GlobalSystemVersion);
+            srcChunk->SetAllChangeVersions(GlobalSystemVersion);
+
+            ManagedChangesTracker.IncrementComponentOrderVersion(srcArchetype, srcChunk->SharedComponentValues);
+            IncrementComponentTypeOrderVersion(srcArchetype);
+
+            ManagedChangesTracker.IncrementComponentOrderVersion(dstArchetype, dstChunk->SharedComponentValues);
+            IncrementComponentTypeOrderVersion(dstArchetype);
+
+            SetChunkCount(srcChunk, srcChunk->Count - dstCount);
+
+            // Cannot DestroyEntities unless SystemStateCleanupComplete on the entity chunk. 
+            if (dstChunk->Archetype->SystemStateCleanupComplete)
+                DestroyEntities(dstEntities, dstCount);
+
+            return dstCount;
         }
 
-        void PackManagedChunkData(NativeList<EntityBatchInChunk> packManagedEntityBatchList)
+        /// <summary>
+        /// Fix-up the chunk to refer to a different (but layout compatible) archetype.
+        /// - Should only be called by Move(chunk)
+        /// </summary>
+        void ChangeArchetypeInPlace(Chunk* srcChunk, ref ArchetypeChunkFilter dstArchetypeChunkFilter)
         {
-            Profiler.BeginSample("Pack Managed Chunk Data");
-            // Packing is done in reverse (sorted) so that order is preserved of to-be packed batches in same chunk
-            for (int i = packManagedEntityBatchList.Length - 1; i >= 0; i--)
+            var dstArchetype = dstArchetypeChunkFilter.Archetype;
+            fixed (int* sharedComponentValues = dstArchetypeChunkFilter.SharedComponentValues)
             {
-                var srcEntityBatch = packManagedEntityBatchList[i];
-                var srcChunk = srcEntityBatch.Chunk;
-                var dstIndexBase = srcEntityBatch.StartIndex;
-                var dstCount = srcEntityBatch.Count;
-                var srcOffset = dstIndexBase + dstCount;
-                var srcCount = srcChunk->Count - srcOffset;
-
-                ManagedChangesTracker.CopyManagedObjects(srcChunk, srcOffset, srcChunk, dstIndexBase, srcCount);
-            }
-
-            Profiler.EndSample();
-        }
-
-        void UpdateDestinationVersions(NativeList<EntityBatchInChunk> destinationBlittableEntityBatchList)
-        {
-            Profiler.BeginSample("Update Destination Versions");
-            for (int i = 0; i < destinationBlittableEntityBatchList.Length; i++)
-            {
-                var dstEntityBatch = destinationBlittableEntityBatchList[i];
-                var dstChunk = dstEntityBatch.Chunk;
-                var dstSharedComponentValues = dstChunk->SharedComponentValues;
-                var dstArchetype = dstChunk->Archetype;
-
-                dstChunk->SetAllChangeVersions(GlobalSystemVersion);
-                ManagedChangesTracker.IncrementComponentOrderVersion(dstArchetype, dstSharedComponentValues);
-                IncrementComponentTypeOrderVersion(dstArchetype);
-            }
-
-            Profiler.EndSample();
-        }
-
-        void UpdateSourceCountsAndVersions(NativeList<EntityBatchInChunk> sourceCountEntityBatchList)
-        {
-            Profiler.BeginSample("Update Source Counts and Versions");
-            for (int i = 0; i < sourceCountEntityBatchList.Length; i++)
-            {
-                var srcEntityBatch = sourceCountEntityBatchList[i];
-                var srcChunk = srcEntityBatch.Chunk;
-                var srcCount = srcEntityBatch.Count;
                 var srcArchetype = srcChunk->Archetype;
-                var srcSharedComponentValues = srcChunk->SharedComponentValues;
+                ChunkDataUtility.AssertAreLayoutCompatible(srcArchetype, dstArchetype);
 
-                srcArchetype->EntityCount -= srcCount;
+                var fixupSharedComponentReferences = (srcArchetype->NumSharedComponents > 0) || (dstArchetype->NumSharedComponents > 0);
+                if (fixupSharedComponentReferences)
+                {
+                    int srcFirstShared = srcArchetype->FirstSharedComponent;
+                    int dstFirstShared = dstArchetype->FirstSharedComponent;
+                    int srcCount = srcArchetype->NumSharedComponents;
+                    int dstCount = dstArchetype->NumSharedComponents;
 
-                srcChunk->SetAllChangeVersions(GlobalSystemVersion);
-                SetChunkCount(srcChunk, srcChunk->Count - srcCount);
-                ManagedChangesTracker.IncrementComponentOrderVersion(srcArchetype, srcSharedComponentValues);
-                IncrementComponentTypeOrderVersion(srcArchetype);
+                    int o = 0;
+                    int n = 0;
+
+                    for (; n < dstCount && o < srcCount;)
+                    {
+                        int srcType = srcArchetype->Types[o + srcFirstShared].TypeIndex;
+                        int dstType = dstArchetype->Types[n + dstFirstShared].TypeIndex;
+                        if (srcType == dstType)
+                        {
+                            var srcSharedComponentDataIndex = srcChunk->SharedComponentValues[o];
+                            var dstSharedComponentDataIndex = sharedComponentValues[n];
+                            if (srcSharedComponentDataIndex != dstSharedComponentDataIndex)
+                            {
+                                ManagedChangesTracker.RemoveReference(srcSharedComponentDataIndex);
+                                ManagedChangesTracker.AddReference(dstSharedComponentDataIndex);
+                            }
+
+                            n++;
+                            o++;
+                        }
+                        else if (dstType > srcType) // removed from dstArchetype
+                        {
+                            var sharedComponentDataIndex = srcChunk->SharedComponentValues[o];
+                            ManagedChangesTracker.RemoveReference(sharedComponentDataIndex);
+                            o++;
+                        }
+                        else // added to dstArchetype
+                        {
+                            var sharedComponentDataIndex = sharedComponentValues[n];
+                            ManagedChangesTracker.AddReference(sharedComponentDataIndex);
+                            n++;
+                        }
+                    }
+
+                    for (; n < dstCount; n++) // added to dstArchetype
+                    {
+                        var sharedComponentDataIndex = sharedComponentValues[n];
+                        ManagedChangesTracker.AddReference(sharedComponentDataIndex);
+                    }
+
+                    for (; o < srcCount; o++) // removed from dstArchetype
+                    {
+                        var sharedComponentDataIndex = srcChunk->SharedComponentValues[o];
+                        ManagedChangesTracker.RemoveReference(sharedComponentDataIndex);
+                    }
+                }
+
+                var fixupManagedComponents = (srcArchetype->NumManagedArrays > 0) || (dstArchetype->NumManagedArrays > 0);
+                if (fixupManagedComponents)
+                {
+                    if (dstArchetype->NumManagedArrays == 0) // removed all
+                    {
+                        ManagedChangesTracker.DeallocateManagedArrayStorage(srcChunk->ManagedArrayIndex);
+                        m_ManagedArrayFreeIndex.Add(srcChunk->ManagedArrayIndex);
+                        srcChunk->ManagedArrayIndex = -1;
+                    }
+                    else
+                    {
+                        // We have changed the managed array order + size so allocate a new managed array
+                        // copy the unchanged values into it
+                        int dstManagedArrayIndex;
+                        if (!m_ManagedArrayFreeIndex.IsEmpty)
+                        {
+                            dstManagedArrayIndex = m_ManagedArrayFreeIndex.Pop<int>();
+                        }
+                        else
+                        {
+                            dstManagedArrayIndex = m_ManagedArrayIndex;
+                            m_ManagedArrayIndex++;
+                        }
+
+                        ManagedChangesTracker.AllocateManagedArrayStorage(dstManagedArrayIndex, dstArchetype->NumManagedArrays * srcChunk->Capacity);
+
+                        int srcManagedArrayIndex = srcChunk->ManagedArrayIndex;
+                        srcChunk->ManagedArrayIndex = dstManagedArrayIndex;
+
+                        if (srcManagedArrayIndex != -1)
+                        {
+                            ManagedChangesTracker.MoveChunksManagedObjects(srcArchetype, srcManagedArrayIndex, dstArchetype, dstManagedArrayIndex, srcChunk->Capacity, srcChunk->Count);
+
+                            ManagedChangesTracker.DeallocateManagedArrayStorage(srcManagedArrayIndex);
+                            m_ManagedArrayFreeIndex.Add(srcManagedArrayIndex);
+                        }
+                    }
+                }
+
+                var count = srcChunk->Count;
+                bool hasEmptySlots = count < srcChunk->Capacity;
+
+                if (hasEmptySlots)
+                    srcArchetype->EmptySlotTrackingRemoveChunk(srcChunk);
+
+                int chunkIndexInSrcArchetype = srcChunk->ListIndex;
+
+                var dstTypes = dstArchetype->Types;
+                var srcTypes = srcArchetype->Types;
+
+                //Change version is overriden below
+                dstArchetype->AddToChunkList(srcChunk, sharedComponentValues, 0);
+                int chunkIndexInDstArchetype = srcChunk->ListIndex;
+
+                //Copy change versions from src to dst archetype
+                for (int isrcType = srcArchetype->TypesCount - 1, idstType = dstArchetype->TypesCount - 1;
+                    idstType >= 0;
+                    --idstType)
+                {
+                    var dstType = dstTypes[idstType];
+                    while (srcTypes[isrcType] > dstType)
+                        --isrcType;
+                    var version = srcTypes[isrcType] == dstType
+                        ? srcArchetype->Chunks.GetChangeVersion(isrcType, chunkIndexInSrcArchetype)
+                        : GlobalSystemVersion;
+                    dstArchetype->Chunks.SetChangeVersion(idstType, chunkIndexInDstArchetype, version);
+                }
+
+                srcChunk->ListIndex = chunkIndexInSrcArchetype;
+                srcArchetype->RemoveFromChunkList(srcChunk);
+                srcChunk->ListIndex = chunkIndexInDstArchetype;
+
+                if (hasEmptySlots)
+                    dstArchetype->EmptySlotTrackingAddChunk(srcChunk);
+
+                SetArchetype(srcChunk, dstArchetype);
+
+                srcArchetype->EntityCount -= count;
+                dstArchetype->EntityCount += count;
+
+                if (srcArchetype->MetaChunkArchetype != dstArchetype->MetaChunkArchetype)
+                {
+                    if (srcArchetype->MetaChunkArchetype == null)
+                    {
+                        CreateMetaEntityForChunk(srcChunk);
+                    }
+                    else if (dstArchetype->MetaChunkArchetype == null)
+                    {
+                        DestroyMetaChunkEntity(srcChunk->metaChunkEntity);
+                        srcChunk->metaChunkEntity = Entity.Null;
+                    }
+                    else
+                    {
+                        var metaChunk = GetChunk(srcChunk->metaChunkEntity);
+                        var archetypeChunkFilter = new ArchetypeChunkFilter(dstArchetype->MetaChunkArchetype, metaChunk->SharedComponentValues);
+                        Move(srcChunk->metaChunkEntity, ref archetypeChunkFilter);
+                    }
+                }
             }
-
-            Profiler.EndSample();
-        }
-
-        void MoveChunksForAddComponent(NativeList<EntityBatchInChunk> entityBatchList, ComponentType type,
-            int existingSharedComponentIndex)
-        {
-            Archetype* prevSrcArchetype = null;
-            Archetype* dstArchetype = null;
-            int indexInTypeArray = 0;
-
-            for (int i = 0; i < entityBatchList.Length; i++)
-            {
-                var srcEntityBatch = entityBatchList[i];
-                var srcChunk = srcEntityBatch.Chunk;
-                var srcArchetype = srcChunk->Archetype;
-                if (srcArchetype != prevSrcArchetype)
-                {
-                    dstArchetype =
-                        GetArchetypeWithAddedComponentType(srcArchetype, type,
-                            &indexInTypeArray);
-                    prevSrcArchetype = srcArchetype;
-                }
-
-                var sharedComponentValues = srcChunk->SharedComponentValues;
-                if (type.IsSharedComponent)
-                {
-                    int* temp = stackalloc int[dstArchetype->NumSharedComponents];
-                    int indexOfNewSharedComponent = indexInTypeArray - dstArchetype->FirstSharedComponent;
-                    BuildSharedComponentIndicesWithAddedComponent(indexOfNewSharedComponent,
-                        existingSharedComponentIndex,
-                        dstArchetype->NumSharedComponents, sharedComponentValues, temp);
-                    sharedComponentValues = temp;
-                }
-
-                MoveChunkToNewArchetype(srcChunk, dstArchetype, sharedComponentValues);
-            }
-
-            ManagedChangesTracker.AddReference(existingSharedComponentIndex,
-                entityBatchList.Length);
-        }
-        
-        void MoveChunksForRemoveComponent(NativeList<EntityBatchInChunk> entityBatchList, ComponentType type,
-            int existingSharedComponentIndex)
-        {
-            Archetype* prevSrcArchetype = null;
-            Archetype* dstArchetype = null;
-            int indexInTypeArray = 0;
-
-            for (int i = 0; i < entityBatchList.Length; i++)
-            {
-                var srcEntityBatch = entityBatchList[i];
-                var srcChunk = srcEntityBatch.Chunk;
-                var srcArchetype = srcChunk->Archetype;
-                if (srcArchetype != prevSrcArchetype)
-                {
-                    dstArchetype =
-                        GetArchetypeWithRemovedComponentType(srcArchetype, type,
-                            &indexInTypeArray);
-                    prevSrcArchetype = srcArchetype;
-                }
-
-                var sharedComponentValues = srcChunk->SharedComponentValues;
-                if (type.IsSharedComponent)
-                {
-                    int* temp = stackalloc int[dstArchetype->NumSharedComponents];
-                    BuildSharedComponentIndicesWithRemovedComponent( existingSharedComponentIndex,
-                        dstArchetype->NumSharedComponents, sharedComponentValues, temp);
-                    sharedComponentValues = temp;
-                }
-                
-                // Cleanup residue component
-                if (dstArchetype->SystemStateCleanupComplete)
-                    DestroyBatch((Entity*) srcChunk->Buffer, srcChunk, srcEntityBatch.StartIndex, srcEntityBatch.Count);
-                else
-                    MoveChunkToNewArchetype(srcChunk, dstArchetype, sharedComponentValues);
-            }
-
-            ManagedChangesTracker.AddReference(existingSharedComponentIndex,
-                entityBatchList.Length);
-        }
-
-        void MoveChunkToNewArchetype(Chunk* chunk, Archetype* newArchetype,
-            SharedComponentValues sharedComponentValues)
-        {
-            var oldArchetype = chunk->Archetype;
-            ChunkDataUtility.AssertAreLayoutCompatible(oldArchetype, newArchetype);
-            var count = chunk->Count;
-            bool hasEmptySlots = count < chunk->Capacity;
-
-            if (hasEmptySlots)
-                oldArchetype->EmptySlotTrackingRemoveChunk(chunk);
-
-            int chunkIndexInOldArchetype = chunk->ListIndex;
-
-            var newTypes = newArchetype->Types;
-            var oldTypes = oldArchetype->Types;
-
-            chunk->Archetype = newArchetype;
-
-            //Change version is overriden below
-            newArchetype->AddToChunkList(chunk, sharedComponentValues, 0);
-            int chunkIndexInNewArchetype = chunk->ListIndex;
-
-            //Copy change versions from old to new archetype
-            for (int iOldType = oldArchetype->TypesCount - 1, iNewType = newArchetype->TypesCount - 1;
-                iNewType >= 0;
-                --iNewType)
-            {
-                var newType = newTypes[iNewType];
-                while (oldTypes[iOldType] > newType)
-                    --iOldType;
-                var version = oldTypes[iOldType] == newType
-                    ? oldArchetype->Chunks.GetChangeVersion(iOldType, chunkIndexInOldArchetype)
-                    : GlobalSystemVersion;
-                newArchetype->Chunks.SetChangeVersion(iNewType, chunkIndexInNewArchetype, version);
-            }
-
-            chunk->ListIndex = chunkIndexInOldArchetype;
-            oldArchetype->RemoveFromChunkList(chunk);
-            chunk->ListIndex = chunkIndexInNewArchetype;
-
-            if (hasEmptySlots)
-                newArchetype->EmptySlotTrackingAddChunk(chunk);
-
-            SetArchetype(chunk, newArchetype);
-
-            oldArchetype->EntityCount -= count;
-            newArchetype->EntityCount += count;
-
-            if (oldArchetype->MetaChunkArchetype != newArchetype->MetaChunkArchetype)
-            {
-                if (oldArchetype->MetaChunkArchetype == null)
-                {
-                    CreateMetaEntityForChunk(chunk);
-                }
-                else if (newArchetype->MetaChunkArchetype == null)
-                {
-                    DestroyMetaChunkEntity(chunk->metaChunkEntity);
-                    chunk->metaChunkEntity = Entity.Null;
-                }
-                else
-                {
-                    var metaChunk = GetChunk(chunk->metaChunkEntity);
-                    var sharedComponentDataIndices = metaChunk->SharedComponentValues;
-                    SetArchetype(chunk->metaChunkEntity, newArchetype->MetaChunkArchetype, sharedComponentDataIndices);
-                }
-            }
-        }
-
-        void MoveEntityToChunk(Entity entity, Chunk* newChunk, int newChunkIndex)
-        {
-            var oldEntityInChunk = GetEntityInChunk(entity);
-            var oldChunk = oldEntityInChunk.Chunk;
-            var oldChunkIndex = oldEntityInChunk.IndexInChunk;
-
-            Assert.IsTrue(oldChunk->Archetype == newChunk->Archetype);
-
-            ChunkDataUtility.Copy(oldChunk, oldChunkIndex, newChunk, newChunkIndex, 1);
-
-            if (oldChunk->ManagedArrayIndex >= 0)
-                ManagedChangesTracker.CopyManagedObjects(oldChunk, oldChunkIndex, newChunk,
-                    newChunkIndex, 1);
-
-            SetEntityInChunk(entity, new EntityInChunk
-            {
-                Chunk = newChunk,
-                IndexInChunk = newChunkIndex
-            });
-
-            var lastIndex = oldChunk->Count - 1;
-            // No need to replace with ourselves
-            if (lastIndex != oldChunkIndex)
-            {
-                var lastEntity = *(Entity*) ChunkDataUtility.GetComponentDataRO(oldChunk, lastIndex, 0);
-                SetEntityInChunk(lastEntity, new EntityInChunk
-                {
-                    Chunk = oldChunk,
-                    IndexInChunk = oldChunkIndex
-                });
-                ChunkDataUtility.Copy(oldChunk, lastIndex, oldChunk, oldChunkIndex, 1);
-                if (oldChunk->ManagedArrayIndex >= 0)
-                    ManagedChangesTracker.CopyManagedObjects(oldChunk, lastIndex, oldChunk,
-                        oldChunkIndex, 1);
-            }
-
-            if (oldChunk->ManagedArrayIndex >= 0)
-                ManagedChangesTracker.ClearManagedObjects(oldChunk, lastIndex, 1);
-
-            newChunk->SetAllChangeVersions(GlobalSystemVersion);
-            oldChunk->SetAllChangeVersions(GlobalSystemVersion);
-
-            newChunk->Archetype->EntityCount--;
-            SetChunkCount(oldChunk, oldChunk->Count - 1);
         }
     }
 }

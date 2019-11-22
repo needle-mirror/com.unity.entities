@@ -11,6 +11,7 @@ namespace Unity.Transforms
     public abstract class LocalToParentSystem : JobComponentSystem
     {
         private EntityQuery m_RootsGroup;
+        private EntityQueryMask m_LocalToWorldWriteGroupMask;
 
         // LocalToWorld = Parent.LocalToWorld * LocalToParent
         [BurstCompile]
@@ -20,6 +21,7 @@ namespace Unity.Transforms
             [ReadOnly] public ArchetypeChunkBufferType<Child> ChildType;
             [ReadOnly] public BufferFromEntity<Child> ChildFromEntity;
             [ReadOnly] public ComponentDataFromEntity<LocalToParent> LocalToParentFromEntity;
+            [ReadOnly] public EntityQueryMask LocalToWorldWriteGroupMask;
 
             [NativeDisableContainerSafetyRestriction]
             public ComponentDataFromEntity<LocalToWorld> LocalToWorldFromEntity;
@@ -27,8 +29,18 @@ namespace Unity.Transforms
             void ChildLocalToWorld(float4x4 parentLocalToWorld, Entity entity)
             {
                 var localToParent = LocalToParentFromEntity[entity];
-                var localToWorldMatrix = math.mul(parentLocalToWorld, localToParent.Value);
-                LocalToWorldFromEntity[entity] = new LocalToWorld {Value = localToWorldMatrix};
+                
+                float4x4 localToWorldMatrix;
+
+                if (LocalToWorldWriteGroupMask.Matches(entity))
+                {
+                    localToWorldMatrix = math.mul(parentLocalToWorld, localToParent.Value);
+                    LocalToWorldFromEntity[entity] = new LocalToWorld {Value = localToWorldMatrix};
+                }
+                else //This entity has a component with the WriteGroup(LocalToWorld)
+                {
+                    localToWorldMatrix = LocalToWorldFromEntity[entity].Value;
+                }
 
                 if (ChildFromEntity.Exists(entity))
                 {
@@ -71,6 +83,17 @@ namespace Unity.Transforms
                 },
                 Options = EntityQueryOptions.FilterWriteGroup
             });
+            
+            m_LocalToWorldWriteGroupMask = EntityManager.GetEntityQueryMask(GetEntityQuery(new EntityQueryDesc
+            {
+                All = new ComponentType[]
+                {
+                    typeof(LocalToWorld),
+                    ComponentType.ReadOnly<LocalToParent>(),
+                    ComponentType.ReadOnly<Parent>()
+                },
+                Options = EntityQueryOptions.FilterWriteGroup
+            }));
         }
 
         protected override JobHandle OnUpdate(JobHandle inputDeps)
@@ -87,7 +110,8 @@ namespace Unity.Transforms
                 ChildType = childType,
                 ChildFromEntity = childFromEntity,
                 LocalToParentFromEntity = localToParentFromEntity,
-                LocalToWorldFromEntity = localToWorldFromEntity
+                LocalToWorldFromEntity = localToWorldFromEntity,
+                LocalToWorldWriteGroupMask = m_LocalToWorldWriteGroupMask
             };
             var updateHierarchyJobHandle = updateHierarchyJob.Schedule(m_RootsGroup, inputDeps);
             return updateHierarchyJobHandle;

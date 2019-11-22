@@ -9,7 +9,9 @@
         "Unity.Jobs",
         "Unity.Transforms",
         "Unity.Transforms.Hybrid",
-        "Unity.Mathematics"
+        "Unity.Mathematics",
+        "Unity.Build",    
+        "Unity.Burst"
     ],
     "optionalUnityReferences": [
         "TestAssemblies"

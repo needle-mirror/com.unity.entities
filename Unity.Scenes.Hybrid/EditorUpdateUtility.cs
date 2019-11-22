@@ -1,8 +1,5 @@
-﻿using System.Runtime.CompilerServices;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
-
-[assembly: InternalsVisibleTo("Unity.Scenes.Editor")]
 
 namespace Unity.Scenes
 {

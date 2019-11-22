@@ -43,13 +43,13 @@ namespace Unity.Entities.Tests
         [Test]
         public void SystemInclusionList_MatchesComponents()
         {
-            var system = World.Active.GetOrCreateSystem<RegularSystem>();
+            var system = World.GetOrCreateSystem<RegularSystem>();
 
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
             var matchList = new List<Tuple<ComponentSystemBase, List<EntityQuery>>>();
 
-            WorldDebuggingTools.MatchEntityInEntityQueries(World.Active, entity, matchList);
+            WorldDebuggingTools.MatchEntityInEntityQueries(World.DefaultGameObjectInjectionWorld, entity, matchList);
 
             Assert.AreEqual(1, matchList.Count);
             Assert.AreEqual(system, matchList[0].Item1);
@@ -59,13 +59,13 @@ namespace Unity.Entities.Tests
         [Test]
         public void SystemInclusionList_IgnoresSubtractedComponents()
         {
-            World.Active.GetOrCreateSystem<ExcludeSystem>();
+            World.GetOrCreateSystem<ExcludeSystem>();
 
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
             var matchList = new List<Tuple<ComponentSystemBase, List<EntityQuery>>>();
 
-            WorldDebuggingTools.MatchEntityInEntityQueries(World.Active, entity, matchList);
+            WorldDebuggingTools.MatchEntityInEntityQueries(World, entity, matchList);
 
             Assert.AreEqual(0, matchList.Count);
         }

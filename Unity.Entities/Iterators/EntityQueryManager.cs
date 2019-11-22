@@ -16,6 +16,8 @@ namespace Unity.Entities
         private UnsafeEntityQueryDataPtrList m_EntityGroupDatas;
         private NativeMultiHashMap<int, int> m_EntityGroupDataCache;
 
+        internal int m_EntityQueryMasksAllocated;
+
         public EntityQueryManager(ComponentJobSafetyManager* safetyManager)
         {
             m_JobSafetyManager = safetyManager;
@@ -27,8 +29,10 @@ namespace Unity.Entities
         public void Dispose()
         {
             m_EntityGroupDataCache.Dispose();
-            for(var g = m_EntityGroupDatas.Length - 1; g >= 0; --g)
+            for (var g = 0; g < m_EntityGroupDatas.Length; ++g)
+            {
                 m_EntityGroupDatas.Ptr[g]->Dispose();
+            }
             m_EntityGroupDatas.Dispose();
             //@TODO: Need to wait for all job handles to be completed..
             m_GroupDataChunkAllocator.Dispose();
@@ -420,14 +424,17 @@ namespace Unity.Entities
                     cachedQuery->ArchetypeQuery[i].NoneAccessMode = (byte*)ChunkAllocate<byte>(cachedQuery->ArchetypeQuery[i].NoneCount,query[i].NoneAccessMode);
                 }
                 cachedQuery->MatchingArchetypes = new UnsafeMatchingArchetypePtrList(entityComponentStore);
-                for (var i = entityComponentStore->m_Archetypes.Length - 1; i >= 0; --i)
+                
+                cachedQuery->EntityQueryMask = new EntityQueryMask();
+                
+                for (var i = 0; i < entityComponentStore->m_Archetypes.Length; ++i)
                 {
                     var archetype = entityComponentStore->m_Archetypes.Ptr[i];
                     AddArchetypeIfMatching(archetype, cachedQuery);
                 }
 
-               m_EntityGroupDataCache.Add(hash, m_EntityGroupDatas.Length);
-               m_EntityGroupDatas.Add(cachedQuery);
+                m_EntityGroupDataCache.Add(hash, m_EntityGroupDatas.Length);
+                m_EntityGroupDatas.Add(cachedQuery);
             }
 
             return new EntityQuery(cachedQuery, m_JobSafetyManager, entityComponentStore, managedComponentStore);
@@ -484,7 +491,7 @@ namespace Unity.Entities
         {
             for (int i = 0; i < archetypeList.Length; i++)
             {
-                for (var g = m_EntityGroupDatas.Length - 1; g >= 0; --g)
+                for (var g = 0; g < m_EntityGroupDatas.Length; ++g)
                 {
                     var grp = m_EntityGroupDatas.Ptr[g];
                     AddArchetypeIfMatching(archetypeList.Ptr[i], grp);
@@ -501,6 +508,8 @@ namespace Unity.Entities
                 MatchingArchetype.GetAllocationSize(query->RequiredComponentsCount), 8);
             match->Archetype = archetype;
             var typeIndexInArchetypeArray = match->IndexInArchetype;
+            
+            match->Archetype->SetMask(query->EntityQueryMask);
 
             query->MatchingArchetypes.Add(match);
 
@@ -631,6 +640,42 @@ namespace Unity.Entities
         {
             return sizeof(MatchingArchetype) + sizeof(int) * (requiredComponentsCount - 1);
         }
+        
+        public bool ChunkMatchesFilter(int chunkIndex, ref EntityQueryFilter filter)
+        {
+            var chunks = Archetype->Chunks;
+
+            // Must match ALL shared component data
+            for (int i = 0; i < filter.Shared.Count; ++i)
+            {
+                var indexInEntityQuery = filter.Shared.IndexInEntityQuery[i];
+                var sharedComponentIndex = filter.Shared.SharedComponentIndex[i];
+                var componentIndexInChunk = IndexInArchetype[indexInEntityQuery] - Archetype->FirstSharedComponent;
+                var sharedComponents = chunks.GetSharedComponentValueArrayForType(componentIndexInChunk);
+
+                // if we don't have a match, we can early out
+                if (sharedComponents[chunkIndex] != sharedComponentIndex)
+                    return false;
+            }
+
+            if (filter.Changed.Count == 0)
+                return true;
+
+            // Must have AT LEAST ONE type have changed
+            for (int i = 0; i < filter.Changed.Count; ++i)
+            {
+                var indexInEntityQuery = filter.Changed.IndexInEntityQuery[i];
+                var componentIndexInChunk = IndexInArchetype[indexInEntityQuery];
+                var changeVersions = chunks.GetChangeVersionArrayForType(componentIndexInChunk);
+
+                var requiredVersion = filter.RequiredChangeVersion;
+
+                if (ChangeVersionUtility.DidChange(changeVersions[chunkIndex], requiredVersion))
+                    return true;
+            }
+
+            return false;
+        }
     }
 
     [DebuggerTypeProxy(typeof(UnsafeMatchingArchetypePtrListDebugView))]
@@ -725,6 +770,8 @@ namespace Unity.Entities
 
         public ArchetypeQuery*      ArchetypeQuery;
         public int                  ArchetypeQueryCount;
+
+        public EntityQueryMask      EntityQueryMask;
 
         public UnsafeMatchingArchetypePtrList MatchingArchetypes;
 

@@ -99,7 +99,7 @@ namespace Unity.Entities
         }
     }
 
-    // [BurstCompile] // @macton Crashes with burst 26-Jul-2019
+    [BurstCompile] 
     unsafe struct SegmentSortMerge<T> : IJob
         where T : struct, IComparable<T>
     {

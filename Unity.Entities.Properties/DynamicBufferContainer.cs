@@ -62,7 +62,7 @@ namespace Unity.Entities
                 public void SetCount(ref DynamicBufferContainer<T> container, int count) => throw new InvalidOperationException("Property is ReadOnly");
                 public void Clear(ref DynamicBufferContainer<T> container) => throw new InvalidOperationException("Property is ReadOnly");
 
-                public void GetPropertyAtIndex<TGetter>(ref DynamicBufferContainer<T> container, int index, ref ChangeTracker changeTracker, TGetter getter) where TGetter : ICollectionElementPropertyGetter<DynamicBufferContainer<T>>
+                public void GetPropertyAtIndex<TGetter>(ref DynamicBufferContainer<T> container, int index, ref ChangeTracker changeTracker, ref TGetter getter) where TGetter : ICollectionElementPropertyGetter<DynamicBufferContainer<T>>
                 {
                     getter.VisitProperty<BufferElementProperty, T>(new BufferElementProperty(index, m_IsReadOnly), ref container, ref changeTracker);
                 }
@@ -104,14 +104,14 @@ namespace Unity.Entities
                 }
             }
 
-            public override void Accept<TVisitor>(ref DynamicBufferContainer<T> container, TVisitor visitor, ref ChangeTracker changeTracker)
+            public override void Accept<TVisitor>(ref DynamicBufferContainer<T> container, ref TVisitor visitor, ref ChangeTracker changeTracker)
             {
                 visitor.VisitCollectionProperty<ElementsProperty, DynamicBufferContainer<T>, IEnumerable<T>>(new ElementsProperty(container.m_IsReadOnly), ref container, ref changeTracker);
             }
 
             public override bool FindProperty<TAction>(string name, ref DynamicBufferContainer<T> container, ref ChangeTracker changeTracker, ref TAction action)
             {
-                if (name.Equals(typeof(T).Name))
+                if (name.Equals("Elements"))
                 {
                     action.VisitCollectionProperty<ElementsProperty, IEnumerable<T>>(new ElementsProperty(container.m_IsReadOnly), ref container, ref changeTracker);
                     return true;

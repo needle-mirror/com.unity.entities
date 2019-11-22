@@ -44,10 +44,8 @@ namespace Unity.Entities
             var componentType = ComponentType.ReadWrite<T>();
             entityManager.EntityComponentStore->AssertEntityHasComponent(entity, componentType.TypeIndex);
 
-            Chunk* chunk;
-            int chunkIndex;
-            entityManager.EntityComponentStore->GetChunk(entity, out chunk, out chunkIndex);
-            return entityManager.ManagedComponentStore.GetManagedObject(chunk, componentType, chunkIndex) as T;
+            var entityInChunk = entityManager.EntityComponentStore->GetEntityInChunk(entity);
+            return (T) entityManager.ManagedComponentStore.GetManagedObject(entityInChunk.Chunk, componentType, entityInChunk.IndexInChunk);
         }
     }
 }

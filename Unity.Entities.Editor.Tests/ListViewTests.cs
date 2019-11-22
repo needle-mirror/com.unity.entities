@@ -14,7 +14,7 @@ namespace Unity.Entities.Editor.Tests
 
         private World GetWorldSelection()
         {
-            return World.Active;
+            return World;
         }
 
         private static void SetComponentGroupSelection(EntityListQuery query)
@@ -33,12 +33,12 @@ namespace Unity.Entities.Editor.Tests
         {
             base.Setup();
 
-            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(World.Active);
+            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(World.DefaultGameObjectInjectionWorld);
 
             World2 = new World("Test World 2");
             var emptySys = World2.GetOrCreateSystem<EmptySystem>();
-            World.Active.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(emptySys);
-            World.Active.GetOrCreateSystem<SimulationSystemGroup>().SortSystemUpdateList();
+            World.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(emptySys);
+            World.GetOrCreateSystem<SimulationSystemGroup>().SortSystemUpdateList();
         }
 
         public override void TearDown()
@@ -55,7 +55,7 @@ namespace Unity.Entities.Editor.Tests
         public void EntityListView_ShowNothingWithoutWorld()
         {
             m_Manager.CreateEntity();
-            var emptySystem = World.Active.GetOrCreateSystem<EmptySystem>();
+            var emptySystem = World.GetOrCreateSystem<EmptySystem>();
             ComponentSystemBase currentSystem = null;
 
             using (var listView = new EntityListView(new TreeViewState(), null, SetEntitySelection, () => null,
@@ -79,8 +79,8 @@ namespace Unity.Entities.Editor.Tests
         public void EntityListView_ShowEntitiesFromWorld()
         {
             m_Manager.CreateEntity();
-            var emptySystem = World.Active.GetOrCreateSystem<EmptySystem>();
-            var selectedWorld = World.Active;
+            var emptySystem = World.GetOrCreateSystem<EmptySystem>();
+            var selectedWorld = World;
             ComponentSystemBase currentSystem = null;
 
             using (var listView = new EntityListView(new TreeViewState(), null, SetEntitySelection, () => selectedWorld,
@@ -164,12 +164,12 @@ namespace Unity.Entities.Editor.Tests
             var listView = new SystemListView(
                 new TreeViewState(),
                 new MultiColumnHeader(SystemListView.GetHeaderState()),
-                (manager, world) => { },
+                (system, world) => { },
                 () => World2,
                 () => true);
-            var managerItems = listView.GetRows().Where(x => listView.managersById.ContainsKey(x.id)).Select(x => listView.managersById[x.id]);
-            var managerList = managerItems.ToList();
-            Assert.AreEqual(World2.Systems.Count(), managerList.Intersect(World2.Systems).Count());
+            var systemItems = listView.GetRows().Where(x => listView.systemsById.ContainsKey(x.id)).Select(x => listView.systemsById[x.id]);
+            var systemList = systemItems.ToList();
+            Assert.AreEqual(World2.Systems.Count(), systemList.Intersect(World2.Systems).Count());
         }
 
         [Test]
@@ -178,15 +178,15 @@ namespace Unity.Entities.Editor.Tests
             var listView = new SystemListView(
                 new TreeViewState(),
                 new MultiColumnHeader(SystemListView.GetHeaderState()),
-                (manager, world) => { },
+                (system, world) => { },
                 () => null,
                 () => true);
-            var managerItems = listView.GetRows().Where(x => listView.managersById.ContainsKey(x.id)).Select(x => listView.managersById[x.id]);
-            var allManagers = new List<ComponentSystemBase>();
-            allManagers.AddRange(World.Active.Systems);
-            allManagers.AddRange(World2.Systems);
-            var managerList = managerItems.ToList();
-            Assert.AreEqual(allManagers.Count(x => !(x is ComponentSystemGroup) ), allManagers.Intersect(managerList).Count());
+            var systemItems = listView.GetRows().Where(x => listView.systemsById.ContainsKey(x.id)).Select(x => listView.systemsById[x.id]);
+            var allSystems = new List<ComponentSystemBase>();
+            allSystems.AddRange(World.Systems);
+            allSystems.AddRange(World2.Systems);
+            var systemList = systemItems.ToList();
+            Assert.AreEqual(allSystems.Count(x => !(x is ComponentSystemGroup) ), allSystems.Intersect(systemList).Count());
         }
 
     }

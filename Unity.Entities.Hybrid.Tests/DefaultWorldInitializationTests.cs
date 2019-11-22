@@ -10,7 +10,7 @@ namespace Unity.Entities.Tests
         [SetUp]
         public void Setup()
         {
-            m_PreviousWorld = World.Active;
+            m_PreviousWorld = World.DefaultGameObjectInjectionWorld;
         }
 
         [Test]
@@ -24,10 +24,10 @@ namespace Unity.Entities.Tests
         [TearDown]
         public void TearDown()
         {
-            World.Active.Dispose();
-            World.Active = null;
+            World.DefaultGameObjectInjectionWorld.Dispose();
+            World.DefaultGameObjectInjectionWorld = null;
 
-            World.Active = m_PreviousWorld;
+            World.DefaultGameObjectInjectionWorld = m_PreviousWorld;
             ScriptBehaviourUpdateOrder.UpdatePlayerLoop(null);
         }
     }

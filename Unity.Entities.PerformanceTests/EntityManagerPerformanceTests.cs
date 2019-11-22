@@ -1,19 +1,20 @@
-﻿using System;
+﻿#define ENABLE_ADD_REMOVE_TEST_100
+// #define ENABLE_ADD_REMOVE_TEST_1000
+// #define ENABLE_ADD_REMOVE_TEST_10000
+
+using System;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities.Tests;
 using Unity.PerformanceTesting;
 using System.Collections.Generic;
-using Unity.Entities.Properties.Tests;
+using Unity.Mathematics;
 
 namespace Unity.Entities.PerformanceTests
 {
     [Category("Performance")]
-    public sealed class EntityManagerPerformanceTests
+    public sealed class EntityManagerPerformanceTests : EntityPerformanceTestFixture
     {
-        World m_PreviousWorld;
-        World m_World;
-        EntityManager m_Manager;
         EntityArchetype archetype1;
         EntityArchetype archetype2;
         EntityArchetype archetype3;
@@ -99,54 +100,46 @@ namespace Unity.Entities.PerformanceTests
         {
         }
 
-        Type[] TagTypes;
-
-        [SetUp]
-        public void Setup()
+        Type[] TagTypes = 
         {
-            m_PreviousWorld = World.Active;
-            m_World = World.Active = new World("Test World");
-            m_Manager = m_World.EntityManager;
-            archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3),
-                typeof(TestTag0));
+            typeof(TestTag0),
+            typeof(TestTag1),
+            typeof(TestTag2),
+            typeof(TestTag3),
+            typeof(TestTag4),
+            typeof(TestTag5),
+            typeof(TestTag6),
+            typeof(TestTag7),
+            typeof(TestTag8),
+            typeof(TestTag9),
+            typeof(TestTag10),
+            typeof(TestTag11),
+            typeof(TestTag12),
+            typeof(TestTag13),
+            typeof(TestTag14),
+            typeof(TestTag15),
+            typeof(TestTag16),
+            typeof(TestTag17),
+        };
+
+        public override void Setup()
+        {
+            base.Setup();
+
+            archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(TestTag0));
             archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
             archetype3 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData3));
-            archetype1WithSharedComponent = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2),
-                typeof(EcsTestData3), typeof(EcsTestSharedCompWithMaxChunkCapacity));
-            archetype2WithSharedComponent = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2),
-                typeof(EcsTestSharedCompWithMaxChunkCapacity));
-            archetype3WithSharedComponent = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData3),
-                typeof(EcsTestSharedCompWithMaxChunkCapacity));
+            archetype1WithSharedComponent = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestSharedCompWithMaxChunkCapacity));
+            archetype2WithSharedComponent = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedCompWithMaxChunkCapacity));
+            archetype3WithSharedComponent = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData3), typeof(EcsTestSharedCompWithMaxChunkCapacity));
             entities1 = new NativeArray<Entity>(count, Allocator.Persistent);
             entities2 = new NativeArray<Entity>(count, Allocator.Persistent);
             entities3 = new NativeArray<Entity>(count, Allocator.Persistent);
             group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-
-            TagTypes = new Type[]
-            {
-                typeof(TestTag0),
-                typeof(TestTag1),
-                typeof(TestTag2),
-                typeof(TestTag3),
-                typeof(TestTag4),
-                typeof(TestTag5),
-                typeof(TestTag6),
-                typeof(TestTag7),
-                typeof(TestTag8),
-                typeof(TestTag9),
-                typeof(TestTag10),
-                typeof(TestTag11),
-                typeof(TestTag12),
-                typeof(TestTag13),
-                typeof(TestTag14),
-                typeof(TestTag15),
-                typeof(TestTag16),
-                typeof(TestTag17),
-            };
         }
 
         [TearDown]
-        public void TearDown()
+        public override void TearDown()
         {
             if (m_Manager != null)
             {
@@ -154,14 +147,8 @@ namespace Unity.Entities.PerformanceTests
                 entities2.Dispose();
                 entities3.Dispose();
                 group.Dispose();
-
-                m_World.Dispose();
-                m_World = null;
-
-                World.Active = m_PreviousWorld;
-                m_PreviousWorld = null;
-                m_Manager = null;
             }
+            base.TearDown();
         }
 
         void CreateEntities()
@@ -176,6 +163,38 @@ namespace Unity.Entities.PerformanceTests
             m_Manager.DestroyEntity(entities1);
             m_Manager.DestroyEntity(entities2);
             m_Manager.DestroyEntity(entities3);
+        }
+
+        NativeArray<Entity> CreateUniqueEntities(int size, ComponentType additionalComponentType)
+        {
+            var entities = new NativeArray<Entity>(size, Allocator.Persistent);
+            for (int i = 0; i < size; i++)
+            {
+                var typeCount = CollectionHelper.Log2Ceil(i);
+                var typeList = new List<ComponentType>();
+                for (int typeIndex = 0; typeIndex < typeCount; typeIndex++)
+                {
+                    if ((i & (1 << typeIndex)) != 0)
+                        typeList.Add(TagTypes[typeIndex]);
+                }
+
+                typeList.Add(typeof(EcsTestData));
+                typeList.Add(additionalComponentType);
+
+                var types = typeList.ToArray();
+                var archetype = m_Manager.CreateArchetype(types);
+                entities[i] = m_Manager.CreateEntity(archetype);
+            }
+
+            return entities;
+        }
+
+        NativeArray<Entity> CreateSameEntities(int size, ComponentType additionalComponentType)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), additionalComponentType);
+            var entities = new NativeArray<Entity>(size, Allocator.Persistent);
+            m_Manager.CreateEntity(archetype, entities);
+            return entities;
         }
 
         NativeArray<Entity> CreateUniqueEntities(int size)
@@ -270,15 +289,6 @@ namespace Unity.Entities.PerformanceTests
             return types;
         }
 
-        ComponentTypes[] CreateUniqueArchetypeComponentTypes(int size)
-        {
-            var types = CreateUniqueArchetypeTypes(size);
-            var componentTypes = new ComponentTypes[types.Length];
-            for (int i = 0; i < types.Length; i++)
-                componentTypes[i] = new ComponentTypes(types[i]);
-            return componentTypes;
-        }
-
         NativeArray<EntityArchetype> CreateUniqueArchetypes(int size)
         {
             var archetypes = new NativeArray<EntityArchetype>(size, Allocator.Persistent);
@@ -308,7 +318,7 @@ namespace Unity.Entities.PerformanceTests
             m_Manager.CreateEntity(archetype1, entities);
             return entities;
         }
-        
+
         NativeArray<Entity> CreateSameEntitiesNoTag(int size)
         {
             var entities = new NativeArray<Entity>(size, Allocator.Persistent);
@@ -317,28 +327,7 @@ namespace Unity.Entities.PerformanceTests
             return entities;
         }
 
-        NativeArray<Entity> CreateSameEntitiesWithSharedComponent(int size)
-        {
-            var entities = new NativeArray<Entity>(size, Allocator.Persistent);
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
-            m_Manager.CreateEntity(archetype, entities);
-            return entities;
-        }
-
-        NativeArray<Entity> CreateSameEntitiesWithChunkComponent(int size)
-        {
-            var entities = new NativeArray<Entity>(size, Allocator.Persistent);
-            var archetype =
-                m_Manager.CreateArchetype(typeof(EcsTestData), ComponentType.ChunkComponent<EcsTestDataEntity>());
-            m_Manager.CreateEntity(archetype, entities);
-            return entities;
-        }
-
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void AddComponentWithGroup()
         {
             Measure.Method(() => { m_Manager.AddComponent(group, typeof(EcsTestData4)); })
@@ -347,11 +336,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void AddTagComponentWithGroup()
         {
             Measure.Method(() => { m_Manager.AddComponent(group, typeof(EcsTestTag)); })
@@ -360,11 +345,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void AddSharedComponentWithGroup()
         {
             Measure.Method(() => { m_Manager.AddSharedComponentData(group, new EcsTestSharedComp(7)); })
@@ -373,11 +354,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void AddChunkComponentWithGroup()
         {
             Measure.Method(() => { m_Manager.AddChunkComponentData(group, new EcsTestData4(7)); })
@@ -386,11 +363,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void RemoveComponentWithGroup()
         {
             Measure.Method(() => { m_Manager.RemoveComponent(group, typeof(EcsTestData4)); })
@@ -403,11 +376,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void RemoveTagComponentWithGroup()
         {
             Measure.Method(() => { m_Manager.RemoveComponent(group, typeof(EcsTestTag)); })
@@ -420,11 +389,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void RemoveSharedComponentWithGroup()
         {
             Measure.Method(() => { m_Manager.RemoveComponent(group, typeof(EcsTestSharedComp)); })
@@ -437,11 +402,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void RemoveChunkComponentWithGroup()
         {
             Measure.Method(() => { m_Manager.RemoveChunkComponentData<EcsTestData4>(group); })
@@ -454,11 +415,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void AddSharedComponentWithGroupIncompatibleLayout()
         {
             Measure.Method(() =>
@@ -531,11 +488,7 @@ namespace Unity.Entities.PerformanceTests
         //   [ ] public void SetArchetype(Entity entity, EntityArchetype archetype)
         //   [ ] public void SetEnabled(Entity entity, bool enabled)
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void CreateEntity([Values(1, 10, 1000, 10000)] int size)
         {
             Measure.Method(() =>
@@ -555,11 +508,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void CreateEntityArchetypeSame([Values(1, 10, 1000, 10000)] int size)
         {
             Measure.Method(() =>
@@ -579,11 +528,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void CreateEntitiesArchetypeSame([Values(1, 10, 1000, 10000)] int size)
         {
             var entities = default(NativeArray<Entity>);
@@ -599,11 +544,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void CreateEntityArchetypeUnique([Values(1, 10, 1000, 10000)] int size)
         {
             var archetypes = default(NativeArray<EntityArchetype>);
@@ -627,11 +568,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void CreateEntityArchetypeByTypesUnique([Values(1, 10, 1000, 10000)] int size)
         {
             var types = new ComponentType[size][];
@@ -653,11 +590,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void InstantiateEntitySame([Values(1, 10, 1000, 10000)] int size)
         {
             var sourceEntity = default(Entity);
@@ -679,11 +612,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void InstantiateEntitySameWithSharedComponent([Values(1, 10, 1000, 10000)] int size)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
@@ -706,11 +635,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void InstantiateEntityUnique([Values(1, 10, 1000, 10000)] int size)
         {
             var sourceEntities = default(NativeArray<Entity>);
@@ -734,11 +659,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void InstantiateEntityUniqueWithSharedComponent([Values(1, 10, 1000, 10000)] int size)
         {
             var sourceEntities = default(NativeArray<Entity>);
@@ -762,11 +683,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void InstantiateEntitiesSame([Values(1, 10, 1000, 10000)] int size)
         {
             var sourceEntity = default(Entity);
@@ -787,11 +704,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void InstantiateEntitiesSameWithSharedComponent([Values(1, 10, 1000, 10000)] int size)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
@@ -806,18 +719,14 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .CleanUp(() =>
                 {
-                    m_Manager.DestroyEntity(entities); 
+                    m_Manager.DestroyEntity(entities);
                     entities.Dispose();
                 })
                 .WarmupCount(1)
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void DestroyEntityArchetypeSame([Values(1, 10, 1000, 10000)] int size)
         {
             var entities = default(NativeArray<Entity>);
@@ -828,16 +737,12 @@ namespace Unity.Entities.PerformanceTests
                         m_Manager.DestroyEntity(entities[i]);
                 })
                 .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() => { entities.Dispose();})
+                .CleanUp(() => { entities.Dispose(); })
                 .WarmupCount(1)
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void DestroyEntityArchetypeUnique([Values(1, 10, 1000, 10000)] int size)
         {
             var entities = default(NativeArray<Entity>);
@@ -853,11 +758,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void DestroyEntitiesArchetypeSame([Values(1, 10, 1000, 10000)] int size)
         {
             var entities = default(NativeArray<Entity>);
@@ -869,11 +770,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void DestroyEntitiesArchetypeUnique([Values(1, 10, 1000, 10000)] int size)
         {
             var entities = default(NativeArray<Entity>);
@@ -885,11 +782,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void DestroyEntitiesArchetypeSameByQuery([Values(1, 10, 1000, 10000)] int size)
         {
             var entities = default(NativeArray<Entity>);
@@ -901,11 +794,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void DestroyEntitiesArchetypeUniqueByQuery([Values(1, 10, 1000, 10000)] int size)
         {
             var entities = default(NativeArray<Entity>);
@@ -917,11 +806,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void CreateArchetype([Values(1, 10, 1000, 10000)] int size)
         {
             var types = new ComponentType[size][];
@@ -943,433 +828,8 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
+
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddComponentWithEntitySameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.AddComponent<EcsTestData4>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddComponentTagWithEntitySameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.AddComponent<EcsTestTag>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddSharedComponentWithEntitySameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.AddComponent<EcsTestSharedComp2>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddComponentWithEntityUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.AddComponent<EcsTestData4>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddComponentTagWithEntityUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.AddComponent<EcsTestTag>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddSharedComponentWithEntityUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.AddComponent<EcsTestSharedComp2>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddComponentWithQuerySameArchetype()
-        {
-            var size = 10000;
-            var entities = default(NativeArray<Entity>);
-            var query = default(EntityQuery);
-
-            Measure.Method(() => { m_Manager.AddComponent<EcsTestData5>(query); })
-                .SetUp(() =>
-                {
-                    entities = CreateSameEntities(size);
-                    query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-                })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                    query.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddComponentTagWithQuerySameArchetype()
-        {
-            var size = 10000;
-            var entities = default(NativeArray<Entity>);
-            var query = default(EntityQuery);
-
-            Measure.Method(() => { m_Manager.AddComponent<EcsTestTag>(query); })
-                .SetUp(() =>
-                {
-                    entities = CreateSameEntities(size);
-                    query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-                })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                    query.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddSharedComponentWithQuerySameArchetype()
-        {
-            var size = 10000;
-            var entities = default(NativeArray<Entity>);
-            var query = default(EntityQuery);
-
-            Measure.Method(() => { m_Manager.AddComponent<EcsTestSharedComp2>(query); })
-                .SetUp(() =>
-                {
-                    entities = CreateSameEntities(size);
-                    query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-                })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                    query.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddComponentWithEntitiesSameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() => { m_Manager.AddComponent<EcsTestData4>(entities); })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddComponentTagWithEntitiesSameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() => { m_Manager.AddComponent<EcsTestTag>(entities); })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddSharedComponentWithEntitiesSameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() => { m_Manager.AddComponent<EcsTestSharedComp2>(entities); })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddComponentWithEntitiesUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() => { m_Manager.AddComponent<EcsTestData4>(entities); })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddComponentTagWithEntitiesUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() => { m_Manager.AddComponent<EcsTestTag>(entities); })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddSharedComponentWithEntitiesUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() => { m_Manager.AddComponent<EcsTestSharedComp2>(entities); })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddComponentTypesWithEntityUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-            var componentTypes = CreateUniqueArchetypeComponentTypes(size);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.AddComponents(entities[i], componentTypes[i]);
-                })
-                .SetUp(() => { entities = CreateSameEntitiesNoTag(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddComponentTypesWithEntitySameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-            var componentTypes = new ComponentTypes(new ComponentType[]
-                {typeof(TestTag0), typeof(TestTag1), typeof(TestTag2), typeof(TestTag3)});
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.AddComponents(entities[i], componentTypes);
-                })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddComponentTypesWithEntitySameArchetypeWithSharedComponent([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-            var componentTypes = new ComponentTypes(new ComponentType[]
-                {typeof(TestTag0), typeof(TestTag1), typeof(TestTag2), typeof(TestTag3), typeof(TestSharedComponent)});
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.AddComponents(entities[i], componentTypes);
-                })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void AddComponentDataWithEntitiesSameArchetype([Values(1, 10, 1000, 10000)] int size)
         {
             var entities = default(NativeArray<Entity>);
@@ -1389,11 +849,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void AddComponentDataWithEntitiesUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
         {
             var entities = default(NativeArray<Entity>);
@@ -1414,11 +870,7 @@ namespace Unity.Entities.PerformanceTests
         }
 
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void AddChunkComponentDataWithQuerySameArchetype([Values(1, 10, 1000, 10000)] int size)
         {
             var entities = default(NativeArray<Entity>);
@@ -1435,11 +887,7 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void AddChunkComponentDataWithQueryUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
         {
             var entities = default(NativeArray<Entity>);
@@ -1456,650 +904,388 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddChunkComponentWithQuerySameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
 
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.AddChunkComponentData<EcsTestFloatData>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
+        public enum TestComponentVariation
+        {
+            Component,
+            ComponentTag,
+            SharedComponent,
+            Buffer
         }
 
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddChunkComponentWithQueryUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
+        public enum TestArchetypeVariation
         {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.AddChunkComponentData<EcsTestFloatData>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
+            AllSame,
+            AllUnique
         }
 
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddBufferWithQuerySameArchetype([Values(1, 10, 1000, 10000)] int size)
+        public enum TestTypeVariation
         {
-            var entities = default(NativeArray<Entity>);
+            Query,
+            Entity,
+            EntityArray
+        };
 
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.AddBuffer<TestBufferElementData>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
+        public struct WobbleParcelBatch : ISharedComponentData
+        {
+            public int Value;
+
+            public WobbleParcelBatch(int value)
+            {
+                Value = value;
+            }
         }
 
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddBufferWithQueryUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
+        public struct WobbleParcel : IComponentData
         {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.AddBuffer<TestBufferElementData>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
+            public int Value;
         }
 
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddBufferAndAddWithEntitiesSameArchetype([Values(1, 10, 1000, 10000)] int size)
+        public struct WobbleParcelBuffer : IBufferElementData
         {
-            var entities = default(NativeArray<Entity>);
+            public int Value;
+        }
 
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
+        public struct WobbleParcelTag : IComponentData
+        {
+        }
+
+        public struct WobbleParcelShared : ISharedComponentData, IEquatable<WobbleParcelShared>
+        {
+            public string Value;
+
+            public bool Equals(WobbleParcelShared other)
+            {
+                return Value.Equals(other.Value);
+            }
+
+            public override int GetHashCode()
+            {
+                return Value.GetHashCode();
+            }
+        }
+
+
+        delegate void TestQuery(EntityQuery query, ComponentType componentType);
+
+        delegate void TestEntity(Entity entity, ComponentType componentType);
+
+        delegate void TestEntityArray(NativeArray<Entity> entities, ComponentType componentType);
+
+        void AddRemoveComponentTest(
+            int entityCount,
+            int batchSize,
+            TestTypeVariation testTypeVariation,
+            TestComponentVariation componentVariation,
+            bool addComponentVariation,
+            TestArchetypeVariation archetypeVariation,
+            TestQuery testQuery,
+            TestEntity testEntity,
+            TestEntityArray testEntityArray)
+        {
+            ComponentType additionalComponentType;
+
+            if (componentVariation == TestComponentVariation.Component)
+                additionalComponentType = typeof(WobbleParcel);
+            else if (componentVariation == TestComponentVariation.ComponentTag)
+                additionalComponentType = typeof(WobbleParcelTag);
+            else if (componentVariation == TestComponentVariation.SharedComponent)
+                additionalComponentType = typeof(WobbleParcelShared);
+            else // if (componentVariation == TestComponentVariation.Buffer)
+                additionalComponentType = typeof(WobbleParcelBuffer);
+
+            if (testTypeVariation == TestTypeVariation.Query)
+            {
+                var entities = default(NativeArray<Entity>);
+                var queries = new EntityQuery[0];
+
+                Measure.Method(() =>
                     {
-                        var buffer = m_Manager.AddBuffer<TestBufferElementData>(entities[i]);
-                        buffer.Add(new TestBufferElementData());
-                    }
-                })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void AddBufferAndAdddWithQueryUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
+                        for (int i = 0; i < queries.Length; i++)
+                            testQuery(queries[i], additionalComponentType);
+                    })
+                    .SetUp(() =>
                     {
-                        var buffer = m_Manager.AddBuffer<TestBufferElementData>(entities[i]);
-                        buffer.Add(new TestBufferElementData());
-                    }
-                })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
+                        if (addComponentVariation)
+                        {
+                            if (archetypeVariation == TestArchetypeVariation.AllUnique)
+                                entities = CreateUniqueEntities(entityCount, additionalComponentType);
+                            else
+                                entities = CreateSameEntities(entityCount, additionalComponentType);
+                        }
+                        else
+                        {
+
+                            if (archetypeVariation == TestArchetypeVariation.AllUnique)
+                                entities = CreateUniqueEntities(entityCount);
+                            else
+                                entities = CreateSameEntities(entityCount);
+                        }
+
+                        if (batchSize == entityCount)
+                            queries = new EntityQuery[] {m_Manager.UniversalQuery};
+                        else
+                        {
+                            var queryCount = (entityCount + (batchSize - 1)) / batchSize;
+                            queries = new EntityQuery[queryCount];
+                            var queryIndex = 0;
+                            for (int i = 0; i < entityCount; i += batchSize)
+                            {
+                                int remaining = math.min(entityCount - i, batchSize);
+                                var filterBy = new WobbleParcelBatch(i);
+                                queries[queryIndex] =
+                                    m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(WobbleParcelBatch));
+                                queries[queryIndex].SetSharedComponentFilter(filterBy);
+                                for (int j = i; j < i + remaining; j++)
+                                    m_Manager.AddSharedComponentData(entities[j], filterBy);
+                                queryIndex++;
+                            }
+                        }
+                    })
+                    .CleanUp(() =>
+                    {
+                        m_Manager.DestroyEntity(entities);
+
+                        for (int i = 0; i < queries.Length; i++)
+                            queries[i].Dispose();
+
+                        entities.Dispose();
+                    })
+                    .WarmupCount(1)
+                    .Run();
+            }
+            else if (testTypeVariation == TestTypeVariation.EntityArray)
+            {
+                var entities = default(NativeArray<Entity>);
+                var entityBatches = new NativeArray<Entity>[0];
+
+                Measure.Method(() =>
+                    {
+                        for (int i = 0; i < entityBatches.Length; i++)
+                            testEntityArray(entityBatches[i], additionalComponentType);
+                    })
+                    .SetUp(() =>
+                    {
+                        if (addComponentVariation)
+                        {
+                            if (archetypeVariation == TestArchetypeVariation.AllUnique)
+                                entities = CreateUniqueEntities(entityCount, additionalComponentType);
+                            else
+                                entities = CreateSameEntities(entityCount, additionalComponentType);
+                        }
+                        else
+                        {
+
+                            if (archetypeVariation == TestArchetypeVariation.AllUnique)
+                                entities = CreateUniqueEntities(entityCount);
+                            else
+                                entities = CreateSameEntities(entityCount);
+                        }
+
+                        if (batchSize == entityCount)
+                        {
+                            var batchAll = new NativeArray<Entity>(entities.Length, Allocator.Persistent);
+                            batchAll.CopyFrom(entities);
+                            entityBatches = new NativeArray<Entity>[] {batchAll};
+                        }
+                        else
+                        {
+                            var queryCount = (entityCount + (batchSize - 1)) / batchSize;
+                            entityBatches = new NativeArray<Entity>[queryCount];
+                            var queryIndex = 0;
+                            for (int i = 0; i < entityCount; i += batchSize)
+                            {
+                                int remaining = math.min(entityCount - i, batchSize);
+                                var filterBy = new WobbleParcelBatch(i);
+                                var query =
+                                    m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(WobbleParcelBatch));
+                                query.SetSharedComponentFilter(filterBy);
+                                for (int j = i; j < i + remaining; j++)
+                                    m_Manager.AddSharedComponentData(entities[j], filterBy);
+                                entityBatches[queryIndex] = query.ToEntityArray(Allocator.Persistent);
+                                queryIndex++;
+                            }
+                        }
+                    })
+                    .CleanUp(() =>
+                    {
+                        m_Manager.DestroyEntity(entities);
+
+                        for (int i = 0; i < entityBatches.Length; i++)
+                            entityBatches[i].Dispose();
+
+                        entities.Dispose();
+                    })
+                    .WarmupCount(1)
+                    .Run();
+            }
+            else if (testTypeVariation == TestTypeVariation.Entity)
+            {
+                var entities = default(NativeArray<Entity>);
+                var entityBatches = new NativeArray<Entity>[0];
+
+                Measure.Method(() =>
+                    {
+                        for (int i = 0; i < entityBatches.Length; i++)
+                        for (int j = 0; j < entityBatches[i].Length; j++)
+                            testEntity(entityBatches[i][j], additionalComponentType);
+                    })
+                    .SetUp(() =>
+                    {
+                        if (addComponentVariation)
+                        {
+                            if (archetypeVariation == TestArchetypeVariation.AllUnique)
+                                entities = CreateUniqueEntities(entityCount, additionalComponentType);
+                            else
+                                entities = CreateSameEntities(entityCount, additionalComponentType);
+                        }
+                        else
+                        {
+
+                            if (archetypeVariation == TestArchetypeVariation.AllUnique)
+                                entities = CreateUniqueEntities(entityCount);
+                            else
+                                entities = CreateSameEntities(entityCount);
+                        }
+
+                        if (batchSize == entityCount)
+                        {
+                            var batchAll = new NativeArray<Entity>(entities.Length, Allocator.Persistent);
+                            batchAll.CopyFrom(entities);
+                            entityBatches = new NativeArray<Entity>[] {batchAll};
+                        }
+                        else
+                        {
+                            var queryCount = (entityCount + (batchSize - 1)) / batchSize;
+                            entityBatches = new NativeArray<Entity>[queryCount];
+                            var queryIndex = 0;
+                            for (int i = 0; i < entityCount; i += batchSize)
+                            {
+                                int remaining = math.min(entityCount - i, batchSize);
+                                var filterBy = new WobbleParcelBatch(i);
+                                var query =
+                                    m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(WobbleParcelBatch));
+                                query.SetSharedComponentFilter(filterBy);
+                                for (int j = i; j < i + remaining; j++)
+                                    m_Manager.AddSharedComponentData(entities[j], filterBy);
+                                entityBatches[queryIndex] = query.ToEntityArray(Allocator.Persistent);
+                                queryIndex++;
+                            }
+                        }
+                    })
+                    .CleanUp(() =>
+                    {
+                        m_Manager.DestroyEntity(entities);
+
+                        for (int i = 0; i < entityBatches.Length; i++)
+                            entityBatches[i].Dispose();
+
+                        entities.Dispose();
+                    })
+                    .WarmupCount(1)
+                    .Run();
+            }
         }
 
-#if UNITY_2019_2_OR_NEWER
+#if ENABLE_ADD_REMOVE_TEST_100
+
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveComponentWithEntitiesUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
+        public void RemoveComponent100(
+            [Values(1, 10, 100)] int batchSize, [Values(100)] int entityCount,
+            [Values(TestTypeVariation.Entity, TestTypeVariation.EntityArray, TestTypeVariation.Query)]
+            TestTypeVariation testTypeVariation,
+            [Values(TestComponentVariation.Component, TestComponentVariation.ComponentTag,
+                TestComponentVariation.SharedComponent, TestComponentVariation.Buffer)]
+            TestComponentVariation componentVariation,
+            [Values(TestArchetypeVariation.AllSame, TestArchetypeVariation.AllUnique)]
+            TestArchetypeVariation archetypeVariation)
+            => AddRemoveComponentTest(entityCount, batchSize, testTypeVariation, componentVariation, true,
+                archetypeVariation,
+                (entityQuery, componentType) => { m_Manager.RemoveComponent(entityQuery, componentType); },
+                (entity, componentType) => { m_Manager.RemoveComponent(entity, componentType); },
+                (entities, componentType) => { m_Manager.RemoveComponent(entities, componentType); }
+            );
 
-            Measure.Method(() => { m_Manager.RemoveComponent<TestTag0>(entities); })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
+        public void AddComponent100(
+            [Values(1, 10, 100)] int batchSize, [Values(100)] int entityCount,
+            [Values(TestTypeVariation.Entity, TestTypeVariation.EntityArray, TestTypeVariation.Query)]
+            TestTypeVariation testTypeVariation,
+            [Values(TestComponentVariation.Component, TestComponentVariation.ComponentTag,
+                TestComponentVariation.SharedComponent, TestComponentVariation.Buffer)]
+            TestComponentVariation componentVariation,
+            [Values(TestArchetypeVariation.AllSame, TestArchetypeVariation.AllUnique)]
+            TestArchetypeVariation archetypeVariation)
+            => AddRemoveComponentTest(entityCount, batchSize, testTypeVariation, componentVariation, false,
+                archetypeVariation,
+                (entityQuery, componentType) => { m_Manager.AddComponent(entityQuery, componentType); },
+                (entity, componentType) => { m_Manager.AddComponent(entity, componentType); },
+                (entities, componentType) => { m_Manager.AddComponent(entities, componentType); }
+            );
 #endif
-        public void RemoveComponentWithEntitiesSameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
+ 
+#if ENABLE_ADD_REMOVE_TEST_1000
 
-            Measure.Method(() => { m_Manager.RemoveComponent<EcsTestData>(entities); })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveComponentTagWithEntitiesUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
+        public void RemoveComponent1000(
+            [Values(1, 10, 1000)] int batchSize, [Values(1000)] int entityCount,
+            [Values(TestTypeVariation.Entity, TestTypeVariation.EntityArray, TestTypeVariation.Query)]
+            TestTypeVariation testTypeVariation,
+            [Values(TestComponentVariation.Component, TestComponentVariation.ComponentTag,
+                TestComponentVariation.SharedComponent, TestComponentVariation.Buffer)]
+            TestComponentVariation componentVariation,
+            [Values(TestArchetypeVariation.AllSame, TestArchetypeVariation.AllUnique)]
+            TestArchetypeVariation archetypeVariation)
+            => AddRemoveComponentTest(entityCount, batchSize, testTypeVariation, componentVariation, true,
+                archetypeVariation,
+                (entityQuery, componentType) => { m_Manager.RemoveComponent(entityQuery, componentType); },
+                (entity, componentType) => { m_Manager.RemoveComponent(entity, componentType); },
+                (entities, componentType) => { m_Manager.RemoveComponent(entities, componentType); }
+            );
 
-            Measure.Method(() => { m_Manager.RemoveComponent<TestTag0>(entities); })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveComponentTagWithEntitiesSameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
+        public void AddComponent1000(
+            [Values(1, 10, 1000)] int batchSize, [Values(1000)] int entityCount,
+            [Values(TestTypeVariation.Entity, TestTypeVariation.EntityArray, TestTypeVariation.Query)]
+            TestTypeVariation testTypeVariation,
+            [Values(TestComponentVariation.Component, TestComponentVariation.ComponentTag,
+                TestComponentVariation.SharedComponent, TestComponentVariation.Buffer)]
+            TestComponentVariation componentVariation,
+            [Values(TestArchetypeVariation.AllSame, TestArchetypeVariation.AllUnique)]
+            TestArchetypeVariation archetypeVariation)
+            => AddRemoveComponentTest(entityCount, batchSize, testTypeVariation, componentVariation, false,
+                archetypeVariation,
+                (entityQuery, componentType) => { m_Manager.AddComponent(entityQuery, componentType); },
+                (entity, componentType) => { m_Manager.AddComponent(entity, componentType); },
+                (entities, componentType) => { m_Manager.AddComponent(entities, componentType); }
+            );
+#endif 
+    
+#if ENABLE_ADD_REMOVE_TEST_10000
 
-            Measure.Method(() => { m_Manager.RemoveComponent<TestTag0>(entities); })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveSharedComponentWithEntitiesUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() => { m_Manager.RemoveComponent<EcsTestSharedComp>(entities); })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
+        public void RemoveComponent1000(
+            [Values(10, 1000, 10000)] int batchSize, [Values(10000)] int entityCount,
+            [Values(TestTypeVariation.Entity, TestTypeVariation.EntityArray, TestTypeVariation.Query)] TestTypeVariation testTypeVariation,
+            [Values(TestComponentVariation.Component, TestComponentVariation.ComponentTag, TestComponentVariation.SharedComponent, TestComponentVariation.Buffer)] TestComponentVariation componentVariation,
+            [Values(TestArchetypeVariation.AllSame, TestArchetypeVariation.AllUnique)] TestArchetypeVariation archetypeVariation)
+            => AddRemoveComponentTest(entityCount, batchSize, testTypeVariation, componentVariation, true, archetypeVariation,
+                (entityQuery, componentType) => { m_Manager.RemoveComponent(entityQuery, componentType); },
+                (entity, componentType) => { m_Manager.RemoveComponent(entity, componentType); },
+                (entities, componentType) => { m_Manager.RemoveComponent(entities, componentType); }
+                );
+        
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveSharedComponentWithEntitiesSameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() => { m_Manager.RemoveComponent<EcsTestSharedComp>(entities); })
-                .SetUp(() => { entities = CreateSameEntitiesWithSharedComponent(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveComponentWithEntityUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.RemoveComponent<EcsTestData>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveComponentWithEntitySameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.RemoveComponent<EcsTestData>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveComponentTagWithEntityUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.RemoveComponent<TestTag0>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveComponentTagWithEntitySameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.RemoveComponent<TestTag0>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveSharedComponentWithEntityUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.RemoveComponent<EcsTestSharedComp>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveSharedComponentWithEntitySameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.RemoveComponent<EcsTestSharedComp>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateSameEntitiesWithSharedComponent(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveComponentWithQueryUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-            var query = m_Manager.UniversalQuery;
-
-            Measure.Method(() => { m_Manager.RemoveComponent<EcsTestData>(query); })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveComponentWithQuerySameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-            var query = m_Manager.UniversalQuery;
-
-            Measure.Method(() => { m_Manager.RemoveComponent<EcsTestData>(query); })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveComponentTagWithQueryUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-            var query = m_Manager.UniversalQuery;
-
-            Measure.Method(() => { m_Manager.RemoveComponent<TestTag0>(query); })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveComponentTagWithQuerySameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-            var query = m_Manager.UniversalQuery;
-
-            Measure.Method(() => { m_Manager.RemoveComponent<TestTag0>(query); })
-                .SetUp(() => { entities = CreateSameEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveSharedComponentWithQueryUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-            var query = m_Manager.UniversalQuery;
-
-            Measure.Method(() => { m_Manager.RemoveComponent<EcsTestSharedComp>(query); })
-                .SetUp(() => { entities = CreateUniqueEntities(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveSharedComponentWithQuerySameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-            var query = m_Manager.UniversalQuery;
-
-            Measure.Method(() => { m_Manager.RemoveComponent<EcsTestSharedComp>(query); })
-                .SetUp(() => { entities = CreateSameEntitiesWithSharedComponent(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveChunkomponentWithEntityUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.RemoveChunkComponent<EcsTestData>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateUniqueEntitiesWithChunkComponent(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveChunkComponentWithEntitySameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-
-            Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.RemoveChunkComponent<EcsTestDataEntity>(entities[i]);
-                })
-                .SetUp(() => { entities = CreateSameEntitiesWithChunkComponent(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveChunkComponentWithQueryUniqueArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-            var query = m_Manager.UniversalQuery;
-
-            Measure.Method(() => { m_Manager.RemoveChunkComponentData<EcsTestDataEntity>(query); })
-                .SetUp(() => { entities = CreateUniqueEntitiesWithChunkComponent(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
-
-
-#if UNITY_2019_2_OR_NEWER
-        [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
-        public void RemoveChunkComponentWithQuerySameArchetype([Values(1, 10, 1000, 10000)] int size)
-        {
-            var entities = default(NativeArray<Entity>);
-            var query = m_Manager.UniversalQuery;
-
-            Measure.Method(() => { m_Manager.RemoveChunkComponentData<EcsTestDataEntity>(query); })
-                .SetUp(() => { entities = CreateSameEntitiesWithChunkComponent(size); })
-                .CleanUp(() =>
-                {
-                    m_Manager.DestroyEntity(entities);
-                    entities.Dispose();
-                })
-                .WarmupCount(1)
-                .Run();
-        }
+        public void AddComponent10000(
+            [Values(10, 1000, 10000)] int batchSize, [Values(10000)] int entityCount,
+            [Values(TestTypeVariation.Entity, TestTypeVariation.EntityArray, TestTypeVariation.Query)] TestTypeVariation testTypeVariation,
+            [Values(TestComponentVariation.Component, TestComponentVariation.ComponentTag, TestComponentVariation.SharedComponent, TestComponentVariation.Buffer)] TestComponentVariation componentVariation,
+            [Values(TestArchetypeVariation.AllSame, TestArchetypeVariation.AllUnique)] TestArchetypeVariation archetypeVariation)
+            => AddRemoveComponentTest(entityCount, batchSize, testTypeVariation, componentVariation, false, archetypeVariation,
+                (entityQuery, componentType) => { m_Manager.AddComponent(entityQuery, componentType); },
+                (entity, componentType) => { m_Manager.AddComponent(entity, componentType); },
+                (entities, componentType) => { m_Manager.AddComponent(entities, componentType); }
+            );
+#endif 
     }
 }

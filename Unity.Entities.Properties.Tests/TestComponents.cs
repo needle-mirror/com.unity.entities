@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Unity.Mathematics;
 
 
@@ -77,4 +79,16 @@ namespace Unity.Entities.Properties.Tests
 
         public TestSharedComponent(float v) { value = v; }
     }
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+    [System.Serializable]
+    public class TestManagedComponent : IComponentData
+    {
+        public readonly float value;
+
+        public TestManagedComponent()
+        {
+            value = 5.0f;
+        }
+    }
+#endif
 }

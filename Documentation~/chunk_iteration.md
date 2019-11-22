@@ -9,7 +9,9 @@ In general, the most efficient way to iterate over your entities and components 
 
 The ECS API provides a number of ways to accomplish iteration, each with its own performance implications and restrictions. You can iterate over ECS data in the following ways:
 
-* [IJobForEach](entity_iteration_job.md) — the simplest efficient way to process component data entity by entity.
+* [JobComponentSystem Entities.ForEach](entities_job_foreach.md) — the simplest efficient way to process component data entity by entity.
+
+* [IJobForEach](entity_iteration_job.md) — use a job struct to efficiently iterate over entities. (IJobForEach is equivalent to using Entities.ForEach in a JobComponentSystem, but requires more manually written setup code.)
 
 * [IJobForEachWithEntity](entity_iteration_job.md#with-entity) — slightly more complex than IJobForEach, giving you access to the entity handle and array index of the entity you are processing.
 

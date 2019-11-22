@@ -41,7 +41,7 @@ namespace Unity.Entities
         readonly AtomicSafetyHandle      m_Safety;
 #endif
         [NativeDisableUnsafePtrRestriction]
-        readonly EntityComponentStore*             m_EntityComponentStore;
+        readonly EntityComponentStore*   m_EntityComponentStore;
         readonly int                     m_TypeIndex;
         readonly uint                    m_GlobalSystemVersion;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS

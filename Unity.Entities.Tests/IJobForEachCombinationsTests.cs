@@ -133,7 +133,7 @@ namespace Unity.Entities.Tests
         }
 
 #if false
-        // This code, though much simpler, won't compile on ZEROPLAYER
+        // This code, though much simpler, won't compile on DOTSPLAYER
         void Schedule<T>(ProcessMode mode) where T : struct, JobForEachExtensions.IBaseJobForEach
         {
             if (mode == ProcessMode.Parallel)
@@ -494,7 +494,7 @@ namespace Unity.Entities.Tests
             CheckResultsAndDispose(entities, 4, true);
         }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
         [Test]
         public void JobProcessBufferStress_1([Values]CallMode call, [Values]ProcessMode mode, [Values(0, 1, 1000)]int entityCount)
         {

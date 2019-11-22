@@ -26,7 +26,11 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(m_Manager.GetChunk(e0), m_Manager.GetChunk(e1));
         }
 
-        void AssertHasVersion<T>(Entity e, uint version) where T : struct, IComponentData
+        public void AssertHasVersion<T>(Entity e, uint version) where T :
+#if UNITY_DISABLE_MANAGED_COMPONENTS
+            struct, 
+#endif
+            IComponentData
         {
             var type = m_Manager.GetArchetypeChunkComponentType<T>(true);
             var chunk = m_Manager.GetChunk(e);
@@ -34,7 +38,7 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(chunk.DidChange(type, version));
             Assert.IsTrue(chunk.DidChange(type, version-1));
         }
-
+        
         void AssertHasBufferVersion<T>(Entity e, uint version) where T : struct, IBufferElementData
         {
             var type = m_Manager.GetArchetypeChunkBufferType<T>(true);
@@ -173,6 +177,7 @@ namespace Unity.Entities.Tests
             AssertHasSharedVersion<EcsTestSharedComp>(e1, NewVersion);
         }
 
+
         [Test]
         public void SetSharedComponentMarksSrcAndDestChunkAsChanged()
         {
@@ -220,5 +225,57 @@ namespace Unity.Entities.Tests
             AssertHasVersion<EcsTestData>(e1, NewVersion);
             AssertHasVersion<EcsTestData2>(e1, NewVersion);
         }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [Test]
+        public void NewlyCreatedChunkGetsCurrentVersion_ManagedComponents()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
+            AssertHasVersion<EcsTestManagedComponent>(e0, OldVersion);
+            AssertHasVersion<EcsTestManagedComponent2>(e0, OldVersion);
+            BumpGlobalSystemVersion();
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent3));
+            AssertHasVersion<EcsTestManagedComponent3>(e1, NewVersion);
+        }
+
+        [Test]
+        public void CreateEntityMarksDestChunkAsChanged_ManagedComponents()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
+            BumpGlobalSystemVersion();
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
+            AssertSameChunk(e0, e1);
+            AssertHasVersion<EcsTestManagedComponent>(e0, NewVersion);
+            AssertHasVersion<EcsTestManagedComponent>(e1, NewVersion);
+        }
+
+        [Test]
+        public void AddComponentMarksSrcAndDestChunkAsChanged_ManagedComponents()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
+            BumpGlobalSystemVersion();
+            m_Manager.AddComponentData(e1, new EcsTestManagedComponent3() { value = "SomeString" });
+            AssertHasVersion<EcsTestManagedComponent>(e0, NewVersion);
+            AssertHasVersion<EcsTestManagedComponent2>(e0, NewVersion);
+            AssertHasVersion<EcsTestManagedComponent>(e1, NewVersion);
+            AssertHasVersion<EcsTestManagedComponent2>(e1, NewVersion);
+            AssertHasVersion<EcsTestManagedComponent3>(e1, NewVersion);
+        }
+
+        [Test]
+        public void AddSharedComponentMarksSrcAndDestChunkAsChanged_ManagedComponents()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
+            BumpGlobalSystemVersion();
+            m_Manager.AddSharedComponentData(e1, new EcsTestSharedComp(7));
+            AssertHasVersion<EcsTestManagedComponent>(e0, NewVersion);
+            AssertHasVersion<EcsTestManagedComponent2>(e0, NewVersion);
+            AssertHasVersion<EcsTestManagedComponent>(e1, NewVersion);
+            AssertHasVersion<EcsTestManagedComponent2>(e1, NewVersion);
+            AssertHasSharedVersion<EcsTestSharedComp>(e1, NewVersion);
+        }
+#endif
     }
 }

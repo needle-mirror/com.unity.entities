@@ -1,44 +1,24 @@
-﻿using System;
-using System.Threading;
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
-using UnityEngine;
 using Unity.PerformanceTesting;
-using Unity.Entities;
 using Unity.Entities.Tests;
 
 namespace Unity.Entities.PerformanceTests
 {
     [TestFixture]
     [Category("Performance")]
-    public sealed class JobForEachPrefilteringPerformanceTests
+    public sealed class JobForEachPrefilteringPerformanceTests : EntityPerformanceTestFixture
     {
-        private World m_PreviousWorld;
-        private World m_World;
-        private EntityManager m_Manager;
-
-        private struct ProcessJob : IJobForEach<EcsTestData>
+        struct ProcessJob : IJobForEach<EcsTestData>
         {
             public void Execute(ref EcsTestData c0)
             {
                 c0 = new EcsTestData {value = 10};
             }
         }
-
-        [SetUp]
-        public void Setup()
-        {
-            m_PreviousWorld = World.Active;
-            m_World = World.Active = new World("Test World");
-            m_Manager = m_World.EntityManager;
-        }
-
-        #if UNITY_2019_2_OR_NEWER
+        
         [Test, Performance]
-        #else
-        [PerformanceTest]
-        #endif
         public void Prefiltering_SingleArchetype_SingleChunk_Unfiltered()
         {
             const int kEntityCount = 10;
@@ -72,11 +52,7 @@ namespace Unity.Entities.PerformanceTests
             entities.Dispose();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void Prefiltering_SingleArchetype_TwoChunks_Filtered()
         {
             const int kEntityCount = 10;
@@ -99,7 +75,7 @@ namespace Unity.Entities.PerformanceTests
             }
 
             var dependsOn = new JobHandle();
-            group.SetFilter(new EcsTestSharedComp {value = 10});
+            group.SetSharedComponentFilter(new EcsTestSharedComp {value = 10});
 
             Measure.Method(
                     () =>
@@ -123,11 +99,7 @@ namespace Unity.Entities.PerformanceTests
             entities.Dispose();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void Prefiltering_SingleArchetype_MultipleChunks_Filtered()
         {
             const int kEntityCount = 10000;
@@ -151,7 +123,7 @@ namespace Unity.Entities.PerformanceTests
             }
 
             var dependsOn = new JobHandle();
-            group.SetFilter(new EcsTestSharedComp{value = 0});
+            group.SetSharedComponentFilter(new EcsTestSharedComp{value = 0});
 
             Measure.Method(
                     () =>
@@ -175,11 +147,7 @@ namespace Unity.Entities.PerformanceTests
             entities.Dispose();
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void Prefiltering_MultipleArchetype_MultipleChunks_Filtered()
         {
             var allTypes = new ComponentType[5];
@@ -217,7 +185,7 @@ namespace Unity.Entities.PerformanceTests
             var group = m_Manager.CreateEntityQuery(
                 ComponentType.ReadWrite<EcsTestData>(),
                 ComponentType.ReadWrite<EcsTestSharedComp>());
-            group.SetFilter(new EcsTestSharedComp{value = 0});
+            group.SetSharedComponentFilter(new EcsTestSharedComp{value = 0});
 
             Measure.Method(
                     () =>
@@ -241,4 +209,3 @@ namespace Unity.Entities.PerformanceTests
         }
     }
 }
-

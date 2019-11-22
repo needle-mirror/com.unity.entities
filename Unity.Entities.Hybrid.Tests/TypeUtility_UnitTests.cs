@@ -9,12 +9,12 @@ namespace Unity.Entities.Tests
         struct Data : IComponentData {}
         
         [DisallowMultipleComponent]
-        [UnityEngine.AddComponentMenu("Hidden/DontUse")]
+        [AddComponentMenu("")]
         class DataProxy : ComponentDataProxy<Data> {}
 
         struct SharedData : ISharedComponentData {}
         
-        [UnityEngine.AddComponentMenu("Hidden/DontUse")]
+        [AddComponentMenu("")]
         class SharedDataProxy : SharedComponentDataProxy<SharedData> {}
 
         struct BufferElement : IBufferElementData {}

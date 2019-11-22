@@ -22,24 +22,24 @@ namespace Unity.Entities
     /// Job component systems that have no other type dependencies have their JobHandles registered on the Entity type
     /// to ensure that they are completed by CompleteAllJobsAndInvalidateArrays
     /// </summary>
-    internal unsafe struct ComponentJobSafetyManager
+    unsafe struct ComponentJobSafetyManager
     {
-        private const int kMaxReadJobHandles = 17;
-        private const int kMaxTypes = TypeManager.MaximumTypesCount;
+        const int kMaxReadJobHandles = 17;
+        const int kMaxTypes = TypeManager.MaximumTypesCount;
 
-        private JobHandle* m_JobDependencyCombineBuffer;
-        private int m_JobDependencyCombineBufferCount;
-        private ComponentSafetyHandle* m_ComponentSafetyHandles;
+        JobHandle* m_JobDependencyCombineBuffer;
+        int m_JobDependencyCombineBufferCount;
+        ComponentSafetyHandle* m_ComponentSafetyHandles;
 
-        private JobHandle m_ExclusiveTransactionDependency;
+        JobHandle m_ExclusiveTransactionDependency;
 
-        private JobHandle* m_ReadJobFences;
+        JobHandle* m_ReadJobFences;
 
-        private const int EntityTypeIndex = 1;
+        const int EntityTypeIndex = 1;
 
-        private ushort* m_TypeArrayIndices;
-        private ushort m_TypeCount;
-        private const ushort NullTypeIndex = 0xFFFF;
+        ushort* m_TypeArrayIndices;
+        ushort m_TypeCount;
+        const ushort NullTypeIndex = 0xFFFF;
 
         ushort GetTypeArrayIndex(int typeIndex)
         {
@@ -57,9 +57,10 @@ namespace Unity.Entities
             AtomicSafetyHandle.SetAllowSecondaryVersionWriting(m_ComponentSafetyHandles[arrayIndex].SafetyHandle, false);
             
             m_ComponentSafetyHandles[arrayIndex].BufferHandle = AtomicSafetyHandle.Create();
-            #if UNITY_2019_3_OR_NEWER
+
+        #if !NET_DOTS // todo: enable when this is supported
             AtomicSafetyHandle.SetBumpSecondaryVersionOnScheduleWrite(m_ComponentSafetyHandles[arrayIndex].BufferHandle, true);
-            #endif
+        #endif
 #endif
             m_ComponentSafetyHandles[arrayIndex].WriteFence = new JobHandle();
 
@@ -76,7 +77,7 @@ namespace Unity.Entities
         public void OnCreate()
         {
             m_TypeArrayIndices = (ushort*)UnsafeUtility.Malloc(sizeof(ushort) * kMaxTypes, 16, Allocator.Persistent);
-            UnsafeUtilityEx.MemSet(m_TypeArrayIndices, 0xFF, sizeof(ushort)*kMaxTypes);
+            UnsafeUtility.MemSet(m_TypeArrayIndices, 0xFF, sizeof(ushort)*kMaxTypes);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_TempSafety = AtomicSafetyHandle.Create();
@@ -96,9 +97,12 @@ namespace Unity.Entities
 
             m_TypeCount = 0;
             IsInTransaction = false;
+            IsInForEachDisallowStructuralChange = 0;
             m_ExclusiveTransactionDependency = default(JobHandle);
         }
 
+        public int IsInForEachDisallowStructuralChange;
+        
         public bool IsInTransaction { get; private set; }
 
         public JobHandle ExclusiveTransactionDependency
@@ -433,7 +437,7 @@ namespace Unity.Entities
         }
 #endif
 
-        private JobHandle CombineReadDependencies(ushort typeArrayIndex)
+        JobHandle CombineReadDependencies(ushort typeArrayIndex)
         {
             var combined = JobHandleUnsafeUtility.CombineDependencies(
                 m_ReadJobFences + typeArrayIndex * kMaxReadJobHandles, m_ComponentSafetyHandles[typeArrayIndex].NumReadFences);
@@ -487,7 +491,7 @@ namespace Unity.Entities
             IsInTransaction = false;
         }
 
-        private JobHandle GetAllDependencies()
+        JobHandle GetAllDependencies()
         {
             var jobHandles =
                 new NativeArray<JobHandle>(m_TypeCount * (kMaxReadJobHandles + 1), Allocator.Temp);
@@ -508,7 +512,7 @@ namespace Unity.Entities
             return combined;
         }
 
-        private struct ComponentSafetyHandle
+        struct ComponentSafetyHandle
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             public AtomicSafetyHandle SafetyHandle;
@@ -520,7 +524,7 @@ namespace Unity.Entities
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        private AtomicSafetyHandle m_TempSafety;
+        AtomicSafetyHandle m_TempSafety;
 #endif
     }
 }

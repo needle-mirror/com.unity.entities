@@ -32,15 +32,22 @@ namespace Unity.Entities
                 {
                     query = ResolveEntityQuery(null, 0);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         action(entity);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -63,11 +70,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -80,6 +90,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -102,11 +116,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -119,6 +136,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -141,16 +162,23 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
                         action(entity, c0);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -173,16 +201,23 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
                         action(c0);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -205,16 +240,23 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
                         action(entity, c0);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -237,16 +279,23 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
                         action(c0);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -269,16 +318,23 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
                         action(entity, c0);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -301,16 +357,23 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
                         action(c0);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -336,11 +399,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -361,6 +427,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -386,11 +456,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -411,6 +484,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -439,11 +516,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -473,6 +553,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -500,11 +584,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -533,6 +620,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -564,11 +655,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -606,6 +700,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -636,11 +734,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -678,6 +779,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -711,11 +816,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -761,6 +869,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -794,11 +906,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -844,6 +959,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -880,11 +999,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -938,6 +1060,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -974,11 +1100,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -1032,6 +1161,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -1056,11 +1189,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -1074,6 +1210,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -1099,11 +1239,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -1117,6 +1260,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -1145,11 +1292,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -1171,6 +1321,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -1199,11 +1353,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -1225,6 +1382,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -1256,11 +1417,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -1290,6 +1454,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -1321,11 +1489,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -1355,6 +1526,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -1389,11 +1564,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -1432,6 +1610,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -1465,11 +1647,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -1507,6 +1692,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -1544,11 +1733,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -1594,6 +1786,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -1631,11 +1827,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -1682,6 +1881,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -1706,11 +1909,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -1724,6 +1930,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -1749,11 +1959,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -1767,6 +1980,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -1795,11 +2012,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -1821,6 +2041,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -1849,11 +2073,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -1875,6 +2102,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -1906,11 +2137,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -1940,6 +2174,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -1971,11 +2209,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -2005,6 +2246,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -2039,11 +2284,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -2082,6 +2330,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -2115,11 +2367,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -2157,6 +2412,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -2194,11 +2453,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -2245,6 +2507,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -2281,11 +2547,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -2332,6 +2601,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -2356,11 +2629,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -2374,6 +2650,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -2399,11 +2679,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -2417,6 +2700,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -2445,11 +2732,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -2471,6 +2761,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -2499,11 +2793,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -2525,6 +2822,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -2556,11 +2857,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -2590,6 +2894,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -2621,11 +2929,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -2655,6 +2966,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -2689,11 +3004,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -2732,6 +3050,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -2765,11 +3087,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -2808,6 +3133,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -2844,11 +3173,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -2895,6 +3227,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -2931,11 +3267,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -2982,6 +3321,10 @@ namespace Unity.Entities
                         }
                     }
                 }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
+                }
             }
         }
 
@@ -3006,11 +3349,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -3024,6 +3370,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3049,11 +3399,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -3067,6 +3420,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3095,11 +3452,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -3114,6 +3474,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3142,11 +3506,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -3161,6 +3528,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3192,11 +3563,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -3212,6 +3586,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3243,11 +3621,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -3263,6 +3644,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3297,11 +3682,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -3318,6 +3706,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3352,11 +3744,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -3373,6 +3768,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3410,11 +3809,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -3432,6 +3834,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3469,11 +3875,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -3491,6 +3900,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3516,17 +3929,24 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         action(entity, c0, c1);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3552,17 +3972,24 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         action(c0, c1);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3591,11 +4018,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -3603,6 +4033,10 @@ namespace Unity.Entities
                         var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
                         action(entity, c0, c1, c2);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3631,11 +4065,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -3643,6 +4080,10 @@ namespace Unity.Entities
                         var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
                         action(c0, c1, c2);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3674,11 +4115,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -3687,6 +4131,10 @@ namespace Unity.Entities
                         var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
                         action(entity, c0, c1, c2, c3);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3718,11 +4166,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -3731,6 +4182,10 @@ namespace Unity.Entities
                         var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
                         action(c0, c1, c2, c3);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3765,11 +4220,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -3779,6 +4237,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
                         action(entity, c0, c1, c2, c3, c4);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3813,11 +4275,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -3827,6 +4292,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
                         action(c0, c1, c2, c3, c4);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3864,11 +4333,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -3879,6 +4351,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
                         action(entity, c0, c1, c2, c3, c4, c5);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3916,11 +4392,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -3931,6 +4410,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
                         action(c0, c1, c2, c3, c4, c5);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3956,17 +4439,24 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         action(entity, c0, c1);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -3992,17 +4482,24 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         action(c0, c1);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4031,11 +4528,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -4043,6 +4543,10 @@ namespace Unity.Entities
                         var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
                         action(entity, c0, c1, c2);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4071,11 +4575,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -4083,6 +4590,10 @@ namespace Unity.Entities
                         var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
                         action(c0, c1, c2);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4114,11 +4625,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -4127,6 +4641,10 @@ namespace Unity.Entities
                         var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
                         action(entity, c0, c1, c2, c3);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4158,11 +4676,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -4171,6 +4692,10 @@ namespace Unity.Entities
                         var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
                         action(c0, c1, c2, c3);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4205,11 +4730,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -4219,6 +4747,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
                         action(entity, c0, c1, c2, c3, c4);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4253,11 +4785,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -4267,6 +4802,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
                         action(c0, c1, c2, c3, c4);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4304,11 +4843,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -4319,6 +4861,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
                         action(entity, c0, c1, c2, c3, c4, c5);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4356,11 +4902,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -4371,6 +4920,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
                         action(c0, c1, c2, c3, c4, c5);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4396,17 +4949,24 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         action(entity, c0, c1);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4432,17 +4992,24 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         action(c0, c1);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4471,11 +5038,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -4483,6 +5053,10 @@ namespace Unity.Entities
                         var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
                         action(entity, c0, c1, c2);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4511,11 +5085,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -4523,6 +5100,10 @@ namespace Unity.Entities
                         var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
                         action(c0, c1, c2);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4554,11 +5135,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -4567,6 +5151,10 @@ namespace Unity.Entities
                         var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
                         action(entity, c0, c1, c2, c3);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4598,11 +5186,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -4611,6 +5202,10 @@ namespace Unity.Entities
                         var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
                         action(c0, c1, c2, c3);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4645,11 +5240,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -4659,6 +5257,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
                         action(entity, c0, c1, c2, c3, c4);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4693,11 +5295,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -4707,6 +5312,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
                         action(c0, c1, c2, c3, c4);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4744,11 +5353,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -4759,6 +5371,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
                         action(entity, c0, c1, c2, c3, c4, c5);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4796,11 +5412,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -4811,6 +5430,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
                         action(c0, c1, c2, c3, c4, c5);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4836,11 +5459,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -4854,6 +5480,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4879,11 +5509,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -4897,6 +5530,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4925,11 +5562,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -4944,6 +5584,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -4972,11 +5616,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -4991,6 +5638,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5022,11 +5673,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -5042,6 +5696,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5073,11 +5731,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -5093,6 +5754,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5127,11 +5792,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -5148,6 +5816,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5182,11 +5854,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -5203,6 +5878,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5240,11 +5919,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -5262,6 +5944,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5299,11 +5985,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
@@ -5321,6 +6010,10 @@ namespace Unity.Entities
                                 m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
                         }
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5346,17 +6039,24 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         action(entity, c0, c1);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5382,17 +6082,24 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         action(c0, c1);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5421,11 +6128,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -5433,6 +6143,10 @@ namespace Unity.Entities
                         var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
                         action(entity, c0, c1, c2);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5461,11 +6175,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -5473,6 +6190,10 @@ namespace Unity.Entities
                         var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
                         action(c0, c1, c2);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5504,11 +6225,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -5517,6 +6241,10 @@ namespace Unity.Entities
                         var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
                         action(entity, c0, c1, c2, c3);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5548,11 +6276,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -5561,6 +6292,10 @@ namespace Unity.Entities
                         var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
                         action(c0, c1, c2, c3);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5595,11 +6330,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -5609,6 +6347,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
                         action(entity, c0, c1, c2, c3, c4);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5643,11 +6385,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -5657,6 +6402,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
                         action(c0, c1, c2, c3, c4);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5694,11 +6443,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -5709,6 +6461,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
                         action(entity, c0, c1, c2, c3, c4, c5);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5746,11 +6502,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
@@ -5761,6 +6520,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
                         action(c0, c1, c2, c3, c4, c5);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5786,17 +6549,24 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         action(entity, c0, c1);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5822,17 +6592,24 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         action(c0, c1);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5861,11 +6638,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -5873,6 +6653,10 @@ namespace Unity.Entities
                         var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
                         action(entity, c0, c1, c2);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5901,11 +6685,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -5913,6 +6700,10 @@ namespace Unity.Entities
                         var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
                         action(c0, c1, c2);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5944,11 +6735,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -5957,6 +6751,10 @@ namespace Unity.Entities
                         var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
                         action(entity, c0, c1, c2, c3);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -5988,11 +6786,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -6001,6 +6802,10 @@ namespace Unity.Entities
                         var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
                         action(c0, c1, c2, c3);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -6035,11 +6840,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -6049,6 +6857,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
                         action(entity, c0, c1, c2, c3, c4);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -6083,11 +6895,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -6097,6 +6912,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
                         action(c0, c1, c2, c3, c4);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -6134,11 +6953,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -6149,6 +6971,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
                         action(entity, c0, c1, c2, c3, c4, c5);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -6186,11 +7012,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
@@ -6201,6 +7030,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
                         action(c0, c1, c2, c3, c4, c5);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -6226,17 +7059,24 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         action(entity, c0, c1);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -6262,17 +7102,24 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         action(c0, c1);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -6301,11 +7148,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -6313,6 +7163,10 @@ namespace Unity.Entities
                         var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
                         action(entity, c0, c1, c2);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -6341,11 +7195,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -6353,6 +7210,10 @@ namespace Unity.Entities
                         var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
                         action(c0, c1, c2);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -6384,11 +7245,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -6397,6 +7261,10 @@ namespace Unity.Entities
                         var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
                         action(entity, c0, c1, c2, c3);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -6428,11 +7296,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -6441,6 +7312,10 @@ namespace Unity.Entities
                         var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
                         action(c0, c1, c2, c3);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -6475,11 +7350,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -6489,6 +7367,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
                         action(entity, c0, c1, c2, c3, c4);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -6523,11 +7405,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -6537,6 +7422,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
                         action(c0, c1, c2, c3, c4);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -6574,11 +7463,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -6589,6 +7481,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
                         action(entity, c0, c1, c2, c3, c4, c5);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }
@@ -6626,11 +7522,14 @@ namespace Unity.Entities
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
@@ -6641,6 +7540,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
                         action(c0, c1, c2, c3, c4, c5);
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }

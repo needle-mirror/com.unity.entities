@@ -116,6 +116,29 @@ namespace Unity.Entities.Editor
             return rows;
         }
 
+        private int widestIndex = 0;
+        private float widestIndexWith = 10f;
+        private readonly GUIContent tempContent = new GUIContent("");
+
+        protected override void RowGUI(RowGUIArgs args)
+        {
+            var index = EntityArrayListAdapter.ItemIdToIndex(args.item.id);
+            if (index > widestIndex)
+            {
+                widestIndex = index;
+                tempContent.text = widestIndex.ToString();
+                widestIndexWith = DefaultStyles.label.CalcSize(tempContent).x;
+            }
+            var rowRect = args.rowRect;
+            var idRect = args.rowRect;
+            rowRect.xMin += widestIndexWith;
+            args.rowRect = rowRect;
+            
+            base.RowGUI(args);
+            
+            DefaultGUI.Label(idRect, index.ToString(), args.selected, args.focused);
+        }
+
         protected override IList<int> GetAncestors(int id)
         {
             return id == 0 ? new List<int>() : new List<int>() {0};
@@ -130,11 +153,6 @@ namespace Unity.Entities.Editor
         {
             if (getWorldSelection()?.EntityManager.IsCreated == true)
                 base.OnGUI(rect);
-        }
-
-        public void OnEntitySelected(Entity entity)
-        {
-            setEntitySelection(entity);
         }
 
         protected override void SelectionChanged(IList<int> selectedIds)

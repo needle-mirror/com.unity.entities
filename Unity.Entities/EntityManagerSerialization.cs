@@ -14,7 +14,14 @@ namespace Unity.Entities
         /// </summary>
         public void PrepareForDeserialize()
         {
-            Assert.AreEqual(0, Debug.EntityCount);
+            if (Debug.EntityCount != 0)
+            {
+                using (var allEntities = GetAllEntities())
+                {
+                    throw new System.ArgumentException($"PrepareForDeserialize requires the world to be completely empty, but there are {allEntities.Length}.\nFor example: {Debug.GetEntityInfo(allEntities[0])}");
+                }
+            }
+            
             m_ManagedComponentStore.PrepareForDeserialize();
         }
         

@@ -10,7 +10,7 @@ namespace Unity.Entities.Tests
         protected class TestComponentSystem : ComponentSystem
             { protected override void OnUpdate() { } }
 
-        protected static TestComponentSystem TestSystem => World.Active.GetOrCreateSystem<TestComponentSystem>();
+        protected TestComponentSystem TestSystem => World.GetOrCreateSystem<TestComponentSystem>();
     }
 
     class EntityQueryBuilderTests : EntityQueryBuilderTestFixture
@@ -18,7 +18,7 @@ namespace Unity.Entities.Tests
         class TestComponentSystem2 : ComponentSystem
             { protected override void OnUpdate() { } }
 
-        static TestComponentSystem2 TestSystem2 => World.Active.GetOrCreateSystem<TestComponentSystem2>();
+        TestComponentSystem2 TestSystem2 => World.DefaultGameObjectInjectionWorld.GetOrCreateSystem<TestComponentSystem2>();
 
         [Test]
         public void WithGroup_WithNullGroup_Throws() =>

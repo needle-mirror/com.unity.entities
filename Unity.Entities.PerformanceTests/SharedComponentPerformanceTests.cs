@@ -5,35 +5,8 @@ using Unity.PerformanceTesting;
 namespace Unity.Entities.PerformanceTests
 {
     [Category("Performance")]
-    public sealed class SharedComponentPerformanceTests
+    public sealed class SharedComponentPerformanceTests : EntityPerformanceTestFixture
     {
-        private World m_PreviousWorld;
-        private World m_World;
-        private EntityManager m_Manager;
-
-        [SetUp]
-        public void Setup()
-        {
-            m_PreviousWorld = World.Active;
-            m_World = World.Active = new World("Test World");
-            m_Manager = m_World.EntityManager;
-        }
-
-        [TearDown]
-        public void TearDown()
-        {
-            if (m_Manager != null)
-            {
-                m_World.Dispose();
-                m_World = null;
-
-                World.Active = m_PreviousWorld;
-                m_PreviousWorld = null;
-                m_Manager = null;
-            }
-        }
-
-
         struct TestShared1 : ISharedComponentData
         {
             public int value;
@@ -57,11 +30,7 @@ namespace Unity.Entities.PerformanceTests
         }
 
 
-        #if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-        #else
-        [PerformanceTest]
-        #endif
         public void SetSharedComponentDataPerformanceTest()
         {
             var archetype = m_Manager.CreateArchetype(typeof(TestData1), typeof(TestShared1), typeof(TestShared2));
@@ -89,11 +58,7 @@ namespace Unity.Entities.PerformanceTests
             entities.Dispose();
         }
 
-        #if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-        #else
-        [PerformanceTest]
-        #endif
         public void AddComponentPerformanceTest()
         {
             var archetype = m_Manager.CreateArchetype(typeof(TestData1), typeof(TestShared1), typeof(TestShared2));

@@ -1,3 +1,5 @@
+
+using System;
 #if !UNITY_DOTSPLAYER
 using NUnit.Framework;
 using Unity.Collections;
@@ -113,6 +115,56 @@ namespace Unity.Entities.Tests
             protected override void OnCreate()
             {
                 m_WriteGroup = GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
+            }
+        }
+
+        public class AlwaySynchronizeDependenciesSystem1 : JobComponentSystem
+        {
+            public EntityQuery m_Group;
+            
+            private struct TestJob : IJobForEach<EcsTestData>
+            {
+                public void Execute(ref EcsTestData c0)
+                {
+                }
+            }
+            
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                return new TestJob().Schedule(m_Group, inputDeps);
+            }
+            
+            protected override void OnCreate()
+            {
+                m_Group = GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
+            }
+        }
+        
+        [AlwaysSynchronizeSystem]
+        public class AlwaySynchronizeDependenciesSystem2 : JobComponentSystem
+        {
+            public EntityQuery m_Group;
+            
+            private struct TestJob : IJobForEach<EcsTestData>
+            {
+                public void Execute(ref EcsTestData c0)
+                {
+                }
+            }
+            
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                if (!inputDeps.Equals(new JobHandle()))//after completing all jobs an empty jobhandle is returned.
+                {
+                    throw new Exception("InputDeps were not forced to completion earlier in frame.");
+                }
+                
+                return new TestJob().Schedule(m_Group, inputDeps);
+            }
+            
+            protected override void OnCreate()
+            {
+                m_Group = GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
             }
         }
 
@@ -249,6 +301,21 @@ namespace Unity.Entities.Tests
 
             systemA.Update();
             systemB.Update();
+        }
+
+        [Test]
+        public void AlwaysSynchronizeSystemForcesSynchronization()
+        {
+            m_Manager.CreateEntity(typeof(EcsTestData));
+
+            var systemA = World.CreateSystem<AlwaySynchronizeDependenciesSystem1>();
+            var systemB = World.CreateSystem<AlwaySynchronizeDependenciesSystem2>();
+            
+            systemA.Update();
+            Assert.DoesNotThrow(()=>
+            {
+                systemB.Update();
+            });
         }
     }
 }

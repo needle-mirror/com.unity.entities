@@ -3,6 +3,8 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
 using System.Collections.Generic;
+using System.Linq;
+using Unity.Burst;
 
 namespace Unity.Entities.Tests
 {
@@ -27,6 +29,7 @@ namespace Unity.Entities.Tests
             cmds.Dispose();
         }
 
+        [BurstCompile(CompileSynchronously = true)]
         struct TestJob : IJob
         {
             public EntityCommandBuffer Buffer;
@@ -42,7 +45,7 @@ namespace Unity.Entities.Tests
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
-        [StandaloneFixme] // IJob
+        [StandaloneFixme]
         public void EntityCommandBufferSystem_DisposeAfterPlaybackError_Succeeds()
         {
             TestEntityCommandBufferSystem barrier = World.GetOrCreateSystem<TestEntityCommandBufferSystem>();
@@ -69,7 +72,7 @@ namespace Unity.Entities.Tests
 #endif
 
         [Test]
-        [StandaloneFixme] // IJob
+        [StandaloneFixme]
         public void SingleWriterEnforced()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -98,7 +101,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob
+        [StandaloneFixme]
         public void DisposeWhileJobRunningThrows()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -114,7 +117,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob
+        [StandaloneFixme]
         public void ModifiesWhileJobRunningThrows()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -145,6 +148,61 @@ namespace Unity.Entities.Tests
             cmds.Dispose();
         }
 
+        struct EntityCommandBufferPlaybackJob : IJob
+        {
+            public EntityCommandBuffer Buffer;
+            public ExclusiveEntityTransaction Manager;
+
+            public void Execute()
+            {
+                Buffer.Playback(Manager);
+            }
+        }
+
+        [Test]
+        public void PlaybackWithExclusiveEntityTransactionInJob()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var job = new TestJob {Buffer = cmds};
+
+            var e = cmds.CreateEntity();
+            cmds.AddComponent(e, new EcsTestData { value = 42 });
+
+            e = cmds.CreateEntity();
+            cmds.AddSharedComponent(e, new EcsTestSharedComp(19));
+
+            var jobHandle = job.Schedule();
+
+            var manager = m_Manager.BeginExclusiveEntityTransaction();
+
+            var playbackJob = new EntityCommandBufferPlaybackJob()
+            {
+                Buffer = cmds,
+                Manager = manager
+            };
+
+            m_Manager.ExclusiveEntityTransactionDependency = playbackJob.Schedule(jobHandle);
+            m_Manager.EndExclusiveEntityTransaction();
+
+            cmds.Dispose();
+
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            Assert.AreEqual(2, arr.Length);
+            Assert.AreEqual(42, arr[0].value);
+            Assert.AreEqual(1, arr[1].value);
+            arr.Dispose();
+            group.Dispose();
+
+            var sharedGroup = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp));
+            var entities = sharedGroup.ToEntityArray(Allocator.TempJob);
+            Assert.AreEqual(1, entities.Length);
+            Assert.AreEqual(19, m_Manager.GetSharedComponentData<EcsTestSharedComp>(entities[0]).value);
+            entities.Dispose();
+            sharedGroup.Dispose();
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
         struct TestParallelJob : IJobParallelFor
         {
             public EntityCommandBuffer.Concurrent CommandBuffer;
@@ -157,7 +215,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob
+        [StandaloneFixme]
         public void EntityCommandBufferConcurrent_PlaybackDuringWrite_ThrowsInvalidOperation()
         {
             EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -171,7 +229,7 @@ namespace Unity.Entities.Tests
             cmds.Dispose();
         }
         [Test]
-        [StandaloneFixme] // IJob
+        [StandaloneFixme]
         public void EntityCommandBufferConcurrent_DisposeDuringWrite_ThrowsInvalidOperation()
         {
             EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -336,7 +394,6 @@ namespace Unity.Entities.Tests
         [Test]
         public void AddComponent()
         {
-
             var e = m_Manager.CreateEntity();
 
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -521,7 +578,7 @@ namespace Unity.Entities.Tests
             cmds.SetSharedComponent(entity2, sharedComponent2);
 
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp));
-            entityQuery.SetFilter(sharedComponent2);
+            entityQuery.SetSharedComponentFilter(sharedComponent2);
 
             cmds.AddComponent(entityQuery, typeof(EcsTestData2));
 
@@ -580,7 +637,7 @@ namespace Unity.Entities.Tests
             cmds.SetSharedComponent(entity2, sharedComponent2);
 
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestData));
-            entityQuery.SetFilter(sharedComponent2);
+            entityQuery.SetSharedComponentFilter(sharedComponent2);
 
             cmds.RemoveComponent(entityQuery, typeof(EcsTestData));
 
@@ -647,7 +704,7 @@ namespace Unity.Entities.Tests
             }
             
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestData));
-            entityQuery.SetFilter(new EcsTestSharedComp(0));
+            entityQuery.SetSharedComponentFilter(new EcsTestSharedComp(0));
             var shared2 = new EcsTestSharedComp2();
             cmds.AddSharedComponent(entityQuery, shared2);
             
@@ -717,7 +774,7 @@ namespace Unity.Entities.Tests
             }
             
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestData));
-            entityQuery.SetFilter(new EcsTestSharedComp(0));
+            entityQuery.SetSharedComponentFilter(new EcsTestSharedComp(0));
             cmds.DestroyEntity(entityQuery);
             
             cmds.Playback(m_Manager);
@@ -752,11 +809,11 @@ namespace Unity.Entities.Tests
             cmds.SetSharedComponent(entity2, sharedComponent2);
 
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp));
-            entityQuery.SetFilter(sharedComponent2);
+            entityQuery.SetSharedComponentFilter(sharedComponent2);
 
             cmds.AddComponent(entityQuery, typeof(EcsTestData2));
 
-            entityQuery.SetFilter(sharedComponent1);
+            entityQuery.SetSharedComponentFilter(sharedComponent1);
 
             cmds.Playback(m_Manager);
 
@@ -787,7 +844,7 @@ namespace Unity.Entities.Tests
             cmds.SetSharedComponent(entity2, sharedComponent2);
 
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp));
-            entityQuery.SetFilter(sharedComponent2);
+            entityQuery.SetSharedComponentFilter(sharedComponent2);
 
             cmds.AddComponent(entityQuery, typeof(EcsTestData2));
 
@@ -805,6 +862,7 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
+        // Burst still doesn't work with managed shared components
         struct TestJobWithManagedSharedData : IJob
         {
             public EntityCommandBuffer Buffer;
@@ -818,7 +876,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob
         public void JobWithSharedComponentData()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -838,8 +895,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(12, list[1].value1);
         }
 
-        // TODO: Burst breaks this test.
-        //[BurstCompile(CompileSynchronously = true)]
+        [BurstCompile(CompileSynchronously = true)]
         public struct TestBurstCommandBufferJob : IJob
         {
             public Entity e0;
@@ -1055,6 +1111,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, count);
         }
 
+        [BurstCompile(CompileSynchronously = true)]
         struct TestConcurrentJob : IJob
         {
             public EntityCommandBuffer.Concurrent Buffer;
@@ -1067,7 +1124,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob
         public void ConcurrentRecord()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -1083,6 +1139,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, count);
         }
 
+        [BurstCompile(CompileSynchronously = true)]
         struct TestConcurrentParallelForJob : IJobParallelFor
         {
             public EntityCommandBuffer.Concurrent Buffer;
@@ -1095,7 +1152,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob
         public void ConcurrentRecordParallelFor()
         {
             const int kCreateCount = 10000;
@@ -1130,6 +1186,7 @@ namespace Unity.Entities.Tests
 
         }
 
+        [BurstCompile(CompileSynchronously = true)]
         struct TestConcurrentInstantiateJob : IJobParallelFor
         {
             public Entity MasterCopy;
@@ -1143,7 +1200,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob
         public void ConcurrentRecordInstantiate()
         {
             const int kInstantiateCount = 10000;
@@ -1314,6 +1370,7 @@ namespace Unity.Entities.Tests
             cmds.Dispose();
         }
 
+        [BurstCompile(CompileSynchronously = true)]
         struct DeterminismTestJob : IJobParallelFor
         {
             public EntityCommandBuffer.Concurrent Cmds;
@@ -1326,7 +1383,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJobParallelFor
         public void DeterminismTest()
         {
             const int kRepeat = 10000;
@@ -1385,6 +1441,7 @@ namespace Unity.Entities.Tests
             allEntities.Dispose();
         }
 
+        [BurstCompile(CompileSynchronously = true)]
         struct BufferCopyJob : IJobParallelFor
         {
             public EntityCommandBuffer.Concurrent CommandBuffer;
@@ -1405,7 +1462,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob
         public void BufferCopyFromDoesNotThrowInJob()
         {
             var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>());
@@ -1433,6 +1489,7 @@ namespace Unity.Entities.Tests
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
+
         public void EntityCommandBufferSystemPlaybackExceptionIsolation()
         {
             var entityCommandBufferSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
@@ -1446,7 +1503,7 @@ namespace Unity.Entities.Tests
 
             var e2 = buf2.CreateEntity();
             buf2.AddComponent(e2, new EcsTestData());
-            buf2.AddComponent(e2, new EcsTestData());
+            buf2.AddComponent(Entity.Null, new EcsTestData());
 
             // We exp both command buffers to execute, and an exception thrown afterwards
             // Essentially we want isolation of two systems that might fail independently.
@@ -1726,6 +1783,410 @@ namespace Unity.Entities.Tests
                 }
             }
         }
-    }
 
+        [Test]
+        public void AddSharedComponent_WithEntityQuery_ThatHasNoMatch_WillNotCorruptInternalState()
+        {
+            using (EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob))
+            {
+                var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+                cmds.AddSharedComponent(entityQuery, new EcsTestSharedComp(1));
+                cmds.Playback(m_Manager);
+            }
+            m_Manager.Debug.CheckInternalConsistency();
+        }
+ 
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        private void VerifyEcsTestManagedComponent(int length, string expectedValue)
+        {
+            var allEntities = m_Manager.GetAllEntities();
+            Assert.AreEqual(length, allEntities.Length);
+
+            for (int i = 0; i < length; ++i)
+            {
+                var component = m_Manager.GetComponentData<EcsTestManagedComponent>(allEntities[i]);
+                Assert.AreEqual(expectedValue, component.value);
+            }
+            allEntities.Dispose();
+        }
+
+        [Test]
+        public void CreateEntity_ManagedComponents()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var e = cmds.CreateEntity();
+            cmds.AddComponent(e, new EcsTestManagedComponent { value = "SomeString" });
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent));
+            var arr = group.ToComponentDataArray<EcsTestManagedComponent>();
+            Assert.AreEqual(1, arr.Length);
+            Assert.AreEqual("SomeString", arr[0].value);
+            group.Dispose();
+        }
+
+        [Test]
+        public void CreateEntityWithArchetype_ManagedComponents()
+        {
+            var a = m_Manager.CreateArchetype(typeof(EcsTestManagedComponent));
+
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var e = cmds.CreateEntity(a);
+            cmds.SetComponent(e, new EcsTestManagedComponent { value = "SomeString" });
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent));
+            var arr = group.ToComponentDataArray<EcsTestManagedComponent>();
+            Assert.AreEqual(1, arr.Length);
+            Assert.AreEqual("SomeString", arr[0].value);
+            group.Dispose();
+        }
+
+        [Test]
+        public void CreateTwoComponents_ManagedComponents()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var e = cmds.CreateEntity();
+            cmds.AddComponent(e, new EcsTestManagedComponent { value = "SomeString" });
+            cmds.AddComponent(e, new EcsTestManagedComponent2 { value = "SomeString", value2 = "SomeOtherString" });
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            {
+                var group = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent));
+                var arr = group.ToComponentDataArray<EcsTestManagedComponent>();
+                Assert.AreEqual(1, arr.Length);
+                Assert.AreEqual("SomeString", arr[0].value);
+                group.Dispose();
+            }
+
+            {
+                var group = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent2));
+                var arr = group.ToComponentDataArray<EcsTestManagedComponent2>();
+                Assert.AreEqual(1, arr.Length);
+                Assert.AreEqual("SomeString", arr[0].value);
+                Assert.AreEqual("SomeOtherString", arr[0].value2);
+                group.Dispose();
+            }
+        }
+
+        [Test]
+        public void AddComponent_ManagedComponents()
+        {
+            var e = m_Manager.CreateEntity();
+
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            cmds.AddComponent(e, new EcsTestManagedComponent() { value = "SomeString" } );
+            cmds.AddComponent<EcsTestTag>(e);
+            cmds.AddComponent(e, ComponentType.ReadWrite<EcsTestManagedComponent3>());
+
+            cmds.Playback(m_Manager);
+
+            cmds.Dispose();
+
+            Assert.AreEqual("SomeString", m_Manager.GetComponentData<EcsTestManagedComponent>(e).value);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(e));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent3>(e));
+        }
+
+        [Test]
+        public void AddComponentToEntityQuery_ManagedComponents()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            var entity = cmds.CreateEntity();
+            var data1 = new EcsTestManagedComponent();
+            cmds.AddComponent(entity, data1);
+            cmds.AddComponent(entity, typeof(EcsTestManagedComponent));
+
+            var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent));
+            cmds.AddComponent(entityQuery, typeof(EcsTestManagedComponent2));
+
+            cmds.Playback(m_Manager);
+
+            var entities = m_Manager.GetAllEntities(Allocator.TempJob);
+
+            Assert.AreEqual(1, entities.Length);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent2>(entities[0]), "The component was not added to the entities within the entity query.");
+
+            cmds.Dispose();
+            entityQuery.Dispose();
+            m_Manager.DestroyEntity(entities);
+            entities.Dispose();
+        }
+
+        [Test]
+        public void AddComponentToEntityQueryWithFilter_ManagedComponents()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp));
+
+            var entity1 = cmds.CreateEntity(archetype);
+            var sharedComponent1 = new EcsTestSharedComp { value = 10 };
+            cmds.SetSharedComponent(entity1, sharedComponent1);
+
+            var entity2 = cmds.CreateEntity(archetype);
+            var sharedComponent2 = new EcsTestSharedComp { value = 130 };
+            cmds.SetSharedComponent(entity2, sharedComponent2);
+
+            var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp));
+            entityQuery.SetSharedComponentFilter(sharedComponent2);
+
+            cmds.AddComponent(entityQuery, typeof(EcsTestManagedComponent2));
+
+            cmds.Playback(m_Manager);
+
+            var entities = m_Manager.GetAllEntities(Allocator.TempJob);
+
+            Assert.AreEqual(2, entities.Length);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent2>(entities[1]), "The component was not added to the entities within the entity query.");
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestManagedComponent2>(entities[0]), "The component was incorrectly added based on the EntityQueryFilter.");
+
+            cmds.Dispose();
+            entityQuery.Dispose();
+            m_Manager.DestroyEntity(entities);
+            entities.Dispose();
+        }
+
+        [Test]
+        public void RemoveComponentFromEntityQuery_ManagedComponents()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp), typeof(EcsTestManagedComponent));
+
+            var entity = cmds.CreateEntity(archetype);
+            var data1 = new EcsTestManagedComponent();
+            cmds.SetComponent(entity, data1);
+
+            var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent));
+            cmds.RemoveComponent(entityQuery, typeof(EcsTestManagedComponent));
+
+            cmds.Playback(m_Manager);
+
+            var entities = m_Manager.GetAllEntities(Allocator.TempJob);
+
+            Assert.AreEqual(1, entities.Length);
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestManagedComponent>(entities[0]), "The component was not removed from the entities in the entity query.");
+
+            cmds.Dispose();
+            entityQuery.Dispose();
+            m_Manager.DestroyEntity(entities);
+            entities.Dispose();
+        }
+
+        [Test]
+        public void RemoveComponentFromEntityQuery_ValidateComponents_ManagedComponents()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2), typeof(EcsTestManagedComponent3), typeof(EcsTestManagedComponent4));
+
+            var entity = m_Manager.CreateEntity(archetype);
+            var data1 = new EcsTestManagedComponent() { value = "SomeString" };
+            var data2 = new EcsTestManagedComponent2() { value = "SomeOtherString" };
+            var data3 = new EcsTestManagedComponent3() { value = "YetAnotherString" };
+            var data4 = new EcsTestManagedComponent4() { value = "SoManyStrings" };
+            m_Manager.SetComponentData(entity, data1);
+            m_Manager.SetComponentData(entity, data2);
+            m_Manager.SetComponentData(entity, data3);
+            m_Manager.SetComponentData(entity, data4);
+
+            {
+                var entities = m_Manager.GetAllEntities(Allocator.TempJob);
+                Assert.AreEqual(1, entities.Length);
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent>(entities[0]));
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent2>(entities[0]));
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent3>(entities[0]));
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent4>(entities[0]));
+                Assert.AreEqual("SomeString", m_Manager.GetComponentData<EcsTestManagedComponent>(entities[0]).value);
+                Assert.AreEqual("SomeOtherString", m_Manager.GetComponentData<EcsTestManagedComponent2>(entities[0]).value);
+                Assert.AreEqual("YetAnotherString", m_Manager.GetComponentData<EcsTestManagedComponent3>(entities[0]).value);
+                Assert.AreEqual("SoManyStrings", m_Manager.GetComponentData<EcsTestManagedComponent4>(entities[0]).value);
+                entities.Dispose();
+            }
+
+            var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent));
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.RemoveComponent(entityQuery, typeof(EcsTestManagedComponent2));
+            cmds.Playback(m_Manager);
+
+            {
+                var entities = m_Manager.GetAllEntities(Allocator.TempJob);
+                Assert.AreEqual(1, entities.Length);
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent>(entities[0]));
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestManagedComponent2>(entities[0]));
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent3>(entities[0]));
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent4>(entities[0]));
+                Assert.AreEqual("SomeString", m_Manager.GetComponentData<EcsTestManagedComponent>(entities[0]).value);
+                Assert.Throws<ArgumentException>(() => { m_Manager.GetComponentData<EcsTestManagedComponent2>(entities[0]); });
+                Assert.AreEqual("YetAnotherString", m_Manager.GetComponentData<EcsTestManagedComponent3>(entities[0]).value);
+                Assert.AreEqual("SoManyStrings", m_Manager.GetComponentData<EcsTestManagedComponent4>(entities[0]).value);
+
+                m_Manager.DestroyEntity(entities);
+                entities.Dispose();
+            }
+            cmds.Dispose();
+            entityQuery.Dispose();
+        }
+
+        [Test]
+        public void RemoveComponentFromEntityQueryWithFilter_ManagedComponents()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp), typeof(EcsTestManagedComponent));
+
+            var entity1 = cmds.CreateEntity(archetype);
+            var sharedComponent1 = new EcsTestSharedComp { value = 10 };
+            cmds.SetSharedComponent(entity1, sharedComponent1);
+
+            var entity2 = cmds.CreateEntity(archetype);
+            var sharedComponent2 = new EcsTestSharedComp { value = 130 };
+            cmds.SetSharedComponent(entity2, sharedComponent2);
+
+            var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestManagedComponent));
+            entityQuery.SetSharedComponentFilter(sharedComponent2);
+
+            cmds.RemoveComponent(entityQuery, typeof(EcsTestManagedComponent));
+
+            cmds.Playback(m_Manager);
+
+            var entities = m_Manager.GetAllEntities(Allocator.TempJob);
+
+            Assert.AreEqual(2, entities.Length);
+
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent>(entities[0]), "The component was incorrectly removed based on the EntityQueryFilter.");
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestManagedComponent>(entities[1]), "The component was not removed from the entities in the entity query.");
+
+            cmds.Dispose();
+            entityQuery.Dispose();
+            m_Manager.DestroyEntity(entities);
+            entities.Dispose();
+        }
+
+        [Test]
+        public void Instantiate_ManagedComponents()
+        {
+            var e = m_Manager.CreateEntity();
+            var component = new EcsTestManagedComponent() { value = "SomeString" };
+            m_Manager.AddComponentData(e, component);
+
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.Instantiate(e);
+            cmds.Instantiate(e);
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            VerifyEcsTestManagedComponent(3, "SomeString");
+        }
+
+        [Test]
+        public void InstantiateWithSetComponentDataWorks_ManagedComponents()
+        {
+            var e = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(e, new EcsTestManagedComponent() { value = "SomeString" });
+
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            var e1 = cmds.Instantiate(e);
+            cmds.SetComponent(e1, new EcsTestManagedComponent() { value = "SomeOtherString" });
+
+            var e2 = cmds.Instantiate(e);
+            cmds.SetComponent(e2, new EcsTestManagedComponent() { value = "SomeOtherString" });
+
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            m_Manager.DestroyEntity(e);
+
+            VerifyEcsTestManagedComponent(2, "SomeOtherString");
+        }
+
+        [Test]
+        public void DestroyEntityTwiceWorks_ManagedComponents()
+        {
+            var e = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(e, new EcsTestManagedComponent());
+
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            cmds.DestroyEntity(e);
+            cmds.DestroyEntity(e);
+
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            Assert.IsFalse(m_Manager.Exists(e));
+        }
+
+        [Test]
+        public void DestroyInvalidEntity_ManagedComponents()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var entityBuffer = new NativeArray<Entity>(1, Allocator.Temp);
+            var e = cmds.CreateEntity();
+            cmds.AddComponent(e, new EcsTestManagedComponent { value = "SomeString" });
+            entityBuffer[0] = e;
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            var savedEntity = entityBuffer[0];
+            entityBuffer.Dispose();
+
+            var cmds2 = new EntityCommandBuffer(Allocator.TempJob);
+            cmds2.DestroyEntity(savedEntity);
+
+            // savedEntity is invalid, so playing back this ECB should throw an exception
+#if !NET_DOTS
+            Assert.Throws<UnityEngine.Assertions.AssertionException>(() =>
+#else
+            Assert.Throws<NullReferenceException>(() =>
+#endif
+            {
+                cmds2.Playback(m_Manager);
+            });
+
+            cmds2.Dispose();
+        }
+
+        [Test]
+        public void PlaybackWithExclusiveEntityTransactionInJob_ManagedComponents()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var job = new TestJob {Buffer = cmds};
+
+            var e = cmds.CreateEntity();
+            cmds.AddComponent(e, new EcsTestManagedComponent { value = "SomeString" });
+
+            var jobHandle = job.Schedule();
+
+            var manager = m_Manager.BeginExclusiveEntityTransaction();
+
+            var playbackJob = new EntityCommandBufferPlaybackJob()
+            {
+                Buffer = cmds,
+                Manager = manager
+            };
+
+            m_Manager.ExclusiveEntityTransactionDependency = playbackJob.Schedule(jobHandle);
+            m_Manager.EndExclusiveEntityTransaction();
+
+            cmds.Dispose();
+
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            Assert.AreEqual(1, arr.Length);
+            Assert.AreEqual(1, arr[0].value);
+            arr.Dispose();
+            group.Dispose();
+
+            var managedGroup = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent));
+            var managedComponentArray = managedGroup.ToComponentDataArray<EcsTestManagedComponent>();
+            Assert.AreEqual(1, managedComponentArray.Length);
+            Assert.AreEqual("SomeString", managedComponentArray[0].value);
+            managedGroup.Dispose();
+        }
+#endif
+
+    }
 }

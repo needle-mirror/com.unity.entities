@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 using UnityEditor;
 using UnityEditor.Experimental.SceneManagement;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.Profiling;
 using UnityEngine.SceneManagement;
+using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes.Editor
 {
@@ -20,10 +22,10 @@ namespace Unity.Scenes.Editor
                 if (res != null)
                     return res;
             }
-    
+
             return null;
         }
-    
+
         public static Transform GetUncleanHierarchyObject(Transform child)
         {
             while (child)
@@ -34,13 +36,13 @@ namespace Unity.Scenes.Editor
                     return child;
                 if (child.localScale!= Vector3.one)
                     return child;
-                
+
                 child = child.parent;
             }
-    
+
             return null;
         }
-        
+
         public static bool HasChildren(SubScene[] scenes)
         {
             foreach (var scene in scenes)
@@ -48,52 +50,63 @@ namespace Unity.Scenes.Editor
                 if (scene.transform.childCount != 0)
                     return true;
             }
-    
+
             return false;
         }
-    
+
         public static void CloseSceneWithoutSaving(params SubScene[] scenes)
         {
             foreach(var scene in scenes)
-                EditorSceneManager.CloseScene(scene.LoadedScene, true);
+                EditorSceneManager.CloseScene(scene.EditingScene, true);
         }
-    
+
         public struct LoadableScene
         {
             public Entity Scene;
             public string Name;
         }
-    
+
+        static NativeArray<Entity> GetActiveWorldSections(World world, Hash128 sceneGUID)
+        {
+            var sceneSystem = world?.GetExistingSystem<SceneSystem>();
+            var entities = world?.EntityManager;
+            if (sceneSystem == null)
+                return default;
+
+            var sceneEntity = sceneSystem.GetSceneEntity(sceneGUID);
+
+            if (!entities.HasComponent<ResolvedSectionEntity>(sceneEntity))
+                return default;
+            return entities.GetBuffer<ResolvedSectionEntity>(sceneEntity).Reinterpret<Entity>().AsNativeArray();
+        }
+
         public static LoadableScene[] GetLoadableScenes(SubScene[] scenes)
         {
             var loadables = new List<LoadableScene>();
-            
+
             foreach (var scene in scenes)
             {
-                var sceneHeaderPath = EntityScenesPaths.GetLoadPath(scene.SceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1);
-                var sceneHeader = AssetDatabase.LoadAssetAtPath<SubSceneHeader>(sceneHeaderPath);
-    
-                if (sceneHeader != null && sceneHeader.Sections != null && scene._SceneEntities.Count == sceneHeader.Sections.Length)
+                foreach (var section in GetActiveWorldSections(World.DefaultGameObjectInjectionWorld, scene.SceneGUID))
                 {
-                    for (int i = 0; i != sceneHeader.Sections.Length;i++)
+                    var name = scene.SceneAsset.name;
+                    if (World.DefaultGameObjectInjectionWorld.EntityManager.HasComponent<SceneSectionData>(section))
                     {
-                        var name = scene.SceneAsset.name;
-                        var sectionIndex = sceneHeader.Sections[i].SubSectionIndex;
+                        var sectionIndex = World.DefaultGameObjectInjectionWorld.EntityManager.GetComponentData<SceneSectionData>(section).SubSectionIndex;
                         if (sectionIndex != 0)
                             name += $" Section: {sectionIndex}";
-                        
+
                         loadables.Add(new LoadableScene
                         {
-                            Scene = scene._SceneEntities[i],
+                            Scene = section,
                             Name = name
                         });
                     }
                 }
             }
-    
+
             return loadables.ToArray();
         }
-        
+
         public static bool IsEditingAll(SubScene[] scenes)
         {
             foreach (var scene in scenes)
@@ -101,10 +114,10 @@ namespace Unity.Scenes.Editor
                 if (!scene.IsLoaded)
                     return false;
             }
-    
+
             return true;
         }
-        
+
         public static bool CanEditScene(SubScene scene)
         {
 #if UNITY_EDITOR
@@ -114,10 +127,10 @@ namespace Unity.Scenes.Editor
             if (!scene.isActiveAndEnabled)
                 return false;
 #endif
-    
+
             return !scene.IsLoaded;
         }
-    
+
         public static bool IsLoaded(SubScene[] scenes)
         {
             foreach (var subScene in scenes)
@@ -125,10 +138,10 @@ namespace Unity.Scenes.Editor
                 if (subScene.IsLoaded)
                     return true;
             }
-    
+
             return false;
         }
-        
+
         public static bool CanEditScene(SubScene[] scenes)
         {
             foreach (var subScene in scenes)
@@ -136,10 +149,10 @@ namespace Unity.Scenes.Editor
                 if (CanEditScene(subScene))
                     return true;
             }
-    
+
             return false;
         }
-    
+
         public static void EditScene(params SubScene[] scenes)
         {
             foreach (var subScene in scenes)
@@ -155,8 +168,7 @@ namespace Unity.Scenes.Editor
                 }
             }
         }
-    
-        
+
         public static void CloseAndAskSaveIfUserWantsTo(SubScene[] subScenes)
         {
             if (!Application.isPlaying)
@@ -164,186 +176,135 @@ namespace Unity.Scenes.Editor
                 var dirtyScenes = new List<Scene>();
                 foreach (var scene in subScenes)
                 {
-                    if (scene.LoadedScene.isLoaded && scene.LoadedScene.isDirty)
+                    if (scene.EditingScene.isLoaded && scene.EditingScene.isDirty)
                     {
-                        dirtyScenes.Add(scene.LoadedScene);
+                        dirtyScenes.Add(scene.EditingScene);
                     }
                 }
-    
+
                 if (dirtyScenes.Count != 0)
                 {
                     if (!EditorSceneManager.SaveModifiedScenesIfUserWantsTo(dirtyScenes.ToArray()))
                         return;
                 }
-            
+
                 CloseSceneWithoutSaving(subScenes);
             }
             else
             {
                 foreach (var scene in subScenes)
                 {
-                    if (scene.LoadedScene.isLoaded)
-                        EditorSceneManager.UnloadSceneAsync(scene.LoadedScene);
+                    if (scene.EditingScene.isLoaded)
+                        EditorSceneManager.UnloadSceneAsync(scene.EditingScene);
                 }
             }
         }
-        
+
         public static void SaveScene(SubScene[] subScenes)
         {
             foreach (var scene in subScenes)
             {
-                if (scene.LoadedScene.isLoaded && scene.LoadedScene.isDirty)
+                if (scene.EditingScene.isLoaded && scene.EditingScene.isDirty)
                 {
-                    EditorSceneManager.SaveScene(scene.LoadedScene);
+                    EditorSceneManager.SaveScene(scene.EditingScene);
                 }
             }
         }
+
         public static bool IsDirty(SubScene[] scenes)
         {
             foreach (var scene in scenes)
             {
-                if (scene.LoadedScene.isLoaded && scene.LoadedScene.isDirty)
+                if (scene.EditingScene.isLoaded && scene.EditingScene.isDirty)
                     return true;
             }
-    
+
             return false;
         }
-    
-        public static void RebuildEntityCache(params SubScene[] scenes)
+
+        public static MinMaxAABB GetActiveWorldMinMax(World world, UnityEngine.Object[] targets)
         {
-            try
+            MinMaxAABB bounds = MinMaxAABB.Empty;
+
+            var entities = world?.EntityManager;
+            foreach (SubScene subScene in targets)
             {
-                Profiler.BeginSample("AssetDatabase.StartAssetEditing");
-                AssetDatabase.StartAssetEditing();
-                Profiler.EndSample();
-                
-                for (int i = 0; i != scenes.Length; i++)
+                foreach (var section in GetActiveWorldSections(World.DefaultGameObjectInjectionWorld, subScene.SceneGUID))
                 {
-                    var scene = scenes[i];
-                    EditorUtility.DisplayProgressBar("Rebuilding Entity Cache", scene.SceneName, (float) i / scenes.Length);
-
-                    var isLoaded = scene.IsLoaded;
-                    if (!isLoaded)
-                        EditScene(scene);
-
-                    try
-                    {
-                        EditorEntityScenes.WriteEntityScene(scene);
-                        scene.UpdateSceneEntities();
-                    }
-                    catch (Exception exception)
-                    {
-                        Debug.LogException(exception);
-                    }
-
-
-                    if (!isLoaded)
-                        CloseSceneWithoutSaving(scene);
+                    if (entities.HasComponent<SceneBoundingVolume>(section))
+                        bounds.Encapsulate(entities.GetComponentData<SceneBoundingVolume>(section).Value);
                 }
             }
-            finally
-            {
-                Profiler.BeginSample("AssetDatabase.StopAssetEditing");
-                AssetDatabase.StopAssetEditing();
-                Profiler.EndSample();
 
-                EditorUtility.ClearProgressBar();
-            }
+            return bounds;
         }
-    
-        public static string GetEntitySceneWarning(SubScene[] scenes, out bool requireCacheRebuild)
+
+        // Visualize SubScene using bounding volume when it is selected.
+        public static void DrawSubsceneBounds(SubScene scene)
         {
-            requireCacheRebuild = false;
-            foreach (var scene in scenes)
+            var isEditing = scene.IsLoaded;
+
+            var entities = World.DefaultGameObjectInjectionWorld?.EntityManager;
+            foreach (var section in GetActiveWorldSections(World.DefaultGameObjectInjectionWorld, scene.SceneGUID))
             {
-                if (scene.SceneAsset == null)
-                    return $"Please assign a valid Scene Asset";
-                
-                var sceneHeaderPath = EntityScenesPaths.GetLoadPath(scene.SceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1);
-                var sceneHeader = AssetDatabase.LoadAssetAtPath<SubSceneHeader>(sceneHeaderPath);
-    
-                if (sceneHeader == null)
-                {
-                    requireCacheRebuild = true;
-                    return $"The entity binary file header couldn't be found. Please Rebuild Entity Cache.";
-                }
-                
-                //@TODO: validate header against wrong types?
-                //@TODO: validate actual errors when loading
-                //@TODO: validate against dependency chain being out of date
+                if (!entities.HasComponent<SceneBoundingVolume>(section))
+                    continue;
+
+                if (isEditing)
+                    Gizmos.color = Color.green;
+                else
+                    Gizmos.color = Color.gray;
+
+                AABB aabb = entities.GetComponentData<SceneBoundingVolume>(section).Value;
+                Gizmos.DrawWireCube(aabb.Center, aabb.Size);
             }
-    
-            return null;
         }
-        
+
         public static LiveLinkMode LiveLinkMode
         {
-            get => (LiveLinkMode)EditorPrefs.GetInt("Unity.Entities.Streaming.SubScene.LiveLinkEnabled3", 0);
+            get
+            {
+                if (EditorApplication.isPlaying || LiveLinkEnabledInEditMode)
+                    return LiveLinkShowGameStateInSceneView ? LiveLinkMode.LiveConvertSceneView : LiveLinkMode.LiveConvertGameView;
+                else
+                    return LiveLinkMode.Disabled;
+            }
+        }
+
+        public static bool LiveLinkEnabledInEditMode
+        {
+            get
+            {
+                return EditorPrefs.GetBool("Unity.Entities.Streaming.SubScene.LiveLinkEnabledInEditMode", false);
+            }
             set
             {
-                SubSceneLiveLinkSystem.GlobalDirtyLiveLink();
-                EditorPrefs.SetInt("Unity.Entities.Streaming.SubScene.LiveLinkEnabled3", (int)value);
+                if (LiveLinkEnabledInEditMode == value)
+                    return;
+
+                EditorPrefs.SetBool("Unity.Entities.Streaming.SubScene.LiveLinkEnabledInEditMode", value);
+                LiveLinkConnection.GlobalDirtyLiveLink();
+                LiveLinkModeChanged();
             }
         }
-
-        static class LiveLinkMenu
+        
+        public static bool LiveLinkShowGameStateInSceneView
         {
-            const string k_Menu                 = "DOTS/LiveLink";
-            const string k_Disabled             = k_Menu + "/Disabled";
-            const string k_ConvertWithoutDiff   = k_Menu + "/(Experimental) ConvertWithoutDiff";
-            const string k_LiveConvertGameView  = k_Menu + "/(Experimental) LiveConvertGameView";
-            const string k_LiveConvertSceneView = k_Menu + "/(Experimental) LiveConvertSceneView";
-
-            static bool IsEditingAnySubScenes()
+            get
             {
-                for (var i = 0; i < SceneManager.sceneCount; ++i)
-                {
-                    var scene = SceneManager.GetSceneAt(i);
-                    if (scene.isLoaded && scene.isSubScene)
-                        return true;
-                }
-
-                return false;
+                return EditorPrefs.GetBool("Unity.Entities.Streaming.SubScene.LiveLinkShowGameStateInSceneView", false);
             }
-            
-            // would be nice if we could disable an entire menu, and not have to disable each individual one..
-            
-            [MenuItem(k_Disabled)]
-            static void Disabled() => LiveLinkMode = LiveLinkMode.Disabled;
-            [MenuItem(k_Disabled, true)]
-            static bool ValidateDisabled()
+            set
             {
-                Menu.SetChecked(k_Disabled, LiveLinkMode == LiveLinkMode.Disabled);
-                return true;
-            }
+                if (LiveLinkShowGameStateInSceneView == value)
+                    return;
 
-            [MenuItem(k_ConvertWithoutDiff)]
-            static void ConvertWithoutDiff() => LiveLinkMode = LiveLinkMode.ConvertWithoutDiff;   
-            [MenuItem(k_ConvertWithoutDiff, true)]
-            static bool ValidateConvertWithoutDiff()
-            {
-                Menu.SetChecked(k_ConvertWithoutDiff, LiveLinkMode == LiveLinkMode.ConvertWithoutDiff);
-                return true;
+                EditorPrefs.SetBool("Unity.Entities.Streaming.SubScene.LiveLinkShowGameStateInSceneView", value);
+                LiveLinkConnection.GlobalDirtyLiveLink();
+                LiveLinkModeChanged();
             }
-
-            [MenuItem(k_LiveConvertGameView)]
-            static void LiveConvertGameView() => LiveLinkMode = LiveLinkMode.LiveConvertGameView;  
-            [MenuItem(k_LiveConvertGameView, true)]
-            static bool ValidateLiveConvertGameView()
-            {
-                Menu.SetChecked(k_LiveConvertGameView, LiveLinkMode == LiveLinkMode.LiveConvertGameView);
-                return true;
-            }
-
-            [MenuItem(k_LiveConvertSceneView)]
-            static void LiveConvertSceneView() => LiveLinkMode = LiveLinkMode.LiveConvertSceneView; 
-            [MenuItem(k_LiveConvertSceneView, true)]
-            static bool ValidateLiveConvertSceneView()
-            {
-                Menu.SetChecked(k_LiveConvertSceneView, LiveLinkMode == LiveLinkMode.LiveConvertSceneView);
-                return true;
-            }
-
         }
+
+        public static event Action LiveLinkModeChanged = delegate { };
     }
 }

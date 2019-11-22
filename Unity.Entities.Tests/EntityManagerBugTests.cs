@@ -145,7 +145,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    class Bug148
+    class Bug148 : ECSTestsFixture
     {
         [Test]
         public void Test1()
@@ -155,8 +155,8 @@ namespace Unity.Entities.Tests
 #else
             World w = DefaultTinyWorldInitialization.Initialize("TestWorld");
 #endif
-            World.Active = w;
-            EntityManager em = World.Active.EntityManager;
+            World.DefaultGameObjectInjectionWorld = w;
+            EntityManager em = World.DefaultGameObjectInjectionWorld.EntityManager;
             List<Entity> remember = new List<Entity>();
             for (int i = 0; i < 5; i++)
             {
@@ -174,6 +174,8 @@ namespace Unity.Entities.Tests
             {
                 em.DestroyEntity(e);
             }
+
+            w.Dispose();
         }
 
         [Test]
@@ -184,8 +186,8 @@ namespace Unity.Entities.Tests
 #else
             World w = DefaultTinyWorldInitialization.Initialize("TestWorld");
 #endif
-            World.Active = w;
-            EntityManager em = World.Active.EntityManager;
+            World.DefaultGameObjectInjectionWorld = w;
+            EntityManager em = World.DefaultGameObjectInjectionWorld.EntityManager;
 
             List<Entity> remember = new List<Entity>();
             for (int i = 0; i < 5; i++)
@@ -193,16 +195,16 @@ namespace Unity.Entities.Tests
                 remember.Add(em.CreateEntity());
             }
 
+            w.Dispose();
             w = null;
-            World.DisposeAllWorlds();
 
 #if !UNITY_DOTSPLAYER
             w = new World("TestWorld2");
 #else
             w = DefaultTinyWorldInitialization.Initialize("TestWorld");
 #endif
-            World.Active = w;
-            em = World.Active.EntityManager;
+            World.DefaultGameObjectInjectionWorld = w;
+            em = World.DefaultGameObjectInjectionWorld.EntityManager;
             var allEnt = em.GetAllEntities(Allocator.Temp);
             Assert.AreEqual(0, allEnt.Length);
             allEnt.Dispose();
@@ -221,7 +223,7 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            World.DisposeAllWorlds();
+            w.Dispose();
         }
     }
 }

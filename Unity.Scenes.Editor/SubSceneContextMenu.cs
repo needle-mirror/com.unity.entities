@@ -4,6 +4,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Linq;
+using System.Reflection;
 
 namespace Unity.Scenes.Editor
 {
@@ -37,7 +38,7 @@ namespace Unity.Scenes.Editor
             return selection;
         }
     
-        static void CreateSubSceneAndAddSelection(object target)
+        internal static void CreateSubSceneAndAddSelection(object target)
         {
             GameObject gameObjectTarget = (GameObject)target;
             var validSelection = GetValidGameObjectForSubSceneCreation(gameObjectTarget);
@@ -46,17 +47,26 @@ namespace Unity.Scenes.Editor
     
             CreateSubSceneAndMoveObjectInside(gameObjectTarget.scene, gameObjectTarget.transform.parent, validSelection, gameObjectTarget.name);
         }
-        
+
+        static string GetActualPathName(string path)
+        {
+            //@TODO: GetActualPathName is expected to become public in 2020.1
+            var getActualPathName = typeof(FileUtil).GetMethod("GetActualPathName", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            return (string)getActualPathName?.Invoke(null, new object[] { path });
+        }
+
         static void CreateSubSceneAndMoveObjectInside(Scene parentScene, Transform parent, GameObject[] objects, string name)
         {
             EditorSceneManager.MarkSceneDirty(parentScene);
 
             var srcPath = parentScene.path;
             var dstDirectory = Path.Combine(Path.GetDirectoryName(srcPath), Path.GetFileNameWithoutExtension(parentScene.path));
-            var dstPath = Path.Combine(dstDirectory, name + ".unity");
-    
+            var dstPath = GetActualPathName(Path.Combine(dstDirectory, name + ".unity"));
+
+            dstDirectory = Path.GetDirectoryName(dstPath);
+
             Directory.CreateDirectory(dstDirectory);
-    
+
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
             scene.isSubScene = true;
             foreach (var go in objects)
@@ -81,7 +91,6 @@ namespace Unity.Scenes.Editor
             else
                 SceneManager.MoveGameObjectToScene(gameObject, parentScene);
             
-            EditorEntityScenes.WriteEntityScene(subScene);
             gameObject.SetActive(true);
                         
             Selection.activeObject = gameObject;        

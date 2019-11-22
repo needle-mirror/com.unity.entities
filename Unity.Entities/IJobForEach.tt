@@ -155,11 +155,10 @@ foreach(var combination in combinations) {
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_<#=comboString#><<#=untypedGenericParams#>>), isParallelFor, ref JobStruct_ProcessInfer_<#=comboString#><T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_<#=comboString#><T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_<#=comboString#><T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_<#=comboString#><T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_<#=comboString#><T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -208,7 +207,7 @@ foreach(var combination in combinations) {
 
             public static unsafe void Execute(ref JobStruct_Process_<#=comboString#><T, <#=genericParams#>> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -393,7 +392,7 @@ string DataAccessors(bool withEntity, Category[] combination)
     {
         accessors.AppendLine
         (
-$"					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));"
+$"					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);"
         );
     }
 
@@ -415,14 +414,14 @@ $"					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterato
             break;
 
         accessors.AppendLine($@"						var safety{numBs} = jobData.Iterator.IsReadOnly{numBs} != 0 ? {numBs * 2} : jobData.Iterator.m_SafetyReadOnlyCount + {numBs * 2};");
-        accessors.AppendLine($@"						var buffer{numBs} = ComponentChunkIterator.GetChunkBufferAccessor<T{numBs}>(chunk.m_Chunk, jobData.Iterator.IsReadOnly{numBs} == 0, typeLookupCache{numBs}, jobData.Iterator.GlobalSystemVersion, safety[safety{numBs}], safety[safety{numBs} + 1]);");
+        accessors.AppendLine($@"						var buffer{numBs} = ChunkIterationUtility.GetChunkBufferAccessor<T{numBs}>(chunk.m_Chunk, jobData.Iterator.IsReadOnly{numBs} == 0, typeLookupCache{numBs}, jobData.Iterator.GlobalSystemVersion, safety[safety{numBs}], safety[safety{numBs} + 1]);");
     }
 
     if(insertSafetyChecks)
         accessors.AppendLine("#else");
 
     for(int i = 0; i < numBs; ++i)
-        accessors.AppendLine($@"						var buffer{i} = ComponentChunkIterator.GetChunkBufferAccessor<T{i}>(chunk.m_Chunk, jobData.Iterator.IsReadOnly{i} == 0, typeLookupCache{i}, jobData.Iterator.GlobalSystemVersion);");
+        accessors.AppendLine($@"						var buffer{i} = ChunkIterationUtility.GetChunkBufferAccessor<T{i}>(chunk.m_Chunk, jobData.Iterator.IsReadOnly{i} == 0, typeLookupCache{i}, jobData.Iterator.GlobalSystemVersion);");
 
     if(insertSafetyChecks)
         accessors.AppendLine("#endif");
@@ -430,7 +429,7 @@ $"					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterato
     int numCs = combination.Length - numBs;
     for(int i = numBs; i < combination.Length; ++i)
     {
-        accessors.AppendLine($@"						var ptr{i} = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly{i} == 0, typeLookupCache{i}, jobData.Iterator.GlobalSystemVersion));");
+        accessors.AppendLine($@"						var ptr{i} = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly{i} == 0, typeLookupCache{i}, jobData.Iterator.GlobalSystemVersion);");
     }
 
     return accessors.ToString();
@@ -442,7 +441,7 @@ string Interface( Category[] combination, bool withEntity, string comboString )
     var interfaceDec = new StringBuilder();
 
     interfaceDec.Append(
-$@"#if !UNITY_ZEROPLAYER
+$@"#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_{comboString}<{GetUntypedGenericParams(combination)}>))]
     #endif
     public interface {name}<{GenericParams(combination)}> : JobForEachExtensions.IBaseJobForEach_{comboString}
@@ -466,7 +465,7 @@ string BasicInterface( Category[] combination, bool withEntity, string comboStri
     var interfaceDec = new StringBuilder();
 
     interfaceDec.AppendLine(
-    $@"#if !UNITY_ZEROPLAYER
+    $@"#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_{comboString}<{GetUntypedGenericParams(combination)}>))]
     #endif
     public interface {name}<{GenericParams(combination)}> : {name}_{comboString}<{GenericParams(combination)}>");

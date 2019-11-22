@@ -5,9 +5,9 @@ namespace Unity.Entities.Editor
 {
     public class EntitySelectionProxy : ScriptableObject
     {
-        public delegate void EntityControlDoubleClickHandler(Entity entity);
+        public delegate void EntityControlSelectButtonHandler(World world, Entity entity);
 
-        public event EntityControlDoubleClickHandler EntityControlDoubleClick;
+        public event EntityControlSelectButtonHandler EntityControlSelectButton;
 
         public EntityContainer Container { get; private set; }
         public Entity Entity {
@@ -25,9 +25,9 @@ namespace Unity.Entities.Editor
 
         public bool Exists => EntityManager != null && EntityManager.IsCreated && EntityManager.Exists(Entity);
 
-        public void OnEntityControlDoubleClick(Entity entity)
+        public void OnEntityControlSelectButton(World world, Entity entity)
         {
-            EntityControlDoubleClick(entity);
+            EntityControlSelectButton(world, entity);
         }
 
         public void SetEntity(World world, Entity entity)

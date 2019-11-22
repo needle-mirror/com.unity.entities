@@ -13,9 +13,9 @@ namespace Unity.Entities
             PropertyBagResolver.Register(new EntityContainerPropertyBag());
         }
 
-        internal readonly EntityManager EntityManager;
-        internal readonly Entity Entity;
-        internal readonly bool IsReadOnly;
+        public readonly EntityManager EntityManager;
+        public readonly Entity Entity;
+        public readonly bool IsReadOnly;
 
         public int GetComponentCount() => EntityManager.GetComponentCount(Entity);
 
@@ -66,6 +66,21 @@ namespace Unity.Entities
                 }
             }
 
+            private struct GetManagedComponentCallback<TCallback> : IContainerTypeCallback
+                where TCallback : ICollectionElementPropertyGetter<EntityContainer>
+            {
+                public TCallback Callback;
+                public EntityContainer Container;
+                public int Index;
+                public int TypeIndex;
+                public ChangeTracker ChangeTracker;
+
+                public void Invoke<TComponent>()
+                {
+                    Callback.VisitProperty<ManagedComponentProperty<TComponent>, TComponent>(new ManagedComponentProperty<TComponent>(Index, TypeIndex, Container.IsReadOnly), ref Container, ref ChangeTracker);
+                }
+            }
+            
             private struct GetSharedComponentDataCallback<TCallback> : IContainerTypeCallback
                 where TCallback : ICollectionElementPropertyGetter<EntityContainer>
             {
@@ -133,6 +148,37 @@ namespace Unity.Entities
                     }
 
                     Unsafe.Copy(container.EntityManager.GetComponentDataRawRW(container.Entity, m_TypeIndex), ref value);
+                }
+            }
+            
+            public struct ManagedComponentProperty<TValue> : ICollectionElementProperty<EntityContainer, TValue>
+            {
+                private readonly int m_Index;
+                private readonly int m_TypeIndex;
+                private readonly bool m_IsReadOnly;
+
+                public string GetName() => typeof(TValue).Name;
+                public bool IsReadOnly => true;
+                public bool IsContainer => true;
+                public IPropertyAttributeCollection Attributes => null;
+                public int Index => m_Index;
+
+                public ManagedComponentProperty(int index, int typeIndex, bool isReadOnly)
+                {
+                    m_Index = index;
+                    m_TypeIndex = typeIndex;
+                    m_IsReadOnly = isReadOnly;
+                }
+
+                public unsafe TValue GetValue(ref EntityContainer container)
+                {
+                    var obj = container.EntityManager.GetComponentObject<TValue>(container.Entity);
+                    return (TValue) obj;
+                }
+
+                public unsafe void SetValue(ref EntityContainer container, TValue value)
+                {
+                    throw new InvalidOperationException("Property is ReadOnly");
                 }
             }
 
@@ -208,13 +254,13 @@ namespace Unity.Entities
             public int GetCount(ref EntityContainer container) => container.GetComponentCount();
             public void SetCount(ref EntityContainer container, int count)=> throw new InvalidOperationException("Property is ReadOnly");
 
-            public void GetPropertyAtIndex<TGetter>(ref EntityContainer container, int index, ref ChangeTracker changeTracker, TGetter getter)
+            public void GetPropertyAtIndex<TGetter>(ref EntityContainer container, int index, ref ChangeTracker changeTracker, ref TGetter getter)
                 where TGetter : ICollectionElementPropertyGetter<EntityContainer>
             {
                 var typeIndex = container.EntityManager.GetComponentTypeIndex(container.Entity, index);
                 var type = TypeManager.GetType(typeIndex);
 
-                if (typeof(IComponentData).IsAssignableFrom(type))
+                if (typeof(IComponentData).IsAssignableFrom(type) && type.IsValueType)
                 {
                     var action = new GetComponentDataCallback<TGetter>
                     {
@@ -225,6 +271,21 @@ namespace Unity.Entities
                         ChangeTracker = changeTracker
                     };
                     PropertyBagResolver.Resolve(type)?.Cast(ref action);
+                    getter = action.Callback;
+                    changeTracker = action.ChangeTracker;
+                }
+                else if (typeof(IComponentData).IsAssignableFrom(type) && type.IsClass)
+                {
+                    var action = new GetManagedComponentCallback<TGetter>()
+                    {
+                        Callback = getter,
+                        Container = container,
+                        Index = index,
+                        TypeIndex = typeIndex,
+                        ChangeTracker = changeTracker
+                    };
+                    PropertyBagResolver.Resolve(type)?.Cast(ref action);
+                    getter = action.Callback;
                     changeTracker = action.ChangeTracker;
                 }
                 else if (typeof(ISharedComponentData).IsAssignableFrom(type))
@@ -238,6 +299,7 @@ namespace Unity.Entities
                         ChangeTracker = changeTracker
                     };
                     PropertyBagResolver.Resolve(type)?.Cast(ref action);
+                    getter = action.Callback;
                     changeTracker = action.ChangeTracker;
                 }
                 else if (typeof(IBufferElementData).IsAssignableFrom(type))
@@ -251,6 +313,7 @@ namespace Unity.Entities
                         ChangeTracker = changeTracker
                     };
                     PropertyBagResolver.Resolve(type)?.Cast(ref action);
+                    getter = action.Callback;
                     changeTracker = action.ChangeTracker;
                 }
             }
@@ -259,7 +322,7 @@ namespace Unity.Entities
         private readonly EntityProperty m_Entity = new EntityProperty(new NonSerializedAttribute());
         private readonly ComponentsProperty m_Components = new ComponentsProperty();
 
-        public override void Accept<TVisitor>(ref EntityContainer container, TVisitor visitor, ref ChangeTracker changeTracker)
+        public override void Accept<TVisitor>(ref EntityContainer container, ref TVisitor visitor, ref ChangeTracker changeTracker)
         {
             visitor.VisitProperty<EntityProperty, EntityContainer, Entity>(m_Entity, ref container, ref changeTracker);
             visitor.VisitCollectionProperty<ComponentsProperty, EntityContainer, IEnumerable<object>>(m_Components, ref container, ref changeTracker);

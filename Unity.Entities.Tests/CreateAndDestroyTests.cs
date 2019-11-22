@@ -345,6 +345,34 @@ namespace Unity.Entities.Tests
 	        actualTotalTypes.Dispose();
 	    }
 
+        [Test]
+        public void AddComponent_InvalidEntity1_ShouldThrow()
+        {
+            var invalidEnt = m_Manager.CreateEntity();
+            m_Manager.DestroyEntity(invalidEnt);
+            Assert.That(() => { m_Manager.AddComponent<EcsTestData>(invalidEnt); },
+                Throws.ArgumentException.With.Message.Contains("entity does not exist"));
+        }
+
+        [Test]
+        public void AddComponentBatched_InvalidEntities_ShouldThrow([Values(10, 100)] int entityCount)
+        {
+            var invalidEnt = m_Manager.CreateEntity();
+            m_Manager.DestroyEntity(invalidEnt);
+
+            for (int i = 0; i < entityCount; ++i)
+            {
+                m_Manager.CreateEntity();
+            }
+            var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob);
+            Assert.AreEqual(entities.Length, entityCount);
+
+            entities[0] = invalidEnt;
+            Assert.That(() => { m_Manager.AddComponent<EcsTestData>(entities); },
+                Throws.ArgumentException.With.Message.Contains("entity does not exist"));
+            entities.Dispose();
+        }
+
 	    [Test]
 	    public void AddComponentsWithSharedComponentsWorks()
 	    {
@@ -448,8 +476,11 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity();
 
-            m_Manager.AddComponentData(entity, new EcsTestTag());
-            m_Manager.AddComponentData(entity, new EcsTestTag());
+            var added0 = m_Manager.AddComponentData(entity, new EcsTestTag());
+            var added1 = m_Manager.AddComponentData(entity, new EcsTestTag());
+            
+            Assert.That(added0, Is.True);
+            Assert.That(added1, Is.False);
         }
 
         [Test]
@@ -457,8 +488,11 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity();
 
-            m_Manager.AddComponent(entity, ComponentType.ReadWrite<EcsTestTag>());
-            m_Manager.AddComponent(entity, ComponentType.ReadWrite<EcsTestTag>());
+            var added0 = m_Manager.AddComponent(entity, ComponentType.ReadWrite<EcsTestTag>());
+            var added1 = m_Manager.AddComponent(entity, ComponentType.ReadWrite<EcsTestTag>());
+            
+            Assert.That(added0, Is.True);
+            Assert.That(added1, Is.False);
         }
 
         [Test]
@@ -467,9 +501,31 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity();
 
             m_Manager.AddComponent(m_Manager.UniversalQuery, ComponentType.ReadWrite<EcsTestTag>());
-            Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(m_Manager.UniversalQuery, ComponentType.ReadWrite<EcsTestTag>()));
+            
+            // Not an error (null operation)
+            m_Manager.AddComponent(m_Manager.UniversalQuery, ComponentType.ReadWrite<EcsTestTag>());
+        }
+        
+        [Test]
+        public void AddComponentThenSetThenAddDoesNotChangeValue()
+        {
+            m_Manager.CreateEntity();
 
-            // Failure because the component type is expected to be explicitly excluded from the group.
+            var value0 = new EcsTestData(1);
+            m_Manager.AddComponent(m_Manager.UniversalQuery, ComponentType.ReadWrite<EcsTestData>());
+            var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.Persistent);
+            for (int i = 0; i < entities.Length; i++)
+                m_Manager.SetComponentData(entities[i], value0);
+
+            var addedQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            m_Manager.AddComponent(addedQuery, ComponentType.ReadWrite<EcsTestData>());
+            var values = addedQuery.ToComponentDataArray<EcsTestData>(Allocator.Persistent);
+            for (int i = 0; i < entities.Length; i++)
+                Assert.AreEqual(value0.value, values[i].value);
+            
+            addedQuery.Dispose();
+            entities.Dispose();
+            values.Dispose();
         }
 
 #if !UNITY_DOTSPLAYER //Alert, this test is red in dots-runtime 32bit.  looks like a legit scray bug.        
@@ -482,7 +538,7 @@ namespace Unity.Entities.Tests
             m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestTag>()));
 
             m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestData>()));
-            Assert.Throws<ArgumentException>(() => m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestData>())));
+            m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestData>()));
         }
 #endif
 		
@@ -491,11 +547,16 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity();
 
-            m_Manager.AddChunkComponentData<EcsTestTag>(entity);
-            m_Manager.AddChunkComponentData<EcsTestTag>(entity);
+            var added0 = m_Manager.AddChunkComponentData<EcsTestTag>(entity);
+            var added1 = m_Manager.AddChunkComponentData<EcsTestTag>(entity);
 
-            m_Manager.AddChunkComponentData<EcsTestData>(entity);
-            m_Manager.AddChunkComponentData<EcsTestData>(entity);
+            var added2 = m_Manager.AddChunkComponentData<EcsTestData>(entity);
+            var added3 = m_Manager.AddChunkComponentData<EcsTestData>(entity);
+            
+            Assert.That(added0, Is.True);
+            Assert.That(added1, Is.False);
+            Assert.That(added2, Is.True);
+            Assert.That(added3, Is.False);
         }
 
         [Test]
@@ -516,8 +577,11 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity();
 
-            m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp());
-            Assert.Throws<ArgumentException>(() => m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp()));
+            var added0 = m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp());
+            var added1 = m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp());
+            
+            Assert.That(added0, Is.True);
+            Assert.That(added1, Is.False);
         }
 
         [Test]
@@ -633,7 +697,7 @@ namespace Unity.Entities.Tests
                 var entity = ecb.CreateEntity();
                 ecb.AddComponent(entity, new EcsTestData());
                 ecb.AddComponent(entity, new EcsTestData());
-                Assert.Throws<ArgumentException>(() => ecb.Playback(m_Manager));
+                Assert.DoesNotThrow(() => ecb.Playback(m_Manager));
             }
 
             // with fixup
@@ -644,7 +708,7 @@ namespace Unity.Entities.Tests
                 var other = ecb.CreateEntity();
                 ecb.AddComponent(entity, new EcsTestDataEntity{ value1 = other });
                 ecb.AddComponent(entity, new EcsTestDataEntity{ value1 = other });
-                Assert.Throws<ArgumentException>(() => ecb.Playback(m_Manager));
+                Assert.DoesNotThrow(() => ecb.Playback(m_Manager));
             }
         }
 

@@ -29,23 +29,7 @@ namespace Unity.Entities
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         public T GetComponentData<T>(Entity entity) where T : struct, IComponentData
         {
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (ComponentType.FromTypeIndex(typeIndex).IsZeroSized)
-                throw new System.ArgumentException(
-                    $"GetComponentData<{typeof(T)}> can not be called with a zero sized component.");
-#endif
-
-            ComponentJobSafetyManager->CompleteWriteDependency(typeIndex);
-
-            var ptr = EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex);
-
-            T value;
-            UnsafeUtility.CopyPtrToStructure(ptr, out value);
-            return value;
+            return m_EntityDataAccess.GetComponentData<T>(entity);
         }
 
         /// <summary>
@@ -57,21 +41,7 @@ namespace Unity.Entities
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         public void SetComponentData<T>(Entity entity, T componentData) where T : struct, IComponentData
         {
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (ComponentType.FromTypeIndex(typeIndex).IsZeroSized)
-                throw new System.ArgumentException(
-                    $"SetComponentData<{typeof(T)}> can not be called with a zero sized component.");
-#endif
-
-            ComponentJobSafetyManager->CompleteReadAndWriteDependency(typeIndex);
-
-            var ptr = EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex,
-                EntityComponentStore->GlobalSystemVersion);
-            UnsafeUtility.CopyStructureToPtr(ref componentData, ptr);
+            m_EntityDataAccess.SetComponentData(entity, componentData);
         }
 
         /// <summary>
@@ -125,6 +95,7 @@ namespace Unity.Entities
         /// <param name="componentValue">The component data to set.</param>
         /// <typeparam name="T">The component type.</typeparam>
         /// <exception cref="ArgumentException">Thrown if the ArchetypeChunk object is invalid.</exception>
+        [StructuralChangeMethod]
         public void SetChunkComponentData<T>(ArchetypeChunk chunk, T componentValue) where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -153,10 +124,8 @@ namespace Unity.Entities
         {
             EntityComponentStore->AssertEntityHasComponent(entity, componentType.TypeIndex);
 
-            Chunk* chunk;
-            int chunkIndex;
-            EntityComponentStore->GetChunk(entity, out chunk, out chunkIndex);
-            return (T) ManagedComponentStore.GetManagedObject(chunk, componentType, chunkIndex);
+            var entityInChunk = EntityComponentStore->GetEntityInChunk(entity);
+            return (T) ManagedComponentStore.GetManagedObject(entityInChunk.Chunk, componentType, entityInChunk.IndexInChunk);
         }
 
         /// <summary>
@@ -175,17 +144,10 @@ namespace Unity.Entities
         /// <param name="entity">The entity</param>
         /// <param name="componentData">A shared component object containing the values to set.</param>
         /// <typeparam name="T">The shared component type.</typeparam>
+        [StructuralChangeMethod]
         public void SetSharedComponentData<T>(Entity entity, T componentData) where T : struct, ISharedComponentData
         {
-            BeforeStructuralChange();
-
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-            var newSharedComponentDataIndex = m_ManagedComponentStore.InsertSharedComponent(componentData);
-            EntityComponentStore->SetSharedComponentDataIndex(entity, typeIndex, newSharedComponentDataIndex);
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
-            ManagedComponentStore.RemoveReference(newSharedComponentDataIndex);
+            m_EntityDataAccess.SetSharedComponentData(entity, componentData);
         }
 
         /// <summary>
@@ -202,6 +164,7 @@ namespace Unity.Entities
         /// <param name="entity">The entity</param>
         /// <param name="componentData">A shared component object containing the values to set.</param>
         /// <typeparam name="T">The shared component type.</typeparam>
+        [StructuralChangeMethod]
         public void SetSharedComponentData<T>(EntityQuery query, T componentData) where T : struct, ISharedComponentData
         {
             using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
@@ -212,10 +175,11 @@ namespace Unity.Entities
                 BeforeStructuralChange();
 
                 var type = ComponentType.ReadWrite<T>();
-                RemoveComponent(chunks, type);
+                m_EntityDataAccess.RemoveComponent(chunks, type);
 
                 int sharedComponentIndex = ManagedComponentStore.InsertSharedComponent(componentData);
-                AddSharedComponentData(chunks, sharedComponentIndex, type);
+                m_EntityDataAccess.AddSharedComponentData(chunks, sharedComponentIndex, type);
+                ManagedComponentStore.RemoveReference(sharedComponentIndex);
             }
         }
         
@@ -227,11 +191,7 @@ namespace Unity.Entities
         /// <returns>A copy of the shared component.</returns>
         public T GetSharedComponentData<T>(Entity entity) where T : struct, ISharedComponentData
         {
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-            var sharedComponentIndex = EntityComponentStore->GetSharedComponentDataIndex(entity, typeIndex);
-            return m_ManagedComponentStore.GetSharedComponentData<T>(sharedComponentIndex);
+            return m_EntityDataAccess.GetSharedComponentData<T>(entity);
         }
 
         public int GetSharedComponentDataIndex<T>(Entity entity) where T : struct, ISharedComponentData
@@ -310,28 +270,12 @@ namespace Unity.Entities
         public DynamicBuffer<T> GetBuffer<T>(Entity entity) where T : struct, IBufferElementData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
-
+            return m_EntityDataAccess.GetBuffer<T>(entity
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-            if (!TypeManager.IsBuffer(typeIndex))
-                throw new ArgumentException(
-                    $"GetBuffer<{typeof(T)}> may not be IComponentData or ISharedComponentData; currently {TypeManager.GetTypeInfo<T>().Category}");
+                , ComponentJobSafetyManager->GetSafetyHandle(typeIndex, false),
+                ComponentJobSafetyManager->GetBufferSafetyHandle(typeIndex)
 #endif
-
-            ComponentJobSafetyManager->CompleteReadAndWriteDependency(typeIndex);
-
-            BufferHeader* header =
-                (BufferHeader*) EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex,
-                    EntityComponentStore->GlobalSystemVersion);
-
-            int internalCapacity = TypeManager.GetTypeInfo(typeIndex).BufferCapacity;
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new DynamicBuffer<T>(header, ComponentJobSafetyManager->GetSafetyHandle(typeIndex, false),
-                ComponentJobSafetyManager->GetBufferSafetyHandle(typeIndex), false, internalCapacity);
-#else
-            return new DynamicBuffer<T>(header, internalCapacity);
-#endif
+            );
         }
 
         /// <summary>
@@ -351,11 +295,10 @@ namespace Unity.Entities
         /// <param name="rightChunk">The chunk containing the other entity to swap. This chunk can be the same as
         /// the `leftChunk`. It also does not need to be in the same World as `leftChunk`.</param>
         /// <param name="rightIndex">The index within the `rightChunk`  of the entity and components to swap.</param>
+        [StructuralChangeMethod]
         public void SwapComponents(ArchetypeChunk leftChunk, int leftIndex, ArchetypeChunk rightChunk, int rightIndex)
         {
-            BeforeStructuralChange();
-            ChunkDataUtility.SwapComponents(leftChunk.m_Chunk, leftIndex, rightChunk.m_Chunk, rightIndex, 1,
-                GlobalSystemVersion, GlobalSystemVersion);
+            m_EntityDataAccess.SwapComponents(leftChunk, leftIndex, rightChunk, rightIndex);
         }
 
         /// <summary>
@@ -394,30 +337,14 @@ namespace Unity.Entities
             SetSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData);
         }
 
-        internal void SetSharedComponentDataBoxedDefaultMustBeNull(Entity entity, int typeIndex, int hashCode, object componentData)
+        void SetSharedComponentDataBoxedDefaultMustBeNull(Entity entity, int typeIndex, int hashCode, object componentData)
         {
-            BeforeStructuralChange();
-
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-            var newSharedComponentDataIndex = 0;
-            if (componentData != null) // null means default
-                newSharedComponentDataIndex = m_ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex,
-                    hashCode, componentData);
-
-            EntityComponentStore->SetSharedComponentDataIndex(entity, typeIndex, newSharedComponentDataIndex);
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
-            ManagedComponentStore.RemoveReference(newSharedComponentDataIndex);
+            m_EntityDataAccess.SetSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData);
         }
 
         internal void SetComponentObject(Entity entity, ComponentType componentType, object componentObject)
         {
-            EntityComponentStore->AssertEntityHasComponent(entity, componentType.TypeIndex);
-
-            Chunk* chunk;
-            int chunkIndex;
-            EntityComponentStore->GetChunk(entity, out chunk, out chunkIndex);
-            ManagedComponentStore.SetManagedObject(chunk, componentType, chunkIndex, componentObject);
+            m_EntityDataAccess.SetComponentObject(entity, componentType, componentObject);
         }
 
         internal ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
@@ -459,42 +386,22 @@ namespace Unity.Entities
         internal void SetComponentDataRaw(Entity entity, int typeIndex, void* data, int size)
         {
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
             ComponentJobSafetyManager->CompleteReadAndWriteDependency(typeIndex);
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (TypeManager.GetTypeInfo(typeIndex).SizeInChunk != size)
-                throw new System.ArgumentException(
-                    $"SetComponentData<{TypeManager.GetType(typeIndex)}> can not be called with a zero sized component and must have same size as sizeof(T).");
-#endif
-
-            var ptr = EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex,
-                EntityComponentStore->GlobalSystemVersion);
-            UnsafeUtility.MemCpy(ptr, data, size);
+            m_EntityDataAccess.SetComponentDataRawEntityHasComponent(entity, typeIndex, data, size);
         }
 
         internal void* GetComponentDataRawRW(Entity entity, int typeIndex)
         {
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
             ComponentJobSafetyManager->CompleteReadAndWriteDependency(typeIndex);
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (TypeManager.GetTypeInfo(typeIndex).IsZeroSized)
-                throw new System.ArgumentException(
-                    $"GetComponentData<{TypeManager.GetType(typeIndex)}> can not be called with a zero sized component.");
-#endif
-
-
-            var ptr = EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex,
-                EntityComponentStore->GlobalSystemVersion);
-            return ptr;
+            return m_EntityDataAccess.GetComponentDataRawRWEntityHasComponent(entity, typeIndex);
         }
 
         internal void* GetComponentDataRawRO(Entity entity, int typeIndex)
         {
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
             ComponentJobSafetyManager->CompleteReadAndWriteDependency(typeIndex);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -513,21 +420,7 @@ namespace Unity.Entities
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
 
             var sharedComponentIndex = EntityComponentStore->GetSharedComponentDataIndex(entity, typeIndex);
-            return m_ManagedComponentStore.GetSharedComponentDataBoxed(sharedComponentIndex, typeIndex);
-        }
-
-        internal void SetBufferRaw(Entity entity, int componentTypeIndex, BufferHeader* tempBuffer, int sizeInChunk)
-        {
-            EntityComponentStore->AssertEntityHasComponent(entity, componentTypeIndex);
-
-            ComponentJobSafetyManager->CompleteReadAndWriteDependency(componentTypeIndex);
-
-            var ptr = EntityComponentStore->GetComponentDataWithTypeRW(entity, componentTypeIndex,
-                EntityComponentStore->GlobalSystemVersion);
-
-            BufferHeader.Destroy((BufferHeader*) ptr);
-
-            UnsafeUtility.MemCpy(ptr, tempBuffer, sizeInChunk);
+            return ManagedComponentStore.GetSharedComponentDataBoxed(sharedComponentIndex, typeIndex);
         }
 
         internal void* GetBufferRawRW(Entity entity, int typeIndex)
@@ -564,5 +457,107 @@ namespace Unity.Entities
 
             return header->Length;
         }
+
+        internal object GetManagedComponentDataAsObject(Entity entity, ComponentType componentType)
+        {
+            EntityComponentStore->AssertEntityHasComponent(entity, componentType.TypeIndex);
+
+            var entityInChunk = EntityComponentStore->GetEntityInChunk(entity);
+            return ManagedComponentStore.GetManagedObject(entityInChunk.Chunk, componentType, entityInChunk.IndexInChunk);
+        }
     }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+    public static unsafe partial class EntityManagerManagedComponentExtensions
+    {
+        /// <summary>
+        /// Gets the value of a component for an entity.
+        /// </summary>
+        /// <param name="entity">The entity.</param>
+        /// <typeparam name="T">The type of component to retrieve.</typeparam>
+        /// <returns>A struct of type T containing the component value.</returns>
+        /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
+        public static T GetComponentData<T>(this EntityManager manager, Entity entity) where T : class, IComponentData
+        {
+            var componentType = ComponentType.ReadWrite<T>();
+
+            return (T) manager.GetManagedComponentDataAsObject(entity, componentType);
+        }
+
+        /// <summary>
+        /// Sets the value of a component of an entity.
+        /// </summary>
+        /// <param name="entity">The entity.</param>
+        /// <param name="componentData">The data to set.</param>
+        /// <typeparam name="T">The component type.</typeparam>
+        /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
+        public static void SetComponentData<T>(this EntityManager manager, Entity entity, T componentData) where T : class, IComponentData
+        {
+            var type = ComponentType.ReadWrite<T>();
+            manager.SetComponentObject(entity, type, componentData);
+        }
+
+        /// <summary>
+        /// Gets the value of a chunk component.
+        /// </summary>
+        /// <remarks>
+        /// A chunk component is common to all entities in a chunk. You can access a chunk <see cref="IComponentData"/>
+        /// instance through either the chunk itself or through an entity stored in that chunk.
+        /// </remarks>
+        /// <param name="chunk">The chunk.</param>
+        /// <typeparam name="T">The component type.</typeparam>
+        /// <returns>A struct of type T containing the component value.</returns>
+        /// <exception cref="ArgumentException">Thrown if the ArchetypeChunk object is invalid.</exception>
+        public static T GetChunkComponentData<T>(this EntityManager manager, ArchetypeChunk chunk) where T : class, IComponentData
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (chunk.Invalid())
+                throw new System.ArgumentException(
+                    $"GetChunkComponentData<{typeof(T)}> can not be called with an invalid archetype chunk.");
+#endif
+            var metaChunkEntity = chunk.m_Chunk->metaChunkEntity;
+            return manager.GetComponentData<T>(metaChunkEntity);
+        }
+
+        /// <summary>
+        /// Gets the value of chunk component for the chunk containing the specified entity.
+        /// </summary>
+        /// <remarks>
+        /// A chunk component is common to all entities in a chunk. You can access a chunk <see cref="IComponentData"/>
+        /// instance through either the chunk itself or through an entity stored in that chunk.
+        /// </remarks>
+        /// <param name="entity">The entity.</param>
+        /// <typeparam name="T">The component type.</typeparam>
+        /// <returns>A struct of type T containing the component value.</returns>
+        public static T GetChunkComponentData<T>(this EntityManager manager, Entity entity) where T : class, IComponentData
+        {
+            manager.EntityComponentStore->AssertEntitiesExist(&entity, 1);
+            var chunk = manager.EntityComponentStore->GetChunk(entity);
+            var metaChunkEntity = chunk->metaChunkEntity;
+            return manager.GetComponentData<T>(metaChunkEntity);
+        }
+
+        /// <summary>
+        /// Sets the value of a chunk component.
+        /// </summary>
+        /// <remarks>
+        /// A chunk component is common to all entities in a chunk. You can access a chunk <see cref="IComponentData"/>
+        /// instance through either the chunk itself or through an entity stored in that chunk.
+        /// </remarks>
+        /// <param name="chunk">The chunk to modify.</param>
+        /// <param name="componentValue">The component data to set.</param>
+        /// <typeparam name="T">The component type.</typeparam>
+        /// <exception cref="ArgumentException">Thrown if the ArchetypeChunk object is invalid.</exception>
+        public static void SetChunkComponentData<T>(this EntityManager manager, ArchetypeChunk chunk, T componentValue) where T : class, IComponentData
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (chunk.Invalid())
+                throw new System.ArgumentException(
+                    $"SetChunkComponentData<{typeof(T)}> can not be called with an invalid archetype chunk.");
+#endif
+            var metaChunkEntity = chunk.m_Chunk->metaChunkEntity;
+            manager.SetComponentData<T>(metaChunkEntity, componentValue);
+        }
+    }
+#endif
 }

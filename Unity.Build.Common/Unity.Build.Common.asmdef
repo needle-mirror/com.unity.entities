@@ -1,0 +1,16 @@
+{
+    "name": "Unity.Build.Common",
+    "references": [
+        "Unity.Build",
+        "Unity.Build.Internals",
+        "Unity.Properties",
+        "Unity.Properties.Editor",
+        "Unity.Serialization"
+    ],
+    "optionalUnityReferences": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false
+}

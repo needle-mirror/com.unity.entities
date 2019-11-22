@@ -24,6 +24,7 @@ public class BlobTests : ECSTestsFixture
         public float embeddedFloat;
         public BlobArray<BlobArray<int>> nestedArray;
         public BlobString str;
+        public BlobString emptyStr;
     }
 
     static unsafe BlobAssetReference<MyData> ConstructBlobData()
@@ -40,6 +41,7 @@ public class BlobTests : ECSTestsFixture
         var nestedArray1 = builder.Allocate(ref nestedArrays[1], 2);
 
         builder.AllocateString(ref root.str, "Blah");
+        builder.AllocateString(ref root.emptyStr, "");
 
         nestedArray0[0] = 0;
         nestedArray1[0] = 1;
@@ -95,6 +97,9 @@ public class BlobTests : ECSTestsFixture
     {
         var str = root.str.ToString();
         if ("Blah" != str)
+            throw new AssertionException("ValidateBlobData didn't match");
+        var emptyStr = root.emptyStr.ToString();
+        if ("" != emptyStr)
             throw new AssertionException("ValidateBlobData didn't match");
     }
 
@@ -293,6 +298,18 @@ public class BlobTests : ECSTestsFixture
         });
 
         builder.Dispose();
+    }
+
+    [Test]
+    public void BlobArrayToArrayCopiesResults()
+    {
+        var blob = ConstructBlobData();
+        ref MyData root = ref blob.Value;
+
+        var floatArray = root.floatArray.ToArray();
+        Assert.AreEqual(new float[]{ 0, 1, 2 }, floatArray);
+
+        blob.Release();
     }
 
     [Test]

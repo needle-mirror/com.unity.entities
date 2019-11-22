@@ -14,7 +14,7 @@ using UnityEngine.Scripting;
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid")]
 [assembly: InternalsVisibleTo("Unity.Entities.Properties")]
 [assembly: InternalsVisibleTo("Unity.Tiny.Core")]
-[assembly: InternalsVisibleTo("Unity.Editor")]
+[assembly: InternalsVisibleTo("Unity.DOTS.Editor")]
 
 namespace Unity.Entities
 {
@@ -42,15 +42,15 @@ namespace Unity.Entities
     /// </remarks>
     [Preserve]
     [DebuggerTypeProxy(typeof(EntityManagerDebugView))]
-    public sealed unsafe partial class EntityManager : EntityManagerBaseInterfaceForObsolete
+    public sealed unsafe partial class EntityManager
     {
-        ComponentJobSafetyManager* m_ComponentJobSafetyManager;
+        ComponentJobSafetyManager*  m_ComponentJobSafetyManager;
+        EntityDataAccess            m_EntityDataAccess;
         EntityComponentStore*       m_EntityComponentStore;
         ManagedComponentStore       m_ManagedComponentStore;
         EntityQueryManager          m_EntityQueryManager;
         ExclusiveEntityTransaction  m_ExclusiveEntityTransaction;
         World                       m_World;
-        EntityArchetype             m_EntityOnlyArchetype;
         EntityQuery                 m_UniversalQuery; // matches all components
         EntityManagerDebug          m_Debug;
 
@@ -78,10 +78,18 @@ namespace Unity.Entities
         }
 #endif
 
+        internal EntityDataAccess EntityDataAccess => m_EntityDataAccess;
         internal EntityComponentStore* EntityComponentStore => m_EntityComponentStore;
         internal ComponentJobSafetyManager* ComponentJobSafetyManager => m_ComponentJobSafetyManager;
         internal EntityQueryManager EntityQueryManager => m_EntityQueryManager;
         internal ManagedComponentStore ManagedComponentStore => m_ManagedComponentStore;
+        
+        // Attribute to indicate an EntityManager method makes structural changes.
+        // Do not remove form EntityManager and please apply to all appropriate methods.
+        [AttributeUsage(AttributeTargets.Method)]
+        private class StructuralChangeMethodAttribute : Attribute
+        {
+        }
 
         /// <summary>
         /// The <see cref="World"/> of this EntityManager.
@@ -151,6 +159,7 @@ namespace Unity.Entities
         internal EntityManager(World world)
         {
             TypeManager.Initialize();
+            StructuralChange.Initialize();
 
             m_World = world;
 
@@ -162,8 +171,9 @@ namespace Unity.Entities
             m_EntityComponentStore = Entities.EntityComponentStore.Create(world.SequenceNumber << 32);
             m_ManagedComponentStore = new ManagedComponentStore();
             m_EntityQueryManager = new EntityQueryManager(m_ComponentJobSafetyManager);
+            m_EntityDataAccess = new EntityDataAccess(this, true);
 
-            m_ExclusiveEntityTransaction = new ExclusiveEntityTransaction(EntityQueryManager, m_ManagedComponentStore, EntityComponentStore);
+            m_ExclusiveEntityTransaction = new ExclusiveEntityTransaction(this);
 
             m_UniversalQuery = CreateEntityQuery(
                 new EntityQueryDesc

@@ -1,5 +1,3 @@
-//#define WRITE_LOG
-
 using System;
 using UnityEngine;
 
@@ -44,8 +42,29 @@ namespace Unity.Entities
         public static World InitializeWorld(string worldName)
         {
             var world = new World(worldName);
-            World.Active = world;
+            World.DefaultGameObjectInjectionWorld = world;
             return world;
+        }
+
+        static void IterateAllAutoSystems(World world, Action<World, Type> Action)
+        {
+            InitializationSystemGroup initializationSystemGroup = world.GetExistingSystem<InitializationSystemGroup>();
+            SimulationSystemGroup simulationSystemGroup = world.GetExistingSystem<SimulationSystemGroup>();
+            PresentationSystemGroup presentationSystemGroup = world.GetExistingSystem<PresentationSystemGroup>();
+
+            foreach (var systemType in TypeManager.GetSystems())
+            {
+                if (TypeManager.GetSystemAttributes(systemType, typeof(DisableAutoCreationAttribute)).Length > 0)
+                    continue;
+                if (systemType == initializationSystemGroup.GetType() ||
+                    systemType == simulationSystemGroup.GetType() ||
+                    systemType == presentationSystemGroup.GetType())
+                {
+                    continue;
+                }
+
+                Action(world, systemType);
+            }
         }
 
         /// <summary>
@@ -54,8 +73,6 @@ namespace Unity.Entities
         public static void InitializeSystems(World world)
         {
             var allSystemTypes = TypeManager.GetSystems();
-            var allSystemNames = TypeManager.SystemNames;
-
             if (allSystemTypes.Length == 0)
             {
                 throw new InvalidOperationException("DefaultTinyWorldInitialization: No Systems found.");
@@ -72,49 +89,39 @@ namespace Unity.Entities
             world.AddSystem(presentationSystemGroup);
 
             // Create the working set of systems.
-#if WRITE_LOG
-            Console.WriteLine("--- Adding systems:");
-#endif
-
-            for (int i = 0; i < allSystemTypes.Length; i++)
+            // The full set of Systems must be created (and initialized with the World) before
+            // they can be placed into SystemGroup. Else you get the problem that a System may
+            // be put into a SystemGroup that hasn't been created.
+            IterateAllAutoSystems(world, (World w, Type systemType) =>
             {
-                if (TypeManager.GetSystemAttributes(allSystemTypes[i], typeof(DisableAutoCreationAttribute)).Length > 0)
-                    continue;
-                if (allSystemTypes[i] == initializationSystemGroup.GetType() ||
-                    allSystemTypes[i] == simulationSystemGroup.GetType() ||
-                    allSystemTypes[i] == presentationSystemGroup.GetType())
+                // Need the if check because game/test code may have auto-constructed a System already.
+                if (world.GetExistingSystem(systemType) == null)
                 {
-                    continue;
+                    AddSystem(world, TypeManager.ConstructSystem(systemType), false);
                 }
+            });
 
-                // Subtle issue. If the System was created by GetOrCreateSystem at the "right" time
-                // before its own initialization, then it will exist. GetExistingSystem will return a valid
-                // object. BUT, that object will not have been put into a SystemGroup.
-                var sys = world.GetExistingSystem(allSystemTypes[i]);
-                if (sys != null)
-                {
-                    AddSystemToGroup(world, sys);
-                    continue;
-                }
-
-#if WRITE_LOG
-                Console.WriteLine(allSystemNames[i]);
-#endif
-                AddSystem(world, TypeManager.ConstructSystem(allSystemTypes[i]));
-            }
+            IterateAllAutoSystems(world, (World w, Type systemType) =>
+            {
+                AddSystemToGroup(world, world.GetExistingSystem(systemType));
+            });
         }
 
         /// <summary>
         /// Call this to add a System that was manually constructed; normally these
         /// Systems are marked with [DisableAutoCreation].
         /// </summary>
-        public static void AddSystem(World world, ComponentSystemBase system)
+        /// <param name="addSystemToGroup"></param> If true, the System will also be added to the correct
+        /// SystemGroup (and the SystemGroup must already exist.) Otherwise, AddSystemToGroup() needs
+        /// to be called separately, if needed.
+        public static void AddSystem(World world, ComponentSystemBase system, bool addSystemToGroup)
         {
             if (world.GetExistingSystem(system.GetType()) != null)
                 throw new ArgumentException("AddSystem: Error to add a duplicate system.");
 
             world.AddSystem(system);
-            AddSystemToGroup(world, system);
+            if (addSystemToGroup)
+                AddSystemToGroup(world, system);
         }
 
 

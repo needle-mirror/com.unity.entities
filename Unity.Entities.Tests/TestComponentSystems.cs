@@ -10,7 +10,7 @@ namespace Unity.Entities.Tests
         protected override void OnCreate()
         {
             ChangeGroup = GetEntityQuery(typeof(EcsTestData));
-            ChangeGroup.SetFilterChanged(typeof(EcsTestData));
+            ChangeGroup.SetChangedVersionFilter(typeof(EcsTestData));
         }
 
         protected override JobHandle OnUpdate(JobHandle inputDeps)

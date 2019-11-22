@@ -21,7 +21,7 @@ namespace Unity.Entities
     /// or the <see cref="ComponentSystem"/> in order to add or remove components, to access components, or to destroy
     /// the entity.
     /// </remarks>
-    public struct Entity : IEquatable<Entity>
+    public struct Entity : IEquatable<Entity>, IComparable<Entity>
     {
         /// <summary>
         /// The ID of an entity.
@@ -63,6 +63,16 @@ namespace Unity.Entities
         public static bool operator !=(Entity lhs, Entity rhs)
         {
             return !(lhs == rhs);
+        }
+
+        /// <summary>
+        /// Compare this entity against a given one
+        /// </summary>
+        /// <param name="other">The other entity to compare to</param>
+        /// <returns>Difference based on the Entity Index value</returns>
+        public int CompareTo(Entity other)
+        {
+            return Index - other.Index;
         }
 
         /// <summary>

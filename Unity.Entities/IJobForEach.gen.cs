@@ -20,21 +20,21 @@ using System;
 namespace Unity.Entities
 {
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_C<,>))]
     #endif
     public interface IJobForEach<T0> : IJobForEach_C<T0>
 		where T0 : struct, IComponentData
 	{}
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EC<,>))]
     #endif
     public interface IJobForEachWithEntity<T0> : IJobForEachWithEntity_EC<T0>
 		where T0 : struct, IComponentData
 	{}
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CC<,,>))]
     #endif
     public interface IJobForEach<T0, T1> : IJobForEach_CC<T0, T1>
@@ -42,7 +42,7 @@ namespace Unity.Entities
 		where T1 : struct, IComponentData
 	{}
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECC<,,>))]
     #endif
     public interface IJobForEachWithEntity<T0, T1> : IJobForEachWithEntity_ECC<T0, T1>
@@ -50,7 +50,7 @@ namespace Unity.Entities
 		where T1 : struct, IComponentData
 	{}
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCC<,,,>))]
     #endif
     public interface IJobForEach<T0, T1, T2> : IJobForEach_CCC<T0, T1, T2>
@@ -59,7 +59,7 @@ namespace Unity.Entities
 		where T2 : struct, IComponentData
 	{}
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCC<,,,>))]
     #endif
     public interface IJobForEachWithEntity<T0, T1, T2> : IJobForEachWithEntity_ECCC<T0, T1, T2>
@@ -68,7 +68,7 @@ namespace Unity.Entities
 		where T2 : struct, IComponentData
 	{}
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCC<,,,,>))]
     #endif
     public interface IJobForEach<T0, T1, T2, T3> : IJobForEach_CCCC<T0, T1, T2, T3>
@@ -78,7 +78,7 @@ namespace Unity.Entities
 		where T3 : struct, IComponentData
 	{}
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCC<,,,,>))]
     #endif
     public interface IJobForEachWithEntity<T0, T1, T2, T3> : IJobForEachWithEntity_ECCCC<T0, T1, T2, T3>
@@ -88,7 +88,7 @@ namespace Unity.Entities
 		where T3 : struct, IComponentData
 	{}
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCCC<,,,,,>))]
     #endif
     public interface IJobForEach<T0, T1, T2, T3, T4> : IJobForEach_CCCCC<T0, T1, T2, T3, T4>
@@ -99,7 +99,7 @@ namespace Unity.Entities
 		where T4 : struct, IComponentData
 	{}
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCCC<,,,,,>))]
     #endif
     public interface IJobForEachWithEntity<T0, T1, T2, T3, T4> : IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4>
@@ -110,7 +110,7 @@ namespace Unity.Entities
 		where T4 : struct, IComponentData
 	{}
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCCCC<,,,,,,>))]
     #endif
     public interface IJobForEach<T0, T1, T2, T3, T4, T5> : IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5>
@@ -122,7 +122,7 @@ namespace Unity.Entities
 		where T5 : struct, IComponentData
 	{}
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCCCC<,,,,,,>))]
     #endif
     public interface IJobForEachWithEntity<T0, T1, T2, T3, T4, T5> : IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5>
@@ -135,7 +135,7 @@ namespace Unity.Entities
 	{}
 
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_C<,>))]
     #endif
     public interface IJobForEach_C<T0> : JobForEachExtensions.IBaseJobForEach_C
@@ -144,7 +144,7 @@ namespace Unity.Entities
         void Execute(ref T0 c0);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EC<,>))]
     #endif
     public interface IJobForEachWithEntity_EC<T0> : JobForEachExtensions.IBaseJobForEach_EC
@@ -153,7 +153,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, ref T0 c0);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_B<,>))]
     #endif
     public interface IJobForEach_B<T0> : JobForEachExtensions.IBaseJobForEach_B
@@ -162,7 +162,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EB<,>))]
     #endif
     public interface IJobForEachWithEntity_EB<T0> : JobForEachExtensions.IBaseJobForEach_EB
@@ -171,7 +171,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CC<,,>))]
     #endif
     public interface IJobForEach_CC<T0, T1> : JobForEachExtensions.IBaseJobForEach_CC
@@ -181,7 +181,7 @@ namespace Unity.Entities
         void Execute(ref T0 c0, ref T1 c1);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECC<,,>))]
     #endif
     public interface IJobForEachWithEntity_ECC<T0, T1> : JobForEachExtensions.IBaseJobForEach_ECC
@@ -191,7 +191,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, ref T0 c0, ref T1 c1);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BC<,,>))]
     #endif
     public interface IJobForEach_BC<T0, T1> : JobForEachExtensions.IBaseJobForEach_BC
@@ -201,7 +201,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, ref T1 c1);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBC<,,>))]
     #endif
     public interface IJobForEachWithEntity_EBC<T0, T1> : JobForEachExtensions.IBaseJobForEach_EBC
@@ -211,7 +211,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, ref T1 c1);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BB<,,>))]
     #endif
     public interface IJobForEach_BB<T0, T1> : JobForEachExtensions.IBaseJobForEach_BB
@@ -221,7 +221,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBB<,,>))]
     #endif
     public interface IJobForEachWithEntity_EBB<T0, T1> : JobForEachExtensions.IBaseJobForEach_EBB
@@ -231,7 +231,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, DynamicBuffer<T1> b1);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCC<,,,>))]
     #endif
     public interface IJobForEach_CCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_CCC
@@ -242,7 +242,7 @@ namespace Unity.Entities
         void Execute(ref T0 c0, ref T1 c1, ref T2 c2);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCC<,,,>))]
     #endif
     public interface IJobForEachWithEntity_ECCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_ECCC
@@ -253,7 +253,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, ref T0 c0, ref T1 c1, ref T2 c2);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCC<,,,>))]
     #endif
     public interface IJobForEach_BCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_BCC
@@ -264,7 +264,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, ref T1 c1, ref T2 c2);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCC<,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_EBCC
@@ -275,7 +275,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, ref T1 c1, ref T2 c2);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBC<,,,>))]
     #endif
     public interface IJobForEach_BBC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_BBC
@@ -286,7 +286,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, ref T2 c2);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBC<,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBBC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_EBBC
@@ -297,7 +297,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, ref T2 c2);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBB<,,,>))]
     #endif
     public interface IJobForEach_BBB<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_BBB
@@ -308,7 +308,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBB<,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBBB<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_EBBB
@@ -319,7 +319,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCC<,,,,>))]
     #endif
     public interface IJobForEach_CCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_CCCC
@@ -331,7 +331,7 @@ namespace Unity.Entities
         void Execute(ref T0 c0, ref T1 c1, ref T2 c2, ref T3 c3);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCC<,,,,>))]
     #endif
     public interface IJobForEachWithEntity_ECCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_ECCCC
@@ -343,7 +343,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, ref T0 c0, ref T1 c1, ref T2 c2, ref T3 c3);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCCC<,,,,>))]
     #endif
     public interface IJobForEach_BCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BCCC
@@ -355,7 +355,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, ref T1 c1, ref T2 c2, ref T3 c3);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCCC<,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBCCC
@@ -367,7 +367,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, ref T1 c1, ref T2 c2, ref T3 c3);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBCC<,,,,>))]
     #endif
     public interface IJobForEach_BBCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BBCC
@@ -379,7 +379,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, ref T2 c2, ref T3 c3);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBCC<,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBBCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBBCC
@@ -391,7 +391,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, ref T2 c2, ref T3 c3);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBC<,,,,>))]
     #endif
     public interface IJobForEach_BBBC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BBBC
@@ -403,7 +403,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, ref T3 c3);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBC<,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBBBC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBBBC
@@ -415,7 +415,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, ref T3 c3);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBB<,,,,>))]
     #endif
     public interface IJobForEach_BBBB<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BBBB
@@ -427,7 +427,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, DynamicBuffer<T3> b3);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBB<,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBBBB<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBBBB
@@ -439,7 +439,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, DynamicBuffer<T3> b3);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCCC<,,,,,>))]
     #endif
     public interface IJobForEach_CCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_CCCCC
@@ -452,7 +452,7 @@ namespace Unity.Entities
         void Execute(ref T0 c0, ref T1 c1, ref T2 c2, ref T3 c3, ref T4 c4);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCCC<,,,,,>))]
     #endif
     public interface IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_ECCCCC
@@ -465,7 +465,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, ref T0 c0, ref T1 c1, ref T2 c2, ref T3 c3, ref T4 c4);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCCCC<,,,,,>))]
     #endif
     public interface IJobForEach_BCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BCCCC
@@ -478,7 +478,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, ref T1 c1, ref T2 c2, ref T3 c3, ref T4 c4);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCCCC<,,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBCCCC
@@ -491,7 +491,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, ref T1 c1, ref T2 c2, ref T3 c3, ref T4 c4);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBCCC<,,,,,>))]
     #endif
     public interface IJobForEach_BBCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBCCC
@@ -504,7 +504,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, ref T2 c2, ref T3 c3, ref T4 c4);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBCCC<,,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBBCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBCCC
@@ -517,7 +517,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, ref T2 c2, ref T3 c3, ref T4 c4);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBCC<,,,,,>))]
     #endif
     public interface IJobForEach_BBBCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBBCC
@@ -530,7 +530,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, ref T3 c3, ref T4 c4);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBCC<,,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBBBCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBBCC
@@ -543,7 +543,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, ref T3 c3, ref T4 c4);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBC<,,,,,>))]
     #endif
     public interface IJobForEach_BBBBC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBBBC
@@ -556,7 +556,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, DynamicBuffer<T3> b3, ref T4 c4);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBC<,,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBBBBC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBBBC
@@ -569,7 +569,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, DynamicBuffer<T3> b3, ref T4 c4);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBB<,,,,,>))]
     #endif
     public interface IJobForEach_BBBBB<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBBBB
@@ -582,7 +582,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, DynamicBuffer<T3> b3, DynamicBuffer<T4> b4);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBB<,,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBBBBB<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBBBB
@@ -595,7 +595,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, DynamicBuffer<T3> b3, DynamicBuffer<T4> b4);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCCCC<,,,,,,>))]
     #endif
     public interface IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_CCCCCC
@@ -609,7 +609,7 @@ namespace Unity.Entities
         void Execute(ref T0 c0, ref T1 c1, ref T2 c2, ref T3 c3, ref T4 c4, ref T5 c5);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCCCC<,,,,,,>))]
     #endif
     public interface IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_ECCCCCC
@@ -623,7 +623,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, ref T0 c0, ref T1 c1, ref T2 c2, ref T3 c3, ref T4 c4, ref T5 c5);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCCCCC<,,,,,,>))]
     #endif
     public interface IJobForEach_BCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BCCCCC
@@ -637,7 +637,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, ref T1 c1, ref T2 c2, ref T3 c3, ref T4 c4, ref T5 c5);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCCCCC<,,,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBCCCCC
@@ -651,7 +651,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, ref T1 c1, ref T2 c2, ref T3 c3, ref T4 c4, ref T5 c5);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBCCCC<,,,,,,>))]
     #endif
     public interface IJobForEach_BBCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBCCCC
@@ -665,7 +665,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, ref T2 c2, ref T3 c3, ref T4 c4, ref T5 c5);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBCCCC<,,,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBBCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBCCCC
@@ -679,7 +679,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, ref T2 c2, ref T3 c3, ref T4 c4, ref T5 c5);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBCCC<,,,,,,>))]
     #endif
     public interface IJobForEach_BBBCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBCCC
@@ -693,7 +693,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, ref T3 c3, ref T4 c4, ref T5 c5);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBCCC<,,,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBBBCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBCCC
@@ -707,7 +707,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, ref T3 c3, ref T4 c4, ref T5 c5);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBCC<,,,,,,>))]
     #endif
     public interface IJobForEach_BBBBCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBBCC
@@ -721,7 +721,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, DynamicBuffer<T3> b3, ref T4 c4, ref T5 c5);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBCC<,,,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBBBBCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBBCC
@@ -735,7 +735,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, DynamicBuffer<T3> b3, ref T4 c4, ref T5 c5);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBBC<,,,,,,>))]
     #endif
     public interface IJobForEach_BBBBBC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBBBC
@@ -749,7 +749,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, DynamicBuffer<T3> b3, DynamicBuffer<T4> b4, ref T5 c5);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBBC<,,,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBBBBBC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBBBC
@@ -763,7 +763,7 @@ namespace Unity.Entities
         void Execute(Entity entity, int index, DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, DynamicBuffer<T3> b3, DynamicBuffer<T4> b4, ref T5 c5);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBBB<,,,,,,>))]
     #endif
     public interface IJobForEach_BBBBBB<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBBBB
@@ -777,7 +777,7 @@ namespace Unity.Entities
         void Execute(DynamicBuffer<T0> b0, DynamicBuffer<T1> b1, DynamicBuffer<T2> b2, DynamicBuffer<T3> b3, DynamicBuffer<T4> b4, DynamicBuffer<T5> b5);
     }
 
-#if !UNITY_ZEROPLAYER
+#if !UNITY_DOTSPLAYER
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBBB<,,,,,,>))]
     #endif
     public interface IJobForEachWithEntity_EBBBBBB<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBBBB
@@ -1503,11 +1503,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_C<,>), isParallelFor, ref JobStruct_ProcessInfer_C<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_C<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_C<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_C<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_C<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -1550,7 +1549,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_C<T, T0> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -1577,7 +1576,7 @@ namespace Unity.Entities
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
-						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -1600,11 +1599,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EC<,>), isParallelFor, ref JobStruct_ProcessInfer_EC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -1647,7 +1645,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EC<T, T0> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -1673,9 +1671,9 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
-						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -1698,11 +1696,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_B<,>), isParallelFor, ref JobStruct_ProcessInfer_B<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_B<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_B<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_B<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_B<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -1745,7 +1742,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_B<T, T0> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -1776,9 +1773,9 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
@@ -1805,11 +1802,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EB<,>), isParallelFor, ref JobStruct_ProcessInfer_EB<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EB<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EB<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EB<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -1852,7 +1848,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EB<T, T0> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -1878,15 +1874,15 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
@@ -1913,11 +1909,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_CC<,,>), isParallelFor, ref JobStruct_ProcessInfer_CC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_CC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_CC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_CC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_CC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -1961,7 +1956,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_CC<T, T0, T1> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -1990,8 +1985,8 @@ namespace Unity.Entities
 #endif
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
-						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -2014,11 +2009,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_ECC<,,>), isParallelFor, ref JobStruct_ProcessInfer_ECC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_ECC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_ECC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_ECC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_ECC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -2062,7 +2056,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_ECC<T, T0, T1> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -2089,11 +2083,11 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
-						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -2116,11 +2110,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BC<,,>), isParallelFor, ref JobStruct_ProcessInfer_BC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -2164,7 +2157,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BC<T, T0, T1> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -2197,11 +2190,11 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -2227,11 +2220,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBC<,,>), isParallelFor, ref JobStruct_ProcessInfer_EBC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -2275,7 +2267,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBC<T, T0, T1> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -2302,18 +2294,18 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -2339,11 +2331,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BB<,,>), isParallelFor, ref JobStruct_ProcessInfer_BB<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BB<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BB<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BB<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -2387,7 +2378,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BB<T, T0, T1> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -2420,12 +2411,12 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
@@ -2452,11 +2443,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBB<,,>), isParallelFor, ref JobStruct_ProcessInfer_EBB<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBB<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBB<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBB<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -2500,7 +2490,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBB<T, T0, T1> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -2527,19 +2517,19 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
@@ -2566,11 +2556,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_CCC<,,,>), isParallelFor, ref JobStruct_ProcessInfer_CCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_CCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_CCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_CCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_CCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -2615,7 +2604,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_CCC<T, T0, T1, T2> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -2646,9 +2635,9 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
-						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -2671,11 +2660,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_ECCC<,,,>), isParallelFor, ref JobStruct_ProcessInfer_ECCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_ECCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_ECCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_ECCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_ECCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -2720,7 +2708,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_ECCC<T, T0, T1, T2> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -2748,13 +2736,13 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
-						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -2777,11 +2765,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BCC<,,,>), isParallelFor, ref JobStruct_ProcessInfer_BCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -2826,7 +2813,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BCC<T, T0, T1, T2> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -2861,12 +2848,12 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -2892,11 +2879,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBCC<,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -2941,7 +2927,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBCC<T, T0, T1, T2> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -2969,7 +2955,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -2977,12 +2963,12 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -3008,11 +2994,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBC<,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BBC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BBC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BBC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -3057,7 +3042,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BBC<T, T0, T1, T2> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -3092,14 +3077,14 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -3125,11 +3110,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBC<,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBBC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBBC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -3174,7 +3158,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBBC<T, T0, T1, T2> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -3202,7 +3186,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -3210,14 +3194,14 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -3243,11 +3227,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBB<,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBB<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BBB<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BBB<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BBB<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -3292,7 +3275,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BBB<T, T0, T1, T2> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -3327,15 +3310,15 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
@@ -3362,11 +3345,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBB<,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBB<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBBB<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBBB<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -3411,7 +3393,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBBB<T, T0, T1, T2> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -3439,7 +3421,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -3447,15 +3429,15 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
@@ -3482,11 +3464,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_CCCC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_CCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_CCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_CCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_CCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_CCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -3532,7 +3513,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_CCCC<T, T0, T1, T2, T3> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -3565,10 +3546,10 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
-						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -3591,11 +3572,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_ECCCC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_ECCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_ECCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_ECCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_ECCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_ECCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -3641,7 +3621,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_ECCCC<T, T0, T1, T2, T3> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -3670,15 +3650,15 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
-						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -3701,11 +3681,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BCCC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -3751,7 +3730,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BCCC<T, T0, T1, T2, T3> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -3788,13 +3767,13 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -3820,11 +3799,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBCCC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -3870,7 +3848,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBCCC<T, T0, T1, T2, T3> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -3899,7 +3877,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -3908,13 +3886,13 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -3940,11 +3918,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBCC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BBCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BBCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -3990,7 +3967,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BBCC<T, T0, T1, T2, T3> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -4027,15 +4004,15 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -4061,11 +4038,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBCC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBBCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBBCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -4111,7 +4087,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBBCC<T, T0, T1, T2, T3> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -4140,7 +4116,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -4149,15 +4125,15 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -4183,11 +4159,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BBBC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BBBC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -4233,7 +4208,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BBBC<T, T0, T1, T2, T3> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -4270,17 +4245,17 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -4306,11 +4281,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBBBC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBBBC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -4356,7 +4330,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBBBC<T, T0, T1, T2, T3> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -4385,7 +4359,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -4394,17 +4368,17 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -4430,11 +4404,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBB<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBB<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BBBB<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BBBB<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -4480,7 +4453,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BBBB<T, T0, T1, T2, T3> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -4517,18 +4490,18 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
@@ -4555,11 +4528,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBB<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBB<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBBBB<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBBBB<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -4605,7 +4577,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBBBB<T, T0, T1, T2, T3> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -4634,7 +4606,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -4643,18 +4615,18 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
@@ -4681,11 +4653,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_CCCCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_CCCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_CCCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_CCCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_CCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_CCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -4732,7 +4703,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_CCCCC<T, T0, T1, T2, T3, T4> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -4767,11 +4738,11 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
-						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -4794,11 +4765,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_ECCCCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_ECCCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_ECCCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_ECCCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_ECCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_ECCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -4845,7 +4815,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_ECCCCC<T, T0, T1, T2, T3, T4> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -4875,17 +4845,17 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
-						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -4908,11 +4878,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BCCCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BCCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BCCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BCCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -4959,7 +4928,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BCCCC<T, T0, T1, T2, T3, T4> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -4998,14 +4967,14 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -5031,11 +5000,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBCCCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBCCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBCCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBCCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -5082,7 +5050,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBCCCC<T, T0, T1, T2, T3, T4> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -5112,7 +5080,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -5122,14 +5090,14 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -5155,11 +5123,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBCCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BBCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BBCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -5206,7 +5173,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BBCCC<T, T0, T1, T2, T3, T4> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -5245,16 +5212,16 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -5280,11 +5247,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBCCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBBCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBBCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -5331,7 +5297,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBBCCC<T, T0, T1, T2, T3, T4> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -5361,7 +5327,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -5371,16 +5337,16 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -5406,11 +5372,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BBBCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BBBCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -5457,7 +5422,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BBBCC<T, T0, T1, T2, T3, T4> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -5496,18 +5461,18 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -5533,11 +5498,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBBBCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBBBCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -5584,7 +5548,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBBBCC<T, T0, T1, T2, T3, T4> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -5614,7 +5578,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -5624,18 +5588,18 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -5661,11 +5625,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBBC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBBC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BBBBC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BBBBC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -5712,7 +5675,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BBBBC<T, T0, T1, T2, T3, T4> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -5751,20 +5714,20 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -5790,11 +5753,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBBC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBBC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBBBBC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBBBBC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -5841,7 +5803,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBBBBC<T, T0, T1, T2, T3, T4> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -5871,7 +5833,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -5881,20 +5843,20 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -5920,11 +5882,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBBB<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBBB<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BBBBB<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BBBBB<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -5971,7 +5932,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BBBBB<T, T0, T1, T2, T3, T4> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -6010,21 +5971,21 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
 						var safety4 = jobData.Iterator.IsReadOnly4 != 0 ? 8 : jobData.Iterator.m_SafetyReadOnlyCount + 8;
-						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
+						var buffer4 = ChunkIterationUtility.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer4 = ChunkIterationUtility.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
@@ -6051,11 +6012,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBBB<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBBB<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBBBBB<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBBBBB<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -6102,7 +6062,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBBBBB<T, T0, T1, T2, T3, T4> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -6132,7 +6092,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -6142,21 +6102,21 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
 						var safety4 = jobData.Iterator.IsReadOnly4 != 0 ? 8 : jobData.Iterator.m_SafetyReadOnlyCount + 8;
-						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
+						var buffer4 = ChunkIterationUtility.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer4 = ChunkIterationUtility.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
@@ -6183,11 +6143,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_CCCCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_CCCCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_CCCCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_CCCCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_CCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_CCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -6235,7 +6194,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_CCCCCC<T, T0, T1, T2, T3, T4, T5> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -6272,12 +6231,12 @@ namespace Unity.Entities
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
-						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var ptr5 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -6300,11 +6259,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_ECCCCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_ECCCCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_ECCCCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_ECCCCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_ECCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_ECCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -6352,7 +6310,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_ECCCCCC<T, T0, T1, T2, T3, T4, T5> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -6383,19 +6341,19 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex3, ref typeLookupCache3);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex4, ref typeLookupCache4);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex5, ref typeLookupCache5);
-						var ptr0 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion));
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+						var ptr0 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var ptr5 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -6418,11 +6376,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BCCCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BCCCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BCCCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BCCCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -6470,7 +6427,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BCCCCC<T, T0, T1, T2, T3, T4, T5> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -6511,15 +6468,15 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var ptr5 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -6545,11 +6502,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBCCCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBCCCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBCCCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBCCCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -6597,7 +6553,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBCCCCC<T, T0, T1, T2, T3, T4, T5> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -6628,7 +6584,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -6639,15 +6595,15 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr1 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion));
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+						var ptr1 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var ptr5 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -6673,11 +6629,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBCCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBCCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BBCCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BBCCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BBCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -6725,7 +6680,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BBCCCC<T, T0, T1, T2, T3, T4, T5> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -6766,17 +6721,17 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var ptr5 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -6802,11 +6757,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBCCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBCCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBBCCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBBCCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBBCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -6854,7 +6808,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBBCCCC<T, T0, T1, T2, T3, T4, T5> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -6885,7 +6839,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -6896,17 +6850,17 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr2 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion));
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+						var ptr2 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var ptr5 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -6932,11 +6886,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BBBCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BBBCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BBBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -6984,7 +6937,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BBBCCC<T, T0, T1, T2, T3, T4, T5> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -7025,19 +6978,19 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var ptr5 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -7063,11 +7016,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBCCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBBBCCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBBBCCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBBBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -7115,7 +7067,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBBBCCC<T, T0, T1, T2, T3, T4, T5> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -7146,7 +7098,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -7157,19 +7109,19 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr3 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion));
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+						var ptr3 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var ptr5 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -7195,11 +7147,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBBCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBBCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BBBBCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BBBBCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BBBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -7247,7 +7198,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BBBBCC<T, T0, T1, T2, T3, T4, T5> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -7288,21 +7239,21 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var ptr5 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -7328,11 +7279,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBBCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBBCC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBBBBCC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBBBBCC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBBBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -7380,7 +7330,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBBBBCC<T, T0, T1, T2, T3, T4, T5> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -7411,7 +7361,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -7422,21 +7372,21 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr4 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion));
-						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+						var ptr4 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var ptr5 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -7462,11 +7412,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBBBC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBBBC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BBBBBC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BBBBBC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BBBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -7514,7 +7463,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BBBBBC<T, T0, T1, T2, T3, T4, T5> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -7555,23 +7504,23 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
 						var safety4 = jobData.Iterator.IsReadOnly4 != 0 ? 8 : jobData.Iterator.m_SafetyReadOnlyCount + 8;
-						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
+						var buffer4 = ChunkIterationUtility.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer4 = ChunkIterationUtility.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+						var ptr5 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -7597,11 +7546,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBBBC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBBBC<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBBBBBC<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBBBBBC<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBBBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -7649,7 +7597,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBBBBBC<T, T0, T1, T2, T3, T4, T5> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -7680,7 +7628,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -7691,23 +7639,23 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
 						var safety4 = jobData.Iterator.IsReadOnly4 != 0 ? 8 : jobData.Iterator.m_SafetyReadOnlyCount + 8;
-						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
+						var buffer4 = ChunkIterationUtility.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer4 = ChunkIterationUtility.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
 #endif
-						var ptr5 = UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion));
+						var ptr5 = ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 
 
                         for (var i = 0; i != count; i++)
@@ -7733,11 +7681,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBBBB<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBBBB<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_BBBBBB<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_BBBBBB<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_BBBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -7785,7 +7732,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_BBBBBB<T, T0, T1, T2, T3, T4, T5> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -7826,24 +7773,24 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
 						var safety4 = jobData.Iterator.IsReadOnly4 != 0 ? 8 : jobData.Iterator.m_SafetyReadOnlyCount + 8;
-						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
+						var buffer4 = ChunkIterationUtility.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
 						var safety5 = jobData.Iterator.IsReadOnly5 != 0 ? 10 : jobData.Iterator.m_SafetyReadOnlyCount + 10;
-						var buffer5 = ComponentChunkIterator.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion, safety[safety5], safety[safety5 + 1]);
+						var buffer5 = ChunkIterationUtility.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion, safety[safety5], safety[safety5 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
-						var buffer5 = ComponentChunkIterator.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer4 = ChunkIterationUtility.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var buffer5 = ChunkIterationUtility.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 
@@ -7870,11 +7817,10 @@ namespace Unity.Entities
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBBBB<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBBBB<T>.Cache, out fullData.Iterator);
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
-            var iterator = JobStruct_ProcessInfer_EBBBBBB<T>.Cache.EntityQuery.GetComponentChunkIterator();
+            var resolvedQuery = JobStruct_ProcessInfer_EBBBBBB<T>.Cache.EntityQuery;
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
-            var prefilterHandle = ComponentChunkIterator.PreparePrefilteredChunkLists(unfilteredChunkCount, iterator.m_MatchingArchetypeList, iterator.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, iterator.RequiresFilter(), ref JobStruct_ProcessInfer_EBBBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 #endif
 
@@ -7922,7 +7868,7 @@ namespace Unity.Entities
 
             public static unsafe void Execute(ref JobStruct_Process_EBBBBBB<T, T0, T1, T2, T3, T4, T5> jobData, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ComponentChunkIterator.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var chunks, out var entityIndices, out var chunkCount);
 
                 if (jobData.Iterator.m_IsParallelFor)
                 {
@@ -7953,7 +7899,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobData), beginIndex, beginIndex + count);
 #endif
-					var ptrE = (Entity*)UnsafeUtilityEx.RestrictNoAlias(ComponentChunkIterator.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion));
+					var ptrE = (Entity*)ChunkIterationUtility.GetChunkComponentDataPtr(chunk.m_Chunk, false, 0, jobData.Iterator.GlobalSystemVersion);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex0, ref typeLookupCache0);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex1, ref typeLookupCache1);
 					ChunkDataUtility.GetIndexInTypeArray(chunk.m_Chunk->Archetype, jobData.Iterator.TypeIndex2, ref typeLookupCache2);
@@ -7964,24 +7910,24 @@ namespace Unity.Entities
                     fixed (AtomicSafetyHandle* safety = &jobData.Iterator.m_Safety0)
                     {
 						var safety0 = jobData.Iterator.IsReadOnly0 != 0 ? 0 : jobData.Iterator.m_SafetyReadOnlyCount + 0;
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion, safety[safety0], safety[safety0 + 1]);
 						var safety1 = jobData.Iterator.IsReadOnly1 != 0 ? 2 : jobData.Iterator.m_SafetyReadOnlyCount + 2;
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion, safety[safety1], safety[safety1 + 1]);
 						var safety2 = jobData.Iterator.IsReadOnly2 != 0 ? 4 : jobData.Iterator.m_SafetyReadOnlyCount + 4;
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion, safety[safety2], safety[safety2 + 1]);
 						var safety3 = jobData.Iterator.IsReadOnly3 != 0 ? 6 : jobData.Iterator.m_SafetyReadOnlyCount + 6;
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion, safety[safety3], safety[safety3 + 1]);
 						var safety4 = jobData.Iterator.IsReadOnly4 != 0 ? 8 : jobData.Iterator.m_SafetyReadOnlyCount + 8;
-						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
+						var buffer4 = ChunkIterationUtility.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion, safety[safety4], safety[safety4 + 1]);
 						var safety5 = jobData.Iterator.IsReadOnly5 != 0 ? 10 : jobData.Iterator.m_SafetyReadOnlyCount + 10;
-						var buffer5 = ComponentChunkIterator.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion, safety[safety5], safety[safety5 + 1]);
+						var buffer5 = ChunkIterationUtility.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion, safety[safety5], safety[safety5 + 1]);
 #else
-						var buffer0 = ComponentChunkIterator.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
-						var buffer1 = ComponentChunkIterator.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
-						var buffer2 = ComponentChunkIterator.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
-						var buffer3 = ComponentChunkIterator.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
-						var buffer4 = ComponentChunkIterator.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
-						var buffer5 = ComponentChunkIterator.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
+						var buffer0 = ChunkIterationUtility.GetChunkBufferAccessor<T0>(chunk.m_Chunk, jobData.Iterator.IsReadOnly0 == 0, typeLookupCache0, jobData.Iterator.GlobalSystemVersion);
+						var buffer1 = ChunkIterationUtility.GetChunkBufferAccessor<T1>(chunk.m_Chunk, jobData.Iterator.IsReadOnly1 == 0, typeLookupCache1, jobData.Iterator.GlobalSystemVersion);
+						var buffer2 = ChunkIterationUtility.GetChunkBufferAccessor<T2>(chunk.m_Chunk, jobData.Iterator.IsReadOnly2 == 0, typeLookupCache2, jobData.Iterator.GlobalSystemVersion);
+						var buffer3 = ChunkIterationUtility.GetChunkBufferAccessor<T3>(chunk.m_Chunk, jobData.Iterator.IsReadOnly3 == 0, typeLookupCache3, jobData.Iterator.GlobalSystemVersion);
+						var buffer4 = ChunkIterationUtility.GetChunkBufferAccessor<T4>(chunk.m_Chunk, jobData.Iterator.IsReadOnly4 == 0, typeLookupCache4, jobData.Iterator.GlobalSystemVersion);
+						var buffer5 = ChunkIterationUtility.GetChunkBufferAccessor<T5>(chunk.m_Chunk, jobData.Iterator.IsReadOnly5 == 0, typeLookupCache5, jobData.Iterator.GlobalSystemVersion);
 #endif
 
 

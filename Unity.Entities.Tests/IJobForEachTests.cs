@@ -164,10 +164,12 @@ namespace Unity.Entities.Tests
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
-        [StandaloneFixme]
+        [StandaloneFixme]  // Need nativejobs and unified threading path
         public void JobWithMissingDependency()
         {
+#if !UNITY_DOTSPLAYER
             Assert.IsTrue(Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobDebuggerEnabled, "JobDebugger must be enabled for these tests");
+#endif
 
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
@@ -177,7 +179,7 @@ namespace Unity.Entities.Tests
             job.Complete();
         }
 #endif
-        
+
         [ExcludeComponent(typeof(EcsTestData3))]
         [RequireComponentTag(typeof(EcsTestData4))]
         struct ProcessTagged1 : IJobForEach<EcsTestData, EcsTestData2>
@@ -296,7 +298,7 @@ namespace Unity.Entities.Tests
             m_Manager.SetSharedComponentData<EcsTestSharedComp>(entityInGroupB, new EcsTestSharedComp { value = 2} );
            
             var group = EmptySystem.GetEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
-            group.SetFilter(new EcsTestSharedComp { value = 1});
+            group.SetSharedComponentFilter(new EcsTestSharedComp { value = 1});
             
             var processJob = new ProcessFilteredData();
             processJob.Schedule(group).Complete();

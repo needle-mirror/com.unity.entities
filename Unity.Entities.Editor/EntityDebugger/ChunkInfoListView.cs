@@ -43,44 +43,6 @@ namespace Unity.Entities.Editor
             }
         }
 
-        private static MeshFilter HistogramFilter
-        {
-            get
-            {
-                if (!histogramFilter)
-                {
-                    histogramFilter = new GameObject("EntityDebugger - Histogram Filter", typeof(MeshRenderer), typeof(MeshFilter)).GetComponent<MeshFilter>();
-                    histogramFilter.gameObject.hideFlags = HideFlags.HideAndDontSave;
-                    histogramFilter.gameObject.layer = 6;
-                    histogramFilter.GetComponent<MeshRenderer>().material = HistogramMaterial;
-                    histogramFilter.gameObject.SetActive(false);
-                }
-                return histogramFilter;
-            }
-        }
-        private static MeshFilter histogramFilter;
-
-        private static Camera HistogramCamera
-        {
-            get
-            {
-                if (!histogramCamera)
-                {
-                    histogramCamera = new GameObject("EntityDebugger - Histogram Camera", typeof(Camera)).GetComponent<Camera>();
-                    histogramCamera.gameObject.hideFlags = HideFlags.HideAndDontSave;
-                    histogramCamera.clearFlags = CameraClearFlags.Nothing;
-                    histogramCamera.cullingMask = 1 << HistogramFilter.gameObject.layer;
-                    histogramCamera.orthographic = true;
-                    histogramCamera.transform.position = Vector3.back*0.5f;
-                    histogramCamera.nearClipPlane = 0f;
-                    histogramCamera.farClipPlane = 1f;
-                    histogramCamera.gameObject.SetActive(false);
-                }
-                return histogramCamera;
-            }
-        }
-        private static Camera histogramCamera;
-
         private static Material histogramMaterial;
 
         public enum ViewMode
@@ -120,8 +82,8 @@ namespace Unity.Entities.Editor
             public int maxCount;
             public int firstChunkIndex;
             public int lastChunkIndex;
-            public Mesh histogramMesh;
-            public RenderTexture histogramTexture;
+            private Mesh histogramMesh;
+            private readonly RenderTexture histogramTexture;
 
             public ArchetypeInfo()
             {
@@ -150,10 +112,10 @@ namespace Unity.Entities.Editor
                     var barHeight = counts[i] * yIncrement;
                     if (barHeight > 0f && barHeight < minHeight)
                         barHeight = minHeight;
-                    vertices[firstVertexIndex + 0] = new Vector3(-0.5f + i*xIncrement, -0.5f + barHeight, 0f);
-                    vertices[firstVertexIndex + 1] = new Vector3(-0.5f + i*xIncrement, -0.5f, 0f);
-                    vertices[firstVertexIndex + 2] = new Vector3(-0.5f + i*xIncrement + barWidth, -0.5f, 0f);
-                    vertices[firstVertexIndex + 3] = new Vector3(-0.5f + i*xIncrement + barWidth, -0.5f + barHeight, 0f);
+                    vertices[firstVertexIndex + 0] = new Vector3(i*xIncrement, barHeight, 0f);
+                    vertices[firstVertexIndex + 1] = new Vector3(i*xIncrement, 0f, 0f);
+                    vertices[firstVertexIndex + 2] = new Vector3(i*xIncrement + barWidth, 0f, 0f);
+                    vertices[firstVertexIndex + 3] = new Vector3(i*xIncrement + barWidth, 0f + barHeight, 0f);
 
                     var firstTriangleIndex = i * 6;
                     triangles[firstTriangleIndex + 0] = firstVertexIndex + 0;
@@ -172,7 +134,7 @@ namespace Unity.Entities.Editor
                 countsLengthString = counts.Length.ToString();
             }
 
-            private float kMinMargin = 15f;
+            private readonly float kMinMargin = 15f;
             private string maxCountString;
             private string countsLengthString;
 
@@ -205,17 +167,18 @@ namespace Unity.Entities.Editor
 
                 GUI.Label(new Rect(rect.x + kMinMargin, rect.yMax - kMinMargin, rect.width - 2*kMinMargin, kMinMargin), Styles.xAxisLabel, Styles.labelStyleUpperCenter);
 
-                rect.xMin = rect.xMin + xMargin;
-                rect.xMax = rect.xMax - xMargin;
-                rect.yMax = rect.yMax - kMinMargin;
-                HistogramFilter.gameObject.SetActive(true);
-                HistogramFilter.mesh = histogramMesh;
-                HistogramCamera.targetTexture = histogramTexture;
-                HistogramCamera.orthographicSize = 0.5f;
-                HistogramCamera.aspect = 1f;
-                HistogramCamera.Render();
-                HistogramCamera.targetTexture = null;
-                HistogramFilter.gameObject.SetActive(false);
+                rect.xMin += xMargin;
+                rect.xMax -= xMargin;
+                rect.yMax -= kMinMargin;
+                var oldTarget = RenderTexture.active;
+                Graphics.SetRenderTarget(histogramTexture);
+                GL.Clear(true, true, new Color(0f, 0f, 0f, 0f));
+                GL.PushMatrix();
+                GL.LoadOrtho();
+                HistogramMaterial.SetPass(0);
+                Graphics.DrawMeshNow(histogramMesh, Matrix4x4.identity);
+                GL.PopMatrix();
+                Graphics.SetRenderTarget(oldTarget);
                 GUI.DrawTexture(rect, histogramTexture);
             }
 
@@ -408,10 +371,6 @@ namespace Unity.Entities.Editor
         {
             if (histogramMaterial)
                 UnityEngine.Object.DestroyImmediate(histogramMaterial);
-            if (histogramCamera)
-                UnityEngine.Object.DestroyImmediate(histogramCamera.gameObject);
-            if (histogramFilter)
-                UnityEngine.Object.DestroyImmediate(histogramFilter.gameObject);
             foreach (var info in archetypeInfoById.Values)
                 info.Dispose();
         }

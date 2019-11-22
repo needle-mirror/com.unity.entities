@@ -1,5 +1,4 @@
-﻿using Unity.Entities;
-using Unity.Mathematics;
+﻿using Unity.Mathematics;
 
 namespace Unity.Entities
 {

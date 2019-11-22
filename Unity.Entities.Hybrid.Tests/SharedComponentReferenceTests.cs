@@ -47,7 +47,7 @@ namespace Unity.Entities.Tests
             UnityEngine.Object.DestroyImmediate(obj);
             m_Manager.DestroyEntity(e);
         }
-
+        
         [Test]
         public void IncorrectlyImplementedHashCodeThrows()
         {
@@ -56,8 +56,10 @@ namespace Unity.Entities.Tests
             m_Manager.AddSharedComponentData(e, new IncorrectHashCode { Target = obj });
             UnityEngine.Object.DestroyImmediate(obj);
 
-            Assert.Throws<ArgumentException>(() => m_Manager.DestroyEntity(e));
-            m_Manager.World.Dispose();
+            m_Manager.DestroyEntity(e);
+            m_Manager.Debug.CheckInternalConsistency();
+            
+            Assert.IsTrue(m_Manager.Debug.IsSharedComponentManagerEmpty());
         }
     }
 }

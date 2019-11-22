@@ -10,26 +10,9 @@ The `EntityCommandBuffer` class solves two important problems:
 
 The `EntityCommandBuffer` abstraction allows you to queue up changes (from either a job or from the main thread) so that they can take effect later on the main thread. There are two ways to use a `EntityCommandBuffer`:
 
-`ComponentSystem` subclasses which update on the main thread have one available automatically called `PostUpdateCommands`. To use it, simply reference the attribute and queue up your changes. They will be automatically applied to the world immediately after you return from your system's `Update` function.
-
-Here's an example:
-
-```cs
-PostUpdateCommands.CreateEntity(TwoStickBootstrap.BasicEnemyArchetype);
-PostUpdateCommands.SetComponent(new Position2D { Value = spawnPosition });
-PostUpdateCommands.SetComponent(new Heading2D { Value = new float2(0.0f, -1.0f) });
-PostUpdateCommands.SetComponent(default(Enemy));
-PostUpdateCommands.SetComponent(new Health { Value = TwoStickBootstrap.Settings.enemyInitialHealth });
-PostUpdateCommands.SetComponent(new EnemyShootState { Cooldown = 0.5f });
-PostUpdateCommands.SetComponent(new MoveSpeed { speed = TwoStickBootstrap.Settings.enemySpeed });
-PostUpdateCommands.AddSharedComponent(TwoStickBootstrap.EnemyLook);
-```
-
-As you can see, the API is very similar to the `EntityManager` API. In this mode, it is helpful to think of the automatic `EntityCommandBuffer` as a convenience that allows you to prevent array invalidation inside your system while still making changes to the world.
+The API is very similar to the `EntityManager` API. In this mode, it is helpful to think of the automatic `EntityCommandBuffer` as a convenience that allows you to prevent array invalidation inside your system while still making changes to the world.
 
 For jobs, you must request `EntityCommandBuffer` from a entity command buffer system on the main thread, and pass them to jobs. When the `EntityCommandBufferSystem` updates, the command buffers will play back on the main thread in the order they were created. This extra step is required so that memory management can be centralized and determinism of the generated entities and components can be guaranteed.
-
-Again let's look at the two stick shooter sample to see how this works in practice.
 
 ## Entity Command Buffer Systems
 

@@ -5,6 +5,38 @@ using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine.Profiling;
 
+// From nunit docs for SetUpFixture-Attribute
+// "A SetUpFixture outside of any namespace provides SetUp and TearDown for the entire assembly."
+[SetUpFixture]
+public class NUnitAssemblyWideSetupEntitiesTests
+{
+    [OneTimeSetUp]
+    public void Init()
+    {
+        // TODO This breaks specific SubSceneEditorTests. Commenting for now, but the init/shutdown was
+        // fixing undeallocated memory complaints, which need to be addressed.
+        //
+        // Old comment: 
+        // This isn't necessary and is initialized through World.Initialize()->...->EntityManager()->TypeManager.Initialize()
+        // but because we shutdown in tests for explicit cleanup, match it with explicit init here.
+        //Unity.Entities.TypeManager.Initialize();
+
+        NativeLeakDetection.Mode = NativeLeakDetectionMode.EnabledWithStackTrace; // Should have stack trace with tests
+    }
+
+    [OneTimeTearDown]
+    public void Exit()
+    {
+        // TODO This breaks specific SubSceneEditorTests. Commenting for now, but the init/shutdown was
+        // fixing undeallocated memory complaints, which need to be addressed.
+        //
+        // Old comment: 
+        // Avoid a number of memory leak complaints in tests.
+        //Unity.Entities.TypeManager.Shutdown();
+    }
+
+}
+
 namespace Unity.Entities.Tests
 {
 
@@ -69,10 +101,14 @@ namespace Unity.Entities.Tests
         [SetUp]
         public virtual void Setup()
         {
-            m_PreviousWorld = World.Active;
+            // Redirect Log messages in NUnit which get swallowed (from GC invoking destructor in some cases)
+           // System.Console.SetOut(NUnit.Framework.TestContext.Out);
+
+            m_PreviousWorld = World.DefaultGameObjectInjectionWorld;
 #if !UNITY_DOTSPLAYER
-            World = World.Active = new World("Test World");
+            World = World.DefaultGameObjectInjectionWorld = new World("Test World");
 #else
+            Unity.Burst.DotsRuntimeInitStatics.Init();
             World = DefaultTinyWorldInitialization.Initialize("Test World");
 #endif
 
@@ -106,10 +142,21 @@ namespace Unity.Entities.Tests
                 World.Dispose();
                 World = null;
 
-                World.Active = m_PreviousWorld;
-                m_PreviousWorld = null;
-                m_Manager = null;
+             //   World.DefaultGameObjectInjectionWorld = m_PreviousWorld;
+              //  m_PreviousWorld = null;
+             //   m_Manager = null;
+
             }
+
+#if UNITY_DOTSPLAYER
+            // TODO https://unity3d.atlassian.net/browse/DOTSR-119
+            Unity.Collections.LowLevel.Unsafe.UnsafeUtility.FreeTempMemory();
+#endif
+
+            // Restore output
+            var standardOutput = new System.IO.StreamWriter(System.Console.OpenStandardOutput());
+            standardOutput.AutoFlush = true;
+            System.Console.SetOut(standardOutput);
         }
 
         public void AssertDoesNotExist(Entity entity)
@@ -165,7 +212,7 @@ namespace Unity.Entities.Tests
         {
             get
             {
-                return new EntityQueryBuilder(World.Active.GetOrCreateSystem<EntityForEachSystem>());
+                return new EntityQueryBuilder(World.DefaultGameObjectInjectionWorld.GetOrCreateSystem<EntityForEachSystem>());
             }
         }
 
@@ -173,7 +220,7 @@ namespace Unity.Entities.Tests
         {
             get
             {
-                return World.Active.GetOrCreateSystem<EmptySystem>();
+                return World.DefaultGameObjectInjectionWorld.GetOrCreateSystem<EmptySystem>();
             }
         }
     }

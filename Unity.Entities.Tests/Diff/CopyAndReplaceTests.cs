@@ -4,7 +4,7 @@ using Unity.Collections;
 namespace Unity.Entities.Tests
 {
     [TestFixture]
-    internal sealed class CopyAndReplaceTests : EntityManagerDiffTestFixture
+    sealed class CopyAndReplaceTests : EntityDifferTestFixture
     {
         //@TODO: Test class based components (Currently doesn't work)
         //@TODO: Test number of created / destroyed chunk counts to be what is expected (for perf)
@@ -24,7 +24,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(7, SrcEntityManager.GetComponentData<EcsTestData2>(metaEntity).value0);
         }
         
-        unsafe private void TestValues(Entity entity, Entity  metaEntity, int componentDataValue, int componentChunkValue)
+        unsafe void TestValues(Entity entity, Entity  metaEntity, int componentDataValue, int componentChunkValue)
         {
             Assert.AreEqual(componentDataValue, DstEntityManager.GetComponentData<EcsTestData>(entity).value);
             Assert.AreEqual(6, DstEntityManager.GetSharedComponentData<EcsTestSharedComp>(entity).value);

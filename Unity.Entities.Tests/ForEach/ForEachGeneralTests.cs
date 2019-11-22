@@ -130,7 +130,7 @@ namespace Unity.Entities.Tests.ForEach
     {
         // $ currently instantiations of generic types are not discovered by static type registry tooling
 
-        #if !NET_DOTS
+#if !UNITY_DOTSPLAYER
         [Test]
         public void GenericComponentData()
         {
@@ -170,9 +170,9 @@ namespace Unity.Entities.Tests.ForEach
                 Assert.AreEqual(1, counter);
             }
         }
-        #endif // !NET_DOTS
+#endif // !NET_DOTS
 
-        #if !NET_DOTS
+#if !UNITY_DOTSPLAYER
         [Test]
         public void GenericTag()
         {
@@ -190,9 +190,9 @@ namespace Unity.Entities.Tests.ForEach
                 Assert.AreEqual(0, counter);
             }
         }
-        #endif // !NET_DOTS
+#endif // !NET_DOTS
 
-        #if !NET_DOTS
+#if !UNITY_DOTSPLAYER
         [Test]
         public void GenericValueMethod()
         {
@@ -220,7 +220,7 @@ namespace Unity.Entities.Tests.ForEach
 
             Func(10);
         }
-        #endif // !NET_DOTS
+#endif // !NET_DOTS
 
         [Test]
         public void GenericTagMethod()
@@ -326,6 +326,194 @@ namespace Unity.Entities.Tests.ForEach
             #endif
         }
 
+        [Test]
+        public void ForEachOnDifferentAmount([Values(16, 1024, 2048, 4096)]int entityCount)
+        {
+            for (int i = 0; i < entityCount; i++)
+            {
+                var entity = m_Manager.CreateEntity();
+                m_Manager.AddComponentData(entity, new EcsTestData(entity.Index));
+            }
+
+            var count = 0;
+            TestSystem.Entities.ForEach((Entity e, ref EcsTestData t0) =>
+            {
+                Assert.AreEqual(count, t0.value);
+                count++;
+            });
+            
+            Assert.AreEqual(entityCount, count);
+        }
+        
+        [Test]
+        // The goal here is to generate many nested call that contains different results
+        // So The first level is defining the types to query based on its Entity.Index
+        //  then we nest calls by mixing A, B, A, B types
+        public void NestedForEach()
+        {
+            var maxRecursionCall = 10_000;
+            var curRecursionCounter = 0;
+            
+            // Create L0 entities
+            var l0Count = 16;
+            for (int i = 0; i < l0Count; i++)
+            {
+                var entity = m_Manager.CreateEntity();
+                m_Manager.AddComponentData(entity, new EcsTestData(entity.Index));
+            }
+
+            // Create other nested levels entities
+            for (int i = 0; i < 16; i++)
+            {
+                var entity = m_Manager.CreateEntity();
+                m_Manager.AddComponentData(entity, new EcsTestData2(entity.Index*100));
+                
+                entity = m_Manager.CreateEntity();
+                m_Manager.AddComponentData(entity, new EcsTestData3(entity.Index*200));
+                
+                entity = m_Manager.CreateEntity();
+                m_Manager.AddComponentData(entity, new EcsTestData4(entity.Index*300));
+                
+                entity = m_Manager.CreateEntity();
+                m_Manager.AddComponentData(entity, new EcsTestData5(entity.Index*400));
+            }
+
+            // The function that does a query on T, then recurse to do a query on U, then T, then U...
+            // The factors given allows us to check that we are actually retrieve the data we are expected
+            void NestedForEach<T, U>(int factorU, int factorV, int nestedCount) where T : struct, IComponentData, IGetValue where U : struct, IComponentData, IGetValue
+            {
+                if (++curRecursionCounter >= maxRecursionCall)
+                {
+                    return;
+                }
+                
+                TestSystem.Entities.ForEach((Entity e, ref T c) =>
+                {
+                    Assert.AreEqual(e.Index*factorU, c.GetValue());
+
+                    if (nestedCount > 0)
+                    {
+                        NestedForEach<U, T>(factorV, factorU, nestedCount-1);
+                    }
+                });
+            }
+
+            // Main loop doing a ForEach on level 0...
+            var l0ResultCount = 0;
+            TestSystem.Entities.ForEach((Entity e0, ref EcsTestData t0) =>
+            {
+                Assert.AreEqual(e0.Index, t0.value);
+
+                switch (e0.Index % 4)
+                {
+                    case 0:
+                        TestSystem.Entities.ForEach((Entity e1, ref EcsTestData2 t1) =>
+                        {
+                            NestedForEach<EcsTestData3, EcsTestData4>(200, 300, 4);
+                            Assert.AreEqual(e1.Index*100, t1.GetValue());
+                        });
+                        break;
+                    case 1:
+                        TestSystem.Entities.ForEach((Entity e1, ref EcsTestData3 t1) =>
+                        {
+                            NestedForEach<EcsTestData5, EcsTestData2>(400, 100, 4);
+                            Assert.AreEqual(e1.Index*200, t1.GetValue());
+                        });
+                        break;
+                    case 2:
+                        TestSystem.Entities.ForEach((Entity e1, ref EcsTestData4 t1) =>
+                        {
+                            NestedForEach<EcsTestData2, EcsTestData3>(100, 200, 4);
+                            Assert.AreEqual(e1.Index*300, t1.GetValue());
+                        });
+                        break;
+                    case 3:
+                        TestSystem.Entities.ForEach((Entity e1, ref EcsTestData5 t1) =>
+                        {
+                            NestedForEach<EcsTestData4, EcsTestData2>(300, 100, 4);
+                            Assert.AreEqual(e1.Index*400, t1.GetValue());
+                        });
+                        break;
+                }
+                
+                l0ResultCount++;
+            });
+            
+            Assert.AreEqual(l0Count, l0ResultCount);
+        }
+
         //@TODO: Class iterator test coverage...
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [Test]
+        public void Many_ManagedComponents()
+        {
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(entity, new EcsTestManagedComponent() { value = "SomeString" });
+            m_Manager.AddComponentData(entity, new EcsTestManagedComponent2() { value2 = "SomeString2" });
+            m_Manager.AddComponentData(entity, new EcsTestManagedComponent3() { value3 = "SomeString3" });
+            m_Manager.AddComponentData(entity, new EcsTestManagedComponent4() { value4 = "SomeString4" });
+
+            var counter = 0;
+            TestSystem.Entities.ForEach((Entity e, EcsTestManagedComponent t0, EcsTestManagedComponent2 t1, EcsTestManagedComponent3 t2, EcsTestManagedComponent4 t3) =>
+            {
+                Assert.AreEqual(entity, e);
+                Assert.AreEqual("SomeString", t0.value);
+                Assert.AreEqual("SomeString2", t1.value2);
+                Assert.AreEqual("SomeString3", t2.value3);
+                Assert.AreEqual("SomeString4", t3.value4);
+                counter++;
+            });
+            Assert.AreEqual(1, counter);
+        }
+#endif
+        
+        [Test]
+        public void ForEach_WithAllAndDelegateCombinations_Matches([Range(0, 4)]int withAllCount, [Range(0, 4)]int delegateCount)
+        {
+            m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4));
+
+            EntityQueryBuilder eqb = default;
+            switch (withAllCount)
+            {
+                case 0:
+                    eqb = TestSystem.Entities;
+                    break;
+                case 1:
+                    eqb = TestSystem.Entities.WithAllReadOnly<EcsTestData>();
+                    break;
+                case 2:
+                    eqb = TestSystem.Entities.WithAllReadOnly<EcsTestData, EcsTestData2>();
+                    break;
+                case 3:
+                    eqb = TestSystem.Entities.WithAllReadOnly<EcsTestData, EcsTestData2, EcsTestData3>();
+                    break;
+                case 4:
+                    eqb = TestSystem.Entities.WithAllReadOnly<EcsTestData, EcsTestData2, EcsTestData3, EcsTestData4>();
+                    break;
+            }
+            
+            var counter = 0;
+            switch (delegateCount)
+            {
+                case 0:
+                    eqb.ForEach((Entity entity) => { counter++; });
+                    break;
+                case 1:
+                    eqb.ForEach((ref EcsTestData data1) => { counter++; });
+                    break;
+                case 2:
+                    eqb.ForEach((ref EcsTestData data1, ref EcsTestData2 data2) => { counter++; });
+                    break;
+                case 3:
+                    eqb.ForEach((ref EcsTestData data1, ref EcsTestData2 data2, ref EcsTestData3 data3) => { counter++; });
+                    break;
+                case 4:
+                    eqb.ForEach((ref EcsTestData data1, ref EcsTestData2 data2, ref EcsTestData3 data3, ref EcsTestData4 data4) => { counter++; });
+                    break;
+            }
+            
+            Assert.AreEqual(1, counter);
+        }
     }
 }

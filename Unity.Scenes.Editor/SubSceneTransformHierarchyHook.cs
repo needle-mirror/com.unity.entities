@@ -37,7 +37,7 @@ namespace Unity.Scenes.Editor
             foreach (var subScene in SubScene.AllSubScenes)
             {
                 var loadedScene = default(Scene);
-                var candidateScene = subScene.LoadedScene;
+                var candidateScene = subScene.EditingScene;
                 if (candidateScene.IsValid() && candidateScene.isSubScene)
                 {
                     if (loadedScenes.Add(candidateScene))

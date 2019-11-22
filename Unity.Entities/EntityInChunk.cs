@@ -6,11 +6,11 @@ using Unity.Jobs;
 
 namespace Unity.Entities
 {
-    internal unsafe struct EntityInChunk : IComparable<EntityInChunk>, IEquatable<EntityInChunk>
+    public unsafe struct EntityInChunk : IComparable<EntityInChunk>, IEquatable<EntityInChunk>
     {
-        public Chunk* Chunk;
-        public int IndexInChunk;
-        
+        internal Chunk* Chunk;
+        internal int IndexInChunk;
+
         public int CompareTo(EntityInChunk other)
         {
             ulong lhs = (ulong) Chunk;

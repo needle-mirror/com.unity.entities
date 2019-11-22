@@ -51,14 +51,62 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddComponentTwiceThrows()
+        public void AddComponentTwiceIgnored()
         {
             var entity = m_Manager.CreateEntity();
 
             m_Manager.AddComponentData(entity, new EcsTestData(1));
-            Assert.Throws<System.ArgumentException>(() => { m_Manager.AddComponentData(entity, new EcsTestData(1)); });
+            m_Manager.AddComponentData(entity, new EcsTestData(2));
+
+            var testData = m_Manager.GetComponentData<EcsTestData>(entity);
+            Assert.AreEqual(testData.value, 2);
         }
 
+        [Test]
+        public void RemoveComponentTwiceIgnored()
+        {
+            var entity = m_Manager.CreateEntity();
+
+            m_Manager.AddComponent<EcsTestData>(entity);
+
+            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData>(entity));
+            var removed0 = m_Manager.RemoveComponent<EcsTestData>(entity);
+            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(entity));
+            var removed1 = m_Manager.RemoveComponent<EcsTestData>(entity);
+            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(entity));
+            
+            Assert.That(removed0, Is.True);
+            Assert.That(removed1, Is.False);
+        }
+        
+        [Test]
+        public void RemoveSharedComponentTwiceIgnored()
+        {
+            var entity = m_Manager.CreateEntity();
+
+            m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp());
+
+            var removed0 = m_Manager.RemoveComponent<EcsTestSharedComp>(entity);
+            var removed1 = m_Manager.RemoveComponent<EcsTestSharedComp>(entity);
+            
+            Assert.That(removed0, Is.True);
+            Assert.That(removed1, Is.False);
+        }
+        
+        [Test]
+        public void RemoveChunkComponentTwiceIgnored()
+        {
+            var entity = m_Manager.CreateEntity();
+
+            m_Manager.AddChunkComponentData(m_Manager.UniversalQuery, new EcsTestData());
+
+            var removed0 = m_Manager.RemoveChunkComponent<EcsTestData>(entity);
+            var removed1 = m_Manager.RemoveChunkComponent<EcsTestData>(entity);
+            
+            Assert.That(removed0, Is.True);
+            Assert.That(removed1, Is.False);
+        }
+        
         [Test]
         public void AddComponentOnDestroyedEntityThrows()
         {

@@ -20,7 +20,7 @@ namespace Unity.Entities
         /// in that chunk and to access the component values.
         /// </remarks>
         /// <param name="isReadOnly">Specify whether the access to the component through this object is read only
-        /// or read and write. </param>
+        /// or read and write. For managed components isReadonly will always be treated as false.</param>
         /// <typeparam name="T">The compile-time type of the component.</typeparam>
         /// <returns>The run-time type information of the component.</returns>
         public ArchetypeChunkComponentType<T> GetArchetypeChunkComponentType<T>(bool isReadOnly)
@@ -32,6 +32,28 @@ namespace Unity.Entities
                 GlobalSystemVersion);
 #else
             return new ArchetypeChunkComponentType<T>(isReadOnly, GlobalSystemVersion);
+#endif
+        }
+
+        /// <summary>
+        /// Gets the dynamic type object required to access a chunk component of dynamic type acquired from reflection.
+        /// </summary>
+        /// <remarks>
+        /// To access a component stored in a chunk, you must have the type registry information for the component.
+        /// This function provides that information. Use the returned <see cref="ArchetypeChunkComponentTypeDynamic"/>
+        /// object with the functions of an <see cref="ArchetypeChunk"/> object to get information about the components
+        /// in that chunk and to access the component values.
+        /// </remarks>
+        /// <param name="componentType">Type of the component</param>
+        /// <returns>The run-time type information of the component.</returns>
+        public ArchetypeChunkComponentTypeDynamic GetArchetypeChunkComponentTypeDynamic(ComponentType componentType)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            return new ArchetypeChunkComponentTypeDynamic(componentType,
+                ComponentJobSafetyManager->GetSafetyHandle(componentType.TypeIndex, componentType.AccessModeType == ComponentType.AccessMode.ReadOnly), 
+                GlobalSystemVersion);
+#else
+            return new ArchetypeChunkComponentTypeDynamic(componentType, GlobalSystemVersion);
 #endif
         }
 

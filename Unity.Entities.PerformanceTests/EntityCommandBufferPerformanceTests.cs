@@ -1,37 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading;
+﻿using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
-using Unity.Jobs;
-using UnityEngine;
 using Unity.PerformanceTesting;
-using Unity.Entities;
 
 namespace Unity.Entities.PerformanceTests
 {
     [TestFixture]
     [Category("Performance")]
-    public sealed class EntityCommandBufferPerformanceTests
+    public sealed class EntityCommandBufferPerformanceTests : EntityPerformanceTestFixture
     {
-        private World m_PreviousWorld;
-        private World m_World;
-        private EntityManager m_Manager;
-
-        [SetUp]
-        public void Setup()
-        {
-            m_PreviousWorld = World.Active;
-            m_World = World.Active = new World("Test World");
-            m_Manager = m_World.EntityManager;
-        }
-
         public struct EcsTestData : IComponentData
         {
             public int value;
         }
 
-        private void FillWithEcsTestData(EntityCommandBuffer cmds, int repeat)
+        void FillWithEcsTestData(EntityCommandBuffer cmds, int repeat)
         {
             for (int i = repeat; i != 0; --i)
             {
@@ -40,11 +23,7 @@ namespace Unity.Entities.PerformanceTests
             }
         }
 
-        #if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-        #else
-        [PerformanceTest]
-        #endif
         public void EntityCommandBuffer_512SimpleEntities()
         {
             const int kCreateLoopCount = 512;
@@ -94,7 +73,7 @@ namespace Unity.Entities.PerformanceTests
             public Entity entity;
         }
 
-        private void FillWithEcsTestDataWithEntity(EntityCommandBuffer cmds, int repeat)
+        void FillWithEcsTestDataWithEntity(EntityCommandBuffer cmds, int repeat)
         {
             for (int i = repeat; i != 0; --i)
             {
@@ -103,11 +82,7 @@ namespace Unity.Entities.PerformanceTests
             }
         }
 
-        #if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-        #else
-        [PerformanceTest]
-        #endif
         public void EntityCommandBuffer_512EntitiesWithEmbeddedEntity()
         {
             const int kCreateLoopCount = 512;
@@ -146,11 +121,7 @@ namespace Unity.Entities.PerformanceTests
             }
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-        #else
-        [PerformanceTest]
-        #endif
         public void EntityCommandBuffer_OneEntityWithEmbeddedEntityAnd512SimpleEntities()
         {
             // This test should not be any slower than EntityCommandBuffer_SimpleEntities_512x1000

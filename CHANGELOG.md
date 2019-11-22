@@ -1,18 +1,127 @@
 # Change log
 
-## [0.1.1-preview] - 2019-08-06
+## [0.2.0] - 2019-11-22
+
+**This version requires Unity 2019.3 0b11+**
+
+### New Features
+
+* Automatically generate authoring components for IComponentData with IL post-processing. Any component data marked with a GenerateAuthoringComponent attribute will generate the corresponding authoring MonoBehaviour with a Convert method.
+* BuildSettings assets are now used to define a single build recipe asset on disk. This gives full control over the build pipeline in a modular way from C# code. 
+  * BuildSettings let you attach builtin or your own custom IBuildSettingsComponents for full configurability
+  * BuildPipelines let you define the exact IBuildStep that should be run and in which order
+  * IBuildStep is either builtin or your own custom build step
+  * BuildSettings files can be inherited so you can easily make base build settings with most configuration complete and then do minor adjustments per build setting
+  * Right now most player configuration is still in the existing PlayerSettings, our plan is to over time expose all Player Settings via BuildSettings as well to ease configuration of complex projects with many build recipes & artifacts
+* SubScenes are now automatically converted to entity binary files & cached by the asset pipeline. The entity cache files previously present in the project folder should be removed. Conversion systems can use the ConverterVersion attribute to convert to trigger a reconversion if the conversion system has changed behaviour. The conversion happens asynchronously in another process. Thus on first open the subscenes might not show up immediately.
+
+* Live link builds can be built with the new BuildSettings pipeline.
+  Open sub scene
+  * Closed Entity scenes are built by the asset pipeline and loaded via livelink on demand
+  * Opened Entity scenes are send via live entity patcher with patches on a per component / entity basis based on what has changed
+  * Assets referenced by entity scenes are transferred via livelink when saving the asset
+  * Scenes loaded as game objects are currently not live linked (This is in progress)
+ by assigning the LiveLink build pipeline
+
+* `Entities.ForEach` syntax for supplying jobified code in a `JobComponentSystem`'s `OnUpdate` method directly by using a lambda (instead of supplying an additional `IJobForEach`).
+
+* `EntityQueryMask` has been added, which allows for quick confirmation of if an Entity would be returned by an `EntityQuery` without filters via `EntityQueryMask.Matches(Entity entity)`.  An EntityQueryMask can be obtained by calling `EntityManager.GetEntityQueryMask(EntityQuery query).`
+* Unity Entities now supports the _Fast Enter playmode_ which can be enabled in the project settings. It is recommended to be turned on for all dots projects.
+* The UnityEngine component `StopConvertToEntity` can be used to interrupt `ConvertToEntity` recursion, and should be preferred over a `ConvertToEntity` set to "convert and inject" for that purpose.
+* _EntityDebugger_ now shows IDs in a separate column, so you can still see them when entities have custom names
+* Entity references in the Entity Inspector have a "Show" button which will select the referenced Entity in the Debugger.
+* An `ArchetypeChunkIterator` can be created by calling `GetArchetypeChunkIterator` on an `EntityQuery`. You may run an `IJobChunk` while bypassing the Jobs API by passing an `ArchetypeChunkIterator` into `IJobChunk.RunWithoutJobs()`.
+* The `[AlwaysSynchronizeSystem]` attribute has been added, which can be applied to a `JobComponentSystem` to force it to synchronize on all of its dependencies before every update.
+* `BoneIndexOffset` has been added, which allows the Animation system to communicate a bone index offset to the Hybrid Renderer.
+* Initial support for using Hybrid Components during conversion, see the HybridComponent sample in the StressTests folder.
+* New `GameObjectConversionSystem.ForkSettings()` that provides a very specialized method for creating a fork of the current conversion settings with a different "EntityGuid namespace", which can be used for nested conversions. This is useful for example in net code where multiple root-level variants of the same authoring object need to be created in the destination world.
+* `EntityManager` `LockChunkOrder` and `UnlockChunkOrder` are deprecated.
+* Entity Scenes can be loaded synchronously (during the next streaming system update) by using `SceneLoadFlags.BlockOnStreamIn` in `SceneSystem.LoadParameters`.
+* `EntityCommandBuffer` can now be played back on an `ExclusiveEntityTransaction` as well as an `EntityManager`. This allows ECB playback to   be invoked from a job (though exclusive access to the EntityManager data is still required for the duration of playback).
+
+### Upgrade guide
+* If you are using SubScenes you must use the new BuildSettings assets to make a build & run it. SubScenes are not supported from the File -> BuildSettings... & File -> Build and Run workflows.
+* Entities requires AssetDatabase V2 for certain new features, we do not provide support for AssetDatabase V1.
+
+### Fixes
+
+* Setting `ComponentSystemGroup.Enabled` to `false` now calls `OnStopRunning()` recursively on the group's member systems, not just on the group itself.
+* Updated Properties pacakge to `0.10.3-preview` to fix an exception when showing Physics ComponentData in the inspector as well as fix IL2CPP Ahead of Time linker errors for generic virtual function calls.
+* The `LocalToParentSystem` will no longer write to the `LocalToWorld` component of entities that have a component with the `WriteGroup(typeof(LocalToWorld))`.
+* Entity Debugger styling work better with Pro theme
+* Entity Inspector no longer has runaway indentation
+* Fixed issue where `AddSharedComponentData`, `SetSharedComponentData` did not always update `SharedComponentOrderVersion`.
+* Fixes serialization issue when reading in managed `IComponentData` containing array types and `UnityEngine.Object` references.
+* No exception is thrown when re-adding a tag component with `EntityQuery`.
+* `AddComponent<T>(NativeArray<Entity>)` now reliably throws an `ArgumentException` if any of the target entities are invalid.
+* Fixed an issue where the Entity Debugger would not repaint in edit mode
+* Marking a system as `[UpdateInGroup(typeof(LateSimulationSystemGroup))]` no longer emits a warning about `[DisableAutoCreation]`.
+* Fixed rendering of chunk info to be compatible with HDRP
+* Fixed issue where `ToComponentDataArray` ignored the filter settings on the `EntityQuery` for managed component types.
+
+### Changes
+
+* Moved `NativeString` code from Unity.Entities to Unity.Collections.
+* Updated dependencies for this package.
+* Significantly improved `Entity` instantiation performance when running in-Editor.
+* Added support for managed `IComponentData` types such as `class MyComponent : IComponentData {}` which allows managed types such as GameObjects or List<>s to be stored in components. Users should use managed components sparingly in production code when possible as these components cannot be used by the Job System or archetype chunk storage and thus will be significantly slower to work with. Refer to the documentation for [component data](Documentation~/component_data.md) for more details on managed component use, implications and prevention.
+* 'SubSceneStreamingSystem' has been renamed to `SceneSectionStreamingSystem` and is now internal
+* Deprecated `_SceneEntities` in `SubScene.cs`. Please use `SceneSystem.LoadAsync` / `Unload` with the respective SceneGUID instead. This API will be removed after 2019-11-22.
+* Updated `com.unity.serialization` to `0.6.3-preview`.
+* The deprecated `GetComponentGroup()` APIs are now `protected` and can only be called from inside a System like their `GetEntityQuery()` successors.
+* All GameObjects with a ConvertToEntity set to "Convert and Destroy" will all be processed within the same conversion pass, this allows cross-referencing.
+* Duplicate component adds are always ignored
+* When adding component to single entity via EntityQuery, entity is moved to matching chunk instead of chunk achetype changing.
+* "Used by Systems" list skips queries with filters
+* Managed `IComponentData` no longer require all fields to be non-null after default construction.
+* `ISharedComponentData` is serialized inline with entity and managed `IComponentData`. If a shared component references a `UnityEngine.Object` type, that type is serialized separately in an "objrefs" resource asset.
+* `EntityManager` calls `EntityComponentStore` via burst delegates for `Add`/`Remove` components.
+* `EntityComponentStore` cannot throw exceptions (since called as burst delegate from main thread.)
+* `bool ICustomBootstrap.Initialize(string defaultWorldName)` has changed API with no deprecated fallback. It now simply gives you a chance to completely replace the default world initialization by returning true.
+* `ICustomBootstrap` & `DefaultWorldInitialization` is now composable like this:
+```
+class MyCustomBootStrap : ICustomBootstrap
+{
+    public bool Initialize(string defaultWorldName)
+    {
+        Debug.Log("Executing bootstrap");
+        var world = new World("Custom world");
+        World.DefaultGameObjectInjectionWorld = world;
+        var systems = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.Default);
+
+        DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, systems);
+        ScriptBehaviourUpdateOrder.UpdatePlayerLoop(world);
+        return true;
+    }
+}
+```
+* `ICustomBootstrap` can now be inherited and only the most deepest subclass bootstrap will be executed.
+* `DefaultWorldInitialization.GetAllSystems` is not affected by bootstrap, it simply returns a list of systems based on the present dlls & attributes.
+* `Time` is now available per-World, and is a property in a `ComponentSystem`.  It is updated from the `UnityEngine.Time` during the `InitializationSystemGroup` of each world.  If you need access to time in a sytem that runs in the `InitializationSystemGroup`, make sure you schedule your system after `UpdateWorldTimeSystem`.  `Time` is also a limited `TimeData` struct; if you need access to any of the extended fields available in `UnityEngine.Time`, access `UnityEngine.Time` explicitly`
+* Systems are no longer removed from a `ComponentSystemGroup` if they throw an exception from their `OnUpdate`. This behavior was more confusing than helpful.
+* Managed IComponentData no longer require implementing the `IEquatable<>` interface and overriding `GetHashCode()`. If either function is provided it will be preferred, otherwise the component will be inspected generically for equality.
+* `EntityGuid` is now constructed from an originating ID, a namespace ID, and a serial, which can be safely extracted from their packed form using new getters. Use `a` and `b` fields when wanting to treat this as an opaque struct (the packing may change again in the future, as there are still unused bits remaining). The a/b constructor has been removed, to avoid any ambiguity.
+* Updated `com.unity.platforms` to `0.1.6-preview`.
+* The default Api Compatibility Level should now be `.NET Standard 2.0` and a warning is generated when the project uses `.NET 4.x`.
+* Added `[UnityEngine.ExecuteAlways]` to `LateSimulationSystemGroup`, so its systems run in Edit Mode.
+
+### Known Issues
+
+
+
+## [0.1.1] - 2019-08-06
 
 ### New Features
 * EntityManager.SetSharedComponentData(EntityQuery query, T componentData) has been added which lets you efficiently swap a shared component data for a whole query. (Without moving any component data)
 
 ### Upgrade guide
 
-* The deprecated `OnCreateManager` and `OnDestroyManager` are now compilation errors in the `NET_DOTS` profile as overrides can not be detected reliably (without reflection). 
-To avoid the confusion of "why is that not being called", especially when there is no warning issued, this will now be a compilation error. Use `OnCreate` and `OnDestroy` instead. 
+* The deprecated `OnCreateManager` and `OnDestroyManager` are now compilation errors in the `NET_DOTS` profile as overrides can not be detected reliably (without reflection).
+To avoid the confusion of "why is that not being called", especially when there is no warning issued, this will now be a compilation error. Use `OnCreate` and `OnDestroy` instead.
 
 ### Changes
 
-* Updated default version of burst to `1.1.2` 
+* Updated default version of burst to `1.1.2`
 
 ### Fixes
 
@@ -23,7 +132,7 @@ To avoid the confusion of "why is that not being called", especially when there 
 * Fixed invalid update path for `ComponentType.Create`. Auto-update is available in Unity `2019.3` and was removed for previous versions where it would fail (the fallback implementation will work as before).
 
 
-## [0.1.0-preview] - 2019-07-30
+## [0.1.0] - 2019-07-30
 
 ### New Features
 
@@ -38,8 +147,6 @@ To avoid the confusion of "why is that not being called", especially when there 
 * Filled in some `<T>` holes in the overloads we provide in `EntityManager`
 * New `Entities.WithIncludeAll()` that will include in matching all components that are normally ignored by default (currently `Prefab` and `Disabled`)
 * EntityManager.CopyAndReplaceEntitiesFrom has been added it can be used to store & restore a backup of the world for the purposes of general purpose simulation rollback.
-* EntityManager.AddComponentData<T>(EntityQuery entityQuery, NativeArray<T> componentArray) has been added. This can be used to efficiently add components to an entityQuery and set the component data on each entity.
-
 
 ### Upgrade guide
 
@@ -72,7 +179,7 @@ To avoid the confusion of "why is that not being called", especially when there 
 
 ### Changes
 
-* Generic component data types must now be registered in advance. Use [RegisterGenericComponentType] attribute to register each concrete use. e.g. `[assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<int>))]` 
+* Generic component data types must now be registered in advance. Use [RegisterGenericComponentType] attribute to register each concrete use. e.g. `[assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<int>))]`
 * Attempting to call `Playback()` more than once on the same EntityCommandBuffer will now throw an error.
 * Improved error checking for `[UpdateInGroup]`, `[UpdateBefore]`, and `[UpdateAfter]` attributes
 * TypeManager no longer imposes alignment requirements on components containing pointers. Instead, it now throws an exception if you try to serialize a blittable component containing an unmanaged pointer, which suggests different alternatives.
@@ -235,4 +342,6 @@ EntityArchetypeQuery has been renamed to EntityQueryDesc
 
 
 ### Fixes
+
+### Known Issues
 -->

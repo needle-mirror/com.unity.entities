@@ -7,11 +7,28 @@ using UnityEngine.Serialization;
 
 namespace Unity.Entities.Editor
 {
+    
     internal class EntityDebugger : EditorWindow
     {
         public delegate void SelectionChangeCallback(EntitySelectionProxy proxy);
 
         public event SelectionChangeCallback OnEntitySelectionChanged;
+
+        internal static ComponentSystemBase[] extraSystems;
+
+        internal static void SetExtraSystems(ComponentSystemBase[] systems)
+        {
+            if (systems == null)
+            {
+                extraSystems = null;
+            }
+            else
+            {
+                extraSystems = new ComponentSystemBase[systems.Length];
+                Array.Copy(systems, extraSystems, systems.Length);
+            }
+            EntityDebugger.Instance.CreateSystemListView();
+        }
         
         private const float kSystemListWidth = 350f;
         private const float kChunkInfoViewWidth = 250f;
@@ -84,9 +101,11 @@ namespace Unity.Entities.Editor
                 Styles.ToolbarLabelStyle = new GUIStyle(Styles.ToolbarButtonStyle)
                 {
                     richText = true,
-                    alignment = TextAnchor.MiddleLeft,
-                    normal = new GUIStyleState()
+                    alignment = TextAnchor.MiddleLeft
                 };
+                var styleState = Styles.ToolbarLabelStyle.normal;
+                styleState.background = null;
+                styleState.scaledBackgrounds = null;
             }
         }
 
@@ -294,9 +313,9 @@ namespace Unity.Entities.Editor
             selectionProxy = ScriptableObject.CreateInstance<EntitySelectionProxy>();
             selectionProxy.hideFlags = HideFlags.HideAndDontSave;
 
-            selectionProxy.EntityControlDoubleClick += entity =>
+            selectionProxy.EntityControlSelectButton += (world, entity) =>
             {
-                entityListView?.OnEntitySelected(entity);
+                SetAllSelections(world, null, null, entity);
             };
         }
 
@@ -339,6 +358,12 @@ namespace Unity.Entities.Editor
             }
             else if (!Application.isPlaying)
             {
+                if (entityListView == null)
+                    return;
+
+                if (systemListView == null)
+                    return;
+          
                 if (systemListView.NeedsReload || entityQueryListView.NeedsReload || entityListView.NeedsReload || !filterUI.TypeListValid())
                     Repaint();
             }
@@ -387,7 +412,7 @@ namespace Unity.Entities.Editor
             GUILayout.EndHorizontal();
         }
 
-        const float kChunkInfoButtonWidth = 60f;
+        const float kChunkInfoButtonWidth = 70f;
 
         private void EntityHeader()
         {
@@ -463,7 +488,7 @@ namespace Unity.Entities.Editor
 
         private void ChunkInfoView()
         {
-            GUILayout.BeginHorizontal(Styles.ToolbarButtonStyle);
+            GUILayout.BeginHorizontal();
             if (entityListView.ShowingSomething)
             {
                 GUILayout.Label($"Matching chunks: {entityListView.ChunkArray.Length}", Styles.ToolbarLabelStyle);

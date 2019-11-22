@@ -2,26 +2,21 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-#if UNITY_2019_3_OR_NEWER
 using UnityEngine.LowLevel;
-#else
-using UnityEngine.Experimental.LowLevel;
-#endif
 using UnityEngine.Profiling;
 
 namespace Unity.Entities.Editor
 {
+    delegate void SystemSelectionCallback(ComponentSystemBase system, World world);
 
-    internal delegate void SystemSelectionCallback(ComponentSystemBase manager, World world);
-
-    internal class SystemListView : TreeView
+    class SystemListView : TreeView
     {
-        private class AverageRecorder
+        class AverageRecorder
         {
-            private readonly Recorder recorder;
-            private int frameCount;
-            private int totalNanoseconds;
-            private float lastReading;
+            readonly Recorder recorder;
+            int frameCount;
+            int totalNanoseconds;
+            float lastReading;
 
             public AverageRecorder(Recorder recorder)
             {
@@ -45,20 +40,20 @@ namespace Unity.Entities.Editor
                 return lastReading;
             }
         }
-        internal readonly Dictionary<int, ComponentSystemBase> managersById = new Dictionary<int, ComponentSystemBase>();
-        private readonly Dictionary<int, World> worldsById = new Dictionary<int, World>();
-        private readonly Dictionary<ComponentSystemBase, AverageRecorder> recordersByManager = new Dictionary<ComponentSystemBase, AverageRecorder>();
-        private readonly Dictionary<int, HideNode> hideNodesById = new Dictionary<int, HideNode>();
+        internal readonly Dictionary<int, ComponentSystemBase> systemsById = new Dictionary<int, ComponentSystemBase>();
+        readonly Dictionary<int, World> worldsById = new Dictionary<int, World>();
+        readonly Dictionary<ComponentSystemBase, AverageRecorder> recordersBySystem = new Dictionary<ComponentSystemBase, AverageRecorder>();
+        readonly Dictionary<int, HideNode> hideNodesById = new Dictionary<int, HideNode>();
 
-        private const float kToggleWidth = 22f;
-        private const float kTimingWidth = 70f;
-        private const int kAllEntitiesItemId = 0;
+        const float kToggleWidth = 22f;
+        const float kTimingWidth = 70f;
+        const int kAllEntitiesItemId = 0;
 
-        private readonly SystemSelectionCallback systemSelectionCallback;
-        private readonly WorldSelectionGetter getWorldSelection;
-        private readonly ShowInactiveSystemsGetter getShowInactiveSystems;
+        readonly SystemSelectionCallback systemSelectionCallback;
+        readonly WorldSelectionGetter getWorldSelection;
+        readonly ShowInactiveSystemsGetter getShowInactiveSystems;
 
-        private static GUIStyle RightAlignedLabel
+        static GUIStyle RightAlignedLabel
         {
             get
             {
@@ -74,7 +69,7 @@ namespace Unity.Entities.Editor
             }
         }
 
-        private static GUIStyle rightAlignedText;
+        static GUIStyle rightAlignedText;
 
         internal static MultiColumnHeaderState GetHeaderState()
         {
@@ -121,7 +116,7 @@ namespace Unity.Entities.Editor
             return new MultiColumnHeaderState(columns);
         }
 
-        private static TreeViewState GetStateForWorld(World world, List<TreeViewState> states, List<string> stateNames)
+        static TreeViewState GetStateForWorld(World world, List<TreeViewState> states, List<string> stateNames)
         {
             if (world == null)
                 return new TreeViewState();
@@ -154,19 +149,24 @@ namespace Unity.Entities.Editor
             RebuildNodes();
         }
 
-        private HideNode CreateNodeForManager(int id, ComponentSystemBase system)
+        HideNode CreateNodeForSystem(int id, ComponentSystemBase system)
         {
             var active = true;
             if (!(system is ComponentSystemGroup))
             {
-                managersById.Add(id, system);
+                systemsById.Add(id, system);
                 worldsById.Add(id, system.World);
-                var recorder = Recorder.Get($"{system.World.Name} {system.GetType().FullName}");
-                recordersByManager.Add(system, new AverageRecorder(recorder));
+                var recorder = Recorder.Get($"{system.World?.Name ?? "none"} {system.GetType().FullName}");
+                if (!recordersBySystem.ContainsKey(system))
+                    recordersBySystem.Add(system, new AverageRecorder(recorder));
+                else
+                {
+                    UnityEngine.Debug.LogError("System added twice: " + system);
+                }
                 recorder.enabled = true;
                 active = false;
             }
-            var name = getWorldSelection() == null ? $"{system.GetType().Name} ({system.World.Name})" : system.GetType().Name;
+            var name = getWorldSelection() == null ? $"{system.GetType().Name} ({system.World?.Name ?? "none"})" : system.GetType().Name;
             var item = new TreeViewItem { id = id, displayName = name };
 
             var hideNode = new HideNode(item) { Active = active };
@@ -174,9 +174,9 @@ namespace Unity.Entities.Editor
             return hideNode;
         }
 
-        private PlayerLoopSystem lastPlayerLoop;
+        PlayerLoopSystem lastPlayerLoop;
 
-        private class HideNode
+        class HideNode
         {
             public readonly TreeViewItem Item;
             public bool Active = true;
@@ -219,15 +219,15 @@ namespace Unity.Entities.Editor
             }
         }
 
-        private HideNode rootNode;
+        HideNode rootNode;
 
-        private void RebuildNodes()
+        void RebuildNodes()
         {
             rootNode = null;
             Reload();
         }
 
-        private void AddNodeIgnoreNulls(ref List<HideNode> list, HideNode node)
+        void AddNodeIgnoreNulls(ref List<HideNode> list, HideNode node)
         {
             if (node == null)
                 return;
@@ -236,7 +236,7 @@ namespace Unity.Entities.Editor
             list.Add(node);
         }
 
-        private HideNode BuildNodesForPlayerLoopSystem(PlayerLoopSystem system, ref int currentId)
+        HideNode BuildNodesForPlayerLoopSystem(PlayerLoopSystem system, ref int currentId)
         {
             List<HideNode> children = null;
             if (system.subSystemList != null)
@@ -268,9 +268,9 @@ namespace Unity.Entities.Editor
             return null;
         }
 
-        private HideNode BuildNodesForComponentSystem(ComponentSystemBase manager, ref int currentId)
+        HideNode BuildNodesForComponentSystem(ComponentSystemBase systemBase, ref int currentId)
         {
-            switch (manager)
+            switch (systemBase)
             {
                 case ComponentSystemGroup group:
                     List<HideNode> children = null;
@@ -284,7 +284,7 @@ namespace Unity.Entities.Editor
 
                     if (children != null || getWorldSelection() == null || getWorldSelection() == group.World)
                     {
-                        var groupNode = CreateNodeForManager(currentId++, group);
+                        var groupNode = CreateNodeForSystem(currentId++, group);
                         groupNode.Children = children;
                         return groupNode;
                     }
@@ -293,7 +293,7 @@ namespace Unity.Entities.Editor
                 {
                     if (getWorldSelection() == null || getWorldSelection() == system.World)
                     {
-                        return CreateNodeForManager(currentId++, system);
+                        return CreateNodeForSystem(currentId++, system);
                     }
                 }
                     break;
@@ -302,11 +302,11 @@ namespace Unity.Entities.Editor
             return null;
         }
 
-        private void BuildNodeTree()
+        void BuildNodeTree()
         {
-            managersById.Clear();
+            systemsById.Clear();
             worldsById.Clear();
-            recordersByManager.Clear();
+            recordersBySystem.Clear();
             hideNodesById.Clear();
 
             var currentID = kAllEntitiesItemId + 1;
@@ -315,12 +315,21 @@ namespace Unity.Entities.Editor
 
             rootNode = BuildNodesForPlayerLoopSystem(ScriptBehaviourUpdateOrder.CurrentPlayerLoop, ref currentID)
                        ?? new HideNode(new TreeViewItem {id = currentID, displayName = "Root"});
+
+            if (EntityDebugger.extraSystems != null)
+            {
+                foreach (var system in EntityDebugger.extraSystems)
+                {
+                    if (system != null)
+                        AddNodeIgnoreNulls(ref rootNode.Children, BuildNodesForComponentSystem(system, ref currentID));
+                }
+            }
             return;
         }
 
-        private bool GetDefaultExpandedIds(HideNode parent, List<int> ids)
+        bool GetDefaultExpandedIds(HideNode parent, List<int> ids)
         {
-            var shouldExpand = managersById.ContainsKey(parent.Item.id);
+            var shouldExpand = systemsById.ContainsKey(parent.Item.id);
             if (parent.Children != null)
             {
                 foreach (var child in parent.Children)
@@ -367,10 +376,10 @@ namespace Unity.Entities.Editor
         protected override void BeforeRowsGUI()
         {
             var becameVisible = false;
-            foreach (var idManagerPair in managersById)
+            foreach (var idSystemPair in systemsById)
             {
-                var componentSystemBase = idManagerPair.Value;
-                var hideNode = hideNodesById[idManagerPair.Key];
+                var componentSystemBase = idSystemPair.Value;
+                var hideNode = hideNodesById[idSystemPair.Key];
                 if (componentSystemBase.LastSystemVersion != 0 && !hideNode.Active)
                 {
                     hideNode.Active = true;
@@ -390,10 +399,10 @@ namespace Unity.Entities.Editor
 
             var enabled = GUI.enabled;
 
-            if (managersById.ContainsKey(item.id))
+            if (systemsById.ContainsKey(item.id))
             {
-                var manager = managersById[item.id];
-                var componentSystemBase = manager as ComponentSystemBase;
+                var system = systemsById[item.id];
+                var componentSystemBase = system as ComponentSystemBase;
                 if (componentSystemBase != null)
                 {
                     var toggleRect = args.GetCellRect(0);
@@ -406,7 +415,7 @@ namespace Unity.Entities.Editor
                     var timingRect = args.GetCellRect(2);
                     if (componentSystemBase.ShouldRunSystem())
                     {
-                        var recorder = recordersByManager[manager];
+                        var recorder = recordersBySystem[system];
                         GUI.Label(timingRect, recorder.ReadMilliseconds().ToString("f2"), RightAlignedLabel);
                     }
                     else
@@ -444,9 +453,9 @@ namespace Unity.Entities.Editor
 
         protected override void SelectionChanged(IList<int> selectedIds)
         {
-            if (selectedIds.Count > 0 && managersById.ContainsKey(selectedIds[0]))
+            if (selectedIds.Count > 0 && systemsById.ContainsKey(selectedIds[0]))
             {
-                systemSelectionCallback(managersById[selectedIds[0]], worldsById[selectedIds[0]]);
+                systemSelectionCallback(systemsById[selectedIds[0]], worldsById[selectedIds[0]]);
             }
             else
             {
@@ -465,7 +474,7 @@ namespace Unity.Entities.Editor
             SetSelection(GetSelection(), TreeViewSelectionOptions.FireSelectionChanged);
         }
 
-        private bool PlayerLoopsMatch(PlayerLoopSystem a, PlayerLoopSystem b)
+        bool PlayerLoopsMatch(PlayerLoopSystem a, PlayerLoopSystem b)
         {
             if (a.type != b.type)
                 return false;
@@ -497,11 +506,11 @@ namespace Unity.Entities.Editor
                         return true;
                 }
 
-                foreach (var manager in managersById.Values)
+                foreach (var systemBase in systemsById.Values)
                 {
-                    if (manager is ComponentSystemBase system)
+                    if (systemBase is ComponentSystemBase system)
                     {
-                        if (system.World == null || !system.World.Systems.Contains(manager))
+                        if (system.World == null || !system.World.Systems.Contains(system))
                             return true;
                     }
                 }
@@ -516,14 +525,14 @@ namespace Unity.Entities.Editor
                 RebuildNodes();
         }
 
-        private int lastTimedFrame;
+        int lastTimedFrame;
 
         public void UpdateTimings()
         {
             if (Time.frameCount == lastTimedFrame)
                 return;
 
-            foreach (var recorder in recordersByManager.Values)
+            foreach (var recorder in recordersBySystem.Values)
             {
                 recorder.Update();
             }
@@ -531,11 +540,11 @@ namespace Unity.Entities.Editor
             lastTimedFrame = Time.frameCount;
         }
 
-        public void SetSystemSelection(ComponentSystemBase manager, World world)
+        public void SetSystemSelection(ComponentSystemBase system, World world)
         {
-            foreach (var pair in managersById)
+            foreach (var pair in systemsById)
             {
-                if (pair.Value == manager)
+                if (pair.Value == system)
                 {
                     SetSelection(new List<int> {pair.Key});
                     return;

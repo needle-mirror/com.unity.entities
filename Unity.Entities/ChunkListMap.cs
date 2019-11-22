@@ -24,6 +24,7 @@ namespace Unity.Entities
             else
             {
                 int* indexArray = stackalloc int[numSharedComponents];
+
                 for (int i = 0; i < numSharedComponents; ++i)
                     indexArray[i] = sharedComponentValues[i];
                 result = math.hash(indexArray, numSharedComponents * sizeof(int));

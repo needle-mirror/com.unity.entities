@@ -280,7 +280,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void SharedComponent_ModifiedEntities_VisibleFromInsideForEach()
         {
             var entity = m_Manager.CreateEntity();
@@ -368,7 +367,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void RemoveSharedComponent_ModifiedEntity_VisibleFromInsideForEach()
         {
             m_Manager.AddSharedComponentData(m_Manager.CreateEntity(), new EcsTestSharedComp(5));
@@ -385,7 +383,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void RemoveComponent_ModifiedEntity_VisibleFromInsideForEach()
         {
             m_Manager.AddComponentData(m_Manager.CreateEntity(), new EcsTestData(5));
@@ -427,7 +424,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void RemoveComponent_GetOrSetOfRemovedComponent_Throws()
         {
             m_Manager.AddComponentData(m_Manager.CreateEntity(), new EcsTestData(5));

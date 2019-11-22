@@ -108,11 +108,7 @@ namespace Unity.Entities.PerformanceTests
             resetJobHandle.Complete();
         }
 
-        #if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-        #else
-        [PerformanceTest]
-        #endif
         public void NAI_SingleVsSplitIterationJob()
         {
             var count = 10 * 1024 * 1024;

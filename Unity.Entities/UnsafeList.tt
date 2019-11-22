@@ -37,30 +37,52 @@ namespace Unity.Entities
         public readonly int Capacity;
         public readonly Allocator Allocator;
 
-        private ref UnsafeList ListData { get { return ref *(UnsafeList*)UnsafeUtility.AddressOf(ref this); } }
+        public unsafe Unsafe<#=typeName#>List(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = Allocator.Invalid; this.ListData() = new UnsafeList(UnsafeUtility.SizeOf<<#=type#>>(), UnsafeUtility.AlignOf<<#=type#>>(), initialCapacity, allocator, options); }
+        public void Dispose() { this.ListData().Dispose(); }
+        public JobHandle Dispose(JobHandle inputDeps) { return this.ListData().Dispose(inputDeps); }
+        public void Clear() { this.ListData().Clear(); }
+        public void Resize(int length, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { this.ListData().Resize<<#=type#>>(length, options); }
+        public void SetCapacity(int capacity) { this.ListData().SetCapacity<<#=type#>>(capacity); }
+        public void TrimExcess() { this.ListData().TrimExcess<<#=type#>>(); }
+        public int IndexOf(<#=type#> value) { return this.ListData().IndexOf(value); }
+        public bool Contains(<#=type#> value) { return this.ListData().Contains(value); }
+        public void AddNoResize(<#=type#> value) { this.ListData().AddNoResize(value); }
+        public void AddRangeNoResize(void* ptr, int length) { this.ListData().AddRangeNoResize<<#=type#>>(ptr, length); }
+        public void AddRangeNoResize(Unsafe<#=typeName#>List src) { this.ListData().AddRangeNoResize<<#=type#>>(src.ListData()); }
+        public void Add(<#=type#> value) { this.ListData().Add(value); }
+        public void AddRange(Unsafe<#=typeName#>List src) { this.ListData().AddRange<<#=type#>>(src.ListData()); }
+        public void RemoveAtSwapBack(int index) { this.ListData().RemoveAtSwapBack<<#=type#>>(index); }
 
-        public unsafe Unsafe<#=typeName#>List(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = Allocator.Invalid; ListData = new UnsafeList(UnsafeUtility.SizeOf<<#=type#>>(), UnsafeUtility.AlignOf<<#=type#>>(), initialCapacity, allocator, options); }
-        public void Dispose() { ListData.Dispose(); }
-        public JobHandle Dispose(JobHandle inputDeps) { return ListData.Dispose(inputDeps); }
-        public void Clear() { ListData.Clear(); }
-        public void Resize(int length, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { ListData.Resize<<#=type#>>(length, options); }
-        public void SetCapacity(int capacity) { ListData.SetCapacity<<#=type#>>(capacity); }
-        public int IndexOf(<#=type#> value) { return ListData.IndexOf(value); }
-        public bool Contains(<#=type#> value) { return ListData.Contains(value); }
-        public void Add(<#=type#> value) { ListData.Add(value); }
-        public void AddRange(Unsafe<#=typeName#>List src) { ListData.AddRange<<#=type#>>(src.ListData); }
-        public void RemoveAtSwapBack(int index) { ListData.RemoveAtSwapBack<<#=type#>>(index); }
         public ParallelReader AsParallelReader() { return new ParallelReader(Ptr, Length); }
 
         public unsafe struct ParallelReader
         {
+            [NativeDisableUnsafePtrRestriction]
             public readonly <#=type#>* Ptr;
             public readonly int Length;
 
             public ParallelReader(<#=type#>* ptr, int length) { Ptr = ptr; Length = length; }
-            public int IndexOf(<#=type#> value) { for (int i = Length - 1; i >= 0; --i) { if (Ptr[i] == value) { return i; } } return -1; }
+            public int IndexOf(<#=type#> value) { for (int i = 0; i < Length; ++i) { if (Ptr[i] == value) { return i; } } return -1; }
             public bool Contains(<#=type#> value) { return IndexOf(value) != -1; }
         }
+
+        public ParallelWriter AsParallelWriter() { return new ParallelWriter((UnsafeList*)UnsafeUtility.AddressOf(ref this)); }
+
+        public unsafe struct ParallelWriter
+        {
+            public UnsafeList.ParallelWriter Writer;
+
+            public unsafe ParallelWriter(UnsafeList* listData) { Writer = listData->AsParallelWriter(); }
+
+            public void AddNoResize(<#=type#> value) { Writer.AddNoResize(value); }
+            public void AddRangeNoResize(void* ptr, int length) { Writer.AddRangeNoResize<<#=type#>>(ptr, length); }
+            public void AddRangeNoResize(Unsafe<#=typeName#>List list) { Writer.AddRangeNoResize<<#=type#>>(Unsafe<#=typeName#>ListExtensions.ListData(ref list)); }
+        }
+    }
+
+    internal static class Unsafe<#=typeName#>ListExtensions
+    {
+        public static ref UnsafeList ListData(ref this Unsafe<#=typeName#>List from) => ref UnsafeUtilityEx.As<Unsafe<#=typeName#>List, UnsafeList>(ref from);
     }
 
     sealed class Unsafe<#=typeName#>ListDebugView
@@ -107,30 +129,50 @@ namespace Unity.Entities
         public readonly int Capacity;
         public readonly Allocator Allocator;
 
-        private ref UnsafePtrList ListData { get { return ref *(UnsafePtrList*)UnsafeUtility.AddressOf(ref this); } }
+        public unsafe Unsafe<#=typeName#>PtrList(<#=type#>** ptr, int length) { Ptr = null; Length = 0; Capacity = 0; Allocator = Allocator.Invalid; this.ListData() = new UnsafePtrList((void**)ptr, length); }
+        public unsafe Unsafe<#=typeName#>PtrList(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = Allocator.Invalid; this.ListData() = new UnsafePtrList(initialCapacity, allocator, options); }
+        public void Dispose() { this.ListData().Dispose(); }
+        public JobHandle Dispose(JobHandle inputDeps) { return this.ListData().Dispose(inputDeps); }
+        public void Clear() { this.ListData().Clear(); }
+        public void Resize(int length, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { this.ListData().Resize(length, options); }
+        public void SetCapacity(int capacity) { this.ListData().SetCapacity(capacity); }
+        public void TrimExcess() { this.ListData().TrimExcess(); }
+        public int IndexOf(<#=type#>* value) { return this.ListData().IndexOf(value); }
+        public bool Contains(<#=type#>* value) { return this.ListData().Contains(value); }
+        public void Add(<#=type#>* value) { this.ListData().Add(value); }
+        public void AddRange(Unsafe<#=typeName#>PtrList src) { this.ListData().AddRange(src.ListData()); }
+        public void RemoveAtSwapBack(int index) { this.ListData().RemoveAtSwapBack(index); }
 
-        public unsafe Unsafe<#=typeName#>PtrList(<#=type#>** ptr, int length) { Ptr = null; Length = 0; Capacity = 0; Allocator = Allocator.Invalid; ListData = new UnsafePtrList((void**)ptr, length); }
-        public unsafe Unsafe<#=typeName#>PtrList(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = Allocator.Invalid; ListData = new UnsafePtrList(initialCapacity, allocator, options); }
-        public void Dispose() { ListData.Dispose(); }
-        public JobHandle Dispose(JobHandle inputDeps) { return ListData.Dispose(inputDeps); }
-        public void Clear() { ListData.Clear(); }
-        public void Resize(int length, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { ListData.Resize(length, options); }
-        public void SetCapacity(int capacity) { ListData.SetCapacity(capacity); }
-        public int IndexOf(<#=type#>* value) { return ListData.IndexOf(value); }
-        public bool Contains(<#=type#>* value) { return ListData.Contains(value); }
-        public void Add(<#=type#>* value) { ListData.Add(value); }
-        public void AddRange(Unsafe<#=typeName#>PtrList src) { ListData.AddRange(src.ListData); }
-        public void RemoveAtSwapBack(int index) { ListData.RemoveAtSwapBack(index); }
+        public ParallelReader AsParallelReader() { return new ParallelReader(Ptr, Length); }
 
         public unsafe struct ParallelReader
         {
+            [NativeDisableUnsafePtrRestriction]
             public readonly <#=type#>** Ptr;
             public readonly int Length;
 
             public ParallelReader(<#=type#>** ptr, int length) { Ptr = ptr; Length = length; }
-            public int IndexOf(<#=type#>* value) { for (int i = Length - 1; i >= 0; --i) { if (Ptr[i] == value) { return i; } } return -1; }
+            public int IndexOf(<#=type#>* value) { for (int i = 0; i < Length; ++i) { if (Ptr[i] == value) { return i; } } return -1; }
             public bool Contains(<#=type#>* value) { return IndexOf(value) != -1; }
         }
+
+        public ParallelWriter AsParallelWriter() { return new ParallelWriter((UnsafePtrList*)UnsafeUtility.AddressOf(ref this)); }
+
+        public unsafe struct ParallelWriter
+        {
+            public UnsafePtrList.ParallelWriter Writer;
+
+            public unsafe ParallelWriter(UnsafePtrList* listData) { Writer = listData->AsParallelWriter(); }
+
+            public void AddNoResize(<#=type#>* value) { Writer.AddNoResize(value); }
+            public void AddRangeNoResize(void** ptr, int length) { Writer.AddRangeNoResize(ptr, length); }
+            public void AddRangeNoResize(Unsafe<#=typeName#>PtrList list) { Writer.AddRangeNoResize((void**)list.Ptr, list.Length); }
+        }
+    }
+
+    internal static class Unsafe<#=typeName#>PtrListExtensions
+    {
+        public static ref UnsafePtrList ListData(ref this Unsafe<#=typeName#>PtrList from) => ref UnsafeUtilityEx.As<Unsafe<#=typeName#>PtrList, UnsafePtrList>(ref from);
     }
 
     sealed class Unsafe<#=typeName#>PtrListDebugView

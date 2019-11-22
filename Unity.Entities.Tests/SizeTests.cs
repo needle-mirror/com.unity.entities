@@ -22,7 +22,7 @@ namespace Unity.Entities.Tests
 
                 ChunkDataUtility.GetIndexInTypeArray(chunk0->Archetype, TypeManager.GetTypeIndex<EcsTestData2>());
 
-                Assert.AreEqual(archetype0->BytesPerInstance, archetype1->BytesPerInstance);
+                Assert.True(ChunkDataUtility.AreLayoutCompatible(archetype0, archetype1));
             }
         }
 
@@ -114,5 +114,29 @@ namespace Unity.Entities.Tests
             chunks.Dispose();
         }
 #pragma warning restore 0219
+
+        unsafe struct TestTooBig : IComponentData
+        {
+            fixed byte Value[32768];
+        }
+        
+        [Test]
+        public void ThrowsWhenTooLargeCreate()
+        {
+            Assert.Throws<ArgumentException>(() =>
+            {
+                m_Manager.CreateEntity(typeof(TestTooBig));
+            });
+        }
+        
+        [Test]
+        public void ThrowsWhenTooLargeAddComponent()
+        {
+           var entity = m_Manager.CreateEntity();
+           Assert.Throws<ArgumentException>(() =>
+           {
+               m_Manager.AddComponent<TestTooBig>(entity);
+           });
+        }
     }
 }

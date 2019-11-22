@@ -1,42 +1,34 @@
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.PerformanceTesting;
-using UnityEditor.UIElements;
 
 namespace Unity.Entities.PerformanceTests
 {
     [TestFixture]
     [Category("Performance")]
-    public sealed class DynamicBufferPerformanceTests
+    public sealed class DynamicBufferPerformanceTests : EntityPerformanceTestFixture
     {
-        World m_PreviousWorld;
-        World m_World;
-        EntityManager m_Manager;
-        EntityQuery group;
-
-        private const int kLargeAllocation = 32 * 1024 * 1024 / sizeof(int);
-        private const int kSmallAllocation = 1 * 1024 / sizeof(int);
-        private const int kTinyAllocation = 4;
+        const int kLargeAllocation = 32 * 1024 * 1024 / sizeof(int);
+        const int kSmallAllocation = 1 * 1024 / sizeof(int);
+        const int kTinyAllocation = 4;
 
         /// <summary>
         /// To get a reasonable reading from the tiny and small tests we need to run the code a lot more.
         /// </summary>
-        private const int kTimesToCopyInManyTest = 10000;
+        const int kTimesToCopyInManyTest = 10000;
 
-        private NativeArray<EcsIntElement> nativeArrayLarge;
-        private NativeArray<EcsIntElement> nativeArraySmall;
-        private NativeArray<EcsIntElement> nativeArrayTiny;
+        NativeArray<EcsIntElement> nativeArrayLarge;
+        NativeArray<EcsIntElement> nativeArraySmall;
+        NativeArray<EcsIntElement> nativeArrayTiny;
 
-        private EcsIntElement[] arrayLarge;
-        private EcsIntElement[] arraySmall;
-        private EcsIntElement[] arrayTiny;
+        EcsIntElement[] arrayLarge;
+        EcsIntElement[] arraySmall;
+        EcsIntElement[] arrayTiny;
 
-        [SetUp]
-        public void Setup()
+        public override void Setup()
         {
-            m_PreviousWorld = World.Active;
-            m_World = World.Active = new World("Test World");
-            m_Manager = m_World.EntityManager;
+            base.Setup();
+            
             nativeArrayLarge = new NativeArray<EcsIntElement>(kLargeAllocation, Allocator.Persistent);
             nativeArraySmall = new NativeArray<EcsIntElement>(kSmallAllocation, Allocator.Persistent);
             nativeArrayTiny = new NativeArray<EcsIntElement>(kTinyAllocation, Allocator.Persistent);
@@ -63,18 +55,10 @@ namespace Unity.Entities.PerformanceTests
             }
         }
 
-        [TearDown]
-        public void TearDown()
+        public override void TearDown()
         {
-            if (m_Manager != null)
-            {
-                m_World.Dispose();
-                m_World = null;
+            base.TearDown();
 
-                World.Active = m_PreviousWorld;
-                m_PreviousWorld = null;
-                m_Manager = null;
-            }
             nativeArrayLarge.Dispose();
             nativeArraySmall.Dispose();
             nativeArrayTiny.Dispose();
@@ -95,11 +79,7 @@ namespace Unity.Entities.PerformanceTests
             public int Value;
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void CopyFromDynamicBuffer()
         {
             var e = m_Manager.CreateEntity();
@@ -175,11 +155,7 @@ namespace Unity.Entities.PerformanceTests
 
         }
 
-        #if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void CopyFromNativeArray()
         {
             var e = m_Manager.CreateEntity();
@@ -244,11 +220,7 @@ namespace Unity.Entities.PerformanceTests
             m_Manager.DestroyEntity(e);
         }
 
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         public void CopyFromArray()
         {
             var e = m_Manager.CreateEntity();

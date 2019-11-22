@@ -13,7 +13,7 @@ namespace Unity.Entities.Editor.Tests
 
         private World WorldSelectionGetter()
         {
-            return World.Active;
+            return World.DefaultGameObjectInjectionWorld;
         }
 
         [Test]

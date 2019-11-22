@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityObject = UnityEngine.Object;
@@ -14,24 +15,37 @@ namespace Unity.Entities
         void DeclareReferencedPrefabs(List<GameObject> referencedPrefabs);
     }
 
-    public class RequiresEntityConversionAttribute : System.Attribute
-    {
+    [AttributeUsage(AttributeTargets.Class)]
+    public class RequiresEntityConversionAttribute : Attribute {  }
+}
 
-    }
-
+namespace Unity.Entities.Conversion
+{
     class ConvertGameObjectToEntitySystem : GameObjectConversionSystem
     {
         void Convert(Transform transform, List<IConvertGameObjectToEntity> convertibles)
         {
-            transform.GetComponents(convertibles);
-
-            foreach (var c in convertibles)
+            try
             {
-                var behaviour = c as Behaviour;
-               if (behaviour != null && !behaviour.enabled) continue;
+                transform.GetComponents(convertibles);
 
-                var entity = GetPrimaryEntity((Component)c);
-                c.Convert(entity, DstEntityManager, this);
+                foreach (var c in convertibles)
+                {
+                    var behaviour = c as Behaviour;
+                    if (behaviour != null && !behaviour.enabled) continue;
+
+#if UNITY_EDITOR
+                    if (!ShouldRunConversionSystem(c.GetType()))
+                        continue;
+#endif
+
+                    var entity = GetPrimaryEntity((Component)c);
+                    c.Convert(entity, DstEntityManager, this);
+                }
+            }
+            catch (Exception x)
+            {
+                Debug.LogException(x, transform);
             }
         }
 
@@ -40,6 +54,8 @@ namespace Unity.Entities
             var convertibles = new List<IConvertGameObjectToEntity>();
 
             Entities.ForEach((Transform transform) => Convert(transform, convertibles));
+            convertibles.Clear();
+
             //@TODO: Remove this again once we add support for inheritance in queries
             Entities.ForEach((RectTransform transform) => Convert(transform, convertibles));
         }
@@ -61,5 +77,4 @@ namespace Unity.Entities
             });
         }
     }
-
 }

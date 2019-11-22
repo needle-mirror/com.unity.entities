@@ -1,14 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using Unity.Entities;
-using Unity.Mathematics;
+using Unity.Entities.Serialization;
 using UnityEngine;
+using UnityEngine.Assertions;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
+using File = System.IO.File;
+using Hash128 = Unity.Entities.Hash128;
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.SceneManagement;
 #endif
+#pragma warning disable 649
+
 
 namespace Unity.Scenes
 {
@@ -22,56 +27,31 @@ namespace Unity.Scenes
     
         static List<SubScene> m_AllSubScenes = new List<SubScene>();
         public static IReadOnlyCollection<SubScene> AllSubScenes { get { return m_AllSubScenes; } }
-    
-        [NonSerialized] public LiveLinkScene LiveLinkData;
-    
+        
     #endif
         
         public bool AutoLoadScene = true;
-        
-    
-        [NonSerialized] EntityManager _SceneEntityManager;
-        [NonSerialized] public List<Entity> _SceneEntities = new List<Entity>();
-    
+
+
         [SerializeField]
         [HideInInspector]
-        SubSceneHeader m_SubSceneHeader = null;
-        
+        Hash128 _SceneGUID;
+
+        [NonSerialized]
+        Hash128 _AddedSceneGUID;
+
     #if UNITY_EDITOR
 
-        public MinMaxAABB SceneBoundingVolume
-        {
-            get
-            {
-                var bounds = MinMaxAABB.Empty;
-
-                if (m_SubSceneHeader != null && m_SubSceneHeader.Sections != null)
-                {
-                    foreach (var sceneData in m_SubSceneHeader.Sections)
-                        bounds.Encapsulate(sceneData.BoundingVolume);
-                }
-
-                return bounds;
-            }
-        }
+        [NonSerialized]
+        bool _IsEnabled;
         
-        public SceneData[] SceneData
-        {
-            get
-            {
-                if (m_SubSceneHeader != null && m_SubSceneHeader.Sections != null)
-                    return m_SubSceneHeader.Sections;
-                else
-                    return null;
-            }
-        }
-
         public SceneAsset SceneAsset
         {
             get { return _SceneAsset; }
             set
             {
                 _SceneAsset = value;
+                OnValidate();
             }
         }
 
@@ -80,16 +60,6 @@ namespace Unity.Scenes
             get { return SceneAsset.name; }
         }
 
-        public GUID SceneGUID
-        {
-            get
-            {
-                if (_SceneAsset != null)
-                    return new GUID(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(_SceneAsset)));
-                else
-                    return new GUID();
-            }
-        }
         public Color HierarchyColor
         {
             get { return _HierarchyColor; }
@@ -105,7 +75,7 @@ namespace Unity.Scenes
             }
         }
         
-        public Scene LoadedScene
+        public Scene EditingScene
         {
             get
             {
@@ -118,124 +88,114 @@ namespace Unity.Scenes
         
         public bool IsLoaded
         {
-            get { return LoadedScene.isLoaded; }
+            get { return EditingScene.isLoaded; }
+        }
+        
+        void OnValidate()
+        {
+            _SceneGUID = new GUID(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(_SceneAsset)));
+            
+            if (_IsEnabled)
+            {
+                if (_SceneGUID != _AddedSceneGUID)
+                {
+                    RemoveSceneEntities();
+                    if (_SceneGUID != default)
+                        AddSceneEntities();
+                }
+            }
         }
     
     #endif
+        
+        public Hash128 SceneGUID => _SceneGUID;
     
         void OnEnable()
         {
     #if UNITY_EDITOR
-            if (UnityEditor.Experimental.SceneManagement.PrefabStageUtility.GetPrefabStage(gameObject) != null)
-                return;
+            _IsEnabled = true;
     
-            m_SubSceneHeader = null;
-            if (SceneAsset == null)
+            if (_SceneGUID == default(Hash128))
+                return;
+            
+            if (UnityEditor.Experimental.SceneManagement.PrefabStageUtility.GetPrefabStage(gameObject) != null)
                 return;
             
             foreach (var subscene in m_AllSubScenes)
             {
                 if (subscene.SceneAsset == SceneAsset)
                 {
-                    Debug.LogWarning($"A sub-scene can not include the same scene ('{EditableScenePath}') multiple times.", this);
+                    UnityEngine.Debug.LogWarning($"A sub-scene can not include the same scene ('{EditableScenePath}') multiple times.", this);
                     return;
                 }
             }
                  
             m_AllSubScenes.Add(this);    
     #endif
-            
-            UpdateSceneEntities(true);
-        }
-
-        public void UpdateSceneEntities(bool warnIfMissing = false)
-        {
-#if UNITY_EDITOR
-            var sceneHeaderPath = EntityScenesPaths.GetLoadPath(SceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1);
-            m_SubSceneHeader = AssetDatabase.LoadAssetAtPath<SubSceneHeader>(sceneHeaderPath);
-#endif
-            if (warnIfMissing && m_SubSceneHeader == null)
-            {
-#if UNITY_EDITOR
-                Debug.LogWarning($"Sub-scene '{EditableScenePath}' has no valid header at '{sceneHeaderPath}'. Please rebuild the Entity Cache.", this);
-#else
-                Debug.LogWarning($"Sub-scene '{name}' has no valid header. Please rebuild the Entity Cache.", this);
-#endif
-            }
-
-
-            if (_SceneEntityManager != null && _SceneEntityManager.IsCreated)
-            {
-                foreach (var sceneEntity in _SceneEntities)
-                {
-                    _SceneEntityManager.DestroyEntity(sceneEntity);
-                }
-            }
-            _SceneEntities.Clear();
-            _SceneEntityManager = null;
 
             DefaultWorldInitialization.DefaultLazyEditModeInitialize();
-            if (World.Active != null)
-            {
-                _SceneEntityManager = World.Active.EntityManager;
-
-                if (m_SubSceneHeader != null)
-                {
-                    for (int i = 0; i < m_SubSceneHeader.Sections.Length; ++i)
-                    {
-                        var sceneEntity = _SceneEntityManager.CreateEntity();
-                        #if UNITY_EDITOR
-                        _SceneEntityManager.SetName(sceneEntity, i == 0 ? $"Scene: {SceneName}" : $"Scene: {SceneName} ({i})");
-                        #endif
-
-                        _SceneEntities.Add(sceneEntity);
-                        _SceneEntityManager.AddComponentObject(sceneEntity, this);
-        
-                        if (AutoLoadScene)
-                            _SceneEntityManager.AddComponentData(sceneEntity, new RequestSceneLoaded());
-        
-                        _SceneEntityManager.AddComponentData(sceneEntity, m_SubSceneHeader.Sections[i]);
-                        _SceneEntityManager.AddComponentData(sceneEntity, new SceneBoundingVolume { Value = m_SubSceneHeader.Sections[i].BoundingVolume });
-                    }
-                }
-                else
-                {
-                    var sceneEntity = _SceneEntityManager.CreateEntity();
-                    #if UNITY_EDITOR
-                    _SceneEntityManager.SetName(sceneEntity, "Scene: {SceneName}");
-                    #endif
-
-                    _SceneEntities.Add(sceneEntity);
-                    _SceneEntityManager.AddComponentObject(sceneEntity, this);
-                }
-            }
+            AddSceneEntities();
         }
         
         void OnDisable()
         {
     #if UNITY_EDITOR
+            _IsEnabled = false;
             m_AllSubScenes.Remove(this);
     #endif
             
-            if (_SceneEntityManager != null && _SceneEntityManager.IsCreated)
-            {
-                foreach (var sceneEntity in _SceneEntities)
-                {
-                    _SceneEntityManager.DestroyEntity(sceneEntity);
-                }
-    
-                _SceneEntityManager = null;
-            }
-    
-            _SceneEntities.Clear();
-            CleanupLiveLink();
+            RemoveSceneEntities();
         }
-    
+
+        void AddSceneEntities()
+        {
+            Assert.IsTrue(_AddedSceneGUID == default);
+            Assert.IsFalse(_SceneGUID == default);
+
+            var flags = AutoLoadScene ? 0 : SceneLoadFlags.DisableAutoLoad;
+#if UNITY_EDITOR
+            flags |= EditorApplication.isPlaying ? SceneLoadFlags.BlockOnImport : 0;
+#else
+            flags |= SceneLoadFlags.BlockOnImport;
+#endif            
+            foreach (var world in World.AllWorlds)
+            {
+                var sceneSystem = world.GetExistingSystem<SceneSystem>();
+                if (sceneSystem != null)
+                {
+                    
+                    var loadParams = new SceneSystem.LoadParameters
+                    {
+                        Flags = flags
+                    };
+                    
+                    var sceneEntity = sceneSystem.LoadSceneAsync(_SceneGUID, loadParams);
+                    sceneSystem.EntityManager.AddComponentObject(sceneEntity, this);
+                    _AddedSceneGUID = _SceneGUID;
+                }
+            }
+        }
+        void RemoveSceneEntities()
+        {
+            if (_AddedSceneGUID != default)
+            {
+                foreach (var world in World.AllWorlds)
+                {
+                    var sceneSystem = world.GetExistingSystem<SceneSystem>();
+                    if (sceneSystem != null)
+                        sceneSystem.UnloadScene(_AddedSceneGUID, SceneSystem.UnloadParameters.DestroySceneProxyEntity | SceneSystem.UnloadParameters.DestroySectionProxyEntities);
+                }
+                
+                _AddedSceneGUID = default;
+            }
+        }
+
         //@TODO: Move this into SceneManager
         void UnloadScene()
         {
+        //@TODO: ask to save scene first???
     #if UNITY_EDITOR
-            var scene = LoadedScene;
+            var scene = EditingScene;
             if (scene.IsValid())
             {
                 // If there is only one scene left in the editor, we create a new empty scene
@@ -251,18 +211,42 @@ namespace Unity.Scenes
     #endif
         }
     
-        public void CleanupLiveLink()
-        {
-    #if UNITY_EDITOR
-            if (LiveLinkData != null)
-                LiveLinkData.Dispose();
-            LiveLinkData = null;
-    #endif
-        }
     
         private void OnDestroy()
         {
             UnloadScene();
         }
+
+        [Obsolete("_SceneEntities has been deprecated, please use World.GetExistingSystem<SceneSystem>().LoadAsync / Unload using SceneGUID instead. (RemovedAfter 2019-11-22)")]
+        public List<Entity> _SceneEntities
+        {
+            get
+            {
+                var entities = new List<Entity>();
+
+                var sceneSystem = World.DefaultGameObjectInjectionWorld?.GetExistingSystem<SceneSystem>();
+                
+                if (sceneSystem != null)
+                {
+                    var sceneEntity = sceneSystem.GetSceneEntity(SceneGUID);
+                    if (sceneEntity != Entity.Null && sceneSystem.EntityManager.HasComponent<ResolvedSectionEntity>(sceneEntity))
+                    {
+                        foreach(var section in sceneSystem.EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity))
+                            entities.Add(section.SectionEntity);    
+                    }
+                }
+
+                return entities;
+            }
+        }
+
+        /* @TODO: Add conversion. How do we prevent duplicate from OnEnable / OnDisable
+        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+        {
+            dstManager.AddComponentData(entity, new SceneReference { SceneGUID = SceneGUID});
+            if (AutoLoadScene)
+                dstManager.AddComponent<RequestSceneLoaded>(entity);
+        }
+        */
     }
 }

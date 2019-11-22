@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.InteropServices;
 using Unity.Assertions;
 using Unity.Collections.LowLevel.Unsafe;
@@ -14,7 +15,6 @@ namespace Unity.Entities
 
         public int EntityCount;
         public int ChunkCapacity;
-        public int BytesPerInstance;
 
         public ComponentTypeInArchetype* Types;
         public int TypesCount;
@@ -44,7 +44,15 @@ namespace Unity.Entities
 
         public EntityRemapUtility.BufferEntityPatchInfo* BufferEntityPatches;
         public int                                       BufferEntityPatchCount;
+		
+        public EntityRemapUtility.ManagedEntityPatchInfo* ManagedEntityPatches;
+        public int ManagedEntityPatchCount;
 
+        public int InstanceSize;
+        public int InstanceSizeWithOverhead;
+		
+        public fixed byte QueryMaskArray[128];
+		
         public bool SystemStateCleanupComplete;
         public bool SystemStateCleanupNeeded;
         public bool Disabled;
@@ -52,6 +60,8 @@ namespace Unity.Entities
         public bool HasChunkComponents;
         public bool HasChunkHeader;
         public bool ContainsBlobAssetRefs;
+
+        public bool IsManaged(int typeIndexInArchetype) => ManagedArrayOffset[typeIndexInArchetype] >= 0;
 
         public override string ToString()
         {
@@ -112,7 +122,7 @@ namespace Unity.Entities
                 chunkThatMoved->ListWithEmptySlotsIndex = chunk->ListWithEmptySlotsIndex;
             }
         }
-        
+
         /// <summary>
         /// Remove chunk from archetype tracking of chunks with available slots.
         /// - Does not check if chunk has space.
@@ -162,6 +172,16 @@ namespace Unity.Entities
             }
 
             return null;
+        }
+
+        internal bool CompareMask(EntityQueryMask mask)
+        {
+            return (byte)(QueryMaskArray[mask.Index] & mask.Mask) == mask.Mask;
+        }
+
+        internal void SetMask(EntityQueryMask mask)
+        {
+            QueryMaskArray[mask.Index] |= mask.Mask;
         }
     }
 }

@@ -55,5 +55,20 @@ namespace Unity.Mathematics
             var randomPointsInSphereJobHandle = RandomPointsInSphere(0.0f, 1.0f, points, new JobHandle());
             randomPointsInSphereJobHandle.Complete();
         }
+
+        public static float3 RandomPositionInsideUnitSphere(uint seed)
+        {
+            var random = new Random(seed);
+            while (true)
+            {
+                float3 randomPosition = random.NextFloat3();
+                var doubled = randomPosition * new float3(2);
+                var offset = doubled - new float3(1,1,1);
+                if (math.lengthsq(offset) > 1)
+                    continue;
+                
+                return offset;
+            }
+        }
     }
 }

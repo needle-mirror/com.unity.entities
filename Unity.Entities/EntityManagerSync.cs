@@ -23,13 +23,19 @@ namespace Unity.Entities
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------
 
-        private void BeforeStructuralChange()
+        internal void BeforeStructuralChange()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (ComponentJobSafetyManager->IsInTransaction)
             {
                 throw new InvalidOperationException(
                     "Access to EntityManager is not allowed after EntityManager.BeginExclusiveEntityTransaction(); has been called.");
+            }
+
+            if (ComponentJobSafetyManager->IsInForEachDisallowStructuralChange != 0)
+            {
+                throw new InvalidOperationException(
+                    "Structural changes are not allowed during Entities.ForEach. Please use EntityCommandBuffer instead.");
             }
 
             // This is not an end user error. If there are any managed changes at this point, it indicates there is some

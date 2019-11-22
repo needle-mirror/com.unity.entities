@@ -6,47 +6,28 @@ using Unity.Collections;
 
 namespace Unity.Entities
 {
-    internal class WorldDebuggingTools
+    internal static class WorldDebuggingTools
     {
-        internal static void MatchEntityInEntityQueries(World world, Entity entity,
+        internal static unsafe void MatchEntityInEntityQueries(World world, Entity entity,
             List<Tuple<ComponentSystemBase, List<EntityQuery>>> matchList)
         {
-            using (var entityComponentTypes =
-                world.EntityManager.GetComponentTypes(entity, Allocator.Temp))
+            foreach (var system in world.Systems)
             {
-                foreach (var system in World.Active.Systems)
+                if (system == null) continue;
+                var queryList = new List<EntityQuery>();
+                foreach (var query in system.EntityQueries)
                 {
-                    var queryList = new List<EntityQuery>();
-                    if (system == null) continue;
-                    foreach (var query in system.EntityQueries)
-                        if (Match(query, entityComponentTypes))
-                            queryList.Add(query);
-
-                    if (queryList.Count > 0)
-                        matchList.Add(
-                            new Tuple<ComponentSystemBase, List<EntityQuery>>(system, queryList));
-                }
-            }
-        }
-
-        private static bool Match(EntityQuery query, NativeArray<ComponentType> entityComponentTypes)
-        {
-            foreach (var groupType in query.GetQueryTypes().Skip(1))
-            {
-                var found = false;
-                foreach (var type in entityComponentTypes)
-                {
-                    if (type.TypeIndex != groupType.TypeIndex)
+                    if (query.HasFilter())
                         continue;
-                    found = true;
-                    break;
+                    var mask = world.EntityManager.GetEntityQueryMask(query);
+                    if (mask.Matches(entity))
+                        queryList.Add(query);
                 }
 
-                if (found == (groupType.AccessModeType == ComponentType.AccessMode.Exclude))
-                    return false;
+                if (queryList.Count > 0)
+                    matchList.Add(
+                        new Tuple<ComponentSystemBase, List<EntityQuery>>(system, queryList));
             }
-
-            return true;
         }
     }
 }

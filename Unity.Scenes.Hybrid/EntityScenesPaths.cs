@@ -1,5 +1,9 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
+using Unity.Entities;
+using Unity.Mathematics;
+using UnityEditor;
 using UnityEngine;
 using Hash128 = Unity.Entities.Hash128;
 
@@ -7,59 +11,116 @@ namespace Unity.Scenes
 {
     class EntityScenesPaths
     {
-        public static string GetPath(Hash128 sceneGUID, PathType type, string subsectionName)
-        {
-            if (sceneGUID == new Hash128())
-                return "";
-
-            string sceneName = sceneGUID.ToString();
-            if (!String.IsNullOrEmpty(subsectionName))
-                sceneName += "_" + subsectionName;
-    
-            if (type == PathType.EntitiesSharedComponents)
-                return "Assets/EntityCache/Resources/" + sceneName + "_shared.prefab";
-            if (type == PathType.EntitiesHeader)
-                return "Assets/EntityCache/Resources/" + sceneName + "_header.asset";
-            if (type == PathType.EntitiesBinary)
-                return "Assets/StreamingAssets/EntityCache/" + sceneName + ".entities";
-            throw new ArgumentException();
-        }
-
-        public static string GetPathAndCreateDirectory(Hash128 sceneGUID, PathType type, string subsectionName)
-        {
-            var path = GetPath(sceneGUID, type, subsectionName);
-            if (String.IsNullOrEmpty(path))
-                return "";
-    
-            var dir = Path.GetDirectoryName(path);
-            if (!Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
-    
-            return path;
-        }
-
+        public static Type SubSceneImporterType = null;
+        
         public enum PathType
         {
-            EntitiesSharedComponents,
+            EntitiesUnityObjectReferences,
             EntitiesBinary,
+            EntitiesConversionLog,
             EntitiesHeader
         }
 
+        public static string GetExtension(PathType pathType)
+        {
+            switch (pathType)
+            {
+                // these must all be lowercase
+                case PathType.EntitiesUnityObjectReferences: return "asset";
+                case PathType.EntitiesBinary : return "entities";
+                case PathType.EntitiesHeader : return "entityheader";
+                case PathType.EntitiesConversionLog : return "conversionlog";
+            }
+
+            throw new System.ArgumentException("Unknown PathType");
+        }
+        
+#if UNITY_EDITOR
+        public struct SceneWithBuildSettingsGUIDs
+        {
+            public Hash128 SceneGUID;
+            public Hash128 BuildSettings;
+        }
+
+        public static unsafe Hash128 CreateBuildSettingSceneFile(Hash128 sceneGUID, Hash128 buildSettingGUID)
+        {
+            var guids = new SceneWithBuildSettingsGUIDs { SceneGUID = sceneGUID, BuildSettings = buildSettingGUID};
+            
+            Hash128 guid;
+            guid.Value.x = math.hash(&guids, sizeof(SceneWithBuildSettingsGUIDs));
+            guid.Value.y = math.hash(&guids, sizeof(SceneWithBuildSettingsGUIDs), 0x96a755e2);
+            guid.Value.z = math.hash(&guids, sizeof(SceneWithBuildSettingsGUIDs), 0x4e936206);
+            guid.Value.w = math.hash(&guids, sizeof(SceneWithBuildSettingsGUIDs), 0xac602639);
+
+            string dir = "Assets/SceneDependencyCache";
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+            string fileName = $"{dir}/{guid}.sceneWithBuildSettings";
+            if (!File.Exists(fileName))
+            {
+                using(var writer = new Entities.Serialization.StreamBinaryWriter(fileName))
+                {
+                    writer.WriteBytes(&guids, sizeof(SceneWithBuildSettingsGUIDs));
+                }
+                File.WriteAllText(fileName + ".meta", 
+                    $"fileFormatVersion: 2\nguid: {guid}\nDefaultImporter:\n  externalObjects: {{}}\n  userData:\n  assetBundleName:\n  assetBundleVariant:\n");
+                
+                // Refresh is necessary because it appears the asset pipeline
+                // can't depend on an asset on disk that has not yet been refreshed.
+                AssetDatabase.Refresh();
+            }
+            return guid;
+        }
+
+        public static Hash128 GetSubSceneArtifactHash(Hash128 sceneGUID, Hash128 buildSettingGUID, UnityEditor.Experimental.AssetDatabaseExperimental.ImportSyncMode syncMode)
+        {
+            var guid = CreateBuildSettingSceneFile(sceneGUID, buildSettingGUID);
+            var res = UnityEditor.Experimental.AssetDatabaseExperimental.GetArtifactHash(guid.ToString(), SubSceneImporterType, syncMode);
+            return res;
+        }        
+        
+        public static string GetLoadPathFromArtifactPaths(string[] paths, PathType type, int? sectionIndex = null)
+        {
+            var extension = GetExtension(type);
+            if (sectionIndex != null)
+                extension = $"{sectionIndex}.{extension}";
+
+            return paths.FirstOrDefault(p => p.EndsWith(extension));
+        }
+#endif // UNITY_EDITOR
+
         public static string GetLoadPath(Hash128 sceneGUID, PathType type, int sectionIndex)
         {
-            if (type == PathType.EntitiesSharedComponents)
-                return $"{sceneGUID}_{sectionIndex}_shared";
-            else if (type == PathType.EntitiesHeader)
-                return GetPath(sceneGUID, type, "");
-
-            var path = GetPath(sceneGUID, type, sectionIndex.ToString());
-
+            var extension = GetExtension(type);
             if (type == PathType.EntitiesBinary)
-                return Application.streamingAssetsPath + "/EntityCache/" + Path.GetFileName(path);
-            else if (type == PathType.EntitiesSharedComponents)
-                return Path.GetFileNameWithoutExtension(path);
+                return $"{Application.streamingAssetsPath}/SubScenes/{sceneGUID}.{sectionIndex}.{extension}";
+            else if (type == PathType.EntitiesHeader)
+                return $"{Application.streamingAssetsPath}/SubScenes/{sceneGUID}.{extension}";
+            else if (type == PathType.EntitiesUnityObjectReferences)
+                return $"{Application.streamingAssetsPath}/SubScenes/{sceneGUID}.{sectionIndex}.bundle";
             else
-                return path;
+                return "";
+        }
+
+        public static string GetLiveLinkCachePath(Hash128 targetHash, PathType type, int sectionIndex)
+        {
+            var extension = GetExtension(type);
+            if (type == PathType.EntitiesBinary)
+                return $"{Application.persistentDataPath}/{targetHash}.{sectionIndex}.{extension}";
+            else if (type == PathType.EntitiesHeader)
+                return $"{Application.persistentDataPath}/{targetHash}.{extension}";
+            else if (type == PathType.EntitiesUnityObjectReferences)
+                return $"{Application.persistentDataPath}/{targetHash}.{sectionIndex}.refguids";
+            else
+                return "";
+        }
+
+        public static int GetSectionIndexFromPath(string path)
+        {
+            var components = Path.GetFileNameWithoutExtension(path).Split('.');
+            if (components.Length == 1)
+                return 0;
+            return int.Parse(components[1]);
         }
     }
 }

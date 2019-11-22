@@ -1,125 +1,109 @@
 using System;
 using System.Collections.Generic;
-#if UNITY_2019_3_OR_NEWER
-using UnityEngine.PlayerLoop;
-#else
-using UnityEngine.Experimental.PlayerLoop;
-#endif
 using UnityEngine.Scripting;
 
 namespace Unity.Entities
 {
-    [DisableAutoCreation]
     [UnityEngine.ExecuteAlways]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
     public class BeginInitializationEntityCommandBufferSystem : EntityCommandBufferSystem {}
 
-    [DisableAutoCreation]
     [UnityEngine.ExecuteAlways]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
     public class EndInitializationEntityCommandBufferSystem : EntityCommandBufferSystem {}
 
     public class InitializationSystemGroup : ComponentSystemGroup
     {
         [Preserve] public InitializationSystemGroup() {}
 
-        BeginInitializationEntityCommandBufferSystem m_BeginEntityCommandBufferSystem;
-        EndInitializationEntityCommandBufferSystem m_EndEntityCommandBufferSystem;
-
-        protected override void OnCreate()
-        {
-            m_BeginEntityCommandBufferSystem = World.GetOrCreateSystem<BeginInitializationEntityCommandBufferSystem>();
-            m_EndEntityCommandBufferSystem = World.GetOrCreateSystem<EndInitializationEntityCommandBufferSystem>();
-            m_systemsToUpdate.Add(m_BeginEntityCommandBufferSystem);
-            m_systemsToUpdate.Add(m_EndEntityCommandBufferSystem);
-        }
-
         public override void SortSystemUpdateList()
         {
             // Extract list of systems to sort (excluding built-in systems that are inserted at fixed points)
-            var toSort = new List<ComponentSystemBase>(m_systemsToUpdate.Count - 2);
+            var toSort = new List<ComponentSystemBase>(m_systemsToUpdate.Count);
+            BeginInitializationEntityCommandBufferSystem beginEcbSys = null;
+            EndInitializationEntityCommandBufferSystem endEcbSys = null;
             foreach (var s in m_systemsToUpdate)
             {
-                if (s is BeginInitializationEntityCommandBufferSystem ||
-                    s is EndInitializationEntityCommandBufferSystem)
-                {
-                    continue;
+                if (s is BeginInitializationEntityCommandBufferSystem) {
+                    beginEcbSys = (BeginInitializationEntityCommandBufferSystem)s;
+                } else if (s is EndInitializationEntityCommandBufferSystem) {
+                    endEcbSys = (EndInitializationEntityCommandBufferSystem)s;
+                } else {
+                    toSort.Add(s);
                 }
-                toSort.Add(s);
             }
             m_systemsToUpdate = toSort;
             base.SortSystemUpdateList();
             // Re-insert built-in systems to construct the final list
-            var finalSystemList = new List<ComponentSystemBase>(1 + m_systemsToUpdate.Count + 1);
-            finalSystemList.Add(m_BeginEntityCommandBufferSystem);
+            var finalSystemList = new List<ComponentSystemBase>(toSort.Count);
+            if (beginEcbSys != null)
+                finalSystemList.Add(beginEcbSys);
             foreach (var s in m_systemsToUpdate)
                 finalSystemList.Add(s);
-            finalSystemList.Add(m_EndEntityCommandBufferSystem);
+
+            if (endEcbSys != null)
+                finalSystemList.Add(endEcbSys);
             m_systemsToUpdate = finalSystemList;
         }
     }
 
-    [DisableAutoCreation]
     [UnityEngine.ExecuteAlways]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
     public class BeginSimulationEntityCommandBufferSystem : EntityCommandBufferSystem {}
 
-    [DisableAutoCreation]
     [UnityEngine.ExecuteAlways]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
     public class EndSimulationEntityCommandBufferSystem : EntityCommandBufferSystem {}
 
-    [DisableAutoCreation]
+    [UnityEngine.ExecuteAlways]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
     public class LateSimulationSystemGroup : ComponentSystemGroup {}
 
     public class SimulationSystemGroup : ComponentSystemGroup
     {
         [Preserve] public SimulationSystemGroup() {}
 
-        BeginSimulationEntityCommandBufferSystem m_BeginEntityCommandBufferSystem;
-        LateSimulationSystemGroup m_lateSimulationGroup;
-        EndSimulationEntityCommandBufferSystem m_EndEntityCommandBufferSystem;
-
-        protected override void OnCreate()
-        {
-            m_BeginEntityCommandBufferSystem = World.GetOrCreateSystem<BeginSimulationEntityCommandBufferSystem>();
-            m_lateSimulationGroup = World.GetOrCreateSystem<LateSimulationSystemGroup>();
-            m_EndEntityCommandBufferSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
-            m_systemsToUpdate.Add(m_BeginEntityCommandBufferSystem);
-            m_systemsToUpdate.Add(m_lateSimulationGroup);
-            m_systemsToUpdate.Add(m_EndEntityCommandBufferSystem);
-        }
-
         public override void SortSystemUpdateList()
         {
             // Extract list of systems to sort (excluding built-in systems that are inserted at fixed points)
-            var toSort = new List<ComponentSystemBase>(m_systemsToUpdate.Count - 3);
-            foreach (var s in m_systemsToUpdate)
-            {
-                if (s is BeginSimulationEntityCommandBufferSystem ||
-                    s is LateSimulationSystemGroup ||
-                    s is EndSimulationEntityCommandBufferSystem)
-                {
-                    continue;
+            var toSort = new List<ComponentSystemBase>(m_systemsToUpdate.Count);
+            BeginSimulationEntityCommandBufferSystem beginEcbSys = null;
+            LateSimulationSystemGroup lateSysGroup = null;
+            EndSimulationEntityCommandBufferSystem endEcbSys = null;
+            foreach (var s in m_systemsToUpdate) {
+                if (s is BeginSimulationEntityCommandBufferSystem) {
+                    beginEcbSys = (BeginSimulationEntityCommandBufferSystem)s;
+                } else if (s is LateSimulationSystemGroup) {
+                    lateSysGroup = (LateSimulationSystemGroup)s;
+                    lateSysGroup.SortSystemUpdateList(); // not handled by base-class sort call below
+                } else if (s is EndSimulationEntityCommandBufferSystem) {
+                    endEcbSys = (EndSimulationEntityCommandBufferSystem)s;
+                } else {
+                    toSort.Add(s);
                 }
-                toSort.Add(s);
             }
             m_systemsToUpdate = toSort;
             base.SortSystemUpdateList();
-            m_lateSimulationGroup.SortSystemUpdateList(); // not handled by base-class sort call
             // Re-insert built-in systems to construct the final list
-            var finalSystemList = new List<ComponentSystemBase>(1 + m_systemsToUpdate.Count + 2);
-            finalSystemList.Add(m_BeginEntityCommandBufferSystem);
+            var finalSystemList = new List<ComponentSystemBase>(toSort.Count);
+            if (beginEcbSys != null)
+                finalSystemList.Add(beginEcbSys);
             foreach (var s in m_systemsToUpdate)
                 finalSystemList.Add(s);
-            finalSystemList.Add(m_lateSimulationGroup);
-            finalSystemList.Add(m_EndEntityCommandBufferSystem);
+            if (lateSysGroup != null)
+                finalSystemList.Add(lateSysGroup);
+            if (endEcbSys != null)
+                finalSystemList.Add(endEcbSys);
             m_systemsToUpdate = finalSystemList;
         }
     }
 
-    [DisableAutoCreation]
     [UnityEngine.ExecuteAlways]
+    [UpdateInGroup(typeof(PresentationSystemGroup))]
     public class BeginPresentationEntityCommandBufferSystem : EntityCommandBufferSystem {}
 
-    [DisableAutoCreation]
     [UnityEngine.ExecuteAlways]
+    [UpdateInGroup(typeof(PresentationSystemGroup))]
     [Obsolete("please use BeginInitializationEntityCommandBufferSystem instead. (RemovedAfter 2019-11-06)")]
     public class EndPresentationEntityCommandBufferSystem : EntityCommandBufferSystem {}
 
@@ -127,50 +111,38 @@ namespace Unity.Entities
     {
         [Preserve] public PresentationSystemGroup() {}
 
-        BeginPresentationEntityCommandBufferSystem m_BeginEntityCommandBufferSystem;
-
-#pragma warning disable 0618
-        // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
-        EndPresentationEntityCommandBufferSystem m_EndEntityCommandBufferSystem;
-#pragma warning restore 0618
-
-        protected override void OnCreate()
-        {
-            m_BeginEntityCommandBufferSystem = World.GetOrCreateSystem<BeginPresentationEntityCommandBufferSystem>();
-
-#pragma warning disable 0618
-            // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
-            m_EndEntityCommandBufferSystem = World.GetOrCreateSystem<EndPresentationEntityCommandBufferSystem>();
-#pragma warning restore 0618
-
-            m_systemsToUpdate.Add(m_BeginEntityCommandBufferSystem);
-            m_systemsToUpdate.Add(m_EndEntityCommandBufferSystem);
-        }
-
         public override void SortSystemUpdateList()
         {
             // Extract list of systems to sort (excluding built-in systems that are inserted at fixed points)
-            var toSort = new List<ComponentSystemBase>(m_systemsToUpdate.Count - 2);
+            var toSort = new List<ComponentSystemBase>(m_systemsToUpdate.Count);
+            BeginPresentationEntityCommandBufferSystem beginEcbSys = null;
+#pragma warning disable 0618
+            // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
+            EndPresentationEntityCommandBufferSystem endEcbSys = null;
+#pragma warning restore 0618
             foreach (var s in m_systemsToUpdate)
             {
-                if (s is BeginPresentationEntityCommandBufferSystem ||
+                if (s is BeginPresentationEntityCommandBufferSystem) {
+                    beginEcbSys = (BeginPresentationEntityCommandBufferSystem)s;
 #pragma warning disable 0618
                     // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
-                    s is EndPresentationEntityCommandBufferSystem)
+                } else if (s is EndPresentationEntityCommandBufferSystem) {
+                    endEcbSys = (EndPresentationEntityCommandBufferSystem)s;
 #pragma warning restore 0618
-                {
-                    continue;
+                } else {
+                    toSort.Add(s);
                 }
-                toSort.Add(s);
             }
             m_systemsToUpdate = toSort;
             base.SortSystemUpdateList();
             // Re-insert built-in systems to construct the final list
-            var finalSystemList = new List<ComponentSystemBase>(1 + m_systemsToUpdate.Count + 1);
-            finalSystemList.Add(m_BeginEntityCommandBufferSystem);
+            var finalSystemList = new List<ComponentSystemBase>(toSort.Count);
+            if (beginEcbSys != null)
+                finalSystemList.Add(beginEcbSys);
             foreach (var s in m_systemsToUpdate)
                 finalSystemList.Add(s);
-            finalSystemList.Add(m_EndEntityCommandBufferSystem);
+            if (endEcbSys != null)
+                finalSystemList.Add(endEcbSys);
             m_systemsToUpdate = finalSystemList;
         }
     }

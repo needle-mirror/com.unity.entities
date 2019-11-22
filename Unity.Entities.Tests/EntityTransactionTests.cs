@@ -10,14 +10,15 @@ using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
-    [StandaloneFixme] // Asserts on JobDebugger in constructor
     class EntityTransactionTests : ECSTestsFixture
     {
         EntityQuery m_Group;
 
         public EntityTransactionTests()
         {
+#if !UNITY_DOTSPLAYER
             Assert.IsTrue(Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobDebuggerEnabled, "JobDebugger must be enabled for these tests");
+#endif
         }
 
         [SetUp]
@@ -92,9 +93,9 @@ namespace Unity.Entities.Tests
             /*var jobHandle =*/ job.Schedule(m_Manager.ExclusiveEntityTransactionDependency);
 
             // Commit transaction expects an error nt exception otherwise errors might occurr after a system has completed...
-            #if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSPLAYER
             LogAssert.Expect(LogType.Error, new Regex("ExclusiveEntityTransaction job has not been registered"));
-            #endif
+#endif
             m_Manager.EndExclusiveEntityTransaction();
         }
 
@@ -111,6 +112,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [StandaloneFixme] // Needs AtomicSafetyHandle functionality EnforceAllBufferJobsHaveCompletedAndRelease
         public void AccessTransactionAfterEndTransactionThrows()
         {
             var transaction = m_Manager.BeginExclusiveEntityTransaction();
@@ -130,6 +132,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [StandaloneFixme] // Needs NativeJobs schedule path
         public void MissingJobCreationDependency()
         {
             var job = new CreateEntityJob();
@@ -142,6 +145,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [StandaloneFixme] // Needs NativeJobs + Safety Handles support
         public void CreationJobAndMainThreadNotAllowedInParallel()
         {
             var job = new CreateEntityJob();

@@ -7,12 +7,14 @@ using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
-    [StandaloneFixme] // Tiny ignores because of the assert in the constructor.
+    [StandaloneFixme]  // Tiny needs nativejobs and unified thread path
     class JobSafetyTests : ECSTestsFixture
 	{
         public JobSafetyTests()
         {
-            Assert.IsTrue(Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobDebuggerEnabled, "JobDebugger must be enabled for these tests");
+#if !UNITY_DOTSPLAYER
+           Assert.IsTrue(Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobDebuggerEnabled, "JobDebugger must be enabled for these tests");
+#endif
         }
 
         struct TestIncrementJob : IJob
@@ -105,9 +107,9 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityManagerDestructionDetectsUnregisteredJob()
         {
-            #if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSPLAYER
             LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("job is still running"));
-            #endif
+#endif
 
             /*var entity =*/ m_Manager.CreateEntity(typeof(EcsTestData));
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));

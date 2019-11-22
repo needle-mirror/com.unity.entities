@@ -202,7 +202,7 @@ namespace Unity.Entities
     /// You can find entities with a particular type of shared component using either <see cref="EntityQuery"/> or
     /// <see cref="EntityQueryBuilder"/> in the same way you select entities with specific types of <see cref="IComponentData"/>.
     /// You can also filter an entity query to select only entities with a specific shared component value using
-    /// <see cref="EntityQuery.SetFilter{SharedComponent1}"/>. You can filter based on two different shared components.
+    /// <see cref="EntityQuery.SetSharedComponentFilter{SharedComponent1}"/>. You can filter based on two different shared components.
     /// (EntityQueryBuilder does not support filtering queries by shared component value.)
     ///
     /// Avoid too many shared components and values on the same archetype. Since each combination of values, whether in the

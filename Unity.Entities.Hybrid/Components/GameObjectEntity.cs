@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
-using UnityEditor;
+using Unity.Entities.Conversion;
 using UnityEngine;
+using UnityEngine.Assertions;
 using MonoBehaviour = UnityEngine.MonoBehaviour;
 using GameObject = UnityEngine.GameObject;
 using Component = UnityEngine.Component;
@@ -10,6 +11,7 @@ namespace Unity.Entities
 {
     [DisallowMultipleComponent]
     [ExecuteAlways]
+    [AddComponentMenu("")]
     public class GameObjectEntity : MonoBehaviour
     {
         public EntityManager EntityManager
@@ -38,23 +40,21 @@ namespace Unity.Entities
         {
             // in case e.g., on a prefab that was open for edit when domain was unloaded
             // existing m_EntityManager lost all its data, so simply create a new one
-            if (m_EntityManager != null && !m_EntityManager.IsCreated && !m_Entity.Equals(default(Entity)))
+            if (m_EntityManager != null && !m_EntityManager.IsCreated && !m_Entity.Equals(default))
                 Initialize();
         }
 
         // TODO: Very wrong error messages when creating entity with empty ComponentType array?
         public static Entity AddToEntityManager(EntityManager entityManager, GameObject gameObject)
         {
-            ComponentType[] types;
-            Component[] components;
-            GetComponents(gameObject, true, out types, out components);
+            GetComponents(gameObject, true, out var types, out var components);
 
             EntityArchetype archetype;
             try
             {
                 archetype = entityManager.CreateArchetype(types);
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 for (int i = 0; i < types.Length; ++i)
                 {
@@ -65,31 +65,26 @@ namespace Unity.Entities
                     }
                 }
 
-                throw e;
+                throw;
             }
 
             var entity = CreateEntity(entityManager, archetype, components, types);
 
             return entity;
         }
-        
+
+        //@TODO: is this used? deprecate?
         public static void AddToEntity(EntityManager entityManager, GameObject gameObject, Entity entity)
         {
             var components = gameObject.GetComponents<Component>();
 
             for (var i = 0; i != components.Length; i++)
             {
-                var com = components[i];
-                var proxy = com as ComponentDataProxyBase;
-                var behaviour = com as Behaviour;
-                if (behaviour != null && !behaviour.enabled)
+                var component = components[i];
+                if (component == null || component is ComponentDataProxyBase || component is GameObjectEntity || component.IsComponentDisabled())
                     continue;
-                                        
-                if (!(com is GameObjectEntity) && com != null && proxy == null)
-                {
-                    
-                    entityManager.AddComponentObject(entity, com);
-                }
+
+                entityManager.AddComponentObject(entity, component);
             }
         }
 
@@ -100,15 +95,19 @@ namespace Unity.Entities
             var componentCount = 0;
             for (var i = 0; i != components.Length; i++)
             {
-                var com = components[i];
-                var componentData = com as ComponentDataProxyBase;
-
-                if (com == null)
+                var component = components[i];
+                if (component == null)
+                {
                     UnityEngine.Debug.LogWarning($"The referenced script is missing on {gameObject.name}", gameObject);
-                else if (componentData != null)
+                    continue;
+                }
+
+                if (component is ComponentDataProxyBase)
                     componentCount++;
-                else if (includeGameObjectComponents && !(com is GameObjectEntity))
+                else if (includeGameObjectComponents && !(component is GameObjectEntity) && !component.IsComponentDisabled())
                     componentCount++;
+                else
+                    components[i] = null;
             }
 
             types = new ComponentType[componentCount];
@@ -116,14 +115,17 @@ namespace Unity.Entities
             var t = 0;
             for (var i = 0; i != components.Length; i++)
             {
-                var com = components[i];
-                var componentData = com as ComponentDataProxyBase;
+                var component = components[i];
+                if (component == null)
+                    continue;
 
-                if (componentData != null)
-                    types[t++] = componentData.GetComponentType();
-                else if (includeGameObjectComponents && !(com is GameObjectEntity) && com != null)
-                    types[t++] = com.GetType();
+                if (component is ComponentDataProxyBase proxy)
+                    types[t++] = proxy.GetComponentType();
+                else
+                    types[t++] = component.GetType();
             }
+
+            Assert.AreEqual(t, types.Length);
         }
 
         static Entity CreateEntity(EntityManager entityManager, EntityArchetype archetype, IReadOnlyList<Component> components, IReadOnlyList<ComponentType> types)
@@ -132,17 +134,18 @@ namespace Unity.Entities
             var t = 0;
             for (var i = 0; i != components.Count; i++)
             {
-                var com = components[i];
-                var componentDataProxy = com as ComponentDataProxyBase;
+                var component = components[i];
+                if (component == null)
+                    continue;
 
-                if (componentDataProxy != null)
+                if (component is ComponentDataProxyBase proxy)
                 {
-                    componentDataProxy.UpdateComponentData(entityManager, entity);
+                    proxy.UpdateComponentData(entityManager, entity);
                     t++;
                 }
-                else if (!(com is GameObjectEntity) && com != null)
+                else
                 {
-                    entityManager.SetComponentObject(entity, types[t], com);
+                    entityManager.SetComponentObject(entity, types[t], component);
                     t++;
                 }
             }
@@ -152,9 +155,9 @@ namespace Unity.Entities
         void Initialize()
         {
             DefaultWorldInitialization.DefaultLazyEditModeInitialize();
-            if (World.Active != null)
+            if (World.DefaultGameObjectInjectionWorld != null)
             {
-                m_EntityManager = World.Active.EntityManager;
+                m_EntityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
                 m_Entity = AddToEntityManager(m_EntityManager, gameObject);
             }
         }

@@ -6,7 +6,8 @@
         "Unity.Properties",
         "Unity.Jobs",
         "Unity.Entities.Properties",
-        "Unity.Properties.Reflection"
+        "Unity.Properties.Reflection",
+        "Unity.Entities.Tests"
     ],
     "optionalUnityReferences": [
         "TestAssemblies"

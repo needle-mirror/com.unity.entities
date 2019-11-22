@@ -47,11 +47,13 @@ namespace Unity.Entities.Editor
             , IVisitAdapter<Entity>
         {
 
-            private readonly EntityDoubleClick m_Callback;
+            private readonly SelectEntityButtonCallback m_selectButtonCallback;
+            private readonly ShowSelectEntityCallback m_showButtonCallback;
 
-            public EntityIMGUIAdapter(EntityDoubleClick callback)
+            public EntityIMGUIAdapter(SelectEntityButtonCallback selectButtonCallback, ShowSelectEntityCallback showButtonCallback)
             {
-                m_Callback = callback;
+                m_selectButtonCallback = selectButtonCallback;
+                m_showButtonCallback = showButtonCallback;
             }
 
             public VisitStatus Visit<TProperty, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref Entity value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, Entity>
@@ -61,15 +63,16 @@ namespace Unity.Entities.Editor
                 GUI.enabled = true;
 
                 var pos = EditorGUILayout.GetControlRect();
+                var buttonPos = pos;
+                buttonPos.xMin = buttonPos.xMax - 40f;
+                pos.xMax = pos.xMax - 40f;
 
                 EditorGUI.LabelField(pos, $"{property.GetName()} Index: {value.Index}, Version: {value.Version}", Styles.EntityStyle);
-
-                if (Event.current.type == EventType.MouseDown && pos.Contains(Event.current.mousePosition))
+                if (m_showButtonCallback())
                 {
-                    if (Event.current.clickCount == 2)
+                    if (GUI.Button(buttonPos, "Select"))
                     {
-                        Event.current.Use();
-                        m_Callback?.Invoke(value);
+                        m_selectButtonCallback?.Invoke(value);
                     }
                 }
 
@@ -106,13 +109,14 @@ namespace Unity.Entities.Editor
 
         private const int kBufferPageLength = 5;
 
-        public delegate void EntityDoubleClick(Entity entity);
+        public delegate void SelectEntityButtonCallback(Entity entity);
+        public delegate bool ShowSelectEntityCallback();
 
-        public EntityIMGUIVisitor(EntityDoubleClick entityDoubleClick)
+        public EntityIMGUIVisitor(SelectEntityButtonCallback selectEntityButtonCallback, ShowSelectEntityCallback shouldShowButtonCallback)
         {
             AddAdapter(new IMGUIPrimitivesAdapter());
             AddAdapter(new IMGUIMathematicsAdapter());
-            AddAdapter(new EntityIMGUIAdapter(entityDoubleClick));
+            AddAdapter(new EntityIMGUIAdapter(selectEntityButtonCallback, shouldShowButtonCallback));
         }
 
         protected override VisitStatus Visit<TProperty, TContainer, TValue>(TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker)
@@ -141,7 +145,8 @@ namespace Unity.Entities.Editor
             var foldout = ContainerHeader<TValue>(property.GetName());
             GUI.enabled = enabled;
 
-            EditorGUI.indentLevel++;
+            if (foldout)
+                EditorGUI.indentLevel++;
             return foldout ? VisitStatus.Handled : VisitStatus.Override;
         }
 
@@ -184,7 +189,7 @@ namespace Unity.Entities.Editor
                 for (var i = scrollData.Page*kBufferPageLength; i < (scrollData.Page+1)*kBufferPageLength && i < count; i++)
                 {
                     var callback = new VisitCollectionElementCallback<TContainer>(this);
-                    property.GetPropertyAtIndex(ref container, i, ref changeTracker, callback);
+                    property.GetPropertyAtIndex(ref container, i, ref changeTracker, ref callback);
                 }
                 GUILayout.EndVertical();
                 scrollData.PageHeight = math.max(scrollData.PageHeight, GUILayoutUtility.GetLastRect().height);

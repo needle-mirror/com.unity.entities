@@ -36,6 +36,7 @@ namespace Unity.Entities.Tests
         public void SetChunkComponent()
         {
             var entity = m_Manager.CreateEntity(ComponentType.ChunkComponent<EcsTestData>());
+
             m_Manager.SetChunkComponentData(m_Manager.GetChunk(entity), new EcsTestData{value = 7});
             Assert.IsTrue(m_Manager.HasComponent(entity, ComponentType.ChunkComponent<EcsTestData>()));
             var val0 = m_Manager.GetChunkComponentData<EcsTestData>(entity).value;
@@ -74,12 +75,12 @@ namespace Unity.Entities.Tests
             var arch1 = m_Manager.CreateArchetype(typeof(EcsTestData2));
 
             var entity0 = m_Manager.CreateEntity(arch0);
-            m_Manager.SetChunkComponentData(m_Manager.GetChunk(entity0), new EcsTestData{value = 7});
-            m_Manager.SetComponentData(entity0, new EcsTestData2 {value0 = 1, value1 = 2});
+            m_Manager.SetChunkComponentData(m_Manager.GetChunk(entity0), new EcsTestData { value = 7 });
+            m_Manager.SetComponentData(entity0, new EcsTestData2 { value0 = 1, value1 = 2 });
             var metaEntity0 = m_Manager.Debug.GetMetaChunkEntity(entity0);
 
             var entity1 = m_Manager.CreateEntity(arch1);
-            m_Manager.SetComponentData(entity1, new EcsTestData2 {value0 = 2, value1 = 3});
+            m_Manager.SetComponentData(entity1, new EcsTestData2 { value0 = 2, value1 = 3 });
 
             m_Manager.RemoveChunkComponent<EcsTestData>(entity0);
 
@@ -95,7 +96,7 @@ namespace Unity.Entities.Tests
 
             var entity0 = m_Manager.CreateEntity(arch0);
             var chunk0 = m_Manager.GetChunk(entity0);
-            EcsTestData testData = new EcsTestData{value = 7};
+            EcsTestData testData = new EcsTestData { value = 7 };
 
             Assert.AreEqual(1, group0.CalculateEntityCount());
 
@@ -105,7 +106,7 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(7, m_Manager.GetChunkComponentData<EcsTestData>(entity0).value);
 
-            m_Manager.SetComponentData(entity0, new EcsTestData2 {value0 = 1, value1 = 2});
+            m_Manager.SetComponentData(entity0, new EcsTestData2 { value0 = 1, value1 = 2 });
 
             var entity1 = m_Manager.CreateEntity(arch0);
             var chunk1 = m_Manager.GetChunk(entity1);
@@ -118,11 +119,11 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(1, group0.CalculateEntityCount());
 
-            m_Manager.SetComponentData(entity1, new EcsTestData2 {value0 = 2, value1 = 3});
+            m_Manager.SetComponentData(entity1, new EcsTestData2 { value0 = 2, value1 = 3 });
 
             Assert.AreEqual(1, group0.CalculateEntityCount());
 
-            m_Manager.SetChunkComponentData<EcsTestData>(chunk0, new EcsTestData{value = 10});
+            m_Manager.SetChunkComponentData<EcsTestData>(chunk0, new EcsTestData { value = 10 });
 
             Assert.AreEqual(10, m_Manager.GetChunkComponentData<EcsTestData>(entity0).value);
 
@@ -285,5 +286,127 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, m_Manager.GetChunkComponentData<EcsTestData>(other).value);
         }
 
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [Test]
+        public void SetChunkComponent_ManagedComponents()
+        {
+            var entity = m_Manager.CreateEntity(ComponentType.ChunkComponent<EcsTestManagedComponent>());
+
+            m_Manager.SetChunkComponentData(m_Manager.GetChunk(entity), new EcsTestManagedComponent { value = "SomeString" });
+            Assert.IsTrue(m_Manager.HasComponent(entity, ComponentType.ChunkComponent<EcsTestManagedComponent>()));
+            var classVal0 = m_Manager.GetChunkComponentData<EcsTestManagedComponent>(entity).value;
+            Assert.AreEqual("SomeString", classVal0);
+            var classVal1 = m_Manager.GetChunkComponentData<EcsTestManagedComponent>(m_Manager.GetChunk(entity)).value;
+            Assert.AreEqual("SomeString", classVal1);
+        }
+
+        [Test]
+        public void AddChunkComponentMovesEntity_ManagedComponents()
+        {
+            var entity0 = m_Manager.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
+            var entity1 = m_Manager.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
+            var chunk0 = m_Manager.GetChunk(entity0);
+            var chunk1 = m_Manager.GetChunk(entity1);
+
+            Assert.AreEqual(chunk0, chunk1);
+
+            Assert.IsFalse(m_Manager.HasChunkComponent<EcsTestManagedComponent>(entity0));
+            m_Manager.AddChunkComponentData<EcsTestManagedComponent>(entity0);
+            Assert.IsTrue(m_Manager.HasChunkComponent<EcsTestManagedComponent>(entity0));
+            chunk0 = m_Manager.GetChunk(entity0);
+
+            Assert.AreNotEqual(chunk0, chunk1);
+
+            Assert.IsTrue(m_Manager.HasComponent(entity0, ComponentType.ChunkComponent<EcsTestManagedComponent>()));
+            Assert.IsFalse(m_Manager.HasComponent(entity1, ComponentType.ChunkComponent<EcsTestManagedComponent>()));
+            Assert.IsTrue(m_Manager.Exists(m_Manager.Debug.GetMetaChunkEntity(entity0)));
+            Assert.IsTrue(m_Manager.Debug.GetMetaChunkEntity(entity1) == default(Entity));
+        }
+
+        [Test]
+        public void RemoveChunkComponent_ManagedComponents()
+        {
+            var arch0 = m_Manager.CreateArchetype(ComponentType.ChunkComponent<EcsTestManagedComponent>(), typeof(EcsTestData2));
+            var arch1 = m_Manager.CreateArchetype(typeof(EcsTestData2));
+
+            var entity0 = m_Manager.CreateEntity(arch0);
+            m_Manager.SetChunkComponentData(m_Manager.GetChunk(entity0), new EcsTestManagedComponent { value = "SomeString" });
+            m_Manager.SetComponentData(entity0, new EcsTestData2 { value0 = 1, value1 = 2 });
+            var metaEntity0 = m_Manager.Debug.GetMetaChunkEntity(entity0);
+
+            var entity1 = m_Manager.CreateEntity(arch1);
+            m_Manager.SetComponentData(entity1, new EcsTestData2 { value0 = 2, value1 = 3 });
+
+            m_Manager.RemoveChunkComponent<EcsTestManagedComponent>(entity0);
+
+            Assert.IsFalse(m_Manager.HasComponent(entity0, ComponentType.ChunkComponent<EcsTestManagedComponent>()));
+            Assert.IsFalse(m_Manager.Exists(metaEntity0));
+        }
+
+        [Test]
+        public void UpdateChunkComponent_ManagedComponents()
+        {
+            var arch0 = m_Manager.CreateArchetype(ComponentType.ChunkComponent<EcsTestManagedComponent>(), typeof(EcsTestData2));
+            EntityQuery group0 = m_Manager.CreateEntityQuery(typeof(ChunkHeader), typeof(EcsTestManagedComponent));
+
+            var entity0 = m_Manager.CreateEntity(arch0);
+            var chunk0 = m_Manager.GetChunk(entity0);
+            EcsTestManagedComponent testData = new EcsTestManagedComponent { value = "SomeString" };
+
+            Assert.AreEqual(1, group0.CalculateEntityCount());
+
+            m_Manager.SetChunkComponentData(chunk0, testData);
+
+            Assert.AreEqual(1, group0.CalculateEntityCount());
+
+            Assert.AreEqual("SomeString", m_Manager.GetChunkComponentData<EcsTestManagedComponent>(entity0).value);
+
+            m_Manager.SetComponentData(entity0, new EcsTestData2 { value0 = 1, value1 = 2 });
+
+            var entity1 = m_Manager.CreateEntity(arch0);
+            var chunk1 = m_Manager.GetChunk(entity1);
+            Assert.AreEqual("SomeString", m_Manager.GetChunkComponentData<EcsTestManagedComponent>(entity0).value);
+            Assert.AreEqual("SomeString", m_Manager.GetChunkComponentData<EcsTestManagedComponent>(entity1).value);
+
+            Assert.AreEqual(1, group0.CalculateEntityCount());
+
+            m_Manager.SetChunkComponentData(chunk1, testData);
+
+            Assert.AreEqual(1, group0.CalculateEntityCount());
+
+            m_Manager.SetComponentData(entity1, new EcsTestData2 { value0 = 2, value1 = 3 });
+
+            Assert.AreEqual(1, group0.CalculateEntityCount());
+
+            m_Manager.SetChunkComponentData<EcsTestManagedComponent>(chunk0, new EcsTestManagedComponent { value = "SomeOtherString" });
+
+            Assert.AreEqual("SomeOtherString", m_Manager.GetChunkComponentData<EcsTestManagedComponent>(entity0).value);
+
+            Assert.AreEqual(1, group0.CalculateEntityCount());
+        }
+
+        [Test]
+        public void NewChunkGetsDefaultChunkComponentValue_ManagedComponents()
+        {
+            var entity = m_Manager.CreateEntity
+            (
+                ComponentType.ChunkComponent<EcsTestManagedComponent>(),
+                ComponentType.ReadWrite<EcsTestSharedComp>()
+            );
+
+            m_Manager.SetSharedComponentData(entity, new EcsTestSharedComp(123));
+            m_Manager.SetChunkComponentData(m_Manager.GetChunk(entity), new EcsTestManagedComponent() { value = "SomeString" });
+
+            var other = m_Manager.Instantiate(entity);
+
+            Assert.AreEqual(m_Manager.GetChunk(entity), m_Manager.GetChunk(other));
+            Assert.AreEqual("SomeString", m_Manager.GetChunkComponentData<EcsTestManagedComponent>(other).value);
+
+            m_Manager.SetSharedComponentData(other, new EcsTestSharedComp(456));
+
+            Assert.AreNotEqual(m_Manager.GetChunk(entity), m_Manager.GetChunk(other));
+            Assert.AreEqual(null, m_Manager.GetChunkComponentData<EcsTestManagedComponent>(other));
+        }
+#endif
     }
 }

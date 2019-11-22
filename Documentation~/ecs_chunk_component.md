@@ -6,14 +6,16 @@ uid: ecs-chunk-component-data
 
 Use chunk components to associate data with a specific [chunk](xref:Unity.Entities.ArchetypeChunk).
 
-Chunk components contain data that applies to all entities in a specific chunk. For example, if you had chunks of entities representing 3D objects that are organized by proximity, you could store a collective bounding box for the entities in a chunk using a chunk component. Chunk components use the interface types [IComponentData](xref:Unity.Entities.IComponentData). 
+Chunk components contain data that applies to all entities in a specific chunk. For example, if you had chunks of entities representing 3D objects that are organized by proximity, you could store a collective bounding box for the entities in a chunk using a chunk component. Chunk components use the interface type [IComponentData](xref:Unity.Entities.IComponentData). 
 
+Add and set the values of a chunk component using 
 Although chunk components can have values unique to an individual chunk, they are still part of the archetype of the entities in the chunk. Thus if you remove a chunk component from an entity, that entity is moved to a different chunk (possibly a new one). Likewise, if you add a chunk component to an entity, that entity moves to a different chunk since its archetype changes; the addition of the chunk component does not affect the remaining entities in the original chunk. 
 
-If you change the value of a chunk component using an entity in that chunk, it changes the value of the chunk component common to all the entities in that chunk. If you change the archetype of an entity such that it moves into a new chunk that happens to have the same type of chunk component, then the existing value in the destination chunk is retained. (If the entity is moved to a newly created chunk, then the value of the chunk component is copied from the entity's source chunk.)
+If you change the value of a chunk component using an entity in that chunk, it changes the value of the chunk component common to all the entities in that chunk. If you change the archetype of an entity such that it moves into a new chunk that happens to have the same type of chunk component, then the existing value in the destination chunk is unaffected. (If the entity is moved to a newly created chunk, then a new chunk component for that chunk is also created and assigned its default value.)
 
 The main differences between working with chunk components and general-purpose components is that you use different functions to add, set, and remove them. Chunk components also have their own [ComponentType](xref:Unity.Entities.ComponentType.ChunkComponentType) functions for use in defining entity archetypes and queries. 
 
+ 
 **Relevant APIs**
 
 | **Purpose** | **Function** |
@@ -106,11 +108,25 @@ Using these methods, the chunk components for new chunks created as part of enti
 <a name="read"></a>
 ## Reading a chunk component 
 
-You can read a chunk component using an entity in the target chunk or using the [ArchetypeChunk](xref:Unity.Entities.ArchetypeChunk) object representing the chunk.
+You can read a chunk component using the [ArchetypeChunk](xref:Unity.Entities.ArchetypeChunk) object representing the chunk or using an entity in the target chunk.
+
+**With the ArchetypeChunk instance**
+
+Given a chunk, you can read its chunk component using the [EntityManager.GetChunkComponentData&lt;T&gt;](xref:Unity.Entities.EntityManager.GetChunkComponentData``1(Unity.Entities.ArchetypeChunk)) function. The following code iterates over all the chunks matching a query and accesses a chunk component of type ChunkComponentA:
+
+```
+var chunks = ChunksWithChunkComponentA.CreateArchetypeChunkArray(Allocator.TempJob);
+foreach (var chunk in chunks)
+{
+    var compValue = EntityManager.GetChunkComponentData<ChunkComponentA>(chunk);
+    //..
+}
+chunks.Dispose();
+```
 
 **With an entity in a chunk**
 
-Given an entity, you can access a chunk component in the chunk containing the entity with [EntityManager.GetChunkComponentData&lt;T&gt;](xref:Unity.Entities.EntityManager.GetChunkComponentData``1(Unity.Entities.Entity)):
+Given an entity, you can access a chunk component in the chunk containing that entity with [EntityManager.GetChunkComponentData&lt;T&gt;](xref:Unity.Entities.EntityManager.GetChunkComponentData``1(Unity.Entities.Entity)):
 
 ```
 if(EntityManager.HasChunkComponent<ChunkComponentA>(entity))
@@ -129,21 +145,6 @@ Entities.WithAll(ComponentType.ChunkComponent<ChunkComponentA>()).ForEach(
 ```
 
 Note that you cannot pass a chunk component to the for-each portion of the query. Instead, you must pass the [Entity](xref:Unity.Entities.Entity) object and use the [EntityManager](xref:Unity.Entities.Manager) to access the chunk component.
-
-**With the ArchetypeChunk instance**
-
-Given a chunk, you can read its chunk component using the [EntityManager.GetChunkComponentData&lt;T&gt;](xref:Unity.Entities.EntityManager.GetChunkComponentData``1(Unity.Entities.ArchetypeChunk)) function. The following code iterates over all the chunks matching a query and accesses a chunk component of type ChunkComponentA:
-
-```
-var chunks = ChunksWithChunkComponentA.CreateArchetypeChunkArray(Allocator.TempJob);
-foreach (var chunk in chunks)
-{
-    var compValue = EntityManager.GetChunkComponentData<ChunkComponentA>(chunk);
-    //..
-}
-chunks.Dispose();
-```
-
 
 <a name="update"></a>
 ## Updating a chunk component 
@@ -171,6 +172,14 @@ EntityManager.SetChunkComponentData<ChunkComponentA>(entityChunk,
                     new ChunkComponentA(){Value = 8});
 
 ``` 
+
+**Detecting changes in data**
+
+Use component change versions to detect when a chunk component needs to be updated for a given chunk. ECS updates the component versions for a chunk whenever the data in a component is accessed as writable or when an entity is added or removed from the chunk.
+
+For example, if the chunk component contains the center point of the entities in a chunk, calculated from the LocalToWorld component of those entities, you can check the version of the LocalToWorld components to determine whether the chunk component should be updated. If your chunk component is derived from more than one component, you should check the versions of all of the components to see if any of them changed.
+
+See [Skipping chunks with unchanged entities](chunk_iteration_job.md#filtering) for additional information.
 
 <a name="read-and-write-jcs"></a>
 ## Reading and writing in a JobComponentSystem
@@ -226,7 +235,7 @@ Note that if you are only reading a chunk component and not writing, you should 
 <a name="delete"></a>
 ## Deleting a chunk component 
 
-Use the [EntityManager.RemoveChunkComponent](xref:Unity.Entities.EntityManager.RemoveChunkComponent*) functions to delete a chunk component. You can remove a chunk component given an entity in the target chunk or you can remove all the chunk components of a given type from all chunks selected by an entity query. If you remove a chunk component from an individual entity, that entity moves to a different chunk because the archetype of the entity changes. 
+Use the [EntityManager.RemoveChunkComponent](xref:Unity.Entities.EntityManager.RemoveChunkComponent*) functions to delete a chunk component. You can remove a chunk component given an entity in the target chunk or you can remove all the chunk components of a given type from all chunks selected by an entity query. If you remove a chunk component from an individual entity, that entity moves to a different chunk because the archetype of the entity changes; the chunk itself retains the unchanged chunk component as long as there are other entities remaining in the chunk. 
 
 <a name="in-query"></a>
 ## Using a chunk component in a query

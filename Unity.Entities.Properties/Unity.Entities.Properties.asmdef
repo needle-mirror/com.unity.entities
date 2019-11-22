@@ -8,7 +8,7 @@
         "Unity.Transforms",
         "Unity.Properties.Reflection"
     ],
-    "includePlatforms": [],
+    "includePlatforms": ["Editor"],
     "excludePlatforms": [],
     "allowUnsafeCode": true,
     "overrideReferences": false,

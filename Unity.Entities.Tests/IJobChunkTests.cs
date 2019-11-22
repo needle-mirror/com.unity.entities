@@ -43,6 +43,37 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void IJobChunk_Run_WorksWithMultipleChunks()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
+            var group = m_Manager.CreateEntityQuery(new EntityQueryDesc
+            {
+                Any = Array.Empty<ComponentType>(),
+                None = Array.Empty<ComponentType>(),
+                All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2) }
+            });
+
+            const int entityCount = 10;
+            var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
+
+            m_Manager.CreateEntity(archetype, entities);
+
+            for (int i = 0; i < entityCount; ++i)
+                m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp(i));
+
+            var job = new ProcessChunks
+            {
+                ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
+            };
+            job.Run(group);
+
+            for (int i = 0; i < entityCount; ++i)
+                Assert.AreEqual(5, m_Manager.GetComponentData<EcsTestData>(entities[i]).value);
+
+            entities.Dispose();
+        }
+
+        [Test]
         public void IJobChunkProcessFiltered()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
@@ -57,7 +88,7 @@ namespace Unity.Entities.Tests
             m_Manager.SetSharedComponentData<SharedData1>(entity2, new SharedData1 { value = 20 });
             m_Manager.SetComponentData<EcsTestData>(entity2, new EcsTestData { value = 20 });
 
-            group.SetFilter(new SharedData1 { value = 20 });
+            group.SetSharedComponentFilter(new SharedData1 { value = 20 });
 
             var job = new ProcessChunks
             {
@@ -139,7 +170,7 @@ namespace Unity.Entities.Tests
             m_Manager.SetSharedComponentData<SharedData1>(entity2, new SharedData1 { value = 20 });
             m_Manager.SetComponentData<EcsTestData>(entity2, new EcsTestData { value = 20 });
 
-            group.SetFilter(new SharedData1 { value = 10 });
+            group.SetSharedComponentFilter(new SharedData1 { value = 10 });
 
             var job = new ProcessChunkIndex
             {
@@ -147,7 +178,7 @@ namespace Unity.Entities.Tests
             };
             job.Schedule(group).Complete();
 
-            group.SetFilter(new SharedData1 { value = 20 });
+            group.SetSharedComponentFilter(new SharedData1 { value = 20 });
             job.Schedule(group).Complete();
 
             Assert.AreEqual(0,  m_Manager.GetComponentData<EcsTestData>(entity1).value);
@@ -171,7 +202,7 @@ namespace Unity.Entities.Tests
             m_Manager.SetSharedComponentData<SharedData1>(entity2, new SharedData1 { value = 20 });
             m_Manager.SetComponentData<EcsTestData>(entity2, new EcsTestData { value = 20 });
 
-            group.SetFilter(new SharedData1 { value = 10 });
+            group.SetSharedComponentFilter(new SharedData1 { value = 10 });
 
             var job = new ProcessEntityOffset
             {
@@ -179,7 +210,7 @@ namespace Unity.Entities.Tests
             };
             job.Schedule(group).Complete();
 
-            group.SetFilter(new SharedData1 { value = 20 });
+            group.SetSharedComponentFilter(new SharedData1 { value = 20 });
             job.Schedule(group).Complete();
 
             Assert.AreEqual(0,  m_Manager.GetComponentData<EcsTestData>(entity1).value);
@@ -189,10 +220,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // Tiny assigns the chunk entityOffsets in a different order. Tiny is also (as this is written)
-                          // using single threaded JobChunk execution (even though most of the rest of the Job system is now
-                          // MT). Haven't debugged if the ordering is because of Entity sorting issues, or the MT jobs.
-
         public void IJobChunkProcessChunkMultiArchetype()
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -272,7 +299,7 @@ namespace Unity.Entities.Tests
 
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
 
-            group.SetFilter(new EcsTestSharedComp { value = 1 });
+            group.SetSharedComponentFilter(new EcsTestSharedComp { value = 1 });
 
             var jobChunk = new ProcessChunkWriteIndex
             {

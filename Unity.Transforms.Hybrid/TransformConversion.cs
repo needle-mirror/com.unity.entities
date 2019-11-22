@@ -3,6 +3,7 @@ using Unity.Transforms;
 using UnityEngine;
 
 [UpdateInGroup(typeof(GameObjectBeforeConversionGroup))]
+[ConverterVersion("joe", 1)]
 class TransformConversion : GameObjectConversionSystem
 {
     private void Convert(Transform transform)
@@ -39,6 +40,7 @@ class TransformConversion : GameObjectConversionSystem
     }
     protected override void OnUpdate()
     {
+        
         Entities.ForEach((Transform transform) =>
         {
             Convert(transform);

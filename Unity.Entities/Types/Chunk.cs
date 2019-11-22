@@ -1,5 +1,8 @@
 using System;
 using System.Runtime.InteropServices;
+using Unity.Assertions;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
@@ -8,7 +11,7 @@ namespace Unity.Entities
     {
         None = 0,
         Locked = 1 << 0,
-        LockedEntityOrder = 1 << 1,
+        Unused = 1 << 1,
         TempAssertWillDestroyAllInLinkedEntityGroup = 1 << 2
     }
 
@@ -30,7 +33,7 @@ namespace Unity.Entities
         [FieldOffset(20)]
         public int Capacity;
 
-        // In hybrid mode, archetypes can contain non-ECS-type components which are managed objects.
+        // Archetypes can contain non-ECS-type components which are managed objects.
         // In order to access them without a lot of overhead we conceptually store an Object[] in each chunk which contains the managed components.
         // The chunk does not really own the array though since we cannot store managed references in unmanaged memory,
         // so instead the ManagedComponentStore has a list of Object[]s and the chunk just has an int to reference an Object[] by index in that list.
@@ -55,12 +58,13 @@ namespace Unity.Entities
         // Component data buffer
         // This is where the actual chunk data starts.
         // It's declared like this so we can skip the header part of the chunk and just get to the data.
-        public const int kBufferOffset = 48; // (must be multiple of 16)
+        public const int kBufferOffset = 64; // (must be cache line aligned)
         [FieldOffset(kBufferOffset)]
         public fixed byte Buffer[4];
 
         public const int kChunkSize = 16 * 1024 - 256; // allocate a bit less to allow for header overhead
-        public const int kMaximumEntitiesPerChunk = kChunkSize / 8;
+        public const int kBufferSize = kChunkSize - kBufferOffset;
+        public const int kMaximumEntitiesPerChunk = kBufferSize / 8;
 
         public uint GetChangeVersion(int typeIndex)
         {
@@ -91,51 +95,17 @@ namespace Unity.Entities
             return kChunkSize - kBufferOffset;
         }
 
+        public static Chunk* MallocChunk(Allocator allocator)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            Assert.IsTrue(CollectionHelper.IsAligned(kBufferOffset, CollectionHelper.CacheLineSize));
+#endif
+            return (Chunk*)UnsafeUtility.Malloc(kChunkSize, CollectionHelper.CacheLineSize, allocator);
+        }
+
         public bool MatchesFilter(MatchingArchetype* match, ref EntityQueryFilter filter)
         {
-            if ((filter.Type & FilterType.SharedComponent) != 0)
-            {
-                var sharedComponentsInChunk = SharedComponentValues;
-                var filteredCount = filter.Shared.Count;
-
-                fixed (int* indexInEntityQueryPtr = filter.Shared.IndexInEntityQuery, sharedComponentIndexPtr =
-                    filter.Shared.SharedComponentIndex)
-                {
-                    for (var i = 0; i < filteredCount; ++i)
-                    {
-                        var indexInEntityQuery = indexInEntityQueryPtr[i];
-                        var sharedComponentIndex = sharedComponentIndexPtr[i];
-                        var componentIndexInArcheType = match->IndexInArchetype[indexInEntityQuery];
-                        var componentIndexInChunk = componentIndexInArcheType - match->Archetype->FirstSharedComponent;
-                        if (sharedComponentsInChunk[componentIndexInChunk] != sharedComponentIndex)
-                            return false;
-                    }
-                }
-
-                return true;
-            }
-
-            if ((filter.Type & FilterType.Changed) != 0)
-            {
-                var changedCount = filter.Changed.Count;
-
-                var requiredVersion = filter.RequiredChangeVersion;
-                fixed (int* indexInEntityQueryPtr = filter.Changed.IndexInEntityQuery)
-                {
-                    for (var i = 0; i < changedCount; ++i)
-                    {
-                        var indexInArchetype = match->IndexInArchetype[indexInEntityQueryPtr[i]];
-
-                        var changeVersion = GetChangeVersion(indexInArchetype);
-                        if (ChangeVersionUtility.DidChange(changeVersion, requiredVersion))
-                            return true;
-                    }
-                }
-
-                return false;
-            }
-
-            return true;
+            return match->ChunkMatchesFilter(ListIndex, ref filter);
         }
 
         public int GetSharedComponentIndex(MatchingArchetype* match, int indexInEntityQuery)
@@ -149,6 +119,5 @@ namespace Unity.Entities
         /// Returns true if Chunk is Locked
         /// </summary>
         public bool Locked => (Flags & (uint) ChunkFlags.Locked) != 0;
-        public bool LockedEntityOrder => (Flags & (uint) ChunkFlags.LockedEntityOrder) != 0;
     }
 }

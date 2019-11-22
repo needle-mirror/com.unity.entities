@@ -4,10 +4,11 @@ using UnityEngine;
 namespace Unity.Entities.Tests
 {
     [DisallowMultipleComponent]
-    [UnityEngine.AddComponentMenu("Hidden/DontUse")]
+    [AddComponentMenu("")]
     public class EcsFooTestProxy : ComponentDataProxy<EcsFooTest> { }
+    
     [DisallowMultipleComponent]
-    [UnityEngine.AddComponentMenu("Hidden/DontUse")]
+    [AddComponentMenu("")]
     public class EcsTestProxy : ComponentDataProxy<EcsTestData> { }
 
     class EntityManagerTests : ECSTestsFixture
@@ -32,6 +33,27 @@ namespace Unity.Entities.Tests
             go.AddComponent<EcsTestProxy>();
 
             Assert.Throws<System.ArgumentException>(() => m_Manager.GetComponentObject<Rigidbody>(go.GetComponent<GameObjectEntity>().Entity));
+        }
+
+        [Test]
+        public unsafe void ArchetypeIsManaged()
+        {
+            var types = new ComponentType[]
+            {
+                typeof(EcsTestData),
+                typeof(EcsTestMonoBehaviourComponent),
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+                typeof(EcsTestManagedComponent)
+#endif
+            };
+
+            var archetype = m_Manager.CreateArchetype(types).Archetype;
+
+            Assert.IsFalse(archetype->IsManaged(ChunkDataUtility.GetIndexInTypeArray(archetype, types[0].TypeIndex)));
+            Assert.IsTrue(archetype->IsManaged(ChunkDataUtility.GetIndexInTypeArray(archetype, types[1].TypeIndex)));
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            Assert.IsTrue(archetype->IsManaged(ChunkDataUtility.GetIndexInTypeArray(archetype, types[2].TypeIndex)));
+#endif
         }
     }
 }

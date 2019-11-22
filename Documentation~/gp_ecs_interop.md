@@ -5,3 +5,4 @@ uid: gameplay-interop
 
 > Synopsis: interoperation between ECS components and systems and MonoBehaviours or other managed code.
 
+Note, this is a placeholder for work that has not been completed yet.

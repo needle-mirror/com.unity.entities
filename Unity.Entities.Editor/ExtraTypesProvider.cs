@@ -22,13 +22,13 @@ namespace Unity.Entities.Editor
                     genericArgumentList.AddRange(typeInterface.GetGenericArguments());
 
                     var producerAttribute = (JobProducerTypeAttribute) typeInterface.GetCustomAttribute(typeof(JobProducerTypeAttribute), true);
-                                    
+
                     if (producerAttribute == null)
                         throw new System.ArgumentException("IJobForEach interface must have [JobProducerType]");
 
                     var generatedType = producerAttribute.ProducerType.MakeGenericType(genericArgumentList.ToArray());
                     extraTypes.Add(generatedType.ToString());
-                    
+
                     return;
                 }
             }
@@ -38,10 +38,11 @@ namespace Unity.Entities.Editor
         {
             //@TODO: Only produce JobForEachExtensions.JobStruct_Process1
             //       if there is any use of that specific type in deployed code.
-            
+
             PlayerBuildInterface.ExtraTypesProvider += () =>
             {
                 var extraTypes = new HashSet<string>();
+                var visitedTypes = new HashSet<Type>();
 
                 foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
                 {
@@ -50,10 +51,7 @@ namespace Unity.Entities.Editor
 
                     foreach (var type in assembly.GetTypes())
                     {
-                        if (typeof(JobForEachExtensions.IBaseJobForEach).IsAssignableFrom(type) && !type.IsAbstract)
-                        {
-                            AddIJobForEach(type, extraTypes);
-                        }
+                        AddIJobForEachForTypeHierarchy(extraTypes, visitedTypes, type);
                     }
                 }
 
@@ -70,6 +68,47 @@ namespace Unity.Entities.Editor
 
                 return extraTypes;
             };
+        }
+
+        private static void AddIJobForEachForTypeHierarchy(HashSet<string> extraTypes, HashSet<Type> visitedTypes, Type type)
+        {
+            while (type != null)
+            {
+                if (type.IsGenericTypeDefinition)
+                    return;
+
+                if (visitedTypes.Contains(type))
+                    return;
+
+                visitedTypes.Add(type);
+
+                if (typeof(JobForEachExtensions.IBaseJobForEach).IsAssignableFrom(type) && !type.IsAbstract)
+                    AddIJobForEach(type, extraTypes);
+
+                foreach (var nestedType in type.GetNestedTypes(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+                    AddIJobForEachForTypeHierarchy(extraTypes, visitedTypes, ResolveGenericParameters(nestedType, type));
+
+                type = type.BaseType;
+            }
+        }
+
+        private static Type ResolveGenericParameters(Type nestedType, Type type)
+        {
+            var genericParameters = nestedType.GetGenericArguments();
+            if (genericParameters.Length == 0)
+            { 
+                // Nested type isn't generic
+                return nestedType;
+            }
+
+            var parentTypeArgs = type.GetGenericArguments();
+            if (parentTypeArgs.Length < genericParameters.Length)
+            {
+                // Nested type has its own generic parameters so we can't fully resolve the type
+                return nestedType;
+            }
+
+            return nestedType.MakeGenericType(parentTypeArgs);
         }
     }
 }

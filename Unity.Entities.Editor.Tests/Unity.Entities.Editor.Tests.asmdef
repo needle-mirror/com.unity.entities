@@ -1,9 +1,11 @@
 {
     "name": "Unity.Entities.Editor.Tests",
     "references": [
+        "Unity.Build",
+        "Unity.Build.Common",
+        "Unity.Collections",
         "Unity.Entities",
         "Unity.Entities.Editor",
-        "Unity.Collections",
         "Unity.Entities.Tests"
     ],
     "optionalUnityReferences": [

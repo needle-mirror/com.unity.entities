@@ -4,6 +4,8 @@ using System.Runtime.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Unity.Collections;
+using Unity.Entities.Serialization;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Tests")]
 
@@ -34,6 +36,10 @@ namespace Unity.Entities
             {
                 return true;
             }
+            public override int GetHashCode()
+            {
+                return 0;
+            }
         }
 
         private struct CompareImpl<T> where T : struct, IEquatable<T>
@@ -52,31 +58,73 @@ namespace Unity.Entities
             }
         }
 
+        private struct ManagedCompareImpl<T> where T : IEquatable<T>
+        {
+            public static unsafe bool CompareFunc(object lhs, object rhs)
+            {
+                return ((T)lhs).Equals((T)rhs);
+            }
+        }
+
+        private struct ManagedGetHashCodeImpl<T>
+        {
+            public static unsafe int GetHashCodeFunc(object val)
+            {
+                return ((T)val).GetHashCode();
+            }
+        }
+
         private unsafe static TypeInfo CreateManagedTypeInfo(Type t)
         {
-            // Type must implement IEquatable<T>
-            if (!typeof(IEquatable<>).MakeGenericType(t).IsAssignableFrom(t))
+            // ISharedComponentData Type must implement IEquatable<T> 
+            if (typeof(ISharedComponentData).IsAssignableFrom(t))
             {
-                throw new ArgumentException($"type {t} is a ISharedComponentData and has managed references, you must implement IEquatable<T>");
+                if (!typeof(IEquatable<>).MakeGenericType(t).IsAssignableFrom(t))
+                {
+                    throw new ArgumentException($"type {t} is a ISharedComponentData and has managed references, you must implement IEquatable<T>");
+                }
+
+                // Type must override GetHashCode()
+                var ghcMethod = t.GetMethod(nameof(GetHashCode));
+                if (ghcMethod.DeclaringType != t)
+                {
+                    throw new ArgumentException($"type {t} is a/has managed references or implements IEquatable<T>, you must also override GetHashCode()");
+                }
             }
 
-            // Type must override GetHashCode()
-            var ghcMethod = t.GetMethod(nameof(GetHashCode));
-            if (ghcMethod.DeclaringType != t)
+            MethodInfo equalsFn = null;
+            MethodInfo getHashFn = null;
+
+            if (t.IsClass) 
             {
-                throw new ArgumentException($"type {t} is has managed references or implements IEquatable<T>, you must also override GetHashCode()");
+                if (typeof(IEquatable<>).MakeGenericType(t).IsAssignableFrom(t))
+                    equalsFn = typeof(ManagedCompareImpl<>).MakeGenericType(t).GetMethod(nameof(ManagedCompareImpl<Dummy>.CompareFunc));
+
+                var ghcMethod = t.GetMethod(nameof(GetHashCode));
+                if (ghcMethod.DeclaringType == t)
+                    getHashFn = typeof(ManagedGetHashCodeImpl<>).MakeGenericType(t).GetMethod(nameof(ManagedGetHashCodeImpl<Dummy>.GetHashCodeFunc));
+
+                return new TypeInfo
+                {
+                    Layouts = null,
+                    EqualFn = equalsFn != null ? Delegate.CreateDelegate(typeof(TypeInfo.ManagedCompareEqualDelegate), equalsFn) : null,
+                    GetHashFn = getHashFn != null ? Delegate.CreateDelegate(typeof(TypeInfo.ManagedGetHashCodeDelegate), getHashFn) : null,
+                    Hash = 1, // non-zero so out TypeInfo isn't equal to TypeInfo.Null
+                };
             }
-
-            var compareMethod = typeof(CompareImpl<>).MakeGenericType(t).GetMethod(nameof(CompareImpl<Dummy>.CompareFunc));
-            var getHashMethod = typeof(GetHashCodeImpl<>).MakeGenericType(t).GetMethod(nameof(GetHashCodeImpl<Dummy>.GetHashCodeFunc));
-
-            return new TypeInfo
+            else
             {
-                Layouts = null,
-                EqualFn = (TypeInfo.CompareEqualDelegate) Delegate.CreateDelegate(typeof(TypeInfo.CompareEqualDelegate), compareMethod),
-                GetHashFn = (TypeInfo.GetHashCodeDelegate) Delegate.CreateDelegate(typeof(TypeInfo.GetHashCodeDelegate), getHashMethod),
-                Hash = 0,
-            };
+                equalsFn = typeof(CompareImpl<>).MakeGenericType(t).GetMethod(nameof(CompareImpl<Dummy>.CompareFunc));
+                getHashFn = typeof(GetHashCodeImpl<>).MakeGenericType(t).GetMethod(nameof(GetHashCodeImpl<Dummy>.GetHashCodeFunc));
+
+                return new TypeInfo
+                {
+                    Layouts = null,
+                    EqualFn = Delegate.CreateDelegate(typeof(TypeInfo.CompareEqualDelegate), equalsFn),
+                    GetHashFn = Delegate.CreateDelegate(typeof(TypeInfo.GetHashCodeDelegate), getHashFn),
+                    Hash = 0,
+                };
+            }
         }
 
         private static TypeInfo CreateTypeInfoBlittable(Type type)
@@ -122,13 +170,15 @@ namespace Unity.Entities
 #if !NET_DOTS
             public unsafe delegate bool CompareEqualDelegate(void* lhs, void* rhs);
             public unsafe delegate int GetHashCodeDelegate(void* obj);
+            public unsafe delegate bool ManagedCompareEqualDelegate(object lhs, object rhs);
+            public unsafe delegate int ManagedGetHashCodeDelegate(object obj);
 #endif
 
             public Layout[] Layouts;
             public int Hash;
 #if !NET_DOTS
-            public CompareEqualDelegate EqualFn;
-            public GetHashCodeDelegate GetHashFn;
+            public Delegate EqualFn;
+            public Delegate GetHashFn;
 #endif
 
             public static TypeInfo Null => new TypeInfo();
@@ -229,6 +279,43 @@ namespace Unity.Entities
 
         //@TODO: Encode type in hashcode...
 
+#if !NET_DOTS
+        public static unsafe int ManagedGetHashCode(object lhs, TypeInfo typeInfo)
+        {
+			var fn = (TypeInfo.ManagedGetHashCodeDelegate)typeInfo.GetHashFn;
+			if(fn != null)
+				return fn(lhs);
+
+            int hash = 0;
+            using (var buffer = new UnsafeAppendBuffer(16, 16, Allocator.Temp))
+            {
+                var writer = new PropertiesBinaryWriter(&buffer);
+                BoxedProperties.WriteBoxedType(lhs, writer);
+
+                var remainder = buffer.Size & (sizeof(int) - 1);
+                var alignedSize = buffer.Size - remainder;
+                var bufferPtrAtEndOfAlignedData = buffer.Ptr + alignedSize;
+                for (int i = 0; i < alignedSize; i += sizeof(int))
+                {
+                    hash *= FNV_32_PRIME;
+                    hash ^= *(int*)(buffer.Ptr + i);
+                }
+                for (var i = 0; i < remainder; i++)
+                {
+                    hash *= FNV_32_PRIME;
+                    hash ^= *(byte*)(bufferPtrAtEndOfAlignedData + i);
+                }
+                foreach(var obj in writer.GetObjectTable())
+                {
+                    hash *= FNV_32_PRIME;
+                    hash ^= obj.GetHashCode();
+                }
+            }
+
+            return hash;
+        }
+#endif
+
         public static unsafe int GetHashCode<T>(T lhs, TypeInfo typeInfo) where T : struct
         {
             return GetHashCode(UnsafeUtility.AddressOf(ref lhs), typeInfo);
@@ -244,7 +331,8 @@ namespace Unity.Entities
 #if !NET_DOTS
             if (typeInfo.GetHashFn != null)
             {
-                return typeInfo.GetHashFn(dataPtr);
+                TypeInfo.GetHashCodeDelegate fn = (TypeInfo.GetHashCodeDelegate)typeInfo.GetHashFn;
+                return fn(dataPtr);
             }
 #endif
 
@@ -277,6 +365,38 @@ namespace Unity.Entities
             return (int) hash;
         }
 
+#if !NET_DOTS
+        public static unsafe bool ManagedEquals(object lhs, object rhs, TypeInfo typeInfo)
+        {
+			var fn = (TypeInfo.ManagedCompareEqualDelegate) typeInfo.EqualFn;
+			
+			if(fn != null)
+				return fn(lhs, rhs);
+				
+            using (var bufferLHS = new UnsafeAppendBuffer(512, 16, Allocator.Temp))
+            using (var bufferRHS = new UnsafeAppendBuffer(512, 16, Allocator.Temp))
+            {
+                var writerLHS = new PropertiesBinaryWriter(&bufferLHS);
+                BoxedProperties.WriteBoxedType(lhs, writerLHS);
+                var writerRHS = new PropertiesBinaryWriter(&bufferRHS);
+                BoxedProperties.WriteBoxedType(rhs, writerRHS);
+
+                if (UnsafeUtility.MemCmp(bufferLHS.Ptr, bufferRHS.Ptr, bufferLHS.Size) != 0)
+                    return false;
+
+                var objectTableLHS = writerLHS.GetObjectTable();
+                var objectTableRHS = writerRHS.GetObjectTable(); 
+                Assertions.Assert.AreEqual(objectTableLHS.Length, objectTableRHS.Length);
+
+                for (int i = 0; i < objectTableLHS.Length; ++i)
+                    if (!objectTableLHS[i].Equals(objectTableRHS[i]))
+                        return false;
+            }
+
+            return true;
+        }
+#endif
+
         public static unsafe bool Equals<T>(T lhs, T rhs, TypeInfo typeInfo) where T : struct
         {
             return Equals(UnsafeUtility.AddressOf(ref lhs), UnsafeUtility.AddressOf(ref rhs), typeInfo);
@@ -292,7 +412,8 @@ namespace Unity.Entities
 #if !NET_DOTS
             if (typeInfo.EqualFn != null)
             {
-                return typeInfo.EqualFn(lhsPtr, rhsPtr);
+                var fn = (TypeInfo.CompareEqualDelegate) typeInfo.EqualFn;
+                return fn(lhsPtr, rhsPtr);
             }
 #endif
 
@@ -328,7 +449,12 @@ namespace Unity.Entities
 #if !NET_DOTS
         private static bool TypeUsesDelegates(Type t)
         {
-            // Ignore classes. Our delegates use pointers and will freak out.
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            // We have custom delegates to allow for class IComponentData comparisons
+            // but any other non-value type should be ignored
+            if (t.IsClass && typeof(IComponentData).IsAssignableFrom(t))
+                return true;
+#endif
             if (!t.IsValueType)
                 return false;
 
@@ -344,9 +470,21 @@ namespace Unity.Entities
             if (!TypeUsesDelegates(type))
                 return;
 
-            output.Add(typeof(CompareImpl<>).MakeGenericType(type).ToString());
-            output.Add(typeof(GetHashCodeImpl<>).MakeGenericType(type).ToString());
+            if (type.IsClass)
+            {
+                if (typeof(IEquatable<>).MakeGenericType(type).IsAssignableFrom(type))
+                    output.Add(typeof(ManagedCompareImpl<>).MakeGenericType(type).ToString());
+
+                var ghcMethod = type.GetMethod(nameof(GetHashCode));
+                if (ghcMethod.DeclaringType == type)
+                    output.Add(typeof(ManagedGetHashCodeImpl<>).MakeGenericType(type).ToString());
+            }
+            else
+            {
+                output.Add(typeof(CompareImpl<>).MakeGenericType(type).ToString());
+                output.Add(typeof(GetHashCodeImpl<>).MakeGenericType(type).ToString());
+            }
         }
 #endif
+        }
     }
-}

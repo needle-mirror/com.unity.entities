@@ -4,6 +4,7 @@ using Unity.Jobs;
 using System;
 using System.Collections.Generic;
 using Unity.Mathematics;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.Tests
 {
@@ -36,6 +37,12 @@ namespace Unity.Entities.Tests
         {
             for (int i = 0; i != count; i++)
                 CreateEntity(i, i % 7);
+        }
+
+        void CreateEntities2(int count)
+        {
+            for (int i = 0; i != count; i++)
+                CreateEntity2(i, i % 7);
         }
 
         void CreateMixedEntities(int count)
@@ -80,7 +87,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void ACS_WriteMixed()
         {
             CreateMixedEntities(64);
@@ -178,7 +184,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void ACS_WriteMixedFilterShared()
         {
             CreateMixedEntities(64);
@@ -282,7 +287,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void ACS_Buffers()
         {
             CreateEntities(128);
@@ -359,7 +363,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void ACS_BufferHas()
         {
             CreateEntities(128);
@@ -385,8 +388,35 @@ namespace Unity.Entities.Tests
             chunks.Dispose();
         }
 
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
-        [StandaloneFixme] // ISharedComponentData
+        public void ACS_ManagedComponentHas()
+        {
+            CreateEntities(128);
+
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestManagedComponent>());
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
+
+            var strComponents = m_Manager.GetArchetypeChunkComponentType<EcsTestManagedComponent>(false);
+            var missingComponents = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false);
+
+            for (int i = 0; i < chunks.Length; ++i)
+            {
+                var chunk = chunks[i];
+
+                // Test Has<T>()
+                bool hasstrComponents = chunk.Has(strComponents);
+                Assert.IsTrue(hasstrComponents, "Has(EcsTestManagedComponent) should be true");
+                bool hasMissingElements = chunk.Has(missingComponents);
+                Assert.IsFalse(hasMissingElements, "Has(EcsComplexEntityRefElement) should be false");
+            }
+
+            chunks.Dispose();
+        }
+#endif
+
+        [Test]
         public void ACS_BufferVersions()
         {
             CreateEntities(128);
@@ -429,7 +459,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // don't know why this fails
         public void ACS_BuffersRO()
         {
             CreateEntities(128);
@@ -495,6 +524,128 @@ namespace Unity.Entities.Tests
             }
 
             group.Dispose();
+        }
+
+        [Test]
+        public void ACS_DynamicComponentDataArrayReinterpret()
+        {
+            CreateMixedEntities(64);
+
+            var query = new EntityQueryDesc
+            {
+                Any = new ComponentType[] { typeof(EcsTestData2), typeof(EcsTestData) }, // any
+                None = Array.Empty<ComponentType>(), // none
+                All = Array.Empty<ComponentType>(), // all
+            };
+            var group = m_Manager.CreateEntityQuery(query);
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
+
+            Assert.AreEqual(14, chunks.Length);
+
+            var ecsTestData = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false);
+            var ecsTestData2 = m_Manager.GetArchetypeChunkComponentType<EcsTestData2>(false);
+            var changeValuesJobs = new ChangeMixedValues
+            {
+                chunks = chunks,
+                ecsTestData = ecsTestData,
+                ecsTestData2 = ecsTestData2,
+            };
+
+            var collectValuesJobHandle = changeValuesJobs.Schedule(chunks.Length, 64);
+            collectValuesJobHandle.Complete();
+
+            var ecsTestDataDynamic = m_Manager.GetArchetypeChunkComponentTypeDynamic(ComponentType.ReadOnly(typeof(EcsTestData)));
+            var ecsTestDataDynamic2 = m_Manager.GetArchetypeChunkComponentTypeDynamic(ComponentType.ReadOnly(typeof(EcsTestData2)));
+
+            ulong foundValues = 0;
+            for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
+            {
+                var chunk = chunks[chunkIndex];
+                var chunkCount = chunk.Count;
+
+                Assert.AreEqual(4, math.ceilpow2(chunkCount - 1));
+
+                var chunkEcsTestData = chunk.GetDynamicComponentDataArrayReinterpret<int>(ecsTestDataDynamic, UnsafeUtility.SizeOf<int>());
+                var chunkEcsTestData2 = chunk.GetDynamicComponentDataArrayReinterpret<int2>(ecsTestDataDynamic2, UnsafeUtility.SizeOf<int2>());
+                if (chunkEcsTestData.Length > 0)
+                {
+                    for (int i = 0; i < chunkCount; i++)
+                    {
+                        foundValues |= (ulong)1 << (chunkEcsTestData[i] - 100);
+                    }
+                }
+                else if (chunkEcsTestData2.Length > 0)
+                {
+                    for (int i = 0; i < chunkCount; i++)
+                    {
+                        Assert.AreEqual(chunkEcsTestData2[i].x, chunkEcsTestData2[i].y);
+                        foundValues |= (ulong)1 << (-chunkEcsTestData2[i].x - 1000);
+                    }
+                }
+            }
+
+            foundValues++;
+            Assert.AreEqual(0, foundValues);
+
+            chunks.Dispose();
+        }
+
+        [Test]
+        public void ACS_DynamicTypeHas()
+        {
+            CreateEntities(128);
+
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
+
+            var ecsTestData = m_Manager.GetArchetypeChunkComponentTypeDynamic(ComponentType.ReadOnly(typeof(EcsTestData)));
+            var missingElements = m_Manager.GetArchetypeChunkComponentTypeDynamic(ComponentType.ReadOnly(typeof(EcsTestData3)));
+
+            for (int i = 0; i < chunks.Length; ++i)
+            {
+                var chunk = chunks[i];
+
+                // Test Has(ArchetypeChunkComponentTypeDynamic)
+                bool hasEcsTestData = chunk.Has(ecsTestData);
+                Assert.IsTrue(hasEcsTestData, "Has(EcsTestData) should be true");
+                bool hasMissingElements = chunk.Has(missingElements);
+                Assert.IsFalse(hasMissingElements, "Has(EcsTestData3) should be false");
+            }
+
+            chunks.Dispose();
+        }
+
+        [Test]
+        public void ACS_DynamicComponentDataArrayReinterpretIncorrectUse()
+        {
+            CreateEntities2(128);
+
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
+
+            var ecsTestData = m_Manager.GetArchetypeChunkComponentTypeDynamic(ComponentType.ReadOnly(typeof(EcsTestData2)));
+
+            for (int i = 0; i < chunks.Length; ++i)
+            {
+                var chunk = chunks[i];
+
+                // Fail: not expected size
+                Assert.Throws<InvalidOperationException>(() =>
+                {
+                    var chunkEcsTestData = chunk.GetDynamicComponentDataArrayReinterpret<int>(ecsTestData, UnsafeUtility.SizeOf<int>());
+                });
+
+                // Fail: not dividable by size
+                Assert.Throws<InvalidOperationException>(() =>
+                {
+                    var chunkEcsTestData = chunk.GetDynamicComponentDataArrayReinterpret<int3>(ecsTestData, UnsafeUtility.SizeOf<int2>());
+                });
+            }
+
+            chunks.Dispose();
         }
     }
 }

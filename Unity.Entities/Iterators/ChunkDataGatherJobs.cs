@@ -47,7 +47,7 @@ namespace Unity.Entities
             var chunkCounter = 0;
             var entityOffsetPrefixSum = 0;
 
-            for (var m = Archetypes.Length - 1; m >= 0; --m)
+            for (var m = 0; m < Archetypes.Length; ++m)
             {
                 var match = Archetypes.Ptr[m];
                 if (match->Archetype->EntityCount <= 0)
@@ -84,78 +84,18 @@ namespace Unity.Entities
 
         public void Execute(int index)
         {
-            var filter = Filter;
             int filteredCount = 0;
             var match = MatchingArchetypes[index];
             var archetype = match->Archetype;
             int chunkCount = archetype->Chunks.Count;
             var writeIndex = Offsets[index];
             var archetypeChunks = archetype->Chunks.p;
-
-            if (filter.Type == FilterType.SharedComponent)
+            
+            for (var i = 0; i < chunkCount; ++i)
             {
-                var indexInEntityQuery1 = filter.Shared.IndexInEntityQuery[0];
-                var sharedComponentIndex1 = filter.Shared.SharedComponentIndex[0];
-                var componentIndexInChunk1 = match->IndexInArchetype[indexInEntityQuery1] - archetype->FirstSharedComponent;
-                var sharedComponents1 = archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk1);
-
-                if (filter.Shared.Count == 1)
-                {
-                    for (var i = 0; i < chunkCount; ++i)
-                    {
-                        if (sharedComponents1[i] == sharedComponentIndex1)
-                            SparseChunks[writeIndex + filteredCount++] =
-                                new ArchetypeChunk(archetypeChunks[i], entityComponentStore);
-                    }
-                }
-                else
-                {
-                    var indexInEntityQuery2 = filter.Shared.IndexInEntityQuery[1];
-                    var sharedComponentIndex2 = filter.Shared.SharedComponentIndex[1];
-                    var componentIndexInChunk2 = match->IndexInArchetype[indexInEntityQuery2] - archetype->FirstSharedComponent;
-                    var sharedComponents2 = archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk2);
-
-                    for (var i = 0; i < chunkCount; ++i)
-                    {
-
-                        if (sharedComponents1[i] == sharedComponentIndex1 &&
-                            sharedComponents2[i] == sharedComponentIndex2)
-                            SparseChunks[writeIndex + filteredCount++] =
-                                new ArchetypeChunk(archetypeChunks[i], entityComponentStore);
-                    }
-                }
-            }
-            else
-            {
-                var indexInEntityQuery1 = filter.Changed.IndexInEntityQuery[0];
-                var componentIndexInChunk1 = match->IndexInArchetype[indexInEntityQuery1];
-                var changeVersions1 = archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk1);
-
-                var requiredVersion = filter.RequiredChangeVersion;
-                if (filter.Changed.Count == 1)
-                {
-                    for (var i = 0; i < chunkCount; ++i)
-                    {
-                        if (ChangeVersionUtility.DidChange(changeVersions1[i], requiredVersion))
-                            SparseChunks[writeIndex + filteredCount++] =
-                                new ArchetypeChunk(archetypeChunks[i], entityComponentStore);
-                    }
-                }
-                else
-                {
-                    var indexInEntityQuery2 = filter.Changed.IndexInEntityQuery[1];
-                    var componentIndexInChunk2 = match->IndexInArchetype[indexInEntityQuery2];
-                    var changeVersions2 = archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk2);
-
-                    for (var i = 0; i < chunkCount; ++i)
-                    {
-
-                        if (ChangeVersionUtility.DidChange(changeVersions1[i], requiredVersion) ||
-                            ChangeVersionUtility.DidChange(changeVersions2[i], requiredVersion))
-                            SparseChunks[writeIndex + filteredCount++] =
-                                new ArchetypeChunk(archetypeChunks[i], entityComponentStore);
-                    }
-                }
+                if (match->ChunkMatchesFilter(i, ref Filter))
+                    SparseChunks[writeIndex + filteredCount++] =
+                        new ArchetypeChunk(archetypeChunks[i], entityComponentStore);
             }
 
             FilteredCounts[index] = filteredCount;
@@ -176,12 +116,11 @@ namespace Unity.Entities
         {
             var chunks = (ArchetypeChunk*) PrefilterData;
             var entityIndices = (int*) (chunks + UnfilteredChunkCount);
-
-            var filter = Filter;
+            
             var filteredChunkCount = 0;
             var filteredEntityOffset = 0;
 
-            for (var m = Archetypes.Length - 1; m >= 0; --m)
+            for (var m = 0; m < Archetypes.Length; ++m)
             {
                 var match = Archetypes.Ptr[m];
                 if (match->Archetype->EntityCount <= 0)
@@ -191,88 +130,14 @@ namespace Unity.Entities
                 int chunkCount = archetype->Chunks.Count;
                 var chunkEntityCountArray = archetype->Chunks.GetChunkEntityCountArray();
 
-                if (filter.Type == FilterType.SharedComponent)
+                for (var i = 0; i < chunkCount; ++i)
                 {
-                    var indexInEntityQuery0 = filter.Shared.IndexInEntityQuery[0];
-                    var sharedComponentIndex0 = filter.Shared.SharedComponentIndex[0];
-                    var componentIndexInChunk0 =
-                        match->IndexInArchetype[indexInEntityQuery0] - archetype->FirstSharedComponent;
-                    var sharedComponents0 =
-                        archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk0);
-
-                    if (filter.Shared.Count == 1)
+                    if (match->ChunkMatchesFilter(i, ref Filter))
                     {
-                        for (var i = 0; i < chunkCount; ++i)
-                        {
-                            if (sharedComponents0[i] == sharedComponentIndex0)
-                            {
-                                chunks[filteredChunkCount] =
-                                    new ArchetypeChunk(archetype->Chunks.p[i], Archetypes.entityComponentStore);
-                                entityIndices[filteredChunkCount++] = filteredEntityOffset;
-                                filteredEntityOffset += chunkEntityCountArray[i];
-                            }
-                        }
-                    }
-                    else
-                    {
-                        var indexInEntityQuery1 = filter.Shared.IndexInEntityQuery[1];
-                        var sharedComponentIndex1 = filter.Shared.SharedComponentIndex[1];
-                        var componentIndexInChunk1 =
-                            match->IndexInArchetype[indexInEntityQuery1] - archetype->FirstSharedComponent;
-                        var sharedComponents1 =
-                            archetype->Chunks.GetSharedComponentValueArrayForType(componentIndexInChunk1);
-
-                        for (var i = 0; i < chunkCount; ++i)
-                        {
-                            if (sharedComponents0[i] == sharedComponentIndex0 &&
-                                sharedComponents1[i] == sharedComponentIndex1)
-                            {
-                                chunks[filteredChunkCount] =
-                                    new ArchetypeChunk(archetype->Chunks.p[i], Archetypes.entityComponentStore);
-                                entityIndices[filteredChunkCount++] = filteredEntityOffset;
-                                filteredEntityOffset += chunkEntityCountArray[i];
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    var indexInEntityQuery0 = filter.Changed.IndexInEntityQuery[0];
-                    var componentIndexInChunk0 = match->IndexInArchetype[indexInEntityQuery0];
-                    var changeVersions0 = archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk0);
-
-                    var requiredVersion = filter.RequiredChangeVersion;
-                    if (filter.Changed.Count == 1)
-                    {
-                        for (var i = 0; i < chunkCount; ++i)
-                        {
-                            if (ChangeVersionUtility.DidChange(changeVersions0[i], requiredVersion))
-                            {
-                                chunks[filteredChunkCount] =
-                                    new ArchetypeChunk(archetype->Chunks.p[i], Archetypes.entityComponentStore);
-                                entityIndices[filteredChunkCount++] = filteredEntityOffset;
-                                filteredEntityOffset += chunkEntityCountArray[i];
-                            }
-                        }
-                    }
-                    else
-                    {
-                        var indexInEntityQuery1 = filter.Changed.IndexInEntityQuery[1];
-                        var componentIndexInChunk1 = match->IndexInArchetype[indexInEntityQuery1];
-                        var changeVersions1 =
-                            archetype->Chunks.GetChangeVersionArrayForType(componentIndexInChunk1);
-
-                        for (var i = 0; i < chunkCount; ++i)
-                        {
-                            if (ChangeVersionUtility.DidChange(changeVersions0[i], requiredVersion) ||
-                                ChangeVersionUtility.DidChange(changeVersions1[i], requiredVersion))
-                            {
-                                chunks[filteredChunkCount] =
-                                    new ArchetypeChunk(archetype->Chunks.p[i], Archetypes.entityComponentStore);
-                                entityIndices[filteredChunkCount++] = filteredEntityOffset;
-                                filteredEntityOffset += chunkEntityCountArray[i];
-                            }
-                        }
+                        chunks[filteredChunkCount] =
+                            new ArchetypeChunk(archetype->Chunks.p[i], Archetypes.entityComponentStore);
+                        entityIndices[filteredChunkCount++] = filteredEntityOffset;
+                        filteredEntityOffset += chunkEntityCountArray[i];
                     }
                 }
             }
@@ -350,5 +215,34 @@ namespace Unity.Entities
             UnsafeUtility.MemCpy(destinationPtr, srcPtr, copySizeInBytes);
         }
     }
+    
+    [BurstCompile]
+    unsafe struct CalculateEntityCountJob : IJob
+    {
+        public UnsafeMatchingArchetypePtrList MatchingArchetypes;
+        public EntityQueryFilter Filter;
 
+        [NativeDisableUnsafePtrRestriction] 
+        public int* OutEntityCount;
+
+        public void Execute()
+        {
+            *OutEntityCount = ChunkIterationUtility.CalculateEntityCount(MatchingArchetypes, ref Filter);
+        }
+    }
+
+    [BurstCompile]
+    unsafe struct CalculateChunkCountJob : IJob
+    {
+        public UnsafeMatchingArchetypePtrList MatchingArchetypes;
+        public EntityQueryFilter Filter;
+
+        [NativeDisableUnsafePtrRestriction] 
+        public int* OutChunkCount;
+
+        public void Execute()
+        {
+            *OutChunkCount = ChunkIterationUtility.CalculateChunkCount(MatchingArchetypes, ref Filter);
+        }
+    }
 }

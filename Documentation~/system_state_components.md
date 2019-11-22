@@ -82,7 +82,7 @@ The following example shows a simplified system that illustrates how to manage e
 
 Note that this simplified example does not maintain any state within the system. One purpose for system state components is to track when persistent resources need to be allocated or cleaned up.
 
-<!-- Documentation.Tests.StatefulSystem.cs-->
+<!-- DocCodeSamples.Tests.StatefulSystem.cs-->
 ```
 using Unity.Collections;
 using Unity.Entities;

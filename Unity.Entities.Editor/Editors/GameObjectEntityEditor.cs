@@ -19,7 +19,7 @@ namespace Unity.Entities.Editor
             if (gameObjectEntity.EntityManager == null || !gameObjectEntity.EntityManager.IsCreated || !gameObjectEntity.EntityManager.Exists(gameObjectEntity.Entity))
                 return;
 
-            inclusionList.OnGUI(World.Active, gameObjectEntity.Entity);
+            inclusionList.OnGUI(World.DefaultGameObjectInjectionWorld, gameObjectEntity.Entity);
         }
     }
 }

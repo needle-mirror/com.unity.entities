@@ -28,7 +28,7 @@ namespace Unity.Entities
             RetainOldData
         }
 
-        public static void EnsureCapacity(BufferHeader* header, int count, int typeSize, int alignment, TrashMode trashMode)
+        public static void EnsureCapacity(BufferHeader* header, int count, int typeSize, int alignment, TrashMode trashMode, bool useMemoryInitPattern, byte memoryInitPattern)
         {
             if (header->Capacity >= count)
                 return;
@@ -39,6 +39,24 @@ namespace Unity.Entities
             byte* oldData = GetElementPointer(header);
             byte* newData = (byte*) UnsafeUtility.Malloc(newBlockSize, alignment, Allocator.Persistent);
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (useMemoryInitPattern)
+            {
+                if (trashMode == TrashMode.RetainOldData)
+                {
+                    var oldBlockSize = (header->Capacity * typeSize);
+                    var remainingSize = newBlockSize - oldBlockSize;
+                    if (remainingSize > 0)
+                    {
+                        UnsafeUtility.MemSet(newData+oldBlockSize, memoryInitPattern, remainingSize);
+                    }
+                }
+                else
+                {
+                    UnsafeUtility.MemSet(newData, memoryInitPattern, newBlockSize);
+                }
+            }
+#endif            
             if (trashMode == TrashMode.RetainOldData)
             {
                 long oldBlockSize = (long)header->Capacity * typeSize;
@@ -55,9 +73,9 @@ namespace Unity.Entities
             header->Capacity = newCapacity;
         }
 
-        public static void Assign(BufferHeader* header, byte* source, int count, int typeSize, int alignment)
+        public static void Assign(BufferHeader* header, byte* source, int count, int typeSize, int alignment, bool useMemoryInitPattern, byte memoryInitPattern)
         {
-            EnsureCapacity(header, count, typeSize, alignment, TrashMode.TrashOldData);
+            EnsureCapacity(header, count, typeSize, alignment, TrashMode.TrashOldData, useMemoryInitPattern, memoryInitPattern);
 
             // Select between internal capacity buffer and heap buffer.
             byte* elementPtr = GetElementPointer(header);

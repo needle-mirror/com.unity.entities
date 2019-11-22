@@ -18,6 +18,56 @@ namespace Unity.Entities.Tests
 
         public SharedData2(int val) { value = val; }
     }
+    
+    struct SharedData3 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData3(int val) { value = val; }
+    }
+    
+    struct SharedData4 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData4(int val) { value = val; }
+    }
+    
+    struct SharedData5 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData5(int val) { value = val; }
+    }
+    
+    struct SharedData6 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData6(int val) { value = val; }
+    }
+    
+    struct SharedData7 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData7(int val) { value = val; }
+    }
+    
+    struct SharedData8 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData8(int val) { value = val; }
+    }
+    
+    struct SharedData9 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData9(int val) { value = val; }
+    }
+
 
     class SharedComponentDataTests : ECSTestsFixture
     {
@@ -35,9 +85,9 @@ namespace Unity.Entities.Tests
             var group12 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData2), typeof(SharedData1));
 
             var group1_filter_0 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
-            group1_filter_0.SetFilter(new SharedData1(0));
+            group1_filter_0.SetSharedComponentFilter(new SharedData1(0));
             var group1_filter_20 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
-            group1_filter_20.SetFilter(new SharedData1(20));
+            group1_filter_20.SetSharedComponentFilter(new SharedData1(20));
 
             Assert.AreEqual(0, group1.CalculateEntityCount());
             Assert.AreEqual(0, group2.CalculateEntityCount());
@@ -409,7 +459,64 @@ namespace Unity.Entities.Tests
             query.Dispose();
         }
 
+        [Test]
+        public void TooManySharedComponentsEntity()
+        {
+            var archetype = m_Manager.CreateArchetype(
+                typeof(EcsTestData),
+                typeof(SharedData1),
+                typeof(SharedData2),
+                typeof(SharedData3),
+                typeof(SharedData4),
+                typeof(SharedData5),
+                typeof(SharedData6),
+                typeof(SharedData7),
+                typeof(SharedData8));
+            
+            Entity e = m_Manager.CreateEntity(archetype);
+            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData9>(e) );
+        }
         
+        [Test]
+        public void TooManySharedComponentsQuery()
+        {
+            var archetype = m_Manager.CreateArchetype(
+                typeof(EcsTestData),
+                typeof(SharedData1),
+                typeof(SharedData2),
+                typeof(SharedData3),
+                typeof(SharedData4),
+                typeof(SharedData5),
+                typeof(SharedData6),
+                typeof(SharedData7),
+                typeof(SharedData8));
+            
+            Entity e = m_Manager.CreateEntity(archetype);
+            EntityQuery q = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData9>(q) );
+            q.Dispose();
+        }
+        
+        [Test]
+        public void TooManySharedComponentsEntityArray()
+        {
+            var archetype = m_Manager.CreateArchetype(
+                typeof(EcsTestData),
+                typeof(SharedData1),
+                typeof(SharedData2),
+                typeof(SharedData3),
+                typeof(SharedData4),
+                typeof(SharedData5),
+                typeof(SharedData6),
+                typeof(SharedData7),
+                typeof(SharedData8));
+            
+            var entities = new NativeArray<Entity>(1024, Allocator.Persistent);
+            m_Manager.CreateEntity(archetype, entities); 
+            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData9>(entities) );
+            entities.Dispose();
+        }
+
 #if !NET_DOTS
         [Test]
         public void GetSharedComponentDataWithTypeIndex()

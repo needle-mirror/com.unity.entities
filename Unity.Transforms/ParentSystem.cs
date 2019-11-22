@@ -208,7 +208,7 @@ namespace Unity.Transforms
                 },
                 Options = EntityQueryOptions.FilterWriteGroup
             });
-            m_ExistingParentsGroup.SetFilterChanged(typeof(Parent));
+            m_ExistingParentsGroup.SetChangedVersionFilter(typeof(Parent));
             m_DeletedParentsGroup = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]

@@ -33,5 +33,14 @@ apiRules:
   - exclude:
       uidRegex: Unity\.Entities.EntityQueryBuilder\.ForEach``\d
   - exclude:
+      uidRegex: ^Unity\.Entities\.CodeGeneratedJobForEach
+      type: Namespace
+  - exclude:
       uidRegex: Tests$
+      type: Namespace
+  - exclude:
+      uidRegex: ^Unity\..*\.Tests\..*$
+      type: Namespace
+  - exclude:
+      uidRegex: ^Some\.Namespace
       type: Namespace

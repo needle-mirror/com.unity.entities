@@ -12,6 +12,7 @@ using Unity.Entities.Tests;
 namespace Unity.Entities
 {
     // mock type
+    // TODO: RENAME ME - collides with the real type
     class GameObjectEntity
     {
     }
@@ -141,6 +142,41 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(typeof(Entity), entityType.GetManagedType());
         }
 
+#if !NET_DOTS
+        [Test]
+        public void TestCreateTypeIndexFor()
+        {
+            int typeIndex = TypeManager.CreateTypeIndexForComponent<EcsTestData>();
+            Assert.Greater(typeIndex, 1);
+
+            typeIndex = TypeManager.CreateTypeIndexForComponent<EcsTestTag>();
+            Assert.Greater(typeIndex, 1);
+            Assert.IsTrue(TypeManager.IsZeroSized(typeIndex));
+
+            typeIndex = TypeManager.CreateTypeIndexForComponent<EcsStateTag1>();
+            Assert.Greater(typeIndex, 1);
+            Assert.IsTrue(TypeManager.IsZeroSized(typeIndex));
+            Assert.IsTrue(TypeManager.IsSystemStateComponent(typeIndex));
+
+            typeIndex = TypeManager.CreateTypeIndexForComponent<EcsTestDataEntity>();
+            Assert.Greater(typeIndex, 1);
+            Assert.IsTrue(TypeManager.HasEntityReferences(typeIndex));
+
+            typeIndex = TypeManager.CreateTypeIndexForBufferElement<EcsIntElement>();
+            Assert.Greater(typeIndex, 1);
+            Assert.IsTrue(TypeManager.IsBuffer(typeIndex));
+
+            typeIndex = TypeManager.CreateTypeIndexForBufferElement<EcsIntStateElement>();
+            Assert.Greater(typeIndex, 1);
+            Assert.IsTrue(TypeManager.IsBuffer(typeIndex));
+            Assert.IsTrue(TypeManager.IsSystemStateComponent(typeIndex));
+
+            typeIndex = TypeManager.CreateTypeIndexForSharedComponent<EcsTestSharedComp>();
+            Assert.Greater(typeIndex, 1);
+            Assert.IsTrue(TypeManager.IsSharedComponent(typeIndex));
+        }
+#endif
+
         [Test]
         public void TestAlignUp_Align0ToPow2()
         {
@@ -241,10 +277,6 @@ namespace Unity.Entities.Tests
             IComponentData empty;
         }
 
-        class ClassComponentData : IComponentData
-        {
-        }
-
         interface InterfaceComponentData : IComponentData
         {
         }
@@ -272,7 +304,6 @@ namespace Unity.Entities.Tests
         }
 
         [TestCase(typeof(InterfaceComponentData), @"\binterface\b", TestName = "Interface implementing IComponentData")]
-        [TestCase(typeof(ClassComponentData), @"\b(struct|class)\b", TestName = "Class implementing IComponentData")]
         [TestCase(typeof(NonBlittableComponentData), @"\bblittable\b", TestName = "Non-blittable component data (string)")]
         [TestCase(typeof(NonBlittableComponentData2), @"\bblittable\b", TestName = "Non-blittable component data (interface)")]
 
@@ -379,7 +410,47 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(TypeManager.IsAssemblyReferencingEntities(typeof(EcsTestData).Assembly));
         }
 #endif
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !NET_DOTS
+        [DisableAutoTypeRegistration]
+        class ManagedComponentDataNoDefaultConstructor : IComponentData, IEquatable<ManagedComponentDataNoDefaultConstructor>
+        {
+            string String;
+
+            public ManagedComponentDataNoDefaultConstructor(int s)
+            {
+                String = s.ToString();
+            }
+
+            public bool Equals(ManagedComponentDataNoDefaultConstructor other)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override int GetHashCode()
+            {
+                return 0;
+            }
+        }
+
+        [TestCase(typeof(ManagedComponentDataNoDefaultConstructor), @"\b(default constructor)\b", TestName = "Class IComponentData with no default constructor")]
+        public void BuildComponentType_ThrowsArgumentException_WithExpectedFailures_ManagedComponents(Type type, string keywordPattern)
+        {
+            Assert.That(
+                () => TypeManager.BuildComponentType(type),
+                Throws.ArgumentException.With.Message.Matches(keywordPattern)
+            );
+        }
+
+        [Test]
+        public void TestCreateTypeIndexFor_ManagedComponents()
+        {
+            int typeIndex = TypeManager.CreateTypeIndexForComponent<EcsTestManagedComponent>();
+            Assert.Greater(typeIndex, 1);
+            Assert.IsTrue(TypeManager.IsManagedComponent(typeIndex));
+        }
+#endif
+#endif
     }
-
-
 }

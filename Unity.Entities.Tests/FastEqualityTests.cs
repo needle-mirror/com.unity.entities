@@ -5,6 +5,7 @@ using NUnit.Framework;
 using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
 using System;
+using System.Collections.Generic;
 
 namespace Unity.Entities.Tests
 {
@@ -281,6 +282,133 @@ namespace Unity.Entities.Tests
 
             Assert.IsTrue(iseq);
         }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        class ComponentWithUnityObjectArray : IComponentData
+        {
+            public UnityEngine.Texture2D Texture;
+            public UnityEngine.Object[] Objects;
+            public List<string> Strings;
+        }
+
+        class ComponentOverridesGetHashCode : IComponentData
+        {
+            public bool GetHashCodeWasCalled = false;
+
+            public override int GetHashCode()
+            {
+                GetHashCodeWasCalled = true;
+                return base.GetHashCode();
+            }
+        }
+
+        class ComponentImplementsIEquatable : IComponentData, IEquatable<ComponentImplementsIEquatable>
+        {
+            public bool EqualsWasCalled = false;
+            public bool Equals(ComponentImplementsIEquatable other)
+            {
+                bool result = other.EqualsWasCalled == EqualsWasCalled;
+                EqualsWasCalled = true;
+                return result;
+            }
+        }
+
+        [Test]
+        public void ManagedComponentEquals()
+        {
+            {
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(EcsTestManagedComponent));
+                var obj1 = new EcsTestManagedComponent() { value = "SomeString" };
+                var obj12 = new EcsTestManagedComponent() { value = "SomeString" };
+                var obj2 = new EcsTestManagedComponent() { value = "SomeOtherString" };
+                Assert.IsTrue(FastEquality.ManagedEquals(obj1, obj1, typeInfo));
+                Assert.IsTrue(FastEquality.ManagedEquals(obj1, obj12, typeInfo));
+                Assert.IsFalse(FastEquality.ManagedEquals(obj1, obj2, typeInfo));
+            }
+
+            {
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentWithUnityObjectArray));
+                var tex1 = new UnityEngine.Texture2D(512, 512);
+                var tex2 = new UnityEngine.Texture2D(512, 512);
+                var tex3 = new UnityEngine.Texture2D(512, 512);
+                var stringList1  = new List<string>() { "yo", "hi", "hej", "hello" };
+                var stringList12 = new List<string>() { "yo", "hi", "hej", "hello" };
+                var stringList2  = new List<string>() { "yo", "hi", "hey", "hello" };
+
+                var obj1  = new ComponentWithUnityObjectArray() { Strings = stringList1,  Texture = tex1, Objects = new[] { tex2, tex3 } };
+                var obj12 = new ComponentWithUnityObjectArray() { Strings = stringList1,  Texture = tex1, Objects = new[] { tex2, tex3 } };
+                var obj13 = new ComponentWithUnityObjectArray() { Strings = stringList12, Texture = tex1, Objects = new[] { tex2, tex3 } };
+                var obj2  = new ComponentWithUnityObjectArray() { Strings = stringList1,  Texture = tex1, Objects = new[] { tex2, tex2 } };
+                var obj3  = new ComponentWithUnityObjectArray() { Strings = stringList1,  Texture = tex1, Objects = new[] { tex1, null } };
+                var obj4  = new ComponentWithUnityObjectArray() { Strings = stringList1,  Texture = tex1, Objects = new[] { tex1 }};
+                var obj5  = new ComponentWithUnityObjectArray() { Strings = stringList2,  Texture = tex1, Objects = new[] { tex2, tex3 } };
+                var obj6  = new ComponentWithUnityObjectArray() { Strings = stringList2,  Texture = tex2, Objects = new[] { tex3, tex1 } };
+                Assert.IsTrue(FastEquality.ManagedEquals(obj1, obj1, typeInfo));
+                Assert.IsTrue(FastEquality.ManagedEquals(obj1, obj12, typeInfo));
+                Assert.IsTrue(FastEquality.ManagedEquals(obj1, obj13, typeInfo));
+                Assert.IsFalse(FastEquality.ManagedEquals(obj1, obj2, typeInfo));
+                Assert.IsFalse(FastEquality.ManagedEquals(obj1, obj3, typeInfo));
+                Assert.IsFalse(FastEquality.ManagedEquals(obj1, obj4, typeInfo));
+                Assert.IsFalse(FastEquality.ManagedEquals(obj1, obj5, typeInfo));
+                Assert.IsFalse(FastEquality.ManagedEquals(obj1, obj6, typeInfo));
+            }
+
+            {
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentImplementsIEquatable));
+                var obj = new ComponentImplementsIEquatable();
+                Assert.IsTrue(FastEquality.ManagedEquals(obj, obj, typeInfo));
+                Assert.IsTrue(obj.EqualsWasCalled);
+            }
+        }
+
+        [Test]
+        public void ManagedComponentGetHashCode()
+        {
+            {
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(EcsTestManagedComponent));
+                var obj1 = new EcsTestManagedComponent() { value = "SomeString" };
+                var obj12 = new EcsTestManagedComponent() { value = "SomeString" };
+                var obj2 = new EcsTestManagedComponent() { value = "SomeOtherString" };
+                Assert.AreEqual(FastEquality.ManagedGetHashCode(obj1, typeInfo), FastEquality.ManagedGetHashCode(obj1, typeInfo));
+                Assert.AreEqual(FastEquality.ManagedGetHashCode(obj1, typeInfo), FastEquality.ManagedGetHashCode(obj12, typeInfo));
+                Assert.AreNotEqual(FastEquality.ManagedGetHashCode(obj1, typeInfo), FastEquality.ManagedGetHashCode(obj2, typeInfo));
+            }
+
+            {
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentWithUnityObjectArray));
+                var tex1 = new UnityEngine.Texture2D(512, 512);
+                var tex2 = new UnityEngine.Texture2D(512, 512);
+                var tex3 = new UnityEngine.Texture2D(512, 512);
+                var stringList1  = new List<string>() { "yo", "hi", "hej", "hello" };
+                var stringList12 = new List<string>() { "yo", "hi", "hej", "hello" };
+                var stringList2  = new List<string>() { "yo", "hi", "hey", "hello" };
+
+                var obj1  = new ComponentWithUnityObjectArray() { Strings = stringList1,  Texture = tex1, Objects = new[] { tex2, tex3 } };
+                var obj12 = new ComponentWithUnityObjectArray() { Strings = stringList1,  Texture = tex1, Objects = new[] { tex2, tex3 } };
+                var obj13 = new ComponentWithUnityObjectArray() { Strings = stringList12, Texture = tex1, Objects = new[] { tex2, tex3 } };
+                var obj2  = new ComponentWithUnityObjectArray() { Strings = stringList1,  Texture = tex1, Objects = new[] { tex2, tex2 } };
+                var obj3  = new ComponentWithUnityObjectArray() { Strings = stringList1,  Texture = tex1, Objects = new[] { tex1, null } };
+                var obj4  = new ComponentWithUnityObjectArray() { Strings = stringList1,  Texture = tex1, Objects = new[] { tex1 } };
+                var obj5  = new ComponentWithUnityObjectArray() { Strings = stringList2,  Texture = tex1, Objects = new[] { tex2, tex3 } };
+                var obj6  = new ComponentWithUnityObjectArray() { Strings = stringList2,  Texture = tex2, Objects = new[] { tex3, tex1 } };
+                Assert.AreEqual(FastEquality.ManagedGetHashCode(obj1, typeInfo), FastEquality.ManagedGetHashCode(obj1, typeInfo));
+                Assert.AreEqual(FastEquality.ManagedGetHashCode(obj1, typeInfo), FastEquality.ManagedGetHashCode(obj12, typeInfo));
+                Assert.AreEqual(FastEquality.ManagedGetHashCode(obj1, typeInfo), FastEquality.ManagedGetHashCode(obj13, typeInfo));
+                Assert.AreNotEqual(FastEquality.ManagedGetHashCode(obj1, typeInfo), FastEquality.ManagedGetHashCode(obj2, typeInfo));
+                Assert.AreNotEqual(FastEquality.ManagedGetHashCode(obj1, typeInfo), FastEquality.ManagedGetHashCode(obj3, typeInfo));
+                Assert.AreNotEqual(FastEquality.ManagedGetHashCode(obj1, typeInfo), FastEquality.ManagedGetHashCode(obj4, typeInfo));
+                Assert.AreNotEqual(FastEquality.ManagedGetHashCode(obj1, typeInfo), FastEquality.ManagedGetHashCode(obj5, typeInfo));
+                Assert.AreNotEqual(FastEquality.ManagedGetHashCode(obj1, typeInfo), FastEquality.ManagedGetHashCode(obj6, typeInfo));
+            }
+
+            {
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentOverridesGetHashCode));
+                var obj = new ComponentOverridesGetHashCode();
+                Assert.AreEqual(FastEquality.ManagedGetHashCode(obj, typeInfo), FastEquality.ManagedGetHashCode(obj, typeInfo));
+                Assert.IsTrue(obj.GetHashCodeWasCalled);
+            }
+        }
+#endif
     }
 }
 #endif

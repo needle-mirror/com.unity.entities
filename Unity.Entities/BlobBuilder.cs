@@ -4,22 +4,36 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 using UnityEngine.Assertions;
 
 
 namespace Unity.Entities
 {
+    /// <summary>
+    /// Used by the <see cref="BlobBuilder"/> methods to reference the arrays within a blob asset.
+    /// </summary>
+    /// <remarks>Use this reference to initialize the data of a newly created <see cref="BlobArray{T}"/>.</remarks>
+    /// <typeparam name="T">The data type of the elements in the array.</typeparam>
     public unsafe ref struct BlobBuilderArray<T> where T : struct
     {
         private void* m_data;
         private int m_length;
 
+        /// <summary>
+        /// For internal, <see cref="BlobBuilder"/>, use only.
+        /// </summary>
         public BlobBuilderArray(void* data, int length)
         {
             m_data = data;
             m_length = length;
         }
 
+        /// <summary>
+        /// Array index accessor for the elements in the array.
+        /// </summary>
+        /// <param name="index">The sequential index of an array item.</param>
+        /// <exception cref="IndexOutOfRangeException">Thrown when index is less than zero or greater than the length of the array (minus one).</exception>
         public ref T this[int index]
         {
             get
@@ -32,17 +46,57 @@ namespace Unity.Entities
             }
         }
 
+        /// <summary>
+        /// Reports the number of elements in the array.
+        /// </summary>
         public int Length
         {
             get { return m_length; }
         }
 
+        /// <summary>
+        /// Provides a pointer to the data stored in the array.
+        /// </summary>
+        /// <remarks>You can only call this function in an <see cref="Unsafe"/> context.</remarks>
+        /// <returns>A pointer to the first element in the array.</returns>
         public void* GetUnsafePtr()
         {
             return m_data;
         }
     }
 
+    /// <summary>
+    /// Creates blob assets.
+    /// </summary>
+    /// <remarks>
+    /// A blob asset is an immutable data structure stored in unmanaged memory.
+    /// Blob assets can contain primitive types, strings, structs, arrays, and arrays of arrays. Arrays and structs
+    /// must only contain blittable types. Strings must be of type <see cref="BlobString"/> (or a specialized unmanaged
+    /// string type such as <see cref="NativeString64"/>).
+    ///
+    /// To use a BlobBuilder object to create a blob asset:
+    /// 1. Declare the structure of the blob asset as a struct.
+    /// 2. Create a BlobBuilder object.
+    /// 3. Call the <see cref="ConstructRoot{T}"/> method, where `T` is the struct definng the asset structure.
+    /// 4. Initialize primitive values defined at the root level of the asset.
+    /// 5. Allocate memory for arrays, structs, and <see cref="BlobString"/> instances at the root.
+    /// 6. Initialize the values of those arrays, structs, and strings.
+    /// 7. Continue allocating memory and initializing values until you have fully constructed the asset.
+    /// 8. Call <see cref="CreateBlobAssetReference{T}"/> to create a reference to the blob asset in memory.
+    /// 9. Dispose the BlobBuilder object.
+    ///
+    /// Use the <see cref="BlobAssetReference{T}"/> returned by <see cref="CreateBlobAssetReference{T}"/> to reference
+    /// the blob asset. You can use a <see cref="BlobAssetReference{T}"/> as a field of an <see cref="IComponentData"/>
+    /// struct. More than one entity can reference the same blob asset.
+    ///
+    /// Call <see cref="BlobAssetReference{T}.Dispose()"/> to free the memory allocated for a blob asset.
+    ///
+    /// Blob assets cannot be modified once created. Instead, you must create a new blob asset, update any references
+    /// to the old one and then dispose of it.
+    /// </remarks>
+    /// <example>
+    /// <code source="../Documentation.Tests/BlobAssetExamples.cs" region="builderclassexample" title="BlobBuilder Example"/>
+    /// </example>
     unsafe public struct BlobBuilder : IDisposable
     {
         Allocator m_allocator;
@@ -70,6 +124,15 @@ namespace Unity.Entities
             public int length; // if length != 0 this is an array patch and the length should be patched
         }
 
+        /// <summary>
+        /// Constructs a BlobBuilder object.
+        /// </summary>
+        /// <param name="allocator">The type of allocator to use for the BlobBuilder's internal, temporary data. Use
+        /// <see cref="Allocator.Temp"/> unless the BlobBuilder exists across more than four Unity frames.</param>
+        /// <param name="chunkSize">(Optional) The minimum amount of memory to allocate while building an asset.
+        /// The default value should suit most use cases. A smaller chunkSize results in more allocations; a larger
+        /// chunkSize could increase the BlobBuilder's total memory allocation (which is freed when you dispose of
+        /// the BlobBuilder.</param>
         public BlobBuilder(Allocator allocator, int chunkSize = 65536)
         {
             m_allocator = allocator;
@@ -79,12 +142,28 @@ namespace Unity.Entities
             m_currentChunkIndex = -1;
         }
 
+        /// <summary>
+        /// Creates the top-level fields of a single blob asset.
+        /// </summary>
+        /// <remarks>
+        /// This function allocates memory for the top-level fields of a blob asset and returns a reference to it. Use
+        /// this root reference to initialize field values and to allocate memory for arrays and structs.
+        /// </remarks>
+        /// <typeparam name="T">A struct that defines the structure of the blob asset.</typeparam>
+        /// <returns>A reference to the blob data under construction.</returns>
         public ref T ConstructRoot<T>() where T : struct
         {
             var allocation = Allocate(UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>());
             return ref UnsafeUtilityEx.AsRef<T>(AllocationToPointer(allocation));
         }
 
+        /// <summary>
+        /// Copies an array of structs to an array in a blob asset after allocating the necessary memory.
+        /// </summary>
+        /// <param name="blobArray">A reference to a BlobArray field in a blob asset.</param>
+        /// <param name="data">An array  containing structs of type <typeparamref name="T"/>.</param>
+        /// <typeparam name="T">The struct data type.</typeparam>
+        /// <returns>A reference to the newly constructed array as a mutable BlobBuilderArray instance.</returns>
         public BlobBuilderArray<T> Construct<T>(ref BlobArray<T> blobArray, params T[] data) where T : struct
         {
             var constructBlobArray = Allocate(ref blobArray, data.Length);
@@ -93,10 +172,17 @@ namespace Unity.Entities
             return constructBlobArray;
         }
 
+        /// <summary>
+        /// Allocates enough memory to store <paramref name="length"/> elements of struct <typeparamref name="T"/>.
+        /// </summary>
+        /// <param name="ptr">A reference to a BlobArray field in a blob asset.</param>
+        /// <param name="length">The number of elements to allocate.</param>
+        /// <typeparam name="T">The struct data type.</typeparam>
+        /// <returns>A reference to the newly allocated array as a mutable BlobBuilderArray instance.</returns>
         public BlobBuilderArray<T> Allocate<T>(ref BlobArray<T> ptr, int length) where T : struct
         {
-            if(length <= 0)
-                throw new ArgumentException("BlobArray length must be greater than 0");
+            if (length <= 0)
+                return new BlobBuilderArray<T>(null, 0);
 
             var offsetPtr = (int*)UnsafeUtility.AddressOf(ref ptr.m_OffsetPtr);
 
@@ -115,6 +201,12 @@ namespace Unity.Entities
             return new BlobBuilderArray<T>(AllocationToPointer(allocation), length);
         }
 
+        /// <summary>
+        /// Allocates enough memory to store a struct of type <typeparamref name="T"/>.
+        /// </summary>
+        /// <param name="ptr">A reference to a blob pointer field in a blob asset.</param>
+        /// <typeparam name="T">The struct data type.</typeparam>
+        /// <returns>A reference to the newly allocated struct.</returns>
         public ref T Allocate<T>(ref BlobPtr<T> ptr) where T : struct
         {
             var offsetPtr = (int*)UnsafeUtility.AddressOf(ref ptr.m_OffsetPtr);
@@ -144,9 +236,20 @@ namespace Unity.Entities
             }
         }
 
+        /// <summary>
+        /// Completes construction of the blob asset and returns a reference to the asset in unmanaged memory.
+        /// </summary>
+        /// <remarks>Use the <see cref="BlobAssetReference{T}"/> to access the blob asset. When the asset is no longer
+        /// needed, call<see cref="BlobAssetReference{T}.Dispose()"/> to destroy the blob asset and free its allocated
+        /// memory.</remarks>
+        /// <param name="allocator">The type of memory to allocate. Unless the asset has a very short life span, use
+        /// <see cref="Allocator.Persistent"/>.</param>
+        /// <typeparam name="T">The data type of the struct used to construct the asset's root. Use the same struct type
+        /// that you used when calling <see cref="ConstructRoot{T}"/>.</typeparam>
+        /// <returns></returns>
         public BlobAssetReference<T> CreateBlobAssetReference<T>(Allocator allocator) where T : struct
         {
-            Assert.AreEqual(16, sizeof(BlobAssetHeader));
+            Assert.AreEqual(24, sizeof(BlobAssetHeader));
             var offsets = new NativeArray<int>(m_allocations.Length + 1, Allocator.Temp);
             var sortedAllocs = new NativeArray<SortedIndex>(m_allocations.Length, Allocator.Temp);
 
@@ -206,6 +309,9 @@ namespace Unity.Entities
             *header = new BlobAssetHeader();
             header->Length = (int)dataSize;
             header->Allocator = allocator;
+            
+            // @TODO use 64bit hash
+            header->Hash = math.hash(buffer + sizeof(BlobAssetHeader), dataSize);
 
             BlobAssetReference<T> blobAssetReference;
             header->ValidationPtr = blobAssetReference.m_data.m_Ptr = buffer + sizeof(BlobAssetHeader);
@@ -284,6 +390,10 @@ namespace Unity.Entities
             throw new InvalidOperationException("The BlobArray passed to Allocate was not allocated by this BlobBuilder or the struct that embeds it was copied by value instead of by ref.");
         }
 
+        /// <summary>
+        /// Disposes of this BlobBuilder instance and frees its temporary memory allocations.
+        /// </summary>
+        /// <remarks>Call `Dispose()` after calling <see cref="CreateBlobAssetReference{T}"/>.</remarks>
         public void Dispose()
         {
             for(int i=0;i<m_allocations.Length;++i)

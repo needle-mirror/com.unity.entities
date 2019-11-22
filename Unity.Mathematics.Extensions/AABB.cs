@@ -10,7 +10,15 @@ namespace Unity.Mathematics
         public float3 Extents;
 
         public float3 Size { get { return Extents * 2; } }
+        public float3 Min { get { return Center - Extents; } }
+        public float3 Max { get { return Center + Extents; } }
 
+        /// <summary>Returns a string representation of the AABB.</summary>
+        public override string ToString()
+        {
+            return $"AABB(Center:{Center}, Extents:{Extents}";
+        }
+        
         public bool Contains(float3 point)
         {
             if (point[0] < Center[0] - Extents[0])

@@ -1,7 +1,12 @@
-﻿using System;
+﻿#if !UNITY_EDITOR
+
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Mono.Cecil;
+using Unity.IL2CPP.Common;
+using Unity.IL2CPP.ILPreProcessor;
 
 namespace Unity.Entities.BuildUtils
 {
@@ -66,20 +71,20 @@ namespace Unity.Entities.BuildUtils
 
             public override string ToString()
             {
-                return String.Format("[{0};{0}]", align, size);
+                return String.Format("[{0};{1}]", align, size);
             }
         }
 
-        private static Dictionary<TypeDefinition, AlignAndSize>[] ValueTypeAlignment = {
-            new Dictionary<TypeDefinition, AlignAndSize>(), new Dictionary<TypeDefinition, AlignAndSize>()
+        private static Dictionary<TypeReference, AlignAndSize>[] ValueTypeAlignment = {
+            new Dictionary<TypeReference, AlignAndSize>(new TypeReferenceEqualityComparer()), new Dictionary<TypeReference, AlignAndSize>(new TypeReferenceEqualityComparer())
         };
 
-        private static Dictionary<FieldDefinition, AlignAndSize>[] StructFieldAlignment = {
-            new Dictionary<FieldDefinition, AlignAndSize>(), new Dictionary<FieldDefinition, AlignAndSize>()
+        private static Dictionary<FieldReference, AlignAndSize>[] StructFieldAlignment = {
+            new Dictionary<FieldReference, AlignAndSize>(new FieldReferenceComparer()), new Dictionary<FieldReference, AlignAndSize>(new FieldReferenceComparer())
         };
 
-        internal static Dictionary<TypeDefinition, bool>[] ValueTypeIsComplex = {
-            new Dictionary<TypeDefinition, bool>(), new Dictionary<TypeDefinition, bool>()
+        internal static Dictionary<TypeReference, bool>[] ValueTypeIsComplex = {
+            new Dictionary<TypeReference, bool>(new TypeReferenceEqualityComparer()), new Dictionary<TypeReference, bool>(new TypeReferenceEqualityComparer())
         };
 
         public static AlignAndSize AlignAndSizeOfType(MetadataType mtype, int bits)
@@ -104,16 +109,16 @@ namespace Unity.Entities.BuildUtils
             if (typeRef.IsPointer)
                 return AlignAndSize.Pointer(bits);
 
-            var type = typeRef.Resolve();
-            TypeDefinition fixedSpecialType = type.FixedSpecialType();
-
+            TypeDefinition fixedSpecialType = typeRef.FixedSpecialType();
             if (fixedSpecialType != null)
             {
                 return AlignAndSizeOfType(fixedSpecialType.MetadataType, bits);
             }
 
+            var type = typeRef.Resolve();
+
             // Handle the case where we have a fixed buffer. Cecil will name it: "<MyMemberName>e_FixedBuffer"
-            if(type.ClassSize != -1 && type.Name.Contains(">e__FixedBuffer"))
+            if (type.ClassSize != -1 && typeRef.Name.Contains(">e__FixedBuffer"))
             {
                 // Fixed buffers can only be of primitive types so inspect the fields of the buffer (there should only be one)
                 // and determine the packing requirement for the type
@@ -123,25 +128,25 @@ namespace Unity.Entities.BuildUtils
                 var fieldAlignAndSize = AlignAndSizeOfType(type.Fields[0].FieldType.MetadataType, bits);
                 return new AlignAndSize(fieldAlignAndSize.align, type.ClassSize);
             }
-            else if(type.IsExplicitLayout && type.ClassSize > 0 && type.PackingSize > 0)
+            else if (type.IsExplicitLayout && type.ClassSize > 0 && type.PackingSize > 0)
             {
                 return new AlignAndSize(type.PackingSize, type.ClassSize);
             }
 
-            if (ValueTypeAlignment[bits].ContainsKey(type))
+            if (ValueTypeAlignment[bits].ContainsKey(typeRef))
             {
-                var sz = ValueTypeAlignment[bits][type];
+                var sz = ValueTypeAlignment[bits][typeRef];
 
                 if(sz.IsSentinel)
-                    throw new ArgumentException($"Type {type} triggered sentinel; recursive value type definition");
+                    throw new ArgumentException($"Type {typeRef} triggered sentinel; recursive value type definition");
 
                 return sz;
             }
 
-            if (type.IsArray)
-                throw new ArgumentException($"Can't represent {type}: C# array types cannot be represented directly, use DynamicArray<T>");
+            if (typeRef.IsArray)
+                throw new ArgumentException($"Can't represent {typeRef}: C# array types cannot be represented directly, use DynamicArray<T>");
 
-            if (type.IsDynamicArray())
+            if (typeRef.IsDynamicArray())
             {
                 var elementType = typeRef.DynamicArrayElementType();
                 //Console.WriteLine($"{nts.TypeArguments[0]}");
@@ -160,12 +165,18 @@ namespace Unity.Entities.BuildUtils
                 return AlignAndSizeOfType(enumBaseType, bits);
             }
 
-            if(!type.IsValueType)
-                throw new ArgumentException($"Type {type} ({type.Name}) was expected to be a value type");
+            if (!type.IsValueType)
+            {
+                // Why not throw? Really should expect this:
+                //throw new ArgumentException($"Type {type} ({type.Name}) was expected to be a value type");
+                // However, the DisposeSentinel is a ManagedType that sits in the NativeContainers.
+                // Treat it as an opaque pointer and skip over it.
+                return AlignAndSizeOfType(MetadataType.IntPtr, bits);
+            }
 
-            ValueTypeAlignment[bits].Add(type, AlignAndSize.Sentinel);
-            PreprocessTypeFields(type, bits);
-            return ValueTypeAlignment[bits][type];
+            ValueTypeAlignment[bits].Add(typeRef, AlignAndSize.Sentinel);
+            PreprocessTypeFields(typeRef, bits);
+            return ValueTypeAlignment[bits][typeRef];
         }
 
         public static AlignAndSize AlignAndSizeOfField(FieldReference fieldRef, int bits)
@@ -173,12 +184,11 @@ namespace Unity.Entities.BuildUtils
             if (bits == 32) bits = 0;
             else if (bits == 64) bits = 1;
 
-            var fd = fieldRef.Resolve();
-            if (!StructFieldAlignment[bits].ContainsKey(fd))
+            if (!StructFieldAlignment[bits].ContainsKey(fieldRef))
             {
-                PreprocessTypeFields(fieldRef.DeclaringType.Resolve(), bits);
+                PreprocessTypeFields(fieldRef.DeclaringType, bits);
             }
-            return StructFieldAlignment[bits][fd];
+            return StructFieldAlignment[bits][fieldRef];
         }
 
         public static int AlignUp(int sz, int align)
@@ -217,11 +227,12 @@ namespace Unity.Entities.BuildUtils
 
             AlreadyValidated.Add(type);
 
+            var typeResolver = TypeResolver.For(type);
             foreach (var field in type.Fields)
-                ValidateAllowedObjectType(field.FieldType);
+                ValidateAllowedObjectType(typeResolver.Resolve(field.FieldType));
         }
 
-        public static void PreprocessTypeFields(TypeDefinition valuetype, int bits)
+        public static void PreprocessTypeFields(TypeReference valuetype, int bits)
         {
             if (bits == 32) bits = 0;
             else if (bits == 64) bits = 1;
@@ -239,13 +250,17 @@ namespace Unity.Entities.BuildUtils
 
             // For each field, calculate its layout as if it was a C++ struct
             //Console.WriteLine($"Type {valuetype}");
-            foreach (var fs in valuetype.Fields)
+            var typeResolver = TypeResolver.For(valuetype);
+            var typeDef = valuetype.Resolve();
+            foreach (var fs in typeDef.Fields)
             {
                 if (fs.IsStatic)
                     continue;
 
-                var sz = AlignAndSizeOfType(fs.FieldType, bits);
-                isComplex = isComplex || fs.FieldType.IsComplex();
+                var fieldType = typeResolver.Resolve(fs.FieldType);
+
+                var sz = AlignAndSizeOfType(fieldType, bits);
+                isComplex = isComplex || fieldType.IsComplex();
 
                 // In C++, all members of a struct must have their own address.
                 // If we have a "struct {}" as a member, treat its size as at least one byte.
@@ -253,7 +268,7 @@ namespace Unity.Entities.BuildUtils
                 highestFieldAlignment = Math.Max(highestFieldAlignment, sz.align);
                 size = AlignUp(size, sz.align);
                 //Console.WriteLine($"  Field: {fs.Name} ({fs.GetType()}) - offset: {size} alignment {sz.align} sz {sz.size}");
-                StructFieldAlignment[bits].Add(fs /*VERIFY*/, new AlignAndSize(sz.align, sz.size, size));
+                StructFieldAlignment[bits].Add(typeResolver.Resolve(fs) /*VERIFY*/, new AlignAndSize(sz.align, sz.size, size));
 
                 int offset = fs.Offset;
                 if (offset >= 0)
@@ -268,104 +283,140 @@ namespace Unity.Entities.BuildUtils
             size = AlignUp(size, highestFieldAlignment);
 
             // If an explicit size have been provided use that instead
-            if (valuetype.IsExplicitLayout && valuetype.ClassSize > 0)
-                size = valuetype.ClassSize;
+            if (typeDef.IsExplicitLayout && typeDef.ClassSize > 0)
+                size = typeDef.ClassSize;
 
             // Alignment requirements are > 0
             highestFieldAlignment = Math.Max(highestFieldAlignment, 1);
 
             // If an explict alignment has been provided use that instead
-            if (valuetype.IsExplicitLayout && valuetype.PackingSize > 0)
-                size = valuetype.PackingSize;
+            if (typeDef.IsExplicitLayout && typeDef.PackingSize > 0)
+                size = typeDef.PackingSize;
 
             ValueTypeAlignment[bits].Remove(valuetype);
-            ValueTypeAlignment[bits].Add(valuetype, new AlignAndSize(highestFieldAlignment, size, 0, valuetype.Fields.Count == 0));
+            ValueTypeAlignment[bits].Add(valuetype, new AlignAndSize(highestFieldAlignment, size, 0, typeDef.Fields.Count == 0));
             //Console.WriteLine($"ValueType: {valuetype.Name} ({valuetype.GetType()}) - alignment {highestFieldAlignment} sz {size}");
             ValueTypeIsComplex[bits].Add(valuetype, isComplex);
         }
 
-        internal static void GetFieldOffsetsOfRecurse(string queryFullTypeName, string fieldName,
-            int offset, TypeDefinition type, List<int> l, int bits)
+        public static void IterateFieldsRecurse(Action<FieldReference, TypeReference> processFunc, TypeReference type)
+        {
+            var typeResolver = TypeResolver.For(type);
+            foreach (var f in type.Resolve().Fields)
+            {
+                var fieldReference = typeResolver.Resolve(f);
+                var fieldType = typeResolver.Resolve(f.FieldType);
+
+                processFunc(fieldReference, fieldType);
+
+                // Excluding statics for recursion covers:
+                // 1) enums which infinitely recurse because the values in the enum are of the same enum type
+                // 2) statics which infinitely recurse themselves (Such as vector3.zero.zero.zero.zero)
+                if (fieldType.IsValueType && !fieldType.IsPrimitive && !f.IsStatic)
+                {
+                    IterateFieldsRecurse(processFunc, fieldType);
+                }
+            }
+        }
+
+        internal static void GetFieldOffsetsOfRecurse(Func<FieldReference, TypeReference, bool> match, int offset, TypeReference type, List<int> list, int bits)
         {
             int in_type_offset = 0;
-            foreach (var f in type.Fields)
+            var typeResolver = TypeResolver.For(type);
+            foreach (var f in type.Resolve().Fields)
             {
                 if (f.IsStatic)
                     continue;
 
                 uint alignUp(uint a, uint align) => (a + ((align - a) % align));
                 int valueOr1(int v) => Math.Max(v, 1);
+
                 TypeUtils.AlignAndSize resize(TypeUtils.AlignAndSize s) => new TypeUtils.AlignAndSize(
                     valueOr1(s.align),
                     valueOr1(s.size));
 
-                var tinfo = resize(TypeUtils.AlignAndSizeOfType(f.FieldType, bits));
+                var fieldReference = typeResolver.Resolve(f);
+                var fieldType = typeResolver.Resolve(f.FieldType);
+
+                var tinfo = resize(TypeUtils.AlignAndSizeOfType(fieldType, bits));
                 if (f.Offset != -1)
                     in_type_offset = f.Offset;
                 else
                     in_type_offset = (int)alignUp((uint)in_type_offset, (uint)tinfo.align);
 
-                if (f.FieldType.IsDynamicArray() &&
-                    (f.FieldType.DynamicArrayElementType().Resolve().FullName == queryFullTypeName ||
-                     f.Name == fieldName)
-                   )
+                if (fieldType.IsDynamicArray() && match(fieldReference, fieldType.DynamicArrayElementType()))
                 {
                     // +1 so that we have a way to indicate an Array<Entity> at position 0
                     // fixup code subtracts 1
-                    l.Add(-(offset + in_type_offset + 1));
+                    list.Add(-(offset + in_type_offset + 1));
                 }
-                else if (f.FieldType.Resolve().FullName == queryFullTypeName || f.Name == fieldName)
+                else if (match(fieldReference, fieldType))
                 {
-                    l.Add(offset + in_type_offset);
+                    list.Add(offset + in_type_offset);
                 }
-                else if (f.FieldType.IsValueType && !f.FieldType.IsPrimitive)
+                else if (fieldType.IsValueType && !fieldType.IsPrimitive)
                 {
-                    GetFieldOffsetsOfRecurse(queryFullTypeName, fieldName,
-                        offset + in_type_offset, f.FieldType.Resolve(), l, bits);
+                    GetFieldOffsetsOfRecurse(match, offset + in_type_offset, fieldType, list, bits);
                 }
+
                 in_type_offset += tinfo.size;
             }
         }
 
-        public static List<int> GetFieldOffsetsOf(TypeReference typeToFind, TypeDefinition typeToLookIn, int archBits)
+        public static List<int> GetFieldOffsetsOf(TypeReference typeToFind, TypeReference typeToLookIn, int archBits)
         {
             var offsets = new List<int>();
 
             if (typeToLookIn != null)
             {
-                GetFieldOffsetsOfRecurse(typeToFind.FullName, "<invalid>", 0, typeToLookIn, offsets, archBits);
+                GetFieldOffsetsOfRecurse((_, typeRef) => TypeReferenceEqualityComparer.AreEqual(typeRef, typeToFind), 0, typeToLookIn, offsets, archBits);
             }
 
             return offsets;
         }
 
-        public static List<int> GetFieldOffsetsOf(string queryFullTypeName, TypeDefinition typeToLookIn, int archBits)
+        /* match: 1st param is the Field, 2nd param is the FieldType */
+        public static List<int> GetFieldOffsetsOf(Func<FieldReference, TypeReference, bool> match, TypeReference typeToLookIn, int archBits)
         {
             var offsets = new List<int>();
 
             if (typeToLookIn != null)
             {
-                GetFieldOffsetsOfRecurse(queryFullTypeName, "<invalid>", 0, typeToLookIn, offsets, archBits);
+                GetFieldOffsetsOfRecurse(match, 0, typeToLookIn, offsets, archBits);
             }
 
             return offsets;
         }
 
-        public static List<int> GetFieldOffsetsOfByFieldName(string fieldName, TypeDefinition typeToLookIn, int archBits)
+        public static List<int> GetFieldOffsetsOf(string fieldTypeName, TypeReference typeToLookIn, int archBits)
         {
             var offsets = new List<int>();
 
             if (typeToLookIn != null)
             {
-                GetFieldOffsetsOfRecurse("<invalid>", fieldName, 0, typeToLookIn, offsets, archBits);
+                GetFieldOffsetsOfRecurse((_, typeRef) => typeRef.Resolve().FullName == fieldTypeName, 0, typeToLookIn, offsets, archBits);
             }
 
             return offsets;
         }
 
-        public static List<int> GetEntityFieldOffsets(TypeDefinition type, int archBits)
+        public static List<int> GetFieldOffsetsOfByFieldName(string fieldName, TypeReference typeToLookIn, int archBits)
+        {
+            var offsets = new List<int>();
+
+            if (typeToLookIn != null)
+            {
+                GetFieldOffsetsOfRecurse((fieldRef, typeRef) => fieldRef.Name == fieldName, 0, typeToLookIn, offsets, archBits);
+            }
+
+            return offsets;
+        }
+
+        public static List<int> GetEntityFieldOffsets(TypeReference type, int archBits)
         {
             return GetFieldOffsetsOf("Unity.Entities.Entity", type, archBits);
         }
     }
 }
+
+#endif

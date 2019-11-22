@@ -1,16 +1,29 @@
 ﻿using System;
 using System.Collections.Generic;
-#if !NET_TINY
+using System.Diagnostics;
+#if !NET_DOTS
 using System.Collections.ObjectModel;
 #endif
 using System.Reflection;
+using Unity.Core;
+using UnityEngine.Assertions;
 
 namespace Unity.Entities
 {
+    [DebuggerDisplay("{Name} (#{SequenceNumber})")]
     public partial class World : IDisposable
     {
-        public static World Active { get; set; }
+        public static World DefaultGameObjectInjectionWorld { get; set; }
 
+        [Obsolete("World.Active has been deprecated. The most common & incorrect usage has been to use World.Active from a ComponentSystem. From a ComponentSystem you should use the ComponentSystem's World property directly. It returns the world that this system belongs to. There are some rare cases where a MonoBehaviour needs to inject data into the active world, in this case use World.DefaultGameObjectInjectionWorld. (RemovedAfter 2019-11-22)")]
+        public static World Active
+        {
+            get { return DefaultGameObjectInjectionWorld; }
+            set { DefaultGameObjectInjectionWorld = value; }
+        }
+
+
+        
         static readonly List<World> allWorlds = new List<World>();
 
 #if UNITY_DOTSPLAYER
@@ -50,6 +63,46 @@ namespace Unity.Entities
 
         public ulong SequenceNumber => m_SequenceNumber;
 
+        protected TimeData m_CurrentTime;
+
+        public ref TimeData Time => ref m_CurrentTime;
+
+        protected EntityQuery m_TimeSingletonQuery;
+
+        protected Entity TimeSingleton
+        {
+            get
+            {
+                if (m_TimeSingletonQuery.IsEmptyIgnoreFilter)
+                    EntityManager.CreateEntity(typeof(WorldTime), typeof(WorldTimeQueue));
+                return m_TimeSingletonQuery.GetSingletonEntity();
+            }
+        }
+
+        public void SetTime(TimeData newTimeData)
+        {
+            EntityManager.SetComponentData(TimeSingleton, new WorldTime() {Time = newTimeData});
+            m_CurrentTime = newTimeData;
+        }
+
+        public void PushTime(TimeData newTimeData)
+        {
+            var queue = EntityManager.GetBuffer<WorldTimeQueue>(TimeSingleton);
+            queue.Add(new WorldTimeQueue() { Time = m_CurrentTime });
+            SetTime(newTimeData);
+        }
+
+        public void PopTime()
+        {
+            var queue = EntityManager.GetBuffer<WorldTimeQueue>(TimeSingleton);
+
+            Assert.IsTrue(queue.Length > 0, "PopTime without a matching PushTime");
+
+            var prevTime = queue[queue.Length - 1];
+            queue.RemoveAt(queue.Length - 1);
+            SetTime(prevTime.Time);
+        }
+
         public World(string name)
         {
             m_SequenceNumber = ms_NextSequenceNumber;
@@ -60,6 +113,8 @@ namespace Unity.Entities
             allWorlds.Add(this);
 
             m_EntityManager = new EntityManager(this);
+            m_TimeSingletonQuery = EntityManager.CreateEntityQuery(ComponentType.ReadWrite<WorldTime>(),
+                ComponentType.ReadWrite<WorldTimeQueue>());
         }
 
         public void Dispose()
@@ -99,8 +154,8 @@ namespace Unity.Entities
             m_SystemLookup = null;
 #endif
 
-            if (Active == this)
-                Active = null;
+            if (DefaultGameObjectInjectionWorld == this)
+                DefaultGameObjectInjectionWorld = null;
         }
 
         public static void DisposeAllWorlds()
@@ -387,6 +442,8 @@ namespace Unity.Entities
             initializationSystemGroup?.Update();
             simulationSystemGroup?.Update();
             presentationSystemGroup?.Update();
+
+            Assert.IsTrue(EntityManager.GetBuffer<WorldTimeQueue>(TimeSingleton).Length == 0, "PushTimeData without matching PopTimedata");
         }
     }
 }

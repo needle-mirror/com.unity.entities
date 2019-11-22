@@ -10,11 +10,7 @@ namespace Unity.Entities.PerformanceTests
     {
         // Tests the performance of the ForEach & ForEach on ReadOnly components
         // No structural change expected
-#if UNITY_2019_2_OR_NEWER
         [Test, Performance]
-#else
-        [PerformanceTest]
-#endif
         [Category("Performance")] // bug: this redundant category here required because our current test runner ignores Category on a fixture for generated test methods  
         public void ForEach_vs_ForEachRO([Values(1, 1000, 100000)] int entityCount, [Range(0, 3)] int componentCount)
         {

@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using Unity.Entities.Tests;
 using Unity.Properties;
 using Unity.Properties.Reflection;
 using UnityEngine;
@@ -6,34 +7,8 @@ using UnityEngine;
 namespace Unity.Entities.Properties.Tests
 {
     [TestFixture]
-    internal sealed class EntityContainerTests
+    internal sealed class EntityContainerTests : ECSTestsFixture
     {
-        private World 			m_PreviousWorld;
-        private World 			m_World;
-        private EntityManager   m_Manager;
-
-        [SetUp]
-        public void Setup()
-        {
-            m_PreviousWorld = World.Active;
-            m_World = World.Active = new World ("Test World");
-            m_Manager = m_World.EntityManager;
-        }
-
-        [TearDown]
-        public void TearDown()
-        {
-            if (m_Manager != null)
-            {
-                m_World.Dispose();
-                m_World = null;
-
-                World.Active = m_PreviousWorld;
-                m_PreviousWorld = null;
-                m_Manager = null;
-            }
-        }
-
         [Test]
         public void VisitEntityContainer()
         {
@@ -51,12 +26,27 @@ namespace Unity.Entities.Properties.Tests
 
             PropertyContainer.Visit(container, new EntityVisitor());
         }
-
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [Test]
+        public void VisitManagedComponentTest()
+        {
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddComponentObject(entity, new TestManagedComponent());
+            var container = new EntityContainer(m_Manager, entity);
+            PropertyContainer.Visit(container, new EntityVisitor());
+        }
+#endif
         private class EntityVisitor : PropertyVisitor
         {
             protected override VisitStatus BeginContainer<TProperty, TContainer, TValue>(TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker)
             {
                 Debug.Log($"BeginContainer [{typeof(TContainer)}] [{typeof(TValue)}]");
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+                if (typeof(TestManagedComponent).IsAssignableFrom(typeof(TValue)))
+                {
+                    Assert.That(value, Is.Not.Null);
+                }
+#endif
                 return VisitStatus.Handled;
             }
 

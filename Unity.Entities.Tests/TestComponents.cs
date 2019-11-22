@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Entities.Tests;
 
@@ -9,7 +10,12 @@ using Unity.Entities.Tests;
 
 namespace Unity.Entities.Tests
 {
-    public struct EcsTestData : IComponentData
+    // In case we need a generic way to access the first int of the EcsTestData* structures
+    interface IGetValue
+    {
+        int GetValue();
+    }
+    public struct EcsTestData : IComponentData, IGetValue
     {
         public int value;
 
@@ -17,9 +23,16 @@ namespace Unity.Entities.Tests
         {
             value = inValue;
         }
+
+        public override string ToString()
+        {
+            return value.ToString();
+        }
+
+        public int GetValue() => value;
     }
 
-    public struct EcsTestData2 : IComponentData
+    public struct EcsTestData2 : IComponentData, IGetValue
     {
         public int value0;
         public int value1;
@@ -28,9 +41,11 @@ namespace Unity.Entities.Tests
         {
             value1 = value0 = inValue;
         }
+
+        public int GetValue() => value0;
     }
 
-    public struct EcsTestData3 : IComponentData
+    public struct EcsTestData3 : IComponentData, IGetValue
     {
         public int value0;
         public int value1;
@@ -40,9 +55,11 @@ namespace Unity.Entities.Tests
         {
             value2 = value1 = value0 = inValue;
         }
+
+        public int GetValue() => value0;
     }
 
-    public struct EcsTestData4 : IComponentData
+    public struct EcsTestData4 : IComponentData, IGetValue
     {
         public int value0;
         public int value1;
@@ -53,9 +70,11 @@ namespace Unity.Entities.Tests
         {
             value3 = value2 = value1 = value0 = inValue;
         }
+
+        public int GetValue() => value0;
     }
 
-    public struct EcsTestData5 : IComponentData
+    public struct EcsTestData5 : IComponentData, IGetValue
     {
         public int value0;
         public int value1;
@@ -67,6 +86,8 @@ namespace Unity.Entities.Tests
         {
             value4 = value3 = value2 = value1 = value0 = inValue;
         }
+
+        public int GetValue() => value0;
     }
 
     public struct EcsTestFloatData : IComponentData
@@ -107,7 +128,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    [MaximumChunkCapacity(500)]
+    [MaximumChunkCapacity(475)]
     struct EcsTestSharedCompWithMaxChunkCapacity : ISharedComponentData
     {
         public int Value;
@@ -138,6 +159,18 @@ namespace Unity.Entities.Tests
     public struct EcsTestDataBlobAssetArray : IComponentData
     {
         public BlobAssetReference<BlobArray<float>> array;
+    }
+
+    public struct EcsTestDataBlobAssetElement : IBufferElementData
+    {
+        public BlobAssetReference<int> blobElement;
+    }
+
+    public struct EcsTestDataBlobAssetElement2 : IBufferElementData
+    {
+        public BlobAssetReference<int> blobElement;
+        byte pad;
+        public BlobAssetReference<int> blobElement2;
     }
 
     public struct EcsTestSharedCompEntity : ISharedComponentData
@@ -232,6 +265,10 @@ namespace Unity.Entities.Tests
     {
     }
 
+    public struct EcsTestSharedTag : ISharedComponentData
+    {
+    }
+
     public struct EcsTestComponentWithBool : IComponentData, IEquatable<EcsTestComponentWithBool>
     {
         public bool value;
@@ -272,4 +309,68 @@ namespace Unity.Entities.Tests
         where T : struct
     {
     }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+    public class EcsTestManagedDataEntity : IComponentData
+    {
+        public string value0;
+        public Entity value1;
+
+        public EcsTestManagedDataEntity()
+        {
+        }
+
+        public EcsTestManagedDataEntity(string inValue0, Entity inValue1)
+        {
+            value0 = inValue0;
+            value1 = inValue1;
+        }
+    }
+
+    public class EcsTestManagedDataEntityCollection : IComponentData
+    {
+        public List<string> value0;
+        public List<Entity> value1;
+
+        public EcsTestManagedDataEntityCollection()
+        {
+        }
+
+        public EcsTestManagedDataEntityCollection(string[] inValue0, Entity[] inValue1)
+        {
+            value0 = new List<string>(inValue0);
+            value1 = new List<Entity>(inValue1);
+        }
+    }
+
+    public class EcsTestManagedComponent : IComponentData
+    {
+        public string value;
+
+        public override int GetHashCode()
+        {
+            return value.GetHashCode();
+        }
+
+        public bool Equals(EcsTestManagedComponent other)
+        {
+            return value == other.value;
+        }
+    }
+
+    public class EcsTestManagedComponent2 : EcsTestManagedComponent
+    {
+        public string value2;
+    }
+
+    public class EcsTestManagedComponent3 : EcsTestManagedComponent2
+    {
+        public string value3;
+    }
+
+    public class EcsTestManagedComponent4 : EcsTestManagedComponent3
+    {
+        public string value4;
+    }
+#endif
 }

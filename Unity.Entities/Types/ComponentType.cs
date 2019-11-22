@@ -23,20 +23,10 @@ namespace Unity.Entities
         public bool IsSystemStateComponent => (TypeIndex & TypeManager.SystemStateTypeFlag) != 0;
         public bool IsSystemStateSharedComponent => (TypeIndex & TypeManager.SystemStateSharedComponentTypeFlag) == TypeManager.SystemStateSharedComponentTypeFlag;
         public bool IsSharedComponent => (TypeIndex & TypeManager.SharedComponentTypeFlag) != 0;
+        public bool IsManagedComponent => (TypeIndex & TypeManager.ManagedComponentTypeFlag) != 0;
         public bool IsZeroSized => (TypeIndex & TypeManager.ZeroSizeInChunkTypeFlag) != 0;
         public bool IsChunkComponent => (TypeIndex & TypeManager.ChunkComponentTypeFlag) != 0;
         public bool HasEntityReferences => (TypeIndex & TypeManager.HasNoEntityReferencesFlag) == 0;
-
-        public bool IgnoreDuplicateAdd => TypeManager.IgnoreDuplicateAdd(TypeIndex);
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        #if UNITY_2019_3_OR_NEWER
-        [Obsolete("Create<T> has been renamed. Use ReadWrite<T> instead. (RemovedAfter 2019-08-25) (UnityUpgradable) -> ReadWrite<T>()", false)]
-        #else
-        [Obsolete("Create<T> has been renamed. Use ReadWrite<T> instead. (RemovedAfter 2019-08-25)", false)]
-        #endif
-        public static ComponentType Create<T>() => ReadWrite<T>();
-
 
         public static ComponentType ReadWrite<T>()
         {
@@ -68,7 +58,6 @@ namespace Unity.Entities
         public static ComponentType ReadOnly<T>()
         {
             ComponentType t = ReadWrite<T>();
-//            ComponentType t = Create<T>();
             t.AccessModeType = AccessMode.ReadOnly;
             return t;
         }
@@ -192,29 +181,4 @@ namespace Unity.Entities
             return (TypeIndex * 5813);
         }
     }
-
-
-    [Obsolete("SubtractiveComponent has been renamed. Use ExcludeComponent instead. (RemovedAfter 2019-08-25) (UnityUpgradable) -> ExcludeComponent<T>", true)]
-    [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
-    public struct SubtractiveComponent<T>
-    {
-    }
-
-    public partial struct ComponentType
-    {
-        [Obsolete("ComponentType.Subtractive has been renamed. Use Exclude instead. (RemovedAfter 2019-08-25) (UnityUpgradable) -> Exclude(*)", true)]
-        [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
-        public static ComponentType Subtractive(Type type)
-        {
-            return Exclude(type);
-        }
-
-        [Obsolete("ComponentType.Subtractive has been renamed. Use ExcludeComponent instead. (RemovedAfter 2019-08-25) (UnityUpgradable) -> Exclude<T>()", true)]
-        [System.ComponentModel.EditorBrowsable(EditorBrowsableState.Never)]
-        public static ComponentType Subtractive<T>()
-        {
-            return Exclude<T>();
-        }
-    }
-
 }

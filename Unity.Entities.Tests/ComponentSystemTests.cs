@@ -50,7 +50,7 @@ namespace Unity.Entities.Tests
         {
             NativeArray<int> test = new NativeArray<int>(10, Allocator.Persistent);
 
-            struct Job : IJob
+            new struct Job : IJob
             {
                 public NativeArray<int> test;
 
@@ -161,11 +161,11 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void DisposeSystemComponentGroupThrows()
+        public void DisposeSystemEntityQueryThrows()
         {
             var system = World.CreateSystem<EmptySystem>();
             var group = system.GetEntityQuery(typeof(EcsTestData));
-            Assert.Throws<ArgumentException>(() => group.Dispose());
+            Assert.Throws<InvalidOperationException>(() => group.Dispose());
         }
 
         [Test]
@@ -226,7 +226,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void GetComponentGroupArchetypeQuery()
+        public void GetEntityQuery_ArchetypeQuery()
         {
             var query1 = new ComponentType[] { typeof(EcsTestData) };
             var query2 = new EntityQueryDesc { All = new ComponentType[] {typeof(EcsTestData)} };
@@ -244,7 +244,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void GetComponentGroupComponentTypeArchetypeQueryEquality()
+        public void GetEntityQuery_ComponentTypeArchetypeQueryEquality()
         {
             var query1 = new ComponentType[] { typeof(EcsTestData) };
             var query2 = new EntityQueryDesc { All = new ComponentType[] {typeof(EcsTestData)} };
@@ -260,7 +260,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void GetComponentGroupRespectsRWAccessInequality()
+        public void GetEntityQuery_RespectsRWAccessInequality()
         {
             var query1 = new EntityQueryDesc { All = new [] {ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>()} };
             var query2 = new EntityQueryDesc { All = new [] {ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>()} };
@@ -273,7 +273,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void GetComponentGroupOrderIndependent()
+        public void GetEntityQuery_OrderIndependent()
         {
             var query1 = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2) };
             var query2 = new ComponentType[] { typeof(EcsTestData2), typeof(EcsTestData) };
@@ -296,7 +296,7 @@ namespace Unity.Entities.Tests
 
         //@TODO: Behaviour is a slightly dodgy... Should probably just ignore and return same as single typeof(EcsTestData)
         [Test]
-        public void GetComponentGroupWithEntityThrows()
+        public void GetEntityQuery_WithEntityThrows()
         {
             ComponentType[] e = { typeof(Entity), typeof(EcsTestData) };
             EmptySystem.GetEntityQuery(e);
@@ -304,7 +304,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void GetComponentGroupWithDuplicates()
+        public void GetEntityQuery_WithDuplicates()
         {
             // Currently duplicates will create two seperate groups doing the same thing...
             ComponentType[] dup_1 = { typeof(EcsTestData2) };
@@ -413,8 +413,10 @@ namespace Unity.Entities.Tests
         public void CreateSystemValidParameters()
         {
             Assert.DoesNotThrow(() =>
-            { var system = World.CreateSystem<PreservedTestSystem>("test");
-                World.Active.DestroySystem(system); });
+            { 
+                var system = World.CreateSystem<PreservedTestSystem>("test");
+                World.DestroySystem(system); 
+            });
         }
 #endif
         

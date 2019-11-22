@@ -31,7 +31,7 @@ namespace Unity.Entities
             EntityManager entityManager;
             Entity entity;
             if (
-                World.Active != null
+                World.DefaultGameObjectInjectionWorld != null
                 && TryGetEntityAndManager(out entityManager, out entity)
                 && !entityManager.HasComponent(entity, GetComponentType()) // in case GameObjectEntity already added
             )

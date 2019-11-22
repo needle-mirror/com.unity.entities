@@ -4,14 +4,13 @@ uid: ecs-entities
 # Entities
 <!-- 
 > Topics to add
-> * Spawning Entities in Jobs -- iEntity Command Buffers
+> * Spawning Entities in Jobs -- Entity Command Buffers
 > * Transferring Entities between worlds: EM.MoveEntity
-> * Coming soon: Entities with components in sub-worlds
 -->
 
 Entities are one of the three principle elements of an Entity Component System architecture. They represent the individual "things" in you game or program. An entity has neither behavior nor data; instead, it identifies which pieces of data belong together. [Systems](ecs_systems.md) provide the behavior. [Components](ecs_components.md) store the data.
 
-An entity is essentially an ID. You can think of it as a super lightweight [GameObject](https://docs.unity3d.com/Manual/class-GameObject.html) that does not even have a name by default. entity ID's are stable. They are the only stable way to store a reference to another component or entity.
+An entity is essentially an ID. You can think of it as a super lightweight [GameObject](https://docs.unity3d.com/Manual/class-GameObject.html) that does not even have a name by default. Entity ID's are stable; you can use them to store a reference to another component or entity. For example, a child entity in a hierarchy may need to reference its parent entity. 
 
 An [EntityManager](xref:Unity.Entities.EntityManager) manages all of the entities in a [World](xref:Unity.Entities.World). An EntityManager maintains the list of entities and organizes the data associated with an entity for optimal performance.
 

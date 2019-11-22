@@ -133,7 +133,7 @@ namespace Unity.Entities
         EntityManager.InsideForEach InsideForEach() =>
             new EntityManager.InsideForEach(m_System.EntityManager);
         #endif
-
+        
         // this changes the existing query in the following ways:
         // a) change anything that is currently ReadWrite in m_All but not in delegate types to ReadOnly 
         //  (there is no way to access as ReadWrite if not in delegate)
@@ -164,12 +164,20 @@ namespace Unity.Entities
             
             // sort all non -1 types forward in the case we marked some as invalid
             // (they are already in m_All as ReadOnly)
-            if (filteredDelegateTypeCount != delegateTypeCount)
+            if (filteredDelegateTypeCount < delegateTypeCount)
             {
                 for (var iDelegateType = 0; iDelegateType < filteredDelegateTypeCount; ++iDelegateType)
                 {
-                    while (delegateTypeIndices[iDelegateType] == -1 && iDelegateType < filteredDelegateTypeCount)
-                        delegateTypeIndices[iDelegateType] = delegateTypeIndices[iDelegateType + 1];
+                    for (var iSwapDelegateType = iDelegateType + 1;
+                        delegateTypeIndices[iDelegateType] == -1 && iSwapDelegateType < delegateTypeCount;
+                        ++iSwapDelegateType)
+                    {
+                        if (delegateTypeIndices[iSwapDelegateType] != -1)
+                        {
+                            delegateTypeIndices[iDelegateType] = delegateTypeIndices[iSwapDelegateType];
+                            delegateTypeIndices[iSwapDelegateType] = -1;
+                        }
+                    }
                 }
 
                 delegateTypeCount = filteredDelegateTypeCount;

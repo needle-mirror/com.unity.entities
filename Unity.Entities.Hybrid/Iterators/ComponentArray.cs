@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Reflection;
 
 using Unity.Collections.LowLevel.Unsafe;
@@ -11,22 +11,22 @@ namespace Unity.Entities
     {
         public static T[] ToComponentArray<T>(this EntityQuery group) where T : Component
         {
-            int length = group.CalculateEntityCount();
-            ComponentChunkIterator iterator = group.GetComponentChunkIterator();
-            var indexInComponentGroup = group.GetIndexInEntityQuery(TypeManager.GetTypeIndex<T>());
+            int entityCount = group.CalculateEntityCount();
+            var arr = new T[entityCount];
 
-            iterator.IndexInEntityQuery = indexInComponentGroup;
-
-            var arr = new T[length];
-            var cache = default(ComponentChunkCache);
-            for (int i = 0; i < length; ++i)
+            var iterator = group.GetArchetypeChunkIterator();
+            var indexInEntityQuery = group.GetIndexInEntityQuery(TypeManager.GetTypeIndex<T>());
+            
+            var entityCounter = 0;
+            while (iterator.MoveNext())
             {
-                if (i < cache.CachedBeginIndex || i >= cache.CachedEndIndex)
-                    iterator.MoveToEntityIndexAndUpdateCache(i, out cache, true);
-
-                arr[i] = (T)iterator.GetManagedObject(group.ManagedComponentStore, cache.CachedBeginIndex, i);
+                var chunk = iterator.CurrentArchetypeChunk;
+                for (int entityIndex = 0; entityIndex < chunk.Count; ++entityIndex)
+                {
+                    arr[entityCounter++] = (T) iterator.GetManagedObject(group.ManagedComponentStore, indexInEntityQuery, entityIndex);
+                }
             }
-
+            
             return arr;
         }
     }

@@ -1,11 +1,14 @@
 {
-    "name": "Unity.Scenes.Tests",
+    "name": "Unity.Scenes.Hybrid.Tests",
     "references": [
         "Unity.Entities.Tests",
         "Unity.Entities",
+        "Unity.Properties",
         "Unity.Scenes.Hybrid",
+        "Unity.Collections",
         "Unity.Scenes.Editor",
-        "Unity.Entities.Hybrid"
+        "Unity.Entities.Hybrid",
+        "Unity.Mathematics"
     ],
     "optionalUnityReferences": [
         "TestAssemblies"
@@ -14,7 +17,7 @@
         "Editor"
     ],
     "excludePlatforms": [],
-    "allowUnsafeCode": false,
+    "allowUnsafeCode": true,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,

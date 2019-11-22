@@ -26,7 +26,7 @@ namespace Unity.Entities
         /// <see cref="Entity.Index"/> in the entities array.</returns>
         public bool Exists(Entity entity)
         {
-            return EntityComponentStore->Exists(entity);
+            return m_EntityDataAccess.Exists(entity);
         }
 
         /// <summary>
@@ -38,7 +38,7 @@ namespace Unity.Entities
         /// <returns>True, if the specified entity has the component.</returns>
         public bool HasComponent<T>(Entity entity)
         {
-            return EntityComponentStore->HasComponent(entity, ComponentType.ReadWrite<T>());
+            return m_EntityDataAccess.HasComponent(entity, ComponentType.ReadWrite<T>());
         }
 
         /// <summary>
@@ -50,7 +50,7 @@ namespace Unity.Entities
         /// <returns>True, if the specified entity has the component.</returns>
         public bool HasComponent(Entity entity, ComponentType type)
         {
-            return EntityComponentStore->HasComponent(entity, type);
+            return m_EntityDataAccess.HasComponent(entity, type);
         }
 
         /// <summary>
@@ -62,7 +62,7 @@ namespace Unity.Entities
         /// <returns>True, if the chunk containing the specified entity has the component.</returns>
         public bool HasChunkComponent<T>(Entity entity)
         {
-            return EntityComponentStore->HasComponent(entity, ComponentType.ChunkComponent<T>());
+            return m_EntityDataAccess.HasComponent(entity, ComponentType.ChunkComponent<T>());
         }
 
         // ----------------------------------------------------------------------------------------------------------

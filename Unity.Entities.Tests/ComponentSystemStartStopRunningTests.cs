@@ -70,7 +70,7 @@ namespace Unity.Entities.Tests
         public override void Setup()
         {
             base.Setup();
-            system = World.Active.GetOrCreateSystem<TestSystem>();
+            system = World.GetOrCreateSystem<TestSystem>();
             ShouldRunSystem(true);
         }
 
@@ -83,7 +83,7 @@ namespace Unity.Entities.Tests
             }
             if (system != null)
             {
-                World.Active.DestroySystem(system);
+                World.DestroySystem(system);
                 system = null;
             }
 
@@ -281,7 +281,7 @@ namespace Unity.Entities.Tests
             system.Update();
 
             LogAssert.Expect(LogType.Log, TestSystem.OnStopRunningString);
-            World.Active.DestroySystem(system);
+            World.DestroySystem(system);
             system = null;
 
             LogAssert.NoUnexpectedReceived();
@@ -293,7 +293,7 @@ namespace Unity.Entities.Tests
             system.Enabled = false;
             system.Update();
 
-            World.Active.DestroySystem(system);
+            World.DestroySystem(system);
             system = null;
 
             LogAssert.NoUnexpectedReceived();

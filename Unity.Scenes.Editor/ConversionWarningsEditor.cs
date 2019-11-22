@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Reflection;
 using Unity.Entities;
+using Unity.Entities.Conversion;
 using Unity.Profiling;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace Unity.Scenes.Editor
@@ -11,7 +13,7 @@ namespace Unity.Scenes.Editor
     [InitializeOnLoad]
     class ConversionWarningsGui
     {
-        static ProfilerMarker ms_ConversionWarningsMarker = new ProfilerMarker("ConversionWarningsGUI.ConversionWarnings");
+        static readonly ProfilerMarker k_MsConversionWarningsMarker = new ProfilerMarker("ConversionWarningsGui.ConversionWarnings");
         static readonly List<ConvertToEntity> s_ConvertToEntityBuffer = new List<ConvertToEntity>(8);
 
         static ConversionWarningsGui()
@@ -21,27 +23,30 @@ namespace Unity.Scenes.Editor
 
         static void Callback(UnityEditor.Editor editor)
         {
-            ms_ConversionWarningsMarker.Begin();
-            var warning = GetWarning(editor);
-            
-            if (warning != null)
-                EditorGUILayout.HelpBox(warning, MessageType.Error, true);
-            ms_ConversionWarningsMarker.End();
+            using (k_MsConversionWarningsMarker.Auto())
+            {
+                var warning = GetWarning(editor.target as GameObject);
+                if (warning != null)
+                    EditorGUILayout.HelpBox(warning, MessageType.Error, true);
+            }
         }
         
-        static string GetWarning(UnityEditor.Editor editor)
-        {            
-            var gameobject = editor.target as GameObject;
-            if (gameobject == null)
+        static string GetWarning(GameObject gameObject)
+        {
+            // only care about scene objects
+            if (gameObject == null)
                 return null;
 
-            return GetWarnings(gameobject);
-        }
+            // assets have no scene context
+            if (gameObject.IsPrefab())
+                return null;
 
-        static string GetWarnings(GameObject gameobject)
-        {
-            var isSubScene = EditorEntityScenes.IsEntitySubScene(gameobject.scene);
-            gameobject.GetComponentsInParent(true, s_ConvertToEntityBuffer);
+            // editing in a preview scene (like a prefab in isolation mode) also has no context
+            if (EditorSceneManager.IsPreviewSceneObject(gameObject))
+                return null;
+
+            var isSubScene = EditorEntityScenes.IsEntitySubScene(gameObject.scene);
+            gameObject.GetComponentsInParent(true, s_ConvertToEntityBuffer);
             var convertToEntity = s_ConvertToEntityBuffer.Count > 0;
             s_ConvertToEntityBuffer.Clear();
 
@@ -50,7 +55,7 @@ namespace Unity.Scenes.Editor
             if (!willBeConverted)
             {
                 Type convertType = null;
-                foreach (var behaviour in gameobject.GetComponents<MonoBehaviour>())
+                foreach (var behaviour in gameObject.GetComponents<MonoBehaviour>())
                 {
                     if (behaviour != null && behaviour.GetType().GetCustomAttribute<RequiresEntityConversionAttribute>(true) != null)
                     {
@@ -60,17 +65,26 @@ namespace Unity.Scenes.Editor
                 }
 
                 if (convertType != null)
-                    return $"The {convertType.Name} component on '{gameobject.name}' is meant for entity conversion, but it is not part of a SubScene or ConvertToEntity component.\nPlease move the game object to a SubScene or add the ConvertToEntity component.";
+                    return
+                        $"The {convertType.Name} component on '{gameObject.name}' is meant for entity conversion, " +
+                        $"but it is not part of a {nameof(SubScene)} or {nameof(ConvertToEntity)} component.\n" +
+                        $"Please move the {nameof(GameObject)} to a {nameof(SubScene)} or add the {nameof(ConvertToEntity)} component.";
             }
 
             if (isSubScene && convertToEntity)
-                return $"'{gameobject.name}' will be converted due to being in a SubScene. ConvertToEntity will have no effect.\nPlease remove the ConvertToEntity component.";
+                return
+                    $"'{gameObject.name}' will be converted due to being in a {nameof(SubScene)}. {nameof(ConvertToEntity)} " +
+                    $"will have no effect. Please remove the {nameof(ConvertToEntity)} component.";
             
-            if (isSubScene && gameobject.GetComponent<GameObjectEntity>() != null)
-                return $"'{gameobject.name}' will be converted due to being in a SubScene. GameObjectEntity will have no effect the game object will not be loaded.\nPlease remove the GameObjectEntity component";
+            if (isSubScene && gameObject.GetComponent<GameObjectEntity>() != null)
+                return
+                    $"'{gameObject.name}' will be converted due to being in a {nameof(SubScene)}. {nameof(GameObjectEntity)} " +
+                    $"will have no effect the {nameof(GameObject)} will not be loaded.\nPlease remove the {nameof(GameObjectEntity)} component";
 
-            if (convertToEntity && gameobject.GetComponent<GameObjectEntity>() != null)
-                return $"'{gameobject.name}' will be converted due to being in a ConvertToEntity hierarchy. GameObjectEntity will have no effect.\nPlease remove the GameObjectEntity component.";
+            if (convertToEntity && gameObject.GetComponent<GameObjectEntity>() != null)
+                return
+                    $"'{gameObject.name}' will be converted due to being in a {nameof(ConvertToEntity)} hierarchy. " +
+                    $"{nameof(GameObjectEntity)} will have no effect.\nPlease remove the {nameof(GameObjectEntity)} component.";
 
             return null;
         }

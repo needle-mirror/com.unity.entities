@@ -48,9 +48,11 @@ namespace Unity.Entities
         }
 
 #if UNITY_DOTSPLAYER
-        static internal void DoDeallocateOnJobCompletion(object jobData)
+        internal struct JobForEachStruct<T> where T : struct, IBaseJobForEach
         {
-            throw new CodegenShouldReplaceException();
+            static void Execute()
+            {
+            }
         }
 
         public static JobHandle Schedule<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
@@ -226,7 +228,7 @@ namespace Unity.Entities
 
                     // If the cached filter has changed, update the newly cached EntityQuery with those changes.
                     if (cache.FilterChanged.Length != 0)
-                        cache.EntityQuery.SetFilterChanged(cache.FilterChanged);
+                        cache.EntityQuery.SetChangedVersionFilter(cache.FilterChanged);
 
                     // Otherwise, just reset our newly cached EntityQuery's filter.
                     else
@@ -264,7 +266,7 @@ namespace Unity.Entities
             iterator.m_IsParallelFor = isParallelFor;
             iterator.m_Length = query.CalculateChunkCountWithoutFiltering();
 
-            iterator.GlobalSystemVersion = query.GetComponentChunkIterator().m_GlobalSystemVersion;
+            iterator.GlobalSystemVersion = query.EntityComponentStore->GlobalSystemVersion;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             iterator.m_MaxIndex = iterator.m_Length - 1;

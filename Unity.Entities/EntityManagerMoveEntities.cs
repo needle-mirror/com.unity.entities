@@ -310,7 +310,6 @@ namespace Unity.Entities
             EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
         }
 
-
         internal void MoveChunksFrom(
             NativeArray<ArchetypeChunk> chunks,
             NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping,
@@ -352,10 +351,10 @@ namespace Unity.Entities
 
                     EntityComponentStore->CreateEntities(dstArchetype->MetaChunkArchetype, &dstEntity, 1);
 
-                    srcEntityComponentStore->GetChunk(srcEntity, out var srcChunk, out var srcIndex);
-                    EntityComponentStore->GetChunk(dstEntity, out var dstChunk, out var dstIndex);
+                    var srcEntityInChunk = srcEntityComponentStore->GetEntityInChunk(srcEntity);
+                    var dstEntityInChunk = EntityComponentStore->GetEntityInChunk(dstEntity);
 
-                    ChunkDataUtility.SwapComponents(srcChunk, srcIndex, dstChunk, dstIndex, 1,
+                    ChunkDataUtility.SwapComponents(srcEntityInChunk.Chunk, srcEntityInChunk.IndexInChunk, dstEntityInChunk.Chunk, dstEntityInChunk.IndexInChunk, 1,
                         srcEntityComponentStore->GlobalSystemVersion, EntityComponentStore->GlobalSystemVersion);
                     EntityRemapUtility.AddEntityRemapping(ref entityRemapping, srcEntity, dstEntity);
 
@@ -388,10 +387,15 @@ namespace Unity.Entities
 
             k_ProfileMoveSharedComponents.Begin();
             var remapShared =
-                ManagedComponentStore.MoveSharedComponents(srcManagedComponentStore, chunks,
-                    entityRemapping,
-                    Allocator.TempJob);
+                ManagedComponentStore.MoveSharedComponents(srcManagedComponentStore, chunks, Allocator.TempJob);
             k_ProfileMoveSharedComponents.End();
+
+            new ChunkPatchEntities
+            {
+                RemapChunks = remapChunks,
+                EntityRemapping = entityRemapping,
+                EntityComponentStore = EntityComponentStore
+            }.Run();
 
             var remapChunksJob = new RemapChunksJob
             {
@@ -408,7 +412,9 @@ namespace Unity.Entities
             }.Schedule(remapChunksJob);
 
             moveChunksBetweenArchetypeJob.Complete();
-
+            
+            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+            
             remapShared.Dispose();
             remapChunks.Dispose();
         }
@@ -428,7 +434,7 @@ namespace Unity.Entities
             JobHandle.ScheduleBatchedJobs();
 
             int chunkCount = 0;
-            for (var i = srcEntityComponentStore->m_Archetypes.Length - 1; i >= 0; --i)
+            for (var i = 0; i < srcEntityComponentStore->m_Archetypes.Length; ++i)
             {
                 var srcArchetype = srcEntityComponentStore->m_Archetypes.Ptr[i];
                 chunkCount += srcArchetype->Chunks.Count;
@@ -440,7 +446,7 @@ namespace Unity.Entities
 
             int chunkIndex = 0;
             int archetypeIndex = 0;
-            for (var i = srcEntityComponentStore->m_Archetypes.Length - 1; i >= 0; --i)
+            for (var i = 0; i < srcEntityComponentStore->m_Archetypes.Length; ++i)
             {
                 var srcArchetype = srcEntityComponentStore->m_Archetypes.Ptr[i];
                 if (srcArchetype->Chunks.Count != 0)
@@ -449,7 +455,7 @@ namespace Unity.Entities
                         srcArchetype->TypesCount);
 
                     remapArchetypes[archetypeIndex] = new RemapArchetype
-                        {srcArchetype = srcArchetype, dstArchetype = dstArchetype};
+                    {srcArchetype = srcArchetype, dstArchetype = dstArchetype};
 
                     for (var j = 0; j < srcArchetype->Chunks.Count; ++j)
                     {
@@ -503,6 +509,13 @@ namespace Unity.Entities
                 ManagedComponentStore.MoveAllSharedComponents(srcManagedComponentStore, Allocator.TempJob);
             k_ProfileMoveSharedComponents.End();
 
+            new ChunkPatchEntities
+            {
+                RemapChunks = remapChunks,
+                EntityRemapping = entityRemapping,
+                EntityComponentStore = EntityComponentStore
+            }.Run();
+            
             var remapAllChunksJob = new RemapAllChunksJob
             {
                 dstEntityComponentStore = EntityComponentStore,
@@ -518,6 +531,8 @@ namespace Unity.Entities
                 chunkHeaderType = TypeManager.GetTypeIndex<ChunkHeader>()
             }.Schedule(archetypeIndex, 1, remapAllChunksJob);
 
+            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+            
             remapArchetypesJob.Complete();
             remapShared.Dispose();
             remapChunks.Dispose();
@@ -574,7 +589,7 @@ namespace Unity.Entities
             var tempEntities = new NativeArray<Entity>(targetChunk->Count, Allocator.Temp);
 
             EntityComponentStore->AllocateEntities(targetChunk->Archetype, targetChunk, 0, targetChunk->Count,
-                (Entity*) tempEntities.GetUnsafePtr());
+                (Entity*)tempEntities.GetUnsafePtr());
 
             tempEntities.Dispose();
 
@@ -601,6 +616,26 @@ namespace Unity.Entities
         {
             public Archetype* srcArchetype;
             public Archetype* dstArchetype;
+        }
+
+        [BurstCompile]
+        struct ChunkPatchEntities : IJob
+        {
+            public NativeArray<RemapChunk> RemapChunks;
+            public NativeArray<EntityRemapUtility.EntityRemapInfo> EntityRemapping;
+            [NativeDisableUnsafePtrRestriction]
+            public EntityComponentStore* EntityComponentStore;
+
+            public void Execute()
+            {
+                for (int i = 0; i < RemapChunks.Length; i++)
+                {
+                    var remapChunk = RemapChunks[i];
+                    Chunk* chunk = remapChunk.chunk;
+                    Archetype* dstArchetype = remapChunk.dstArchetype;
+                    EntityComponentStore->ManagedChangesTracker.PatchEntities(dstArchetype, chunk, chunk->Count, EntityRemapping);
+                }
+            }
         }
 
         [BurstCompile]
@@ -632,7 +667,7 @@ namespace Unity.Entities
 
             public void Execute(int index)
             {
-                var chunk = (Chunk*) chunks[index];
+                var chunk = (Chunk*)chunks[index];
                 srcIndices[index] = chunk->ManagedArrayIndex;
                 chunk->ManagedArrayIndex = dstIndices[index];
             }
@@ -681,6 +716,7 @@ namespace Unity.Entities
                     if (numSharedComponents != 0)
                     {
                         var alloc = stackalloc int[numSharedComponents];
+
                         for (int i = 0; i < numSharedComponents; ++i)
                             alloc[i] = remapShared[sharedComponentValues[i]];
                         sharedComponentValues = alloc;
@@ -718,6 +754,7 @@ namespace Unity.Entities
                 EntityRemapUtility.PatchEntities(dstArchetype->ScalarEntityPatches + 1,
                     dstArchetype->ScalarEntityPatchCount - 1, dstArchetype->BufferEntityPatches,
                     dstArchetype->BufferEntityPatchCount, chunk->Buffer, chunk->Count, ref entityRemapping);
+
                 chunk->Archetype = dstArchetype;
                 chunk->ListIndex += dstArchetype->Chunks.Count;
                 chunk->ListWithEmptySlotsIndex += dstArchetype->ChunksWithEmptySlots.Length;
@@ -727,7 +764,7 @@ namespace Unity.Entities
         [BurstCompile]
         struct RemapArchetypesJob : IJobParallelFor
         {
-            [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<RemapArchetype> remapArchetypes;
+            [DeallocateOnJobCompletion][ReadOnly] public NativeArray<RemapArchetype> remapArchetypes;
 
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* dstEntityComponentStore;
 
@@ -815,8 +852,8 @@ namespace Unity.Entities
                         // modifying them here would be a race condition
                         var chunk = dstArchetype->Chunks.p[i + dstChunkCount];
                         var metaChunkEntity = chunk->metaChunkEntity;
-                        dstEntityComponentStore->GetChunk(metaChunkEntity, out var metaChunk, out var indexInMetaChunk);
-                        var chunkHeader = (ChunkHeader*) (metaChunk->Buffer + (offset + sizeOf * indexInMetaChunk));
+                        var metaEntityInChunk = dstEntityComponentStore->GetEntityInChunk(metaChunkEntity);
+                        var chunkHeader = (ChunkHeader*)(metaEntityInChunk.Chunk->Buffer + (offset + sizeOf * metaEntityInChunk.IndexInChunk));
                         chunkHeader->ArchetypeChunk = new ArchetypeChunk(chunk, dstEntityComponentStore);
                     }
                 }

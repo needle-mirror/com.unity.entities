@@ -25,18 +25,24 @@ namespace Unity.Entities.Tests
         {
             var go = new GameObject("test", typeof(GameObjectEntity));
             var entity = GameObjectEntity.AddToEntityManager(m_Manager, go);
-            Assert.Throws<ArgumentException>(() => { m_Manager.HasComponent<GameObjectEntity>(entity); });
+
+            var x = Assert.Throws<ArgumentException>(() => { m_Manager.HasComponent<GameObjectEntity>(entity); });
+            Assert.That(x.Message, Contains.Substring("All ComponentType must be known at compile time"));
         }
 
-        unsafe struct MyEntity
+        [Test]
+        public void ComponentsAddedOrNotBasedOnEnabledFlag()
         {
-#pragma warning disable 649
-            public Light              light;
-            public Rigidbody          rigidbody;
+            var ge = new GameObject("with enabled");
+            ge.AddComponent<MeshRenderer>().enabled = true;
+            var gd = new GameObject("with disabled");
+            gd.AddComponent<MeshRenderer>().enabled = false;
 
-            public EcsTestData*       testData;
-            public EcsTestData2*      testData2;
-#pragma warning restore 649
+            var ee = GameObjectEntity.AddToEntityManager(m_Manager, ge);
+            var ed = GameObjectEntity.AddToEntityManager(m_Manager, gd);
+
+            Assert.That(m_Manager.HasComponent<MeshRenderer>(ee), Is.True);
+            Assert.That(m_Manager.HasComponent<MeshRenderer>(ed), Is.False);
         }
 
         [Test]

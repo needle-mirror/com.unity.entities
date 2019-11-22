@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
@@ -121,17 +122,17 @@ namespace Unity.Entities.Tests
             parent.AddSystemToUpdateList(child4);
             parent.AddSystemToUpdateList(child1);
             parent.AddSystemToUpdateList(child5);
-            var e = Assert.Throws<CircularSystemDependencyException>(() => parent.SortSystemUpdateList());
+            var e = Assert.Throws<ComponentSystemSorter.CircularSystemDependencyException>(() => parent.SortSystemUpdateList());
             // Make sure the system upstream of the cycle was properly sorted
             CollectionAssert.AreEqual(new TestSystemBase[] {child1, child2}, parent.Systems);
             // Make sure the cycle expressed in e.Chain is the one we expect, even though it could start at any node
             // in the cycle.
-            var expectedCycle = new TestSystemBase[] {child5, child3, child4};
+            var expectedCycle = new Type[] {typeof(Circle5System), typeof(Circle3System), typeof(Circle4System)};
             var cycle = e.Chain.ToList();
             bool foundCycleMatch = false;
             for (int i = 0; i < cycle.Count; ++i)
             {
-                var offsetCycle = new System.Collections.Generic.List<ComponentSystemBase>(cycle.Count);
+                var offsetCycle = new System.Collections.Generic.List<Type>(cycle.Count);
                 offsetCycle.AddRange(cycle.GetRange(i, cycle.Count - i));
                 offsetCycle.AddRange(cycle.GetRange(0, i));
                 Assert.AreEqual(cycle.Count, offsetCycle.Count);
@@ -221,22 +222,17 @@ namespace Unity.Entities.Tests
 
 #if !NET_DOTS // Tiny precompiles systems, and lacks a Regex overload for LogAssert.Expect()
         [Test]
-        public void RemoveSystemFromGroup_Succeeds()
+        public void SystemThrows_SystemNotRemovedFromUpdate()
         {
             var parent = World.CreateSystem<TestGroup>();
-            var child = World.CreateSystem<TestSystem>();
-            // Updating the parent with the child added should log an exception (child doesn't implement OnUpdate).
+            var child = World.CreateSystem<ThrowingSystem>();
             parent.AddSystemToUpdateList(child);
-            parent.SortSystemUpdateList();
             parent.Update();
-            LogAssert.Expect(LogType.Exception, new Regex("NotImplementedException"));
+            LogAssert.Expect(LogType.Exception, new Regex(child.ExceptionMessage));
+            parent.Update();
+            LogAssert.Expect(LogType.Exception, new Regex(child.ExceptionMessage));
 
-            // After removing the child system, updating the parent should not reference it in its update pass.
-            Assert.DoesNotThrow(() => { parent.RemoveSystemFromUpdateList(child);});
-            parent.SortSystemUpdateList();
-            World.DestroySystem(child);
-            Assert.DoesNotThrow(() => { parent.Update(); });
-            LogAssert.NoUnexpectedReceived();
+            Assert.AreEqual(0, child.CompleteUpdateCount);
         }
 #endif
 
@@ -249,7 +245,7 @@ namespace Unity.Entities.Tests
         class NonSibling2System : TestSystemBase
         {
         }
-        
+
         [Test]
         public void ComponentSystemGroup_UpdateAfterTargetIsNotSibling_LogsWarning()
         {
@@ -272,7 +268,7 @@ namespace Unity.Entities.Tests
 #endif
 
 #if !NET_DOTS // Tiny precompiles systems, and lacks a Regex overload for LogAssert.Expect()
-        // The UpdateBefore and UpdateAfter tests are for ensuring the user recognizes that ordering relative 
+        // The UpdateBefore and UpdateAfter tests are for ensuring the user recognizes that ordering relative
         // to an ECB system isnt supported.
         [UpdateBefore(typeof(EndInitializationEntityCommandBufferSystem))]
         class BeforeInitEndSystem : TestSystemBase
@@ -462,7 +458,7 @@ namespace Unity.Entities.Tests
             Assert.That(() => { parent.SortSystemUpdateList(); },
                 Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be last."));
         }
-        
+
         [UpdateAfter(typeof(NotEvenASystem))]
         class InvalidUpdateAfterSystem : TestSystemBase
         {
@@ -493,7 +489,7 @@ namespace Unity.Entities.Tests
             parent.SortSystemUpdateList();
             LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateBefore\].+InvalidUpdateBeforeSystem.+NotEvenASystem is not a subclass of ComponentSystemBase"));
         }
-        
+
         [UpdateAfter(typeof(UpdateAfterSelfSystem))]
         class UpdateAfterSelfSystem : TestSystemBase
         {
@@ -538,5 +534,139 @@ namespace Unity.Entities.Tests
                 Throws.ArgumentException.With.Message.Contains("to its own update list"));
         }
 #endif
+
+        class StartAndStopSystemGroup : ComponentSystemGroup
+        {
+            public List<int> Operations;
+            protected override void OnCreate()
+            {
+                Operations = new List<int>(6);
+            }
+
+            protected override void OnStartRunning()
+            {
+                Operations.Add(0);
+                base.OnStartRunning();
+            }
+            protected override void OnUpdate()
+            {
+                Operations.Add(1);
+                base.OnUpdate();
+            }
+            protected override void OnStopRunning()
+            {
+                Operations.Add(2);
+                base.OnStopRunning();
+            }
+
+        }
+
+        class StartAndStopSystemA : ComponentSystem
+        {
+            private StartAndStopSystemGroup Group;
+            protected override void OnCreate()
+            {
+                Group = World.GetExistingSystem<StartAndStopSystemGroup>();
+            }
+
+            protected override void OnStartRunning()
+            {
+                Group.Operations.Add(10);
+                base.OnStartRunning();
+            }
+            protected override void OnUpdate()
+            {
+                Group.Operations.Add(11);
+            }
+            protected override void OnStopRunning()
+            {
+                Group.Operations.Add(12);
+                base.OnStopRunning();
+            }
+
+        }
+        class StartAndStopSystemB : ComponentSystem
+        {
+            private StartAndStopSystemGroup Group;
+            protected override void OnCreate()
+            {
+                Group = World.GetExistingSystem<StartAndStopSystemGroup>();
+            }
+
+            protected override void OnStartRunning()
+            {
+                Group.Operations.Add(20);
+                base.OnStartRunning();
+            }
+            protected override void OnUpdate()
+            {
+                Group.Operations.Add(21);
+            }
+            protected override void OnStopRunning()
+            {
+                Group.Operations.Add(22);
+                base.OnStopRunning();
+            }
+        }
+        class StartAndStopSystemC : ComponentSystem
+        {
+            private StartAndStopSystemGroup Group;
+            protected override void OnCreate()
+            {
+                Group = World.GetExistingSystem<StartAndStopSystemGroup>();
+            }
+
+            protected override void OnStartRunning()
+            {
+                Group.Operations.Add(30);
+                base.OnStartRunning();
+            }
+            protected override void OnUpdate()
+            {
+                Group.Operations.Add(31);
+            }
+            protected override void OnStopRunning()
+            {
+                Group.Operations.Add(32);
+                base.OnStopRunning();
+            }
+        }
+
+        [Test]
+        public void ComponentSystemGroup_OnStartRunningOnStopRunning_Recurses()
+        {
+            var parent = World.CreateSystem<StartAndStopSystemGroup>();
+            var childA = World.CreateSystem<StartAndStopSystemA>();
+            var childB = World.CreateSystem<StartAndStopSystemB>();
+            var childC = World.CreateSystem<StartAndStopSystemC>();
+            parent.AddSystemToUpdateList(childA);
+            parent.AddSystemToUpdateList(childB);
+            parent.AddSystemToUpdateList(childC);
+            // child C is always disabled; make sure enabling/disabling the parent doesn't change that
+            childC.Enabled = false;
+
+            // first update
+            parent.Update();
+            CollectionAssert.AreEqual(parent.Operations, new[] {0, 1, 10, 11, 20, 21});
+            parent.Operations.Clear();
+
+            // second update with no new enabled/disabled
+            parent.Update();
+            CollectionAssert.AreEqual(parent.Operations, new[] {1, 11, 21});
+            parent.Operations.Clear();
+
+            // parent is disabled
+            parent.Enabled = false;
+            parent.Update();
+            CollectionAssert.AreEqual(parent.Operations, new[] {2, 12, 22});
+            parent.Operations.Clear();
+
+            // parent is re-enabled
+            parent.Enabled = true;
+            parent.Update();
+            CollectionAssert.AreEqual(parent.Operations, new[] {0, 1, 10, 11, 20, 21});
+            parent.Operations.Clear();
+        }
+
     }
 }

@@ -5,8 +5,11 @@ using Unity.Jobs;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs.LowLevel.Unsafe;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
-#if !NET_TINY
+using Unity.Entities.CodeGeneratedJobForEach;
+using Unity.Core;
+#if !NET_DOTS
 using System.Linq;
 #endif
 
@@ -129,9 +132,14 @@ namespace Unity.Entities
         /// <value>The World of this system.</value>
         public World World => m_World;
 
+        /// <summary>
+        /// The current Time data for this system's world.
+        /// </summary>
+        public ref readonly TimeData Time => ref m_World.Time;
+
         // ============
 
-    #if !NET_DOTS && (ENABLE_PROFILER || UNITY_EDITOR)
+    #if ENABLE_PROFILER
         Profiling.ProfilerMarker m_ProfilerMarker;
     #endif
 
@@ -150,12 +158,12 @@ namespace Unity.Entities
 
                 if (type.GetMethod("OnCreateManager", BindingFlags.NonPublic | BindingFlags.Instance)?.DeclaringType != typeof(ComponentSystemBase))
                 {
-                    Debug.LogWarning($"OnCreateManager in {type} is obsolete and shall be renamed to OnCreate. This message will be (RemovedAfter 2019-10-22) and OnCreateManager will no longer be called by Unity");
+                    Debug.LogWarning($"OnCreateManager in {type} is obsolete and shall be renamed to OnCreate. This message will be (RemovedAfter 2019-11-30) and OnCreateManager will no longer be called by Unity");
                 }
 
                 if (type.GetMethod("OnDestroyManager", BindingFlags.NonPublic | BindingFlags.Instance)?.DeclaringType != typeof(ComponentSystemBase))
                 {
-                    Debug.LogWarning($"OnDestroyManager in {type} is obsolete and shall be renamed to OnDestroy. This message will be (RemovedAfter 2019-10-22) and OnDestroyManager will no longer be called by Unity");
+                    Debug.LogWarning($"OnDestroyManager in {type} is obsolete and shall be renamed to OnDestroy. This message will be (RemovedAfter 2019-11-30) and OnDestroyManager will no longer be called by Unity");
                 }
 
                 s_ObsoleteAPICheckedTypes.Add(type);
@@ -177,11 +185,13 @@ namespace Unity.Entities
             #if !NET_DOTS
                 OnCreateManager();
             #endif
-                OnCreate();
 
-            #if !NET_DOTS && (ENABLE_PROFILER || UNITY_EDITOR)
-                var type = GetType();
-                m_ProfilerMarker = new Profiling.ProfilerMarker($"{world.Name} {type.FullName}");
+                OnCreateForCompiler();
+                OnCreate();
+                
+
+            #if ENABLE_PROFILER
+                m_ProfilerMarker = new Profiling.ProfilerMarker($"{world.Name} {TypeManager.SystemName(GetType())}");
             #endif
             }
             catch
@@ -190,6 +200,13 @@ namespace Unity.Entities
                 OnAfterDestroyInternal();
                 throw;
             }
+        }
+
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        protected internal virtual void OnCreateForCompiler()
+        {
+            //do not remove, dots compiler will emit methods that implement this method.
         }
 
         internal void DestroyInstance()
@@ -258,6 +275,11 @@ namespace Unity.Entities
         {
         }
 
+        internal virtual void OnStopRunningInternal()
+        {
+            OnStopRunning();
+        }
+
         /// <summary>
         /// Called when this system is destroyed.
         /// </summary>
@@ -278,13 +300,12 @@ namespace Unity.Entities
         /// <seealso cref="EntityCommandBufferSystem"/>
         public void Update()
         {
-#if !NET_DOTS && (ENABLE_PROFILER || UNITY_EDITOR)
-            m_ProfilerMarker.Begin();
+#if ENABLE_PROFILER
+            using (m_ProfilerMarker.Auto())
 #endif
-            InternalUpdate();
-#if !NET_DOTS && (ENABLE_PROFILER || UNITY_EDITOR)
-            m_ProfilerMarker.End();
-#endif
+            {
+                InternalUpdate();
+            }
         }
 
         // ===================
@@ -295,13 +316,14 @@ namespace Unity.Entities
 
         internal ComponentSystemBase GetSystemFromSystemID(World world, int systemID)
         {
-            foreach(var m in world.Systems)
+            foreach(var system in world.Systems)
             {
-                var system = m as ComponentSystemBase;
-                if (system == null)
-                    continue;
+                if (system == null) continue;
+
                 if (system.m_SystemID == systemID)
+                {
                     return system;
+                }
             }
 
             return null;
@@ -355,7 +377,7 @@ namespace Unity.Entities
             {
                 // Systems without queriesDesc should always run. Specifically,
                 // IJobForEach adds its queriesDesc the first time it's run.
-                var length = m_EntityQueries != null ? m_EntityQueries.Length : 0;
+                var length = m_EntityQueries?.Length ?? 0;
                 if (length == 0)
                     return true;
 
@@ -387,7 +409,13 @@ namespace Unity.Entities
         #if !NET_DOTS
             m_AlwaysUpdateSystem = GetType().GetCustomAttributes(typeof(AlwaysUpdateSystemAttribute), true).Length != 0;
         #else
-            m_AlwaysUpdateSystem = true;
+            m_AlwaysUpdateSystem = false;
+            var attrs = TypeManager.GetSystemAttributes(GetType());
+            foreach (var attr in attrs)
+            {
+                if (attr.GetType() == typeof(AlwaysUpdateSystemAttribute))
+                    m_AlwaysUpdateSystem = true;
+            }
         #endif
         }
 
@@ -425,12 +453,19 @@ namespace Unity.Entities
         {
             m_EntityManager.EntityComponentStore->IncrementGlobalSystemVersion();
             foreach (var query in m_EntityQueries)
-                query.SetFilterChangedRequiredVersion(m_LastSystemVersion);
+                query.SetChangedFilterRequiredVersion(m_LastSystemVersion);
         }
 
         internal void AfterUpdateVersioning()
         {
             m_LastSystemVersion = EntityManager.EntityComponentStore->GlobalSystemVersion;
+        }
+        
+        internal void CompleteDependencyInternal()
+        {
+            m_SafetyManager->CompleteDependenciesNoChecks(m_JobDependencyForReadingSystems.Ptr,
+                m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr,
+                m_JobDependencyForWritingSystems.Length);
         }
 
         // TODO: this should be made part of UnityEngine?
@@ -450,10 +485,24 @@ namespace Unity.Entities
         /// chunk.</returns>
         /// <remarks>Pass an <see cref="ArchetypeChunkComponentType"/> instance to a job that has access to chunk data,
         /// such as an <see cref="IJobChunk"/> job, to access that type of component inside the job.</remarks>
-        public ArchetypeChunkComponentType<T> GetArchetypeChunkComponentType<T>(bool isReadOnly = false)
+        public ArchetypeChunkComponentType<T> GetArchetypeChunkComponentType<T>(bool isReadOnly = false) where T : struct, IComponentData
         {
             AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
             return EntityManager.GetArchetypeChunkComponentType<T>(isReadOnly);
+        }
+
+        /// <summary>
+        /// Gets the run-time type information required to access an array of component data in a chunk.
+        /// </summary>
+        /// <param name="componentType">Type of the component</param>
+        /// <returns>An object representing the type information required to safely access component data stored in a
+        /// chunk.</returns>
+        /// <remarks>Pass an ArchetypeChunkComponentTypeDynamic instance to a job that has access to chunk data, such as an
+        /// <see cref="IJobChunk"/> job, to access that type of component inside the job.</remarks>
+        public ArchetypeChunkComponentTypeDynamic GetArchetypeChunkComponentTypeDynamic(ComponentType componentType)
+        {
+            AddReaderWriter(componentType);
+            return EntityManager.GetArchetypeChunkComponentTypeDynamic(componentType);
         }
 
         /// <summary>
@@ -541,7 +590,7 @@ namespace Unity.Entities
         /// Checks whether a singelton component of the specified type exists.
         /// </summary>
         /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
-        /// <returns>True, if a singleton of the secified type exists in the current <see cref="World"/>.</returns>
+        /// <returns>True, if a singleton of the specified type exists in the current <see cref="World"/>.</returns>
         public bool HasSingleton<T>()
             where T : struct, IComponentData
         {
@@ -651,7 +700,7 @@ namespace Unity.Entities
 
         void AfterQueryCreated(EntityQuery query)
         {
-            query.SetFilterChangedRequiredVersion(m_LastSystemVersion);
+            query.SetChangedFilterRequiredVersion(m_LastSystemVersion);
         #if ENABLE_UNITY_COLLECTIONS_CHECKS
             query.DisallowDisposing = "EntityQuery.Dispose() may not be called on a EntityQuery created with ComponentSystem.GetEntityQuery. The EntityQuery will automatically be disposed by the ComponentSystem.";
         #endif
@@ -693,13 +742,7 @@ namespace Unity.Entities
         {
             return GetEntityQueryInternal(queryDesc);
         }
-
-        internal void CompleteDependencyInternal()
-        {
-            m_SafetyManager->CompleteDependenciesNoChecks(m_JobDependencyForReadingSystems.Ptr,
-                m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr,
-                m_JobDependencyForWritingSystems.Length);
-        }
+        
     }
 
     /// <summary>
@@ -747,7 +790,7 @@ namespace Unity.Entities
         /// <value>Use to select and iterate over entities.</value>
         protected internal EntityQueryBuilder Entities => new EntityQueryBuilder(this);
 
-        unsafe void BeforeOnUpdate()
+        void BeforeOnUpdate()
         {
             BeforeUpdateVersioning();
             CompleteDependencyInternal();
@@ -810,7 +853,7 @@ namespace Unity.Entities
             else if (m_PreviouslyEnabled)
             {
                 m_PreviouslyEnabled = false;
-                OnStopRunning();
+                OnStopRunningInternal();
             }
         }
 
@@ -831,7 +874,6 @@ namespace Unity.Entities
         /// </remarks>
         /// <seealso cref="ComponentSystemBase.ShouldRunSystem"/>
         protected abstract void OnUpdate();
-
     }
 
     /// <summary>
@@ -843,6 +885,36 @@ namespace Unity.Entities
     public abstract class JobComponentSystem : ComponentSystemBase
     {
         JobHandle m_PreviousFrameDependency;
+        bool m_AlwaysSynchronizeSystem;
+        
+        /// <summary>
+        /// Use Entities.ForEach((ref Translation translation, in Velocity velocity) => { translation.Value += velocity.Value * dt; }).Schedule(inputDependencies);
+        /// </summary>
+        protected internal ForEachLambdaJobDescription Entities => new ForEachLambdaJobDescription();
+
+#if ENABLE_DOTS_COMPILER_CHUNKS        
+        /// <summary>
+        /// Use query.Chunks.ForEach((ArchetypeChunk chunk, int chunkIndex, int indexInQueryOfFirstEntity) => { YourCodeGoesHere(); }).Schedule();
+        /// </summary>
+        public LambdaJobChunkDescription Chunks
+        {
+            get
+            {
+                return new LambdaJobChunkDescription();
+            }
+        }
+#endif
+        
+        /// <summary>
+        /// Use Job.WithCode(() => { YourCodeGoesHere(); }).Schedule(inputDependencies);
+        /// </summary>
+        protected internal LambdaSingleJobDescription Job
+        {
+            get
+            {
+                return new LambdaSingleJobDescription();
+            }
+        }
 
         JobHandle BeforeOnUpdate()
         {
@@ -852,16 +924,35 @@ namespace Unity.Entities
             // without anyone ever waiting on it
             m_PreviousFrameDependency.Complete();
 
+            if (m_AlwaysSynchronizeSystem)
+            {
+                CompleteDependencyInternal();
+                return default;
+            }
+
             return GetDependency();
         }
+        #pragma warning disable 649
+        private unsafe struct JobHandleData
+        {
+            public void*   jobGroup;
+            public int     version;
+        }
+        #pragma warning restore 649
 
         unsafe void AfterOnUpdate(JobHandle outputJob, bool throwException)
         {
             AfterUpdateVersioning();
 
-            JobHandle.ScheduleBatchedJobs();
+            // If outputJob says no relevant jobs were scheduled,
+            // then no need to batch them up or register them.
+            // This is a big optimization if we only Run methods on main thread...
+            if (((JobHandleData*) &outputJob)->jobGroup != null) 
+            {
+                JobHandle.ScheduleBatchedJobs();
 
-            AddDependencyInternal(outputJob);
+                AddDependencyInternal(outputJob);
+            }
 
         #if ENABLE_UNITY_COLLECTIONS_CHECKS
 
@@ -941,6 +1032,22 @@ namespace Unity.Entities
                 OnStopRunning();
             }
         }
+        
+        internal sealed override void OnBeforeCreateInternal(World world)
+        {
+            base.OnBeforeCreateInternal(world);
+#if !NET_DOTS
+            m_AlwaysSynchronizeSystem = GetType().GetCustomAttributes(typeof(AlwaysSynchronizeSystemAttribute), true).Length != 0;
+#else
+            m_AlwaysSynchronizeSystem = false;
+            var attrs = TypeManager.GetSystemAttributes(GetType());
+            foreach (var attr in attrs)
+            {
+                if (attr.GetType() == typeof(AlwaysSynchronizeSystemAttribute))
+                    m_AlwaysSynchronizeSystem = true;
+            }
+#endif
+        }
 
         internal sealed override void OnBeforeDestroyInternal()
         {
@@ -988,6 +1095,7 @@ namespace Unity.Entities
 
             var readerCount = AtomicSafetyHandle.GetReaderArray(h, 0, IntPtr.Zero);
             JobHandle* readers = stackalloc JobHandle[readerCount];
+
             AtomicSafetyHandle.GetReaderArray(h, readerCount, (IntPtr) readers);
 
             for (var i = 0; i < readerCount; ++i)
@@ -1306,4 +1414,48 @@ namespace Unity.Entities
         #endif
         }
     }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+    public static unsafe class ComponentSystemBaseManagedComponentExtensions
+    {
+        /// <summary>
+        /// Checks whether a singelton component of the specified type exists.
+        /// </summary>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <returns>True, if a singleton of the specified type exists in the current <see cref="World"/>.</returns>
+        public static bool HasSingleton<T>(this ComponentSystemBase sys) where T : class, IComponentData
+        {
+            var type = ComponentType.ReadOnly<T>();
+            var query = sys.GetEntityQueryInternal(&type, 1);
+            return query.CalculateEntityCount() == 1;
+        }
+
+        /// <summary>
+        /// Gets the value of a singleton component.
+        /// </summary>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <returns>The component.</returns>
+        /// <seealso cref="EntityQuery.GetSingleton{T}"/>
+        public static T GetSingleton<T>(this ComponentSystemBase sys) where T : class, IComponentData
+        {
+            var type = ComponentType.ReadOnly<T>();
+            var query = sys.GetEntityQueryInternal(&type, 1);
+
+            return query.GetSingleton<T>();
+        }
+
+        /// <summary>
+        /// Sets the value of a singleton component.
+        /// </summary>
+        /// <param name="value">A component containing the value to assign to the singleton.</param>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <seealso cref="EntityQuery.SetSingleton{T}"/>
+        public static void SetSingleton<T>(this ComponentSystemBase sys, T value) where T : class, IComponentData
+        {
+            var type = ComponentType.ReadWrite<T>();
+            var query = sys.GetEntityQueryInternal(&type, 1);
+            query.SetSingleton(value);
+        }
+    }
+#endif
 }

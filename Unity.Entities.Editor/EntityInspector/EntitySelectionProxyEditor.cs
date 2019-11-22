@@ -19,11 +19,14 @@ namespace Unity.Entities.Editor
                     var targetProxy = (EntitySelectionProxy) target;
                     if (!targetProxy.Exists)
                         return;
-                    targetProxy.OnEntityControlDoubleClick(entity);
-                });
+                    targetProxy.OnEntityControlSelectButton(targetProxy.World, entity);
+                },
+                () => { return callCount++ > 0; });
 
             inclusionList = new SystemInclusionList();
         }
+
+        private int callCount = 0;
 
         private uint lastVersion;
 
@@ -41,6 +44,7 @@ namespace Unity.Entities.Editor
 
             var container = targetProxy.Container;
 
+            callCount = 0;
             PropertyContainer.Visit(ref container, visitor);
 
             GUI.enabled = true;

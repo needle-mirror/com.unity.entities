@@ -504,5 +504,39 @@ namespace Unity.Entities.Tests
 
             testHierarchy.Dispose();
         }
+        
+        [WriteGroup(typeof(LocalToWorld))]
+        struct LocalToWorldWriteGroupComponent : IComponentData
+        {
+        }
+
+        [Test]
+        public void LocalToParentConsidersWriteGroups()
+        {
+            var testHierarchy = new TestHierarchy(World, m_Manager);
+
+            var parent = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Translation));
+            var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
+            var childChild = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
+
+            m_Manager.SetComponentData(parent, new LocalToWorld {Value = float4x4.identity});
+            m_Manager.SetComponentData(child, new Parent {Value = parent});
+            m_Manager.SetComponentData(child, new LocalToParent {Value = float4x4.identity});
+            m_Manager.SetComponentData(childChild, new Parent {Value = child});
+            m_Manager.SetComponentData(childChild, new LocalToParent {Value = float4x4.identity});
+            
+            m_Manager.SetComponentData(parent, new Translation{ Value = new float3(2, 2, 2)});
+            testHierarchy.Update();
+            Assert.AreEqual(new float3(2, 2, 2), m_Manager.GetComponentData<LocalToWorld>(child).Position);
+            Assert.AreEqual(new float3(2, 2, 2), m_Manager.GetComponentData<LocalToWorld>(childChild).Position);
+
+            m_Manager.AddComponentData(child, new LocalToWorldWriteGroupComponent());
+            m_Manager.SetComponentData(parent, new Translation{ Value = new float3(3, 3, 3)});
+
+            m_Manager.SetComponentData(child, new LocalToWorld{ Value = math.mul(float4x4.Translate(new float3(4, 4, 4)),  float4x4.identity) });
+            testHierarchy.Update();
+            Assert.AreEqual(new float3(4, 4, 4), m_Manager.GetComponentData<LocalToWorld>(child).Position);
+            Assert.AreEqual(new float3(4, 4, 4), m_Manager.GetComponentData<LocalToWorld>(childChild).Position);
+        }
     }
 }

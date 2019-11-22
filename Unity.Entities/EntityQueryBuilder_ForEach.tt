@@ -68,11 +68,14 @@ foreach (var categories in combinations) {
 <#          }#>
                     query = ResolveEntityQuery(<#=categories.Any() ? "delegateTypes" : "null"#>, <#=categories.Length#>);
                 }
-                using (var originalEntities = query.ToEntityArray(Allocator.TempJob))
+                EntityQuery.GatherEntitiesResult result = default;
+                try
                 {
-                    for (var entityCount = 0; entityCount < originalEntities.Length; entityCount++)
+                    query.GatherEntitiesToArray(out result);
+                    
+                    for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
-                        var entity = originalEntities[entityCount];
+                        var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
 <#      foreach (var (c, i) in mappedCategories) {#>
@@ -97,6 +100,10 @@ foreach (var categories in combinations) {
 <#          }#>
 <#      }#>
                     }
+                }
+                finally
+                {
+                    query.ReleaseGatheredEntities(ref result);
                 }
             }
         }

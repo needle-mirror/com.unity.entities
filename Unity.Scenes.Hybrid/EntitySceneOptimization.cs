@@ -48,12 +48,6 @@ namespace Unity.Entities.Streaming
             // Run first pass (This might add / remove a bunch of components and thus invalidate some of chunk component data caches)
             group.Update();
 
-            // Freeze static objects.
-            // After this no more reordering is allowed
-            var staticGroup = entityManager.CreateEntityQuery(typeof(Static));
-            entityManager.LockChunkOrder(staticGroup);
-            staticGroup.Dispose();
-
             // Run all systems again (For example chunk bounding volumes might be out of sync after various remove / add from previous pass)
             // But now we are sure that no more re-ordering will happen.
             group.Update();

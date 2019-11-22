@@ -1,3 +1,4 @@
+using System;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -60,30 +61,24 @@ namespace Unity.Entities
             EntityComponentStore->UnlockChunks((ArchetypeChunk*)chunks.GetUnsafePtr(), chunks.Length, ChunkFlags.Locked);
         }
 
+        [Obsolete("LockChunkOrder has been deprecated, and its usage is a no-op.")]
         public void LockChunkOrder(EntityQuery query)
         {
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                EntityComponentStore->LockChunks((ArchetypeChunk*)chunks.GetUnsafePtr(), chunks.Length, ChunkFlags.LockedEntityOrder);
-            }
         }
 
+        [Obsolete("LockChunkOrder has been deprecated, and its usage is a no-op.")]
         public void LockChunkOrder(ArchetypeChunk chunk)
         {
-            EntityComponentStore->LockChunks(&chunk, 1,  ChunkFlags.LockedEntityOrder);
         }
 
+        [Obsolete("UnlockChunkOrder has been deprecated, and its usage is a no-op.")]
         public void UnlockChunkOrder(EntityQuery query)
         {
-            using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
-            {
-                EntityComponentStore->UnlockChunks((ArchetypeChunk*)chunks.GetUnsafePtr(), chunks.Length, ChunkFlags.LockedEntityOrder);
-            }
         }
 
+        [Obsolete("UnlockChunkOrder has been deprecated, and its usage is a no-op.")]
         public void UnlockChunkOrder(ArchetypeChunk chunk)
         {
-            EntityComponentStore->UnlockChunks(&chunk, 1,  ChunkFlags.LockedEntityOrder);
         }
 
         // ----------------------------------------------------------------------------------------------------------
