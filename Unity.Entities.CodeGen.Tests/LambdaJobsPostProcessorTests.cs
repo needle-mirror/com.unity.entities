@@ -665,7 +665,7 @@ namespace Unity.Entities.CodeGen.Tests
         [Test]
         public void LambdaInSystemWithExecuteAlwaysTest()
         {
-            AssertProducesError(typeof(LambdaInSystemWithExecuteAlways), nameof(UserError.DC0032));
+            AssertProducesWarning(typeof(LambdaInSystemWithExecuteAlways), nameof(UserError.DC0032));
         }
 
         [ExecuteAlways]

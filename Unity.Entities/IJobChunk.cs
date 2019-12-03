@@ -133,7 +133,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 // All IJobChunk jobs have a EntityManager safety handle to ensure that BeforeStructuralChange throws an error if
                 // jobs without any other safety handles are still running (haven't been synced).
-                safety = new EntitySafetyHandle{m_Safety = query.SafetyManager->GetEntityManagerSafetyHandle()},
+                safety = new EntitySafetyHandle{m_Safety = query.SafetyHandles->GetEntityManagerSafetyHandle()},
 #endif
 
                 Data = jobData,

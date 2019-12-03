@@ -4,9 +4,9 @@ using System.ComponentModel;
 namespace Unity.Entities
 {
 #if UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE
-    [Obsolete("SceneData has been renamed to SceneSectionData. If you see this message in a user project, remove the UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE define from the Entities assembly definition file. (RemovedAfter 2019-11-30).", true)]
+    [Obsolete("SceneData has been renamed to SceneSectionData. If you see this message in a user project, remove the UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE define from the Entities assembly definition file. (RemovedAfter 2020-01-22).", true)]
 #else
-    [Obsolete("SceneData has been renamed to SceneSectionData. (RemovedAfter 2019-11-30) (UnityUpgradable) -> SceneSectionData", true)]
+    [Obsolete("SceneData has been renamed to SceneSectionData. (RemovedAfter 2020-01-22) (UnityUpgradable) -> SceneSectionData", true)]
 #endif
     [EditorBrowsable(EditorBrowsableState.Never)]
     public struct SceneData

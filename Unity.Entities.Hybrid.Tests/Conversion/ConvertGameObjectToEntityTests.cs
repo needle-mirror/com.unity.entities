@@ -133,9 +133,9 @@ namespace Unity.Entities.Tests.Conversion
         [Test]
         public void ConvertAndInject_Simple()
         {
-            var go0 = CreateGameObject("level0", DestructionBy.Test);
-            var go1 = CreateGameObject("level1", DestructionBy.Test).ParentTo(go0);
-            var go2 = CreateGameObject("level2", DestructionBy.Test).ParentTo(go1);
+            var go0 = CreateGameObject("level0");
+            var go1 = CreateGameObject("level1").ParentTo(go0);
+            var go2 = CreateGameObject("level2").ParentTo(go1);
 
             go0.AddConvertAndInject();
 
@@ -148,7 +148,7 @@ namespace Unity.Entities.Tests.Conversion
         [Test]
         public void ConvertAndInject_TwoWorlds()
         {
-            var go = CreateGameObject(DestructionBy.Test);
+            var go = CreateGameObject();
             go.AddConvertAndInject();
 
             using (var world2 = new World("Test World 2"))

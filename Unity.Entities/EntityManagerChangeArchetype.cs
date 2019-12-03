@@ -38,7 +38,10 @@ namespace Unity.Entities
         
         public static void Initialize()
         {
-#if UNITY_DOTSPLAYER
+// **** NOTE: **** https://github.com/Unity-Technologies/dots/issues/3682
+// Burst fastpath This can't be enabled until it is proven to work in Environment system
+// We also need to have stress tests for this to prove that it works.
+#if true
             AddComponentEntitiesBatch = AddComponentEntitiesBatchExecute;
             AddComponentEntity = AddComponentEntityExecute;
             AddComponentChunks = AddComponentChunksExecute;

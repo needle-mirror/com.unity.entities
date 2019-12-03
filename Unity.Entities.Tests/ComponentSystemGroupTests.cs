@@ -40,7 +40,7 @@ namespace Unity.Entities.Tests
         class TestSystem : TestSystemBase
         {
         }
-
+        
         [Test]
         public void SortOneChildSystem()
         {
@@ -282,13 +282,6 @@ namespace Unity.Entities.Tests
         class BeforeSimEndSystem : TestSystemBase
         {
         }
-#pragma warning disable 0618
-        // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
-        [UpdateBefore(typeof(EndPresentationEntityCommandBufferSystem))]
-#pragma warning restore 0618
-        class BeforePresEndSystem : TestSystemBase
-        {
-        }
         [Test]
         public void ComponentSystemGroup_UpdateBeforeInitiliazationEnd_LogsWarning()
         {
@@ -312,15 +305,6 @@ namespace Unity.Entities.Tests
         {
             var parent = World.CreateSystem<SimulationSystemGroup>();
             var child = World.CreateSystem<BeforeSimEndSystem>();
-            parent.AddSystemToUpdateList(child);
-            parent.SortSystemUpdateList();
-            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateBefore\].+already restricted to be last."));
-        }
-        [Test]
-        public void ComponentSystemGroup_UpdateBeforePresentationEnd_LogsWarning()
-        {
-            var parent = World.CreateSystem<PresentationSystemGroup>();
-            var child = World.CreateSystem<BeforePresEndSystem>();
             parent.AddSystemToUpdateList(child);
             parent.SortSystemUpdateList();
             LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateBefore\].+already restricted to be last."));
@@ -415,13 +399,6 @@ namespace Unity.Entities.Tests
         class AfterSimEndSystem : TestSystemBase
         {
         }
-#pragma warning disable 0618
-        // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
-        [UpdateAfter(typeof(EndPresentationEntityCommandBufferSystem))]
-#pragma warning restore 0618
-        class AfterPresEndSystem : TestSystemBase
-        {
-        }
         [Test]
         public void ComponentSystemGroup_UpdateAfterInitializationEnd_ThrowsError()
         {
@@ -445,15 +422,6 @@ namespace Unity.Entities.Tests
         {
             var parent = World.CreateSystem<SimulationSystemGroup>();
             var child = World.CreateSystem<AfterSimEndSystem>();
-            parent.AddSystemToUpdateList(child);
-            Assert.That(() => { parent.SortSystemUpdateList(); },
-                Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be last."));
-        }
-        [Test]
-        public void ComponentSystemGroup_UpdateAfterPresentationEnd_ThrowsError()
-        {
-            var parent = World.CreateSystem<PresentationSystemGroup>();
-            var child = World.CreateSystem<AfterPresEndSystem>();
             parent.AddSystemToUpdateList(child);
             Assert.That(() => { parent.SortSystemUpdateList(); },
                 Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be last."));
@@ -667,6 +635,43 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(parent.Operations, new[] {0, 1, 10, 11, 20, 21});
             parent.Operations.Clear();
         }
+        
+        class TrackUpdatedSystem : JobComponentSystem
+        {
+            public List<ComponentSystemBase> Updated;
 
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                Updated.Add(this);
+                return inputDeps;
+            }
+        }
+        
+        [Test]
+        public void AddAndRemoveTakesEffectBeforeUpdate()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            var childa = World.CreateSystem<TrackUpdatedSystem>();
+            var childb = World.CreateSystem<TrackUpdatedSystem>();
+            
+            var updates = new List<ComponentSystemBase>();
+            childa.Updated = updates;
+            childb.Updated = updates;
+
+            // Add 2 systems & validate Update calls
+            parent.AddSystemToUpdateList(childa);
+            parent.AddSystemToUpdateList(childb);
+            parent.Update();
+
+            // NOTE: This order isn't actually expected, optimally it would be childa, childb.
+            //       But currently we dont keep input order into account during the group sort.
+            Assert.AreEqual(new ComponentSystemBase[] {childb, childa}, updates.ToArray());
+
+            // Remove system & validate Update calls
+            updates.Clear();
+            parent.RemoveSystemFromUpdateList(childa);
+            parent.Update();
+            Assert.AreEqual(new ComponentSystemBase[] {childb}, updates.ToArray());
+        }
     }
 }

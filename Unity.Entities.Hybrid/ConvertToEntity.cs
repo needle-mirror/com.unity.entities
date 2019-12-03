@@ -120,7 +120,7 @@ namespace Unity.Entities
         void Convert()
         {
             var toBeDetached = new HashSet<Transform>();
-            var toBeDestroyed = new HashSet<GameObject>();
+            var conversionRoots = new HashSet<GameObject>();
 
             try
             {
@@ -153,7 +153,7 @@ namespace Unity.Entities
                         });
 
                         foreach (var convert in toBeConverted)
-                            toBeDestroyed.Add(convert.gameObject);
+                            conversionRoots.Add(convert.gameObject);
 
                         foreach (var convert in toBeConverted)
                             AddRecurse(gameObjectWorld.EntityManager, convert.transform, toBeDetached, toBeInjected);
@@ -175,8 +175,11 @@ namespace Unity.Entities
                 foreach (var transform in toBeDetached)
                     transform.parent = null;
 
-                foreach (var go in toBeDestroyed)
-                    UnityObject.DestroyImmediate(go);
+                foreach (var go in conversionRoots)
+                {
+                    if(!toBeDetached.Contains(go.transform))
+                        UnityObject.DestroyImmediate(go);
+                }
             }
         }
     }

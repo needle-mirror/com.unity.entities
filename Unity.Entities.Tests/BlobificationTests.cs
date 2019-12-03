@@ -338,15 +338,15 @@ public class BlobTests : ECSTestsFixture
         public BlobArray<int> intArray;
     }
 
+    static unsafe void AssertAlignment(void* p, int alignment)
+    {
+        ulong mask = (ulong) alignment - 1;
+        Assert.IsTrue(((ulong) (IntPtr) p & mask) == 0);
+    }
+
     [Test]
     public unsafe void BasicAlignmentWorks()
     {
-        void AssertAlignment(void* p, int alignment)
-        {
-            ulong mask = (ulong) alignment - 1;
-            Assert.IsTrue(((ulong) (IntPtr) p & mask) == 0);
-        }
-
         var builder = new BlobBuilder(Allocator.Temp);
         ref var root = ref builder.ConstructRoot<BlobArray<AlignmentTest>>();
         Assert.AreEqual(4, UnsafeUtility.AlignOf<int>());
@@ -372,6 +372,13 @@ public class BlobTests : ECSTestsFixture
         }
 
         blob.Release();
+    }
+
+    [Test]
+    public unsafe void CreatedBlobsAre16ByteAligned()
+    {
+        var blobAssetReference = BlobAssetReference<int>.Create(42);
+        AssertAlignment(blobAssetReference.GetUnsafePtr(), 16);
     }
 
     [Test]

@@ -1,6 +1,5 @@
 using System;
 using Unity.Assertions;
-using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 
@@ -79,11 +78,6 @@ namespace Unity.Entities
             }
         }
 
-        public void AddComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType componentType, int sharedComponentIndex = 0)
-        {
-            AddComponent((ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunkArray), chunkArray.Length, componentType, sharedComponentIndex);
-        }
-        
         public void RemoveComponent(ArchetypeChunk* chunks, int chunkCount, ComponentType componentType)
         {
             Archetype* prevArchetype = null;

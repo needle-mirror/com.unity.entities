@@ -12,7 +12,7 @@ namespace Unity.Entities
         public int              ObjectReferenceCount;
         public MinMaxAABB       BoundingVolume;
 
-        [Obsolete("SharedComponentCount from the deprecated SceneData API is obsolete and will be (RemovedAfter 2019-11-30)", false)]
+        [Obsolete("SharedComponentCount from the deprecated SceneData API is obsolete and will be (RemovedAfter 2020-01-22)", false)]
         public int SharedComponentCount
         {
             get => throw new NotImplementedException();

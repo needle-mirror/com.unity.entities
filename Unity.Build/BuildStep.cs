@@ -57,16 +57,11 @@ namespace Unity.Build
         /// <returns><see langword="true"/> if the required component type is found, <see langword="false"/> otherwise.</returns>
         public bool HasRequiredComponent(BuildContext context, Type type)
         {
-            if (type == null)
-            {
-                throw new ArgumentNullException(nameof(type));
-            }
-
+            CheckTypeAndThrowIfInvalid(type);
             if (RequiredComponents == null || !RequiredComponents.Contains(type))
             {
                 throw new InvalidOperationException($"Component type '{type.FullName}' is not in the {nameof(RequiredComponents)} list.");
             }
-
             return context.BuildSettings.HasComponent(type);
         }
 
@@ -88,16 +83,11 @@ namespace Unity.Build
         /// <returns>The value of the required component.</returns>
         public IBuildSettingsComponent GetRequiredComponent(BuildContext context, Type type)
         {
-            if (type == null)
-            {
-                throw new NullReferenceException(nameof(type));
-            }
-
+            CheckTypeAndThrowIfInvalid(type);
             if (RequiredComponents == null || !RequiredComponents.Contains(type))
             {
                 throw new InvalidOperationException($"Component type '{type.FullName}' is not in the {nameof(RequiredComponents)} list.");
             }
-
             return context.BuildSettings.GetComponent(type);
         }
 
@@ -111,6 +101,60 @@ namespace Unity.Build
         public T GetRequiredComponent<T>(BuildContext context) where T : IBuildSettingsComponent => (T)GetRequiredComponent(context, typeof(T));
 
         /// <summary>
+        /// Get all required components from <see cref="BuildSettings"/>.
+        /// </summary>
+        /// <param name="context">The <see cref="BuildContext"/> used by the execution of this <see cref="BuildStep"/>.</param>
+        /// <returns>List of required components.</returns>
+        public IEnumerable<IBuildSettingsComponent> GetRequiredComponents(BuildContext context)
+        {
+            if (RequiredComponents == null)
+            {
+                return Enumerable.Empty<IBuildSettingsComponent>();
+            }
+
+            var lookup = new Dictionary<Type, IBuildSettingsComponent>();
+            foreach (var requiredComponent in RequiredComponents)
+            {
+                lookup[requiredComponent] = context.BuildSettings.GetComponent(requiredComponent);
+            }
+            return lookup.Values;
+        }
+
+        /// <summary>
+        /// Get all required components from <see cref="BuildSettings"/>, that matches <see cref="Type"/>.
+        /// </summary>
+        /// <param name="context">The <see cref="BuildContext"/> used by the execution of this <see cref="BuildStep"/>.</param>
+        /// <param name="type">Type of the components.</param>
+        /// <returns>List of required components.</returns>
+        public IEnumerable<IBuildSettingsComponent> GetRequiredComponents(BuildContext context, Type type)
+        {
+            CheckTypeAndThrowIfInvalid(type);
+            if (RequiredComponents == null || !RequiredComponents.Contains(type))
+            {
+                throw new InvalidOperationException($"Component type '{type.FullName}' is not in the {nameof(RequiredComponents)} list.");
+            }
+
+            var lookup = new Dictionary<Type, IBuildSettingsComponent>();
+            foreach (var requiredComponent in RequiredComponents)
+            {
+                if (!type.IsAssignableFrom(requiredComponent))
+                {
+                    continue;
+                }
+                lookup[requiredComponent] = context.BuildSettings.GetComponent(requiredComponent);
+            }
+            return lookup.Values;
+        }
+
+        /// <summary>
+        /// Get all required components from <see cref="BuildSettings"/>, that matches <typeparamref name="T"/>.
+        /// </summary>
+        /// <typeparam name="T">Type of the components.</typeparam>
+        /// <param name="context">The <see cref="BuildContext"/> used by the execution of this <see cref="BuildStep"/>.</param>
+        /// <returns>List of required components.</returns>
+        public IEnumerable<T> GetRequiredComponents<T>(BuildContext context) where T : IBuildSettingsComponent => GetRequiredComponents(context, typeof(T)).Cast<T>();
+
+        /// <summary>
         /// Determine if an optional <see cref="Type"/> component is stored in <see cref="BuildSettings"/>.
         /// The component <see cref="Type"/> must exist in the <see cref="OptionalComponents"/> list.
         /// </summary>
@@ -119,16 +163,11 @@ namespace Unity.Build
         /// <returns><see langword="true"/> if the optional component type is found, <see langword="false"/> otherwise.</returns>
         public bool HasOptionalComponent(BuildContext context, Type type)
         {
-            if (type == null)
-            {
-                throw new ArgumentNullException(nameof(type));
-            }
-
+            CheckTypeAndThrowIfInvalid(type);
             if (OptionalComponents == null || !OptionalComponents.Contains(type))
             {
                 throw new InvalidOperationException($"Component type '{type.FullName}' is not in the {nameof(OptionalComponents)} list.");
             }
-
             return context.BuildSettings.HasComponent(type);
         }
 
@@ -151,11 +190,7 @@ namespace Unity.Build
         /// <returns>The value of the optional component.</returns>
         public IBuildSettingsComponent GetOptionalComponent(BuildContext context, Type type)
         {
-            if (type == null)
-            {
-                throw new ArgumentNullException(nameof(type));
-            }
-
+            CheckTypeAndThrowIfInvalid(type);
             if (OptionalComponents == null || !OptionalComponents.Contains(type))
             {
                 throw new InvalidOperationException($"Component type '{type.FullName}' is not in the {nameof(OptionalComponents)} list.");
@@ -178,6 +213,72 @@ namespace Unity.Build
         /// <param name="context">The <see cref="BuildContext"/> used by the execution of this <see cref="BuildStep"/>.</param>
         /// <returns>The value of the optional component.</returns>
         public T GetOptionalComponent<T>(BuildContext context) where T : IBuildSettingsComponent => (T)GetOptionalComponent(context, typeof(T));
+
+        /// <summary>
+        /// Get all optional components from <see cref="BuildSettings"/>.
+        /// Optional component types not found in <see cref="BuildSettings"/> will be set to a new instance of that type.
+        /// </summary>
+        /// <param name="context">The <see cref="BuildContext"/> used by the execution of this <see cref="BuildStep"/>.</param>
+        /// <returns>List of optional components.</returns>
+        public IEnumerable<IBuildSettingsComponent> GetOptionalComponents(BuildContext context)
+        {
+            if (OptionalComponents == null)
+            {
+                return Enumerable.Empty<IBuildSettingsComponent>();
+            }
+
+            var lookup = new Dictionary<Type, IBuildSettingsComponent>();
+            foreach (var type in OptionalComponents)
+            {
+                if (!context.BuildSettings.TryGetComponent(type, out var component))
+                {
+                    component = TypeConstruction.Construct<IBuildSettingsComponent>(type);
+                }
+                lookup[type] = component;
+            }
+            return lookup.Values;
+        }
+
+        /// <summary>
+        /// Get all optional components from <see cref="BuildSettings"/>, that matches <see cref="Type"/>.
+        /// Optional component types not found in <see cref="BuildSettings"/> will be set to a new instance of that type.
+        /// </summary>
+        /// <param name="context">The <see cref="BuildContext"/> used by the execution of this <see cref="BuildStep"/>.</param>
+        /// <param name="type">Type of the components.</param>
+        /// <returns>List of optional components.</returns>
+        public IEnumerable<IBuildSettingsComponent> GetOptionalComponents(BuildContext context, Type type)
+        {
+            CheckTypeAndThrowIfInvalid(type);
+            if (OptionalComponents == null || !OptionalComponents.Contains(type))
+            {
+                throw new InvalidOperationException($"Component type '{type.FullName}' is not in the {nameof(OptionalComponents)} list.");
+            }
+
+            var lookup = new Dictionary<Type, IBuildSettingsComponent>();
+            foreach (var optionalComponentType in OptionalComponents)
+            {
+                if (!type.IsAssignableFrom(optionalComponentType))
+                {
+                    continue;
+                }
+
+                if (!context.BuildSettings.TryGetComponent(optionalComponentType, out var component))
+                {
+                    component = TypeConstruction.Construct<IBuildSettingsComponent>(optionalComponentType);
+                }
+                lookup[optionalComponentType] = component;
+            }
+            return lookup.Values;
+        }
+
+        /// <summary>
+        /// Get all optional components from <see cref="BuildSettings"/>, that matches <typeparamref name="T"/>.
+        /// Optional component types not found in <see cref="BuildSettings"/> will be set to a new instance of that type.
+        /// </summary>
+        /// <typeparam name="T">Type of the components.</typeparam>
+        /// <param name="context">The <see cref="BuildContext"/> used by the execution of this <see cref="BuildStep"/>.</param>
+        /// <returns>List of optional components.</returns>
+        public IEnumerable<T> GetOptionalComponents<T>(BuildContext context) => GetOptionalComponents(context, typeof(T)).Cast<T>();
 
         /// <summary>
         /// Retrieves a list of valid types for build steps.
@@ -257,6 +358,24 @@ namespace Unity.Build
             }
 
             return null;
+        }
+
+        void CheckTypeAndThrowIfInvalid(Type type)
+        {
+            if (type == null)
+            {
+                throw new ArgumentNullException(nameof(type));
+            }
+
+            if (type == typeof(object))
+            {
+                throw new InvalidOperationException($"{nameof(type)} cannot be 'object'.");
+            }
+
+            if (!typeof(IBuildSettingsComponent).IsAssignableFrom(type))
+            {
+                throw new InvalidOperationException($"{nameof(type)} must derive from '{typeof(IBuildSettingsComponent).FullName}'.");
+            }
         }
     }
 }

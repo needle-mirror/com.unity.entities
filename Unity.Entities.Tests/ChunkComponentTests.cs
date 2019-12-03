@@ -33,6 +33,30 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public unsafe void ArchetypeChunk_GetAndSetChunkComponent_ThrowWhenMetaChunkEntityMissing()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            var chunkComponentType = m_Manager.GetArchetypeChunkComponentType<EcsTestData2>(false);
+            var chunk = m_Manager.GetChunk(entity);
+
+            Assert.That(chunk.m_Chunk->metaChunkEntity, Is.EqualTo(Entity.Null));
+            Assert.Throws<ArgumentException>(() => chunk.SetChunkComponentData(chunkComponentType, new EcsTestData2(12)));
+            Assert.Throws<ArgumentException>(() => chunk.GetChunkComponentData(chunkComponentType));
+        }
+
+        [Test]
+        public unsafe void ArchetypeChunk_GetAndSetChunkComponent_ThrowWhenComponentMissing()
+        {
+            var entity = m_Manager.CreateEntity(ComponentType.ChunkComponent<EcsTestData>());
+            var chunkComponentType = m_Manager.GetArchetypeChunkComponentType<EcsTestData2>(false);
+            var chunk = m_Manager.GetChunk(entity);
+
+            Assert.That(chunk.m_Chunk->metaChunkEntity, Is.Not.EqualTo(Entity.Null));
+            Assert.Throws<ArgumentException>(() => chunk.GetChunkComponentData(chunkComponentType));
+            Assert.Throws<ArgumentException>(() => chunk.SetChunkComponentData(chunkComponentType,new EcsTestData2(12)));
+        }
+
+        [Test]
         public void SetChunkComponent()
         {
             var entity = m_Manager.CreateEntity(ComponentType.ChunkComponent<EcsTestData>());

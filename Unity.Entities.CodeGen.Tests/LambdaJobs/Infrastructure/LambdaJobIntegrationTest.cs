@@ -27,7 +27,7 @@ namespace Unity.Entities.CodeGen.Tests.LambdaJobs.Infrastructure
             var forEachDescriptionConstructions = LambdaJobDescriptionConstruction.FindIn(methodToAnalyze);
             JobStructForLambdaJob jobStructForLambdaJob = null;
             foreach(var forEachDescriptionConstruction in forEachDescriptionConstructions)
-                jobStructForLambdaJob = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction);
+                jobStructForLambdaJob = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction, null);
 
             _methodIL = new StringBuilder();
             if (methodToAnalyze != null)

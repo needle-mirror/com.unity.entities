@@ -7,46 +7,48 @@ using UnityEngine.TestTools;
 
 namespace Unity.Build.Tests
 {
-    public interface ITestComponent { }
-    public interface ITestInterface { }
-
-    struct ComponentA : ITestComponent, ITestInterface
-    {
-        public int Integer;
-        public float Float;
-        public string String;
-    }
-
-    struct ComponentB : ITestComponent
-    {
-        public byte Byte;
-        public double Double;
-        public short Short;
-    }
-
-    class ComplexComponent : ITestComponent
-    {
-        public int Integer;
-        public float Float;
-        public string String = string.Empty;
-        public ComponentA Nested;
-        public List<int> ListInteger = new List<int>();
-    }
-
-    abstract class AbstractClass
-    {
-        public int Integer;
-    }
-
-    class DerivedClass : AbstractClass, ITestComponent
-    {
-        public float Float;
-    }
-
-    class TestComponentContainer : ComponentContainer<TestComponentContainer, ITestComponent> { }
-
     class ComponentContainerTests
     {
+        public interface ITestComponent { }
+        public interface ITestInterface : ITestComponent { }
+
+        struct ComponentA : ITestInterface
+        {
+            public int Integer;
+            public float Float;
+            public string String;
+        }
+
+        struct ComponentB : ITestInterface
+        {
+            public byte Byte;
+            public double Double;
+            public short Short;
+        }
+
+        class ComplexComponent : ITestComponent
+        {
+            public int Integer;
+            public float Float;
+            public string String = string.Empty;
+            public ComponentA Nested;
+            public List<int> ListInteger = new List<int>();
+        }
+
+        class InvalidComponent { }
+
+        abstract class AbstractClass : ITestComponent
+        {
+            public int Integer;
+        }
+
+        class DerivedClass : AbstractClass
+        {
+            public float Float;
+        }
+
+        class TestComponentContainer : ComponentContainer<TestComponentContainer, ITestComponent> { }
+
         /// <summary>
         /// Verify that <see cref="ComponentContainer{ITestComponent}"/> can store complex components and get back the value.
         /// </summary>
@@ -296,7 +298,7 @@ namespace Unity.Build.Tests
         public void DeserializeInvalidJson_ShouldNotThrowException()
         {
             var container = TestComponentContainer.CreateInstance();
-            LogAssert.Expect(LogType.Error, "Failed to deserialize memory container of type 'Unity.Build.Tests.TestComponentContainer':\nInput json was invalid. ExpectedType=[Value] ActualType=[EndObject] ActualChar=['}'] at Line=[1] at Character=[47]");
+            LogAssert.Expect(LogType.Error, $"Failed to deserialize memory container of type '{typeof(TestComponentContainer).FullName}':\nInput json was invalid. ExpectedType=[Value] ActualType=[EndObject] ActualChar=['}}'] at Line=[1] at Character=[47]");
             TestComponentContainer.DeserializeFromJson(container, "{\"Dependencies\": [], \"Components\": [{\"$type\": }, {\"$type\": }]}");
         }
 
@@ -304,8 +306,8 @@ namespace Unity.Build.Tests
         public void DeserializeInvalidComponent_ShouldNotResetEntireBuildSettings()
         {
             var container = TestComponentContainer.CreateInstance();
-            LogAssert.Expect(LogType.Error, "Failed to deserialize memory container of type 'Unity.Build.Tests.TestComponentContainer':\nSystem.InvalidOperationException: PropertyContainer.Construct failed to construct DstType=[Unity.Build.Tests.ITestComponent]. Could not resolve type from TypeName=[Some.InvalidComponent.Name, Unknown.Assembly].");
-            TestComponentContainer.DeserializeFromJson(container, "{\"Dependencies\": [], \"Components\": [{\"$type\": \"Unity.Build.Tests.ComponentA, Unity.Build.Tests\"}, {\"$type\": \"Some.InvalidComponent.Name, Unknown.Assembly\"}]}");
+            LogAssert.Expect(LogType.Error, $"Failed to deserialize memory container of type '{typeof(TestComponentContainer).FullName}':\nSystem.InvalidOperationException: PropertyContainer.Construct failed to construct DstType=[{typeof(ITestComponent).FullName}]. Could not resolve type from TypeName=[Some.InvalidComponent.Name, Unknown.Assembly].");
+            TestComponentContainer.DeserializeFromJson(container, $"{{\"Dependencies\": [], \"Components\": [{{\"$type\": \"{typeof(ComponentA).FullName}, {typeof(ComponentA).Assembly.GetName().Name}\"}}, {{\"$type\": \"Some.InvalidComponent.Name, Unknown.Assembly\"}}]}}");
             Assert.That(container.HasComponent<ComponentA>(), Is.True);
         }
 
@@ -313,9 +315,9 @@ namespace Unity.Build.Tests
         public void DeserializeInvalidDependency_ShouldNotResetEntireBuildSettings()
         {
             var container = TestComponentContainer.CreateInstance();
-            TestComponentContainer.DeserializeFromJson(container, "{\"Dependencies\": [null, \"\"], \"Components\": [{\"$type\": \"Unity.Build.Tests.ComponentA, Unity.Build.Tests\"}]}");
+            TestComponentContainer.DeserializeFromJson(container, $"{{\"Dependencies\": [null, \"\", \"bleh\"], \"Components\": [{{\"$type\": \"{typeof(ComponentA).FullName}, {typeof(ComponentA).Assembly.GetName().Name}\"}}]}}");
             Assert.That(container.HasComponent<ComponentA>(), Is.True);
-            Assert.That(container.Dependencies.Count, Is.EqualTo(2));
+            Assert.That(container.Dependencies.Count, Is.Zero);
         }
 
         [Test]
@@ -324,10 +326,10 @@ namespace Unity.Build.Tests
             var container = TestComponentContainer.CreateInstance();
             Assert.That(container.HasComponent<ComponentA>(), Is.False);
             Assert.That(container.Components.Count, Is.Zero);
-            TestComponentContainer.DeserializeFromJson(container, "{\"Dependencies\": [], \"Components\": [{\"$type\": \"Unity.Build.Tests.ComponentA, Unity.Build.Tests\"}]}");
+            TestComponentContainer.DeserializeFromJson(container, $"{{\"Dependencies\": [], \"Components\": [{{\"$type\": \"{typeof(ComponentA).FullName}, {typeof(ComponentA).Assembly.GetName().Name}\"}}]}}");
             Assert.That(container.HasComponent<ComponentA>(), Is.True);
             Assert.That(container.Components.Count, Is.EqualTo(1));
-            TestComponentContainer.DeserializeFromJson(container, "{\"Dependencies\": [], \"Components\": [{\"$type\": \"Unity.Build.Tests.ComponentA, Unity.Build.Tests\"}]}");
+            TestComponentContainer.DeserializeFromJson(container, $"{{\"Dependencies\": [], \"Components\": [{{\"$type\": \"{typeof(ComponentA).FullName}, {typeof(ComponentA).Assembly.GetName().Name}\"}}]}}");
             Assert.That(container.HasComponent<ComponentA>(), Is.True);
             Assert.That(container.Components.Count, Is.EqualTo(1));
         }
@@ -364,7 +366,7 @@ namespace Unity.Build.Tests
         public void CannotSet_NullType()
         {
             var container = TestComponentContainer.CreateInstance();
-            Assert.Throws<NullReferenceException>(() =>
+            Assert.Throws<ArgumentNullException>(() =>
             {
                 container.SetComponent(null, new ComponentA());
             });
@@ -430,6 +432,162 @@ namespace Unity.Build.Tests
         }
 
         [Test]
+        public void HasComponent()
+        {
+            var container = TestComponentContainer.CreateInstance(c => c.SetComponent(new ComponentA()));
+            Assert.That(container.HasComponent<ComponentA>(), Is.True);
+            Assert.That(container.HasComponent<ComponentB>(), Is.False);
+            Assert.Throws<ArgumentNullException>(() => container.HasComponent(null));
+            Assert.Throws<InvalidOperationException>(() => container.HasComponent(typeof(object)));
+            Assert.Throws<InvalidOperationException>(() => container.HasComponent(typeof(InvalidComponent)));
+        }
+
+        [Test]
+        public void IsComponentInherited()
+        {
+            var containerA = TestComponentContainer.CreateInstance(c => c.SetComponent(new ComponentA()));
+            var containerB = TestComponentContainer.CreateInstance(c => c.SetComponent(new ComponentB()));
+
+            containerA.AddDependency(containerB);
+
+            Assert.That(containerA.IsComponentInherited<ComponentA>(), Is.False);
+            Assert.That(containerA.IsComponentInherited<ComponentB>(), Is.True);
+
+            Assert.That(containerB.IsComponentInherited<ComponentA>(), Is.False);
+            Assert.That(containerB.IsComponentInherited<ComponentB>(), Is.False);
+
+            Assert.Throws<ArgumentNullException>(() => containerA.IsComponentInherited(null));
+            Assert.Throws<InvalidOperationException>(() => containerA.IsComponentInherited(typeof(object)));
+            Assert.Throws<InvalidOperationException>(() => containerA.IsComponentInherited(typeof(InvalidComponent)));
+        }
+
+        [Test]
+        public void IsComponentOverridden()
+        {
+            var containerA = TestComponentContainer.CreateInstance(c => c.SetComponent(new ComponentA()));
+            var containerB = TestComponentContainer.CreateInstance(c => c.SetComponent(new ComponentA()));
+
+            containerA.AddDependency(containerB);
+
+            Assert.That(containerA.IsComponentOverridden<ComponentA>(), Is.True);
+            Assert.That(containerB.IsComponentOverridden<ComponentA>(), Is.False);
+
+            Assert.Throws<ArgumentNullException>(() => containerA.IsComponentOverridden(null));
+            Assert.Throws<InvalidOperationException>(() => containerA.IsComponentOverridden(typeof(object)));
+            Assert.Throws<InvalidOperationException>(() => containerA.IsComponentOverridden(typeof(InvalidComponent)));
+        }
+
+        [Test]
+        public void GetComponent()
+        {
+            var container = TestComponentContainer.CreateInstance(c => c.SetComponent(new ComponentA()));
+            Assert.That(container.GetComponent<ComponentA>(), Is.Not.Null);
+            Assert.Throws<InvalidOperationException>(() => container.GetComponent<ComponentB>());
+            Assert.Throws<ArgumentNullException>(() => container.GetComponent(null));
+            Assert.Throws<InvalidOperationException>(() => container.GetComponent(typeof(object)));
+            Assert.Throws<InvalidOperationException>(() => container.GetComponent(typeof(InvalidComponent)));
+        }
+
+        [Test]
+        public void TryGetComponent()
+        {
+            var container = TestComponentContainer.CreateInstance(c => c.SetComponent(new ComponentA()));
+            Assert.That(container.TryGetComponent<ComponentA>(out var _), Is.True);
+            Assert.That(container.TryGetComponent<ComponentB>(out var _), Is.False);
+            Assert.That(container.TryGetComponent(null, out var _), Is.False);
+            Assert.That(container.TryGetComponent(typeof(object), out var _), Is.False);
+            Assert.That(container.TryGetComponent(typeof(InvalidComponent), out var _), Is.False);
+        }
+
+        [Test]
+        public void GetComponents()
+        {
+            var containerA = TestComponentContainer.CreateInstance(c => c.SetComponent(new ComponentA()));
+            var containerB = TestComponentContainer.CreateInstance(c => c.SetComponent(new ComponentB()));
+            var complexContainer = TestComponentContainer.CreateInstance(c => c.SetComponent(new ComplexComponent()));
+
+            containerA.AddDependency(containerB);
+            containerB.AddDependency(complexContainer);
+
+            var containerAComponents = containerA.GetComponents();
+            Assert.That(containerAComponents.Count, Is.EqualTo(3));
+            Assert.That(containerAComponents.Select(c => c.GetType()), Is.EquivalentTo(new[] { typeof(ComponentA), typeof(ComponentB), typeof(ComplexComponent) }));
+
+            var containerBComponents = containerB.GetComponents();
+            Assert.That(containerBComponents.Count, Is.EqualTo(2));
+            Assert.That(containerBComponents.Select(c => c.GetType()), Is.EquivalentTo(new[] { typeof(ComponentB), typeof(ComplexComponent) }));
+
+            var complexContainerComponents = complexContainer.GetComponents();
+            Assert.That(complexContainerComponents.Count, Is.EqualTo(1));
+            Assert.That(complexContainerComponents.Select(c => c.GetType()), Is.EquivalentTo(new[] { typeof(ComplexComponent) }));
+        }
+
+        [Test]
+        public void GetComponents_WithType()
+        {
+            var containerA = TestComponentContainer.CreateInstance(c => c.SetComponent(new ComponentA()));
+            var containerB = TestComponentContainer.CreateInstance(c => c.SetComponent(new ComponentB()));
+            var complexContainer = TestComponentContainer.CreateInstance(c => c.SetComponent(new ComplexComponent()));
+
+            containerA.AddDependency(containerB);
+            containerB.AddDependency(complexContainer);
+
+            Assert.That(containerA.GetComponents<ComponentA>().Select(c => c.GetType()), Is.EquivalentTo(new[] { typeof(ComponentA) }));
+            Assert.That(containerA.GetComponents<ComponentB>().Select(c => c.GetType()), Is.EquivalentTo(new[] { typeof(ComponentB) }));
+            Assert.That(containerA.GetComponents<ComplexComponent>().Select(c => c.GetType()), Is.EquivalentTo(new[] { typeof(ComplexComponent) }));
+
+            Assert.That(containerB.GetComponents<ComponentA>(), Is.Empty);
+            Assert.That(containerB.GetComponents<ComponentB>().Select(c => c.GetType()), Is.EquivalentTo(new[] { typeof(ComponentB) }));
+            Assert.That(containerB.GetComponents<ComplexComponent>().Select(c => c.GetType()), Is.EquivalentTo(new[] { typeof(ComplexComponent) }));
+
+            Assert.That(complexContainer.GetComponents<ComponentA>(), Is.Empty);
+            Assert.That(complexContainer.GetComponents<ComponentB>(), Is.Empty);
+            Assert.That(complexContainer.GetComponents<ComplexComponent>().Select(c => c.GetType()), Is.EquivalentTo(new[] { typeof(ComplexComponent) }));
+
+            Assert.That(containerA.GetComponents<ITestInterface>().Select(c => c.GetType()), Is.EquivalentTo(new[] { typeof(ComponentA), typeof(ComponentB) }));
+            Assert.That(containerB.GetComponents<ITestInterface>().Select(c => c.GetType()), Is.EquivalentTo(new[] { typeof(ComponentB) }));
+            Assert.That(complexContainer.GetComponents<ITestInterface>(), Is.Empty);
+        }
+
+        [Test]
+        public void SetComponent()
+        {
+            var container = TestComponentContainer.CreateInstance(c => c.SetComponent(new ComponentA()));
+            Assert.That(container.Components.Select(c => c.GetType()), Is.EquivalentTo(new[] { typeof(ComponentA) }));
+            Assert.Throws<ArgumentNullException>(() => container.SetComponent(null, default));
+            Assert.Throws<InvalidOperationException>(() => container.SetComponent(typeof(object), default));
+            Assert.Throws<InvalidOperationException>(() => container.SetComponent(typeof(InvalidComponent), default));
+            Assert.Throws<InvalidOperationException>(() => container.SetComponent(typeof(ITestInterface), default));
+        }
+
+        [Test]
+        public void RemoveComponent()
+        {
+            var container = TestComponentContainer.CreateInstance();
+            container.SetComponent(new ComponentA());
+            container.SetComponent(new ComponentB());
+            container.SetComponent(new ComplexComponent());
+
+            Assert.That(container.HasComponent<ComponentA>(), Is.True);
+            Assert.That(container.HasComponent<ComponentB>(), Is.True);
+            Assert.That(container.HasComponent<ComplexComponent>(), Is.True);
+            Assert.That(container.Components.Count, Is.EqualTo(3));
+
+            Assert.That(container.RemoveComponent<ComplexComponent>(), Is.True);
+            Assert.That(container.Components.Count, Is.EqualTo(2));
+
+            Assert.That(container.RemoveComponent<DerivedClass>(), Is.False);
+            Assert.That(container.Components.Count, Is.EqualTo(2));
+
+            Assert.That(container.RemoveComponent<ITestInterface>(), Is.True);
+            Assert.That(container.Components.Count, Is.EqualTo(0));
+
+            Assert.Throws<ArgumentNullException>(() => container.RemoveComponent(null));
+            Assert.Throws<InvalidOperationException>(() => container.RemoveComponent(typeof(object)));
+            Assert.Throws<InvalidOperationException>(() => container.RemoveComponent(typeof(InvalidComponent)));
+        }
+
+        [Test]
         public void HasDependency()
         {
             var containerA = TestComponentContainer.CreateInstance();
@@ -450,6 +608,19 @@ namespace Unity.Build.Tests
             Assert.That(containerC.HasDependency(containerA), Is.False);
             Assert.That(containerC.HasDependency(containerB), Is.False);
             Assert.That(containerC.HasDependency(containerC), Is.False);
+
+            Assert.That(containerA.HasDependency(null), Is.False);
+        }
+
+        [Test]
+        public void AddDependency()
+        {
+            var containerA = TestComponentContainer.CreateInstance();
+            var containerB = TestComponentContainer.CreateInstance();
+            Assert.That(containerA.AddDependency(containerB), Is.True);
+            Assert.That(containerA.AddDependency(containerB), Is.False);
+            Assert.That(containerA.Dependencies, Is.EqualTo(new[] { containerB }));
+            Assert.Throws<ArgumentNullException>(() => containerA.AddDependency(null));
         }
 
         [Test]
@@ -476,6 +647,52 @@ namespace Unity.Build.Tests
             Assert.That(containerA.GetDependencies().Count, Is.EqualTo(2));
             Assert.That(containerB.GetDependencies().Count, Is.EqualTo(1));
             Assert.That(containerC.GetDependencies().Count, Is.Zero);
+        }
+
+        [Test]
+        public void GetDependencies()
+        {
+            var containerA = TestComponentContainer.CreateInstance();
+            var containerB = TestComponentContainer.CreateInstance();
+            var containerC = TestComponentContainer.CreateInstance();
+
+            containerA.AddDependency(containerB);
+            containerB.AddDependency(containerC);
+
+            Assert.That(containerA.GetDependencies(), Is.EqualTo(new[] { containerB, containerC }));
+            Assert.That(containerB.GetDependencies(), Is.EqualTo(new[] { containerC }));
+            Assert.That(containerC.GetDependencies(), Is.Empty);
+        }
+
+        [Test]
+        public void RemoveDependency()
+        {
+            var containerA = TestComponentContainer.CreateInstance();
+            var containerB = TestComponentContainer.CreateInstance();
+
+            containerA.AddDependency(containerB);
+
+            Assert.That(containerA.RemoveDependency(containerB), Is.True);
+            Assert.That(containerA.RemoveDependency(containerB), Is.False);
+            Assert.That(containerB.RemoveDependency(containerA), Is.False);
+            Assert.Throws<ArgumentNullException>(() => containerA.RemoveDependency(null));
+        }
+
+        [Test]
+        public void ClearDependencies()
+        {
+            var containerA = TestComponentContainer.CreateInstance();
+            var containerB = TestComponentContainer.CreateInstance();
+            var containerC = TestComponentContainer.CreateInstance();
+
+            containerA.AddDependency(containerB);
+            containerA.AddDependency(containerC);
+
+            Assert.That(containerA.Dependencies.Count, Is.EqualTo(2));
+            Assert.DoesNotThrow(() => containerA.ClearDependencies());
+            Assert.That(containerA.Dependencies, Is.Empty);
+            Assert.DoesNotThrow(() => containerA.ClearDependencies());
+            Assert.That(containerA.Dependencies, Is.Empty);
         }
     }
 }

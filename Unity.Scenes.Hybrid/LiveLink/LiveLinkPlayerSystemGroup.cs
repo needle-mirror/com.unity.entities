@@ -13,7 +13,7 @@ namespace Unity.Scenes
 #endif
     [ExecuteAlways]
     [UpdateInGroup(typeof(InitializationSystemGroup))]
-    [UpdateBefore(typeof(SceneSystem))]
+    [UpdateBefore(typeof(SceneSystemGroup))]
     class LiveLinkRuntimeSystemGroup : ComponentSystemGroup
     {
         protected override void OnCreate()

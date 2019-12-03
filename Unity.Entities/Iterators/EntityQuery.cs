@@ -223,7 +223,7 @@ namespace Unity.Entities
     /// </remarks>
     public unsafe class EntityQuery : IDisposable
     {
-        readonly ComponentJobSafetyManager* m_SafetyManager;
+        readonly ComponentDependencyManager* m_DependencyManager;
         internal readonly EntityQueryData*  m_QueryData;
         readonly EntityComponentStore*      m_EntityComponentStore;
         internal EntityQueryFilter          m_Filter;
@@ -238,13 +238,16 @@ namespace Unity.Entities
 
         internal EntityComponentStore* EntityComponentStore => m_EntityComponentStore;
         internal ManagedComponentStore ManagedComponentStore => m_ManagedComponentStore;
-        internal ComponentJobSafetyManager* SafetyManager => m_SafetyManager;
+        internal ComponentDependencyManager* DependencyManager => m_DependencyManager;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        internal ComponentSafetyHandles* SafetyHandles => &m_DependencyManager->Safety;
+#endif
 
-        internal EntityQuery(EntityQueryData* queryData, ComponentJobSafetyManager* safetyManager, EntityComponentStore* entityComponentStore, ManagedComponentStore managedComponentStore)
+        internal EntityQuery(EntityQueryData* queryData, ComponentDependencyManager* dependencyManager, EntityComponentStore* entityComponentStore, ManagedComponentStore managedComponentStore)
         {
             m_QueryData = queryData;
             m_Filter = default(EntityQueryFilter);
-            m_SafetyManager = safetyManager;
+            m_DependencyManager = dependencyManager;
             m_EntityComponentStore = entityComponentStore;
             m_ManagedComponentStore = managedComponentStore;
         }
@@ -383,7 +386,7 @@ namespace Unity.Entities
         {
             var type = m_QueryData->RequiredComponents + indexInEntityQuery;
             var isReadOnly = type->AccessModeType == ComponentType.AccessMode.ReadOnly;
-            return m_SafetyManager->GetSafetyHandle(type->TypeIndex, isReadOnly);
+            return SafetyHandles->GetSafetyHandle(type->TypeIndex, isReadOnly);
         }
 
         /// <summary>
@@ -394,7 +397,7 @@ namespace Unity.Entities
         internal AtomicSafetyHandle GetBufferSafetyHandle(int indexInEntityQuery)
         {
             var type = m_QueryData->RequiredComponents + indexInEntityQuery;
-            return m_SafetyManager->GetBufferSafetyHandle(type->TypeIndex);
+            return SafetyHandles->GetBufferSafetyHandle(type->TypeIndex);
         }
 #endif
 
@@ -491,7 +494,7 @@ namespace Unity.Entities
         /// <returns>ArchetypeChunkIterator for this EntityQuery</returns>
         public ArchetypeChunkIterator GetArchetypeChunkIterator()
         {
-            return new ArchetypeChunkIterator(m_QueryData->MatchingArchetypes, m_SafetyManager, m_EntityComponentStore->GlobalSystemVersion, ref m_Filter);
+            return new ArchetypeChunkIterator(m_QueryData->MatchingArchetypes, m_DependencyManager, m_EntityComponentStore->GlobalSystemVersion, ref m_Filter);
         }
 
         /// <summary>
@@ -544,7 +547,7 @@ namespace Unity.Entities
                     for (int i = 0; i < filterCount; ++i)
                         readerTypes[i] = m_QueryData->RequiredComponents[m_Filter.Changed.IndexInEntityQuery[i]].TypeIndex;
 
-                dependency = m_SafetyManager->GetDependency(readerTypes, filterCount,null, 0);
+                dependency = m_DependencyManager->GetDependency(readerTypes, filterCount,null, 0);
             }
 
             return ChunkIterationUtility.CreateArchetypeChunkArrayWithoutSync(m_QueryData->MatchingArchetypes, allocator, out jobhandle, ref m_Filter, dependency);
@@ -577,7 +580,7 @@ namespace Unity.Entities
         public NativeArray<Entity> ToEntityArray(Allocator allocator, out JobHandle jobhandle)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var entityType = new ArchetypeChunkEntityType(m_SafetyManager->GetEntityManagerSafetyHandle());
+            var entityType = new ArchetypeChunkEntityType(SafetyHandles->GetEntityManagerSafetyHandle());
 #else
             var entityType = new ArchetypeChunkEntityType();
 #endif
@@ -594,7 +597,7 @@ namespace Unity.Entities
         public NativeArray<Entity> ToEntityArray(Allocator allocator)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var entityType = new ArchetypeChunkEntityType(m_SafetyManager->GetEntityManagerSafetyHandle());
+            var entityType = new ArchetypeChunkEntityType(SafetyHandles->GetEntityManagerSafetyHandle());
 #else
             var entityType = new ArchetypeChunkEntityType();
 #endif
@@ -621,7 +624,7 @@ namespace Unity.Entities
             {
                 var entityCount = CalculateEntityCount();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                var entityType = new ArchetypeChunkEntityType(m_SafetyManager->GetEntityManagerSafetyHandle());
+                var entityType = new ArchetypeChunkEntityType(SafetyHandles->GetEntityManagerSafetyHandle());
 #else
                 var entityType = new ArchetypeChunkEntityType();
 #endif
@@ -659,7 +662,7 @@ namespace Unity.Entities
             where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), true), true, EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), true), true, EntityComponentStore->GlobalSystemVersion);
 #else
             var componentType = new ArchetypeChunkComponentType<T>(true, EntityComponentStore->GlobalSystemVersion);
 #endif
@@ -679,7 +682,7 @@ namespace Unity.Entities
             where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), true), true, EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), true), true, EntityComponentStore->GlobalSystemVersion);
 #else
             var componentType = new ArchetypeChunkComponentType<T>(true, EntityComponentStore->GlobalSystemVersion);
 #endif
@@ -707,7 +710,7 @@ namespace Unity.Entities
             if (indexInEntityQuery == -1)
                 throw new InvalidOperationException($"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityGroup.");
 
-            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager->GetSafetyHandle(typeIndex, true), true, EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandle(typeIndex, true), true, EntityComponentStore->GlobalSystemVersion);
 #else
             var componentType = new ArchetypeChunkComponentType<T>(true, EntityComponentStore->GlobalSystemVersion);
 #endif
@@ -753,7 +756,7 @@ namespace Unity.Entities
             var entityCount = CalculateEntityCount();
             if (entityCount != componentDataArray.Length)
                 throw new ArgumentException($"Length of input array ({componentDataArray.Length}) does not match length of EntityQuery ({entityCount})");
-            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, EntityComponentStore->GlobalSystemVersion);
 #else
             var componentType = new ArchetypeChunkComponentType<T>(false, EntityComponentStore->GlobalSystemVersion);
 #endif
@@ -773,7 +776,7 @@ namespace Unity.Entities
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var componentType = new ArchetypeChunkComponentType<T>(m_SafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, EntityComponentStore->GlobalSystemVersion);
 #else
             var componentType = new ArchetypeChunkComponentType<T>(false, EntityComponentStore->GlobalSystemVersion);
 #endif
@@ -1059,7 +1062,7 @@ namespace Unity.Entities
         /// </remarks>
         public void CompleteDependency()
         {
-            m_SafetyManager->CompleteDependenciesNoChecks(m_QueryData->ReaderTypes, m_QueryData->ReaderTypesCount,
+            m_DependencyManager->CompleteDependenciesNoChecks(m_QueryData->ReaderTypes, m_QueryData->ReaderTypesCount,
                 m_QueryData->WriterTypes, m_QueryData->WriterTypesCount);
         }
 
@@ -1071,7 +1074,7 @@ namespace Unity.Entities
         /// <returns>JobHandle that represents the combined dependencies of this EntityQuery</returns>
         public JobHandle GetDependency()
         {
-            return m_SafetyManager->GetDependency(m_QueryData->ReaderTypes, m_QueryData->ReaderTypesCount,
+            return m_DependencyManager->GetDependency(m_QueryData->ReaderTypes, m_QueryData->ReaderTypesCount,
                 m_QueryData->WriterTypes, m_QueryData->WriterTypesCount);
         }
 
@@ -1083,7 +1086,7 @@ namespace Unity.Entities
         /// internal jobs.</remarks>
         public JobHandle AddDependency(JobHandle job)
         {
-            return m_SafetyManager->AddDependency(m_QueryData->ReaderTypes, m_QueryData->ReaderTypesCount,
+            return m_DependencyManager->AddDependency(m_QueryData->ReaderTypes, m_QueryData->ReaderTypesCount,
                 m_QueryData->WriterTypes, m_QueryData->WriterTypesCount, job);
         }
 
@@ -1122,7 +1125,7 @@ namespace Unity.Entities
             for (int i = 0; i < m_Filter.Changed.Count; ++i)
             {
                 var type = m_QueryData->RequiredComponents[m_Filter.Changed.IndexInEntityQuery[i]];
-                SafetyManager->CompleteWriteDependency(type.TypeIndex);
+                DependencyManager->CompleteWriteDependency(type.TypeIndex);
             }
         }
 
@@ -1130,7 +1133,7 @@ namespace Unity.Entities
         /// Syncs the needed types for the filter using the types in UnsafeMatchingArchetypePtrList
         /// This version is used when the EntityQuery is not known
         /// </summary>
-        internal static void SyncFilterTypes(ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter, ComponentJobSafetyManager* safetyManager)
+        internal static void SyncFilterTypes(ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter, ComponentDependencyManager* safetyManager)
         {
             if(matchingArchetypes.Length < 1)
                 return;
@@ -1155,15 +1158,15 @@ namespace Unity.Entities
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("CalculateLength has been renamed to CalculateEntityCount. (RemovedAfter 2019-11-30) (UnityUpgradable) -> CalculateEntityCount()")]
+        [Obsolete("CalculateLength has been renamed to CalculateEntityCount. (RemovedAfter 2020-01-08) (UnityUpgradable) -> CalculateEntityCount()")]
         public int CalculateLength() => throw new NotSupportedException();
 
        [EditorBrowsable(EditorBrowsableState.Never)]
-       [Obsolete("SetFilter has been renamed to SetSharedComponentFilter. (RemovedAfter 2019-11-8) (UnityUpgradable) -> SetSharedComponentFilter(*)")]
+       [Obsolete("SetFilter has been renamed to SetSharedComponentFilter. (RemovedAfter 2020-01-08) (UnityUpgradable) -> SetSharedComponentFilter(*)")]
        public void SetFilter<SharedComponent1>(SharedComponent1 sharedComponent1) where SharedComponent1 : struct, ISharedComponentData => throw new NotSupportedException();
 
        [EditorBrowsable(EditorBrowsableState.Never)]
-       [Obsolete("SetFilter has been renamed to SetSharedComponentFilter. (RemovedAfter 2019-11-8) (UnityUpgradable) -> SetSharedComponentFilter(*)")]
+       [Obsolete("SetFilter has been renamed to SetSharedComponentFilter. (RemovedAfter 2020-01-08) (UnityUpgradable) -> SetSharedComponentFilter(*)")]
        public void SetFilter<SharedComponent1, SharedComponent2>(SharedComponent1 sharedComponent1,
            SharedComponent2 sharedComponent2)
            where SharedComponent1 : struct, ISharedComponentData
@@ -1176,21 +1179,21 @@ namespace Unity.Entities
        #if UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE
 
        [EditorBrowsable(EditorBrowsableState.Never)]
-       [Obsolete("SetFilterChanged has been renamed to SetChangedVersionFilter. (RemovedAfter 2019-11-8). If you see this in a user project, please remove UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE from the Unity.Entities assembly definition file.")]
+       [Obsolete("SetFilterChanged has been renamed to SetChangedVersionFilter. (RemovedAfter 2020-01-08). If you see this in a user project, please remove UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE from the Unity.Entities assembly definition file.")]
        public void SetFilterChanged(ComponentType componentType) => throw new NotSupportedException();
 
        [EditorBrowsable(EditorBrowsableState.Never)]
-       [Obsolete("SetFilterChanged has been renamed to SetChangedVersionFilter. (RemovedAfter 2019-11-8). If you see this in a user project, please remove UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE from the Unity.Entities assembly definition file.")]
+       [Obsolete("SetFilterChanged has been renamed to SetChangedVersionFilter. (RemovedAfter 2020-01-08). If you see this in a user project, please remove UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE from the Unity.Entities assembly definition file.")]
        public void SetFilterChanged(ComponentType[] componentType) => throw new NotSupportedException();
 
        #else
 
        [EditorBrowsable(EditorBrowsableState.Never)]
-       [Obsolete("SetFilterChanged has been renamed to SetChangedVersionFilter. (RemovedAfter 2019-11-8) (UnityUpgradable) -> SetChangedVersionFilter()")]
+       [Obsolete("SetFilterChanged has been renamed to SetChangedVersionFilter. (RemovedAfter 2020-01-08) (UnityUpgradable) -> SetChangedVersionFilter()")]
        public void SetFilterChanged(ComponentType componentType) => throw new NotSupportedException();
 
        [EditorBrowsable(EditorBrowsableState.Never)]
-       [Obsolete("SetFilterChanged has been renamed to SetChangedVersionFilter. (RemovedAfter 2019-11-8) (UnityUpgradable) -> SetChangedVersionFilter()")]
+       [Obsolete("SetFilterChanged has been renamed to SetChangedVersionFilter. (RemovedAfter 2020-01-08) (UnityUpgradable) -> SetChangedVersionFilter()")]
        public void SetFilterChanged(ComponentType[] componentType) => throw new NotSupportedException();
 
        #endif

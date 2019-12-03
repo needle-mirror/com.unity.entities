@@ -199,7 +199,7 @@ namespace Unity.Entities.CodeGen
     {
         protected AssemblyDefinition AssemblyDefinition;
 
-        private List<DiagnosticMessage> _diagnosticMessages = new List<DiagnosticMessage>();
+        protected List<DiagnosticMessage> _diagnosticMessages = new List<DiagnosticMessage>();
 
         public IEnumerable<DiagnosticMessage> PostProcess(AssemblyDefinition assemblyDefinition, out bool madeAChange)
         {

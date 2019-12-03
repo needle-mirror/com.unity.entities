@@ -8,7 +8,7 @@ using AssetImportContext = UnityEditor.Experimental.AssetImporters.AssetImportCo
 
 namespace Unity.Scenes.Editor
 {
-    [UnityEditor.Experimental.AssetImporters.ScriptedImporter(70, "extDontMatter")]
+    [UnityEditor.Experimental.AssetImporters.ScriptedImporter(71, "extDontMatter")]
     [InitializeOnLoad]
     class SubSceneImporter : UnityEditor.Experimental.AssetImporters.ScriptedImporter
     {
@@ -70,6 +70,8 @@ namespace Unity.Scenes.Editor
         {
             try
             {
+                ctx.DependsOnCustomDependency("EntityBinaryFileFormatVersion");
+
                 var sceneWithBuildSettings = ReadSceneWithBuildSettings(ctx.assetPath);
 
                 // Ensure we have as many dependencies as possible registered early in case an exception is thrown

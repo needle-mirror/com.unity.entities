@@ -217,7 +217,7 @@ namespace Unity.Scenes
             UnloadScene();
         }
 
-        [Obsolete("_SceneEntities has been deprecated, please use World.GetExistingSystem<SceneSystem>().LoadAsync / Unload using SceneGUID instead. (RemovedAfter 2019-11-22)")]
+        [Obsolete("_SceneEntities has been deprecated, please use World.GetExistingSystem<SceneSystem>().LoadAsync / Unload using SceneGUID instead. (RemovedAfter 2020-01-22)")]
         public List<Entity> _SceneEntities
         {
             get

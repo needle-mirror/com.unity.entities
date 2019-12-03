@@ -129,26 +129,24 @@ namespace Unity.Scenes
                 var subSceneAsset = reader.ReadNext<ResolvedSubSceneID>();
                 var sectionIndex = reader.ReadNext<int>();
                 reader.ReadNext(out NativeArray<RuntimeGlobalObjectId> objRefGUIDs, Allocator.Persistent);
-                
-                LiveLinkMsg.LogInfo($"ReceieveSubSceneRefGUIDs => {subSceneAsset.SubSceneGUID} | {subSceneAsset.TargetHash},");
-
                 var refObjGUIDsPath = EntityScenesPaths.GetLiveLinkCachePath(subSceneAsset.TargetHash, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex);
-                var tempCachePath = GetTempCachePath();
                 
-                using (var writer = new StreamBinaryWriter(tempCachePath))
-                {
-                    writer.Write(objRefGUIDs.Length);
-                    writer.WriteArray(objRefGUIDs);
-                }
-
+                // Not printing error because this can happen when running the same player multiple times on the same machine
                 if (File.Exists(refObjGUIDsPath))
                 {
-                    Debug.LogError($"Received {subSceneAsset.SubSceneGUID} | {subSceneAsset.TargetHash} but it already exists on disk");
                     LiveLinkMsg.LogInfo($"Received {subSceneAsset.SubSceneGUID} | {subSceneAsset.TargetHash} but it already exists on disk");
-                    File.Delete(tempCachePath);
                 }
                 else
                 {
+                    LiveLinkMsg.LogInfo($"ReceieveSubSceneRefGUIDs => {subSceneAsset.SubSceneGUID} | {subSceneAsset.TargetHash},");
+                    
+                    var tempCachePath = GetTempCachePath();
+                    using (var writer = new StreamBinaryWriter(tempCachePath))
+                    {
+                        writer.Write(objRefGUIDs.Length);
+                        writer.WriteArray(objRefGUIDs);
+                    }
+                    
                     try
                     {
                         File.Move(tempCachePath, refObjGUIDsPath);
@@ -184,25 +182,23 @@ namespace Unity.Scenes
                 var reader = new UnsafeAppendBuffer.Reader(ptr, args.data.Length);
                 var subSceneAsset = reader.ReadNext<ResolvedSubSceneID>();
                 var subSectionCount = reader.ReadNext<int>();
-                
                 var headerPath = EntityScenesPaths.GetLiveLinkCachePath(subSceneAsset.TargetHash, EntityScenesPaths.PathType.EntitiesHeader, -1);
-                var tempCachePath = GetTempCachePath();
-
-                var stream = File.OpenWrite(tempCachePath);
-                stream.Write(args.data, reader.Offset, args.data.Length - reader.Offset);
-                stream.Close();
-                stream.Dispose();
                 
-                LiveLinkMsg.LogInfo($"ReceiveSubSceneHeader => {subSceneAsset.SubSceneGUID} | {subSceneAsset.TargetHash}, '{tempCachePath}' => '{headerPath}'");
-                
+                // Not printing error because this can happen when running the same player multiple times on the same machine
                 if (File.Exists(headerPath))
                 {
-                    Debug.LogError($"Received {subSceneAsset.SubSceneGUID} | {subSceneAsset.TargetHash} but it already exists on disk");
                     LiveLinkMsg.LogInfo($"Received {subSceneAsset.SubSceneGUID} | {subSceneAsset.TargetHash} but it already exists on disk");
-                    File.Delete(tempCachePath);
                 }
                 else
                 {
+                    var tempCachePath = GetTempCachePath();
+                    LiveLinkMsg.LogInfo($"ReceiveSubSceneHeader => {subSceneAsset.SubSceneGUID} | {subSceneAsset.TargetHash}, '{tempCachePath}' => '{headerPath}'");
+                    
+                    var stream = File.OpenWrite(tempCachePath);
+                    stream.Write(args.data, reader.Offset, args.data.Length - reader.Offset);
+                    stream.Close();
+                    stream.Dispose();
+                    
                     try
                     {
                         File.Move(tempCachePath, headerPath);
@@ -217,7 +213,7 @@ namespace Unity.Scenes
                         }
                     }
                 }
-
+                
                 if (!_WaitingForSubScenes.ContainsKey(subSceneAsset.SubSceneGUID))
                 {
                     Debug.LogError($"Received {subSceneAsset.SubSceneGUID} | {subSceneAsset.TargetHash} without requesting it");
@@ -239,25 +235,23 @@ namespace Unity.Scenes
                 var reader = new UnsafeAppendBuffer.Reader(ptr, args.data.Length);
                 var subSceneAsset = reader.ReadNext<ResolvedSubSceneID>();
                 var sectionIndex = reader.ReadNext<int>();
-
                 var ebfPath = EntityScenesPaths.GetLiveLinkCachePath(subSceneAsset.TargetHash, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
-                var tempCachePath = GetTempCachePath();
-
-                var stream = File.OpenWrite(tempCachePath);
-                stream.Write(args.data, reader.Offset, args.data.Length - reader.Offset);
-                stream.Close();
-                stream.Dispose();
                 
-                LiveLinkMsg.LogInfo($"ReceiveEntityBinaryFile => {subSceneAsset.SubSceneGUID} | {sectionIndex} | {subSceneAsset.TargetHash}, '{tempCachePath}' => '{ebfPath}'");
-                
+                // Not printing error because this can happen when running the same player multiple times on the same machine
                 if (File.Exists(ebfPath))
                 {
-                    Debug.LogError($"Received {subSceneAsset.SubSceneGUID} | {sectionIndex} | {subSceneAsset.TargetHash} but it already exists on disk");
                     LiveLinkMsg.LogInfo($"Received {subSceneAsset.SubSceneGUID} | {sectionIndex} | {subSceneAsset.TargetHash} but it already exists on disk");
-                    File.Delete(tempCachePath);
                 }
                 else
                 {
+                    var tempCachePath = GetTempCachePath();
+                    LiveLinkMsg.LogInfo($"ReceiveEntityBinaryFile => {subSceneAsset.SubSceneGUID} | {sectionIndex} | {subSceneAsset.TargetHash}, '{tempCachePath}' => '{ebfPath}'");
+                    
+                    var stream = File.OpenWrite(tempCachePath);
+                    stream.Write(args.data, reader.Offset, args.data.Length - reader.Offset);
+                    stream.Close();
+                    stream.Dispose();
+                    
                     try
                     {
                         File.Move(tempCachePath, ebfPath);
@@ -272,7 +266,7 @@ namespace Unity.Scenes
                         }
                     }
                 }
-
+                
                 if (!_WaitingForSubScenes.ContainsKey(subSceneAsset.SubSceneGUID))
                 {
                     Debug.LogError($"Received {subSceneAsset.SubSceneGUID} | {sectionIndex} | {subSceneAsset.TargetHash} without requesting it");
@@ -290,29 +284,26 @@ namespace Unity.Scenes
             {
                 var reader = new UnsafeAppendBuffer.Reader(ptr, args.data.Length);
                 var asset = reader.ReadNext<ResolvedAssetID>();
-
                 var assetBundleCachePath = GetCachePath(asset.TargetHash);
-                var tempCachePath = GetTempCachePath();
-
-                // cache: look up asset by target hash to see if the version we want is already on the target device
-
-                //if we already have the asset bundle revision we want, then just put that in the resolver as the active revision of the asset
-                // cache: if not in cache, write actual file to Application.persistentDatapath
-                var stream = File.OpenWrite(tempCachePath);
-                stream.Write(args.data, reader.Offset, args.data.Length - reader.Offset);
-                stream.Close();
-                stream.Dispose();
-
-                LiveLinkMsg.LogInfo($"ReceiveAssetBundle => {asset.GUID} | {asset.TargetHash}, '{tempCachePath}' => '{assetBundleCachePath}'");
-
+                
+                // Not printing error because this can happen when running the same player multiple times on the same machine
                 if (File.Exists(assetBundleCachePath))
                 {
-                    Debug.LogError($"Received {asset.GUID} | {asset.TargetHash} but it already exists on disk");
                     LiveLinkMsg.LogInfo($"Received {asset.GUID} | {asset.TargetHash} but it already exists on disk");
-                    File.Delete(tempCachePath);
                 }
                 else
                 {
+                    // cache: look up asset by target hash to see if the version we want is already on the target device
+                    //if we already have the asset bundle revision we want, then just put that in the resolver as the active revision of the asset
+                    // cache: if not in cache, write actual file to Application.persistentDatapath
+                    var tempCachePath = GetTempCachePath();
+                    LiveLinkMsg.LogInfo($"ReceiveAssetBundle => {asset.GUID} | {asset.TargetHash}, '{tempCachePath}' => '{assetBundleCachePath}'");
+                    
+                    var stream = File.OpenWrite(tempCachePath);
+                    stream.Write(args.data, reader.Offset, args.data.Length - reader.Offset);
+                    stream.Close();
+                    stream.Dispose();
+
                     try
                     {
                         File.Move(tempCachePath, assetBundleCachePath);
@@ -327,7 +318,6 @@ namespace Unity.Scenes
                         }
                     }
                 }
-                    
 
                 if (!_WaitingForAssets.ContainsKey(asset.GUID))
                 {

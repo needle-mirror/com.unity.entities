@@ -5,7 +5,7 @@ namespace Unity.Scenes.Editor
 {
     [ExecuteAlways]
     [UpdateInGroup(typeof(InitializationSystemGroup))]
-    [UpdateBefore(typeof(SceneSystem))]
+    [UpdateBefore(typeof(SceneSystemGroup))]
     class LiveLinkEditorSystemGroup : ComponentSystemGroup
     {
     }

@@ -160,7 +160,18 @@ namespace Unity.Build
             {
                 foreach (var asmdefAsset in m_BaseAssemblyAssets)
                 {
-                    var assemblyDefinition = AssemblyDefinition.Deserialize(UnityEditor.AssetDatabase.GetAssetPath(asmdefAsset));
+                    if (asmdefAsset == null || !asmdefAsset)
+                    {
+                        continue;
+                    }
+
+                    var assetPath = UnityEditor.AssetDatabase.GetAssetPath(asmdefAsset);
+                    if (string.IsNullOrEmpty(assetPath))
+                    {
+                        continue;
+                    }
+
+                    var assemblyDefinition = AssemblyDefinition.Deserialize(assetPath);
                     assemblyNames.Add(assemblyDefinition.name);
                     assemblyDefinitions.Push(assemblyDefinition);
                 }

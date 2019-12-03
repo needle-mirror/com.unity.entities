@@ -160,6 +160,11 @@ namespace Unity.Build
             return Populate<IBuildStep>(types, displayNameResolver);
         }
 
+        public static SearcherDatabase GetRunStepDatabase(HashSet<Type> types)
+        {
+            return Populate<IRunStep>(types, null);
+        }
+
         static SearcherDatabase Populate<T>(HashSet<Type> types, Func<Type, string> displayNameResolver)
         {
             var list = new List<SearcherItem>();

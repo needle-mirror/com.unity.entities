@@ -1,0 +1,26 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:VisualElement style="margin: -2 -6 -2 -15">
+        <ui:VisualElement name="InspectorHeader" class="InspectorHeader">
+            <ui:Image class="InspectorHeader__Icon" />
+            <ui:Label class="InspectorHeader__Label" />
+        </ui:VisualElement>
+        <ui:VisualElement class="CustomInspectorSection">
+            <ui:VisualElement class="CustomInspectorSection__Header">
+                <ui:Label text="Build Pipeline Steps" class="CustomInspectorSection__HeaderLabel" />
+                <ui:Image class="CustomInspectorSection__HelpIcon" tooltip="Add/remove and order the steps composing the pipeline."/>
+            </ui:VisualElement>
+            <ui:VisualElement name="BuildSteps__IMGUIContainer" class="CustomInspectorSection__Content"/>
+        </ui:VisualElement>
+        <ui:VisualElement name="RunStep" class="CustomInspectorSection">
+            <ui:VisualElement class="CustomInspectorSection__Header">
+                <ui:Label text="Run Script" class="CustomInspectorSection__HeaderLabel" />
+                <ui:Image class="CustomInspectorSection__HelpIcon" tooltip="Select a type that implements IRunStep to configure how the pipeline will run." />
+            </ui:VisualElement>
+            <ui:VisualElement style="flex-direction: row;" class="CustomInspectorSection__Content">
+                <ui:TextField name="RunStep__RunStepTypeName" readonly="true" style="flex-grow: 1;" />
+                <ui:Button name="RunStep__SelectButton" class="unity-object-field__selector" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="ApplyRevertButtons" />
+    </ui:VisualElement>
+</ui:UXML>

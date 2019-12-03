@@ -249,7 +249,6 @@ namespace Unity.Entities
         /// <returns></returns>
         public BlobAssetReference<T> CreateBlobAssetReference<T>(Allocator allocator) where T : struct
         {
-            Assert.AreEqual(24, sizeof(BlobAssetHeader));
             var offsets = new NativeArray<int>(m_allocations.Length + 1, Allocator.Temp);
             var sortedAllocs = new NativeArray<SortedIndex>(m_allocations.Length, Allocator.Temp);
 

@@ -27,7 +27,7 @@ namespace Unity.Entities.Serialization
             }
         }
 
-       internal  class ReadBoxedClassForwarder : IContainerTypeCallback
+       internal class ReadBoxedClassForwarder : IContainerTypeCallback
         {
             public object Container;
             public PropertiesBinaryReader reader;
@@ -206,7 +206,7 @@ namespace Unity.Entities.Serialization
             else if (value == null)
             {
                 Buffer.Add(kMagicNull);
-                return VisitStatus.Handled;
+                return VisitStatus.Override;
             }
 
             // Is the runtime type different than the field type, then we are dealing with a polymorphic type
@@ -248,6 +248,12 @@ namespace Unity.Entities.Serialization
             (TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker)
         {
             _ProcessingCollectionStack.Push(true);
+
+            if (null == value)
+            {
+                Buffer.Add(kMagicNull);
+                return VisitStatus.Override;
+            }
             
             // Write out size of list required for deserializing later
             var count = property.GetCount(ref container);
@@ -366,7 +372,10 @@ namespace Unity.Entities.Serialization
             
             if (typeof(System.Collections.IDictionary).IsAssignableFrom(typeof(TValue)))
             {
-                InitializeNullIfFieldNotNull(ref value);
+                if (InitializeNullIfFieldNotNull(ref value))
+                {
+                    return VisitStatus.Override;
+                }
 
                 var dict = value as System.Collections.IDictionary;
                 var keys = dict.Keys;
@@ -404,7 +413,7 @@ namespace Unity.Entities.Serialization
                 if (InitializeNullIfFieldNotNull(ref value))
                 {
                     // The value really was null so just continue
-                    return VisitStatus.Handled;
+                    return VisitStatus.Override;
                 }
                 // the value isn't null so fallthrough so we can try visiting it
             }
@@ -440,19 +449,20 @@ namespace Unity.Entities.Serialization
             (TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker)
         {
             _ProcessingCollectionStack.Push(true);
+
+            if (CheckSentinel(_PrimitiveReader, kMagicNull))
+            {
+                return VisitStatus.Override;
+            }
+            
             // Unity.Properties doesn't really support class types so we need to workaround
             // this issue for now by prefilling our list with instances which will be later replaced.
             // Properties assumes a value type (non-null) value will already be there to write 
             // and if not will try to create a default value (which will be null for class types)
             _PrimitiveReader.Buffer->ReadNext(out int count);
             
-            var oldOffset = _PrimitiveReader.Buffer->Offset;
-            _PrimitiveReader.Buffer->ReadNext(out uint sentinel);
-
-            bool polyList = sentinel == kMagicPolymorphic;
-            if(!polyList) 
-                _PrimitiveReader.Buffer->Offset = oldOffset; // reset the offset if we didn't read a sentinel
-
+            var polyList = count != 0 && CheckSentinel(_PrimitiveReader, kMagicPolymorphic);
+            
             var type = typeof(TValue);
             if (type.IsArray)
             {
@@ -466,17 +476,12 @@ namespace Unity.Entities.Serialization
                     {
                         // annoyingly we need to check if an element in our polymorphic list was null (in which case we
                         // couldn't resolve the actual concrete type
-                        oldOffset = _PrimitiveReader.Buffer->Offset;
-                        _PrimitiveReader.Buffer->ReadNext(out sentinel);
-                        if (sentinel == kMagicNull)
+                        if (CheckSentinel(_PrimitiveReader, kMagicNull))
                         {
                             array.SetValue(null, i);
                         }
                         else
                         {
-                            // reset the offset since we didn't read a sentinel
-                            _PrimitiveReader.Buffer->Offset = oldOffset; 
-                            
                             var typeName = new PolymorphicTypeName();
                             PropertyContainer.Visit(ref typeName, this);
                             var concreteType = Type.GetType(typeName.Name);
@@ -538,17 +543,12 @@ namespace Unity.Entities.Serialization
                     {
                         // annoyingly we need to check if an element in our polymorphic list was null (in which case we
                         // couldn't resolve the actual concrete type
-                        oldOffset = _PrimitiveReader.Buffer->Offset;
-                        _PrimitiveReader.Buffer->ReadNext(out sentinel);
-                        if (sentinel == kMagicNull)
+                        if (CheckSentinel(_PrimitiveReader, kMagicNull))
                         {
                             list.Add(null);
                         }
                         else
                         {
-                            // reset the offset since we didn't read a sentinel
-                            _PrimitiveReader.Buffer->Offset = oldOffset;
-                            
                             var typeName = new PolymorphicTypeName();
                             PropertyContainer.Visit(ref typeName, this);
                             var concreteType = Type.GetType(typeName.Name);
@@ -601,6 +601,18 @@ namespace Unity.Entities.Serialization
         protected override void EndCollection<TProperty, TContainer, TValue>(TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker)
         {
             _ProcessingCollectionStack.Pop();
+        }
+
+        unsafe bool CheckSentinel(BinaryPrimitiveReaderAdapter reader, uint expected)
+        {
+            var offset = _PrimitiveReader.Buffer->Offset;
+            reader.Buffer->ReadNext(out uint sentinel);
+
+            if (sentinel == expected)
+                return true;
+            
+            _PrimitiveReader.Buffer->Offset = offset;
+            return false;
         }
 
         // As properties iterates over containers, if the container doesn't default construct it's fields but we 

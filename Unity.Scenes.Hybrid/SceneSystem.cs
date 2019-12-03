@@ -8,27 +8,22 @@ using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes
 {
-   
+    /// <summary>
+    /// High level API for loading & unloading scenes
+    /// </summary>
     [ExecuteAlways]
-    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    [UpdateInGroup(typeof(SceneSystemGroup))]
     public class SceneSystem : ComponentSystem
     {
         public struct LoadParameters
         {
-            private SceneLoadFlags _SceneLoadFlags;
-            private const SceneLoadFlags defaultFlags = SceneLoadFlags.BlockOnImport;
-
             public bool AutoLoad
             {
-                get { return !Flags.HasFlag(SceneLoadFlags.DisableAutoLoad); }
+                get { return (Flags & SceneLoadFlags.DisableAutoLoad) == 0; }
                 set => Flags = value ? Flags & ~SceneLoadFlags.DisableAutoLoad : Flags | SceneLoadFlags.DisableAutoLoad;
             }
 
-            public SceneLoadFlags Flags
-            {
-                get { return _SceneLoadFlags ^ defaultFlags; }
-                set { _SceneLoadFlags = value ^ defaultFlags;}
-            }
+            public SceneLoadFlags Flags;
         }
 
         public Hash128 BuildSettingsGUID { get; set; }

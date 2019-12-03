@@ -76,6 +76,13 @@ namespace Unity.Build.Common
                 case BuildTarget.StandaloneLinux64:
                 case BuildTarget.Stadia:
                     return string.Empty;
+                case BuildTarget.Android:
+                    if (EditorUserBuildSettings.exportAsGoogleAndroidProject)
+                        return "";
+                    else if (EditorUserBuildSettings.buildAppBundle)
+                        return ".aab";
+                    else
+                        return ".apk";
                 default:
                     throw new ArgumentException($"Invalid or unhandled enum {m_Target.ToString()} (index {(int)m_Target})");
             }

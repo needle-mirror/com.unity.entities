@@ -23,9 +23,9 @@ namespace Unity.Entities
         /// <returns>A transaction object that provides an functions for making structural changes.</returns>
         public ExclusiveEntityTransaction BeginExclusiveEntityTransaction()
         {
-            ComponentJobSafetyManager->BeginExclusiveTransaction();
+            DependencyManager->BeginExclusiveTransaction();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            m_ExclusiveEntityTransaction.SetAtomicSafetyHandle(ComponentJobSafetyManager->ExclusiveTransactionSafety);
+            m_ExclusiveEntityTransaction.SetAtomicSafetyHandle(SafetyHandles->ExclusiveTransactionSafety);
 #endif
             return m_ExclusiveEntityTransaction;
         }
@@ -37,7 +37,7 @@ namespace Unity.Entities
         /// <seealso cref="BeginExclusiveEntityTransaction()"/>
         public void EndExclusiveEntityTransaction()
         {
-            ComponentJobSafetyManager->EndExclusiveTransaction();
+            DependencyManager->EndExclusiveTransaction();
         }
         
         // ----------------------------------------------------------------------------------------------------------

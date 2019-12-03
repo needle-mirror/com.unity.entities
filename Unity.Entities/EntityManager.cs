@@ -20,9 +20,7 @@ namespace Unity.Entities
 {
     //@TODO: There is nothing prevent non-main thread (non-job thread) access of EntityManager.
     //       Static Analysis or runtime checks?
-
-    //@TODO: safety?
-
+    
     /// <summary>
     /// The EntityManager manages entities and components in a World.
     /// </summary>
@@ -44,7 +42,7 @@ namespace Unity.Entities
     [DebuggerTypeProxy(typeof(EntityManagerDebugView))]
     public sealed unsafe partial class EntityManager
     {
-        ComponentJobSafetyManager*  m_ComponentJobSafetyManager;
+        ComponentDependencyManager* m_DependencyManager;
         EntityDataAccess            m_EntityDataAccess;
         EntityComponentStore*       m_EntityComponentStore;
         ManagedComponentStore       m_ManagedComponentStore;
@@ -80,7 +78,10 @@ namespace Unity.Entities
 
         internal EntityDataAccess EntityDataAccess => m_EntityDataAccess;
         internal EntityComponentStore* EntityComponentStore => m_EntityComponentStore;
-        internal ComponentJobSafetyManager* ComponentJobSafetyManager => m_ComponentJobSafetyManager;
+        internal ComponentDependencyManager* DependencyManager => m_DependencyManager;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS        
+        internal ComponentSafetyHandles* SafetyHandles => &m_DependencyManager->Safety;
+#endif
         internal EntityQueryManager EntityQueryManager => m_EntityQueryManager;
         internal ManagedComponentStore ManagedComponentStore => m_ManagedComponentStore;
         
@@ -140,8 +141,8 @@ namespace Unity.Entities
         /// <value></value>
         public JobHandle ExclusiveEntityTransactionDependency
         {
-            get { return ComponentJobSafetyManager->ExclusiveTransactionDependency; }
-            set { ComponentJobSafetyManager->ExclusiveTransactionDependency = value; }
+            get { return DependencyManager->ExclusiveTransactionDependency; }
+            set { DependencyManager->ExclusiveTransactionDependency = value; }
         }
         
         /// <summary>
@@ -163,14 +164,14 @@ namespace Unity.Entities
 
             m_World = world;
 
-            m_ComponentJobSafetyManager =
-                (ComponentJobSafetyManager*) UnsafeUtility.Malloc(sizeof(ComponentJobSafetyManager), 64,
+            m_DependencyManager =
+                (ComponentDependencyManager*) UnsafeUtility.Malloc(sizeof(ComponentDependencyManager), 64,
                     Allocator.Persistent);
-            m_ComponentJobSafetyManager->OnCreate();
+            m_DependencyManager->OnCreate();
 
             m_EntityComponentStore = Entities.EntityComponentStore.Create(world.SequenceNumber << 32);
             m_ManagedComponentStore = new ManagedComponentStore();
-            m_EntityQueryManager = new EntityQueryManager(m_ComponentJobSafetyManager);
+            m_EntityQueryManager = new EntityQueryManager(m_DependencyManager);
             m_EntityDataAccess = new EntityDataAccess(this, true);
 
             m_ExclusiveEntityTransaction = new ExclusiveEntityTransaction(this);
@@ -199,7 +200,7 @@ namespace Unity.Entities
         {
             EndExclusiveEntityTransaction();
 
-            m_ComponentJobSafetyManager->PreDisposeCheck();
+            m_DependencyManager->PreDisposeCheck();
 
             m_UniversalQuery.Dispose();
             m_UniversalQuery = null;
@@ -207,9 +208,9 @@ namespace Unity.Entities
             m_UniversalQueryWithChunks.Dispose();
             m_UniversalQueryWithChunks = null;
 
-            m_ComponentJobSafetyManager->Dispose();
-            UnsafeUtility.Free(m_ComponentJobSafetyManager, Allocator.Persistent);
-            m_ComponentJobSafetyManager = null;
+            m_DependencyManager->Dispose();
+            UnsafeUtility.Free(m_DependencyManager, Allocator.Persistent);
+            m_DependencyManager = null;
 
             Entities.EntityComponentStore.Destroy(m_EntityComponentStore);
 

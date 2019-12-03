@@ -640,38 +640,11 @@ namespace Unity.Entities
                         }
                         else
                         {
-#if NET_DOTS
                             for (var i = 0; i < count; ++i)
                             {
                                 var obj = srcStore.GetManagedObject(srcArch, srcManagedArrayIndex, srcChunkCapacity, srcI, srcStartIndex + i);
-                                // Until DOTS Runtime supports Properties just perform a simple shallow copy
                                 dstStore.SetManagedObject(dstArch, dstManagedArrayIndex, dstChunkCapacity, dstI, dstStartIndex + i, obj);
                             }
-#else
-                            var buffer = new UnsafeAppendBuffer(16, 16, Allocator.Temp);
-                            for (var i = 0; i < count; ++i)
-                            {
-                                object newObj = null;
-                                var obj = srcStore.GetManagedObject(srcArch, srcManagedArrayIndex, srcChunkCapacity, srcI, srcStartIndex + i);
-
-                                if (obj != null)
-                                {
-                                    // Unless we want to enforce managed components to implement an IDeepClonable interface
-                                    // we instead generate a binary stream of an object and then use that to instantiate our new deep copy
-                                    var writer = new PropertiesBinaryWriter(&buffer);
-                                    BoxedProperties.WriteBoxedType(obj, writer);
-
-                                    var readBuffer = buffer.AsReader();
-                                    var reader = new PropertiesBinaryReader(&readBuffer, writer.GetObjectTable());
-                                    var type = TypeManager.GetType(componentType.TypeIndex);
-                                    newObj = BoxedProperties.ReadBoxedClass(type, reader);
-
-                                    buffer.Reset();
-                                }
-                                dstStore.SetManagedObject(dstArch, dstManagedArrayIndex, dstChunkCapacity, dstI, dstStartIndex + i, newObj);
-                            }
-                            buffer.Dispose();
-#endif
                         }
                     }
 

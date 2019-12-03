@@ -144,14 +144,17 @@ namespace Unity.Entities
         }
     }
     
-    //@TODO: Compress to 8 bytes?
-    [StructLayout(LayoutKind.Explicit, Size = 24)]
+    // TODO: For now the size of BlobAssetHeader needs to be multiple of 16 to ensure alignment of blob assets
+    // TODO: Add proper alignment support to blob assets
+    // TODO: Reduce the size of the header at runtime or remove it completely
+    [StructLayout(LayoutKind.Explicit, Size = 32)]
     unsafe struct BlobAssetHeader
     {
         [FieldOffset(0)]  public void* ValidationPtr;
         [FieldOffset(8)]  public int Length;
         [FieldOffset(12)] public Allocator Allocator;
         [FieldOffset(16)] public ulong Hash;
+        [FieldOffset(24)] private ulong Padding;
 
         internal static BlobAssetHeader CreateForSerialize(int length, ulong hash)
         {
@@ -160,7 +163,8 @@ namespace Unity.Entities
                 ValidationPtr = null,
                 Length = length,
                 Allocator = Allocator.None,
-                Hash = hash
+                Hash = hash,
+                Padding = 0
             };
         }
 

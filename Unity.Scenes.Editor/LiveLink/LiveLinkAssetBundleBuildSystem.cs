@@ -31,7 +31,7 @@ namespace Unity.Scenes.Editor
             var guid = args.Receive<GUID>();
             LiveLinkMsg.LogReceived($"AssetBundleBuild request: '{guid}' -> '{AssetDatabase.GUIDToAssetPath(guid.ToString())}'");
 
-            SendAssetBundle(args.playerId, guid);
+            SendAssetBundle(guid, args.playerId);
         }
 
         public void RequestSubSceneForGUID(MessageEventArgs args)
@@ -39,7 +39,7 @@ namespace Unity.Scenes.Editor
             var subSceneID = args.Receive<ResolvedSubSceneID>();
             LiveLinkMsg.LogInfo($"RequestSubSceneForGUID => {subSceneID.SubSceneGUID}");
 
-            SendSubScene(args.playerId, subSceneID.SubSceneGUID.Guid, subSceneID.SubSceneGUID.BuildSettingsGuid);
+            SendSubScene(subSceneID.SubSceneGUID.Guid, subSceneID.SubSceneGUID.BuildSettingsGuid, args.playerId);
         }
 
         public void RequestSubSceneTargetHash(MessageEventArgs args)
@@ -126,7 +126,7 @@ namespace Unity.Scenes.Editor
             foreach (var asset in resolvedAssets)
             {
                 _UsedSubSceneTargetHash[asset.SubSceneGUID] = asset.TargetHash;
-                LiveLinkMsg.LogInfo($"SendSubSceneTargetHash => {asset.SubSceneGUID}");
+                LiveLinkMsg.LogInfo($"SendSubSceneTargetHash => {asset.SubSceneGUID} to playerId: {playerId}");
             }
 
             EditorConnection.instance.SendArray(LiveLinkMsg.ResponseSubSceneTargetHash, resolvedAssets, playerId);
@@ -135,7 +135,7 @@ namespace Unity.Scenes.Editor
         void SendAssetBundleTargetHash(NativeArray<ResolvedAssetID> resolvedAssets, int playerId)
         {
             foreach (var asset in resolvedAssets)
-                LiveLinkMsg.LogSend($"AssetBundleTargetHash response {asset.GUID} | {asset.TargetHash}");
+                LiveLinkMsg.LogSend($"AssetBundleTargetHash response {asset.GUID} | {asset.TargetHash} to playerId: {playerId}");
 
             EditorConnection.instance.SendArray(LiveLinkMsg.ResponseAssetBundleTargetHash, resolvedAssets, playerId);
 
@@ -146,9 +146,9 @@ namespace Unity.Scenes.Editor
         }
 		
         //TODO: There is too much code duplication here, refactor this to send general artifacts to the editor
-        unsafe void SendSubScene(int playerID, Unity.Entities.Hash128 subSceneGuid, Unity.Entities.Hash128 buildSettingsGuid)
+        unsafe void SendSubScene(Unity.Entities.Hash128 subSceneGuid, Unity.Entities.Hash128 buildSettingsGuid, int playerId)
         {
-            LiveLinkMsg.LogInfo($"Sending SubScene: 'GUID: {subSceneGuid}' with 'BuildSettings: {buildSettingsGuid}'");
+            LiveLinkMsg.LogInfo($"Sending SubScene: 'GUID: {subSceneGuid}' with 'BuildSettings: {buildSettingsGuid}' to playerId: {playerId}");
             
             var hash = EntityScenesPaths.GetSubSceneArtifactHash(subSceneGuid, buildSettingsGuid, AssetDatabaseExperimental.ImportSyncMode.Block);
             AssetDatabaseExperimental.GetArtifactPaths(hash, out var paths);
@@ -207,7 +207,7 @@ namespace Unity.Scenes.Editor
                         }
                     }
                     
-                    EditorConnection.instance.Send(LiveLinkMsg.ResponseSubSceneForGUIDEntityBinaryFile, ebfAndHeader, playerID);
+                    EditorConnection.instance.Send(LiveLinkMsg.ResponseSubSceneForGUIDEntityBinaryFile, ebfAndHeader, playerId);
                 }
 
                 // Send Obj Refs as GUIDs
@@ -261,7 +261,7 @@ namespace Unity.Scenes.Editor
                         writer.Add(runtimeGlobalObjIDs);
                     }
                     
-                    EditorConnection.instance.Send(LiveLinkMsg.ResponseSubSceneForGUIDRefs, refObjsAndHeader, playerID);
+                    EditorConnection.instance.Send(LiveLinkMsg.ResponseSubSceneForGUIDRefs, refObjsAndHeader, playerId);
                 }
             }
 
@@ -299,11 +299,11 @@ namespace Unity.Scenes.Editor
                     }
                 }
 
-                EditorConnection.instance.Send(LiveLinkMsg.ResponseSubSceneForGUIDHeader, subSceneHeaderAndMsgHeader, playerID);
+                EditorConnection.instance.Send(LiveLinkMsg.ResponseSubSceneForGUIDHeader, subSceneHeaderAndMsgHeader, playerId);
             }
         }		
 
-        unsafe void SendAssetBundle(int playerID, GUID guid)
+        unsafe void SendAssetBundle(GUID guid, int playerId)
         {
             Hash128 targetHash;
             string path = BuildAssetBundleIfNotCached(guid, out targetHash);
@@ -332,17 +332,25 @@ namespace Unity.Scenes.Editor
             stream.Close();
             stream.Dispose();
 
-            LiveLinkMsg.LogSend($"AssetBundle: '{AssetDatabase.GUIDToAssetPath(guid.ToString())}' ({guid}), size: {assetBundleFileLength}, hash: {targetHash}");
-            EditorConnection.instance.Send(LiveLinkMsg.ResponseAssetBundleForGUID, bundleAndHeader, playerID);
+            LiveLinkMsg.LogSend($"AssetBundle: '{AssetDatabase.GUIDToAssetPath(guid.ToString())}' ({guid}), size: {assetBundleFileLength}, hash: {targetHash} to playerId: {playerId}");
+            EditorConnection.instance.Send(LiveLinkMsg.ResponseAssetBundleForGUID, bundleAndHeader, playerId);
         }
 
-        //@TODO: The asset pipeline should be building & cache the asset bundle
         public string BuildAssetBundleIfNotCached(GUID guid, out Hash128 targetHash)
         {
             //@TODO Get build target from player requesting it...
             var buildTarget = EditorUserBuildSettings.activeBuildTarget;
             targetHash = LiveLinkBuildPipeline.CalculateTargetHash(guid, buildTarget);
 
+#if LIVELINKS_ASSETPIPELINE
+            var bundlePath = LiveLinkBuildImporter.GetBundlePath(guid.ToString(), buildTarget);
+            if (string.IsNullOrEmpty(bundlePath) || !File.Exists(bundlePath))
+            {
+                Debug.LogError($"Failed to build asset bundle: '{guid}'");
+                return null;
+            }
+            return bundlePath;
+#else
             // TODO: Move caching into LiveLinkBuildPipeline
             var cachePath = ResolveCachePath(targetHash);
 
@@ -360,7 +368,7 @@ namespace Unity.Scenes.Editor
             AssetObjectManifestBuilder.BuildManifest(guid, manifest);
             UnityEditorInternal.InternalEditorUtility.SaveToSerializedFileAndForget(new[] { manifest }, AssetObjectManifestPath, true);
 
-            var didSucceed = LiveLinkBuildPipeline.BuildAssetBundle(guid, $"{cachePath}", EditorUserBuildSettings.activeBuildTarget);
+            var didSucceed = LiveLinkBuildPipeline.BuildAssetBundle(AssetObjectManifestPath, guid, $"{cachePath}", EditorUserBuildSettings.activeBuildTarget);
 
             if (!didSucceed)
             {
@@ -369,6 +377,7 @@ namespace Unity.Scenes.Editor
             }
 
             return cachePath;
+#endif
         }
 
         void DetectChangedAssets()

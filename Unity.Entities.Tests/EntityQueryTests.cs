@@ -550,7 +550,7 @@ namespace Unity.Entities.Tests
             group.SetChangedVersionFilter(typeof(EcsTestData));
             var ws1 = World.GetOrCreateSystem<WriteEcsTestDataSystem>();
             ws1.Update();
-            var safetyHandle = m_Manager.ComponentJobSafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<EcsTestData>(), false);
+            var safetyHandle = m_Manager.SafetyHandles->GetSafetyHandle(TypeManager.GetTypeIndex<EcsTestData>(), false);
 
             Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckWriteAndThrow(safetyHandle));
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
@@ -567,7 +567,7 @@ namespace Unity.Entities.Tests
             group.SetChangedVersionFilter(typeof(EcsTestData));
             var ws1 = World.GetOrCreateSystem<WriteEcsTestDataSystem>();
             ws1.Update();
-            var safetyHandle = m_Manager.ComponentJobSafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<EcsTestData>(), false);
+            var safetyHandle = m_Manager.SafetyHandles->GetSafetyHandle(TypeManager.GetTypeIndex<EcsTestData>(), false);
 
             Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckWriteAndThrow(safetyHandle));
             group.CalculateEntityCount();

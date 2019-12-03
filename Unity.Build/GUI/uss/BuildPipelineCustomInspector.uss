@@ -1,0 +1,53 @@
+.InspectorHeader {
+    padding: 6px;
+    flex-direction: row;
+    border-bottom-width: 1px;
+}
+
+.InspectorHeader__Icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+.InspectorHeader__Label {
+    -unity-font-style: bold;
+    margin-left: 10px;
+    white-space: normal;
+    flex-grow: 0;
+    flex-wrap: wrap;
+    flex-shrink: 1;
+}
+
+.CustomInspectorSection {
+    margin: 0 0 10px 0;
+}
+
+.CustomInspectorSection__Header {
+    -unity-font-style: bold;
+    padding-left: 5px;
+    padding-right: 3px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    margin-bottom: 3px;
+    flex-direction: row;
+}
+
+.CustomInspectorSection__HelpIcon {
+    width: 16px;
+    height: 16px;
+}
+
+.CustomInspectorSection__HeaderLabel {
+    flex-shrink: 0;
+    flex-grow: 1;
+}
+
+
+.CustomInspectorSection__Content {
+    padding: 0px 5px 0px 5px;
+}
+
+.CustomInspectorSection__Content TextField {
+    margin: 0;
+}

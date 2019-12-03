@@ -52,7 +52,7 @@ namespace Unity.Scenes
     /// </summary>
     [ExecuteAlways]
     [AlwaysUpdateSystem]
-    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    [UpdateInGroup(typeof(SceneSystemGroup))]
     [UpdateAfter(typeof(SceneSystem))]
     class ResolveSceneReferenceSystem : ComponentSystem
     {

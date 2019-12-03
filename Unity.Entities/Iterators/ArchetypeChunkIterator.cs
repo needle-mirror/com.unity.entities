@@ -52,7 +52,7 @@ namespace Unity.Entities
     public unsafe struct ArchetypeChunkIterator
     {
         internal readonly UnsafeMatchingArchetypePtrList m_MatchingArchetypeList;
-        internal readonly ComponentJobSafetyManager* m_SafetyManager;
+        internal readonly ComponentDependencyManager* m_SafetyManager;
         int m_CurrentArchetypeIndex;
         int m_CurrentChunkInArchetypeIndex;
         int m_CurrentChunkFirstEntityIndexInQuery;
@@ -108,7 +108,7 @@ namespace Unity.Entities
             }
         }
         
-        internal ArchetypeChunkIterator(UnsafeMatchingArchetypePtrList match, ComponentJobSafetyManager* safetyManager, uint globalSystemVersion,
+        internal ArchetypeChunkIterator(UnsafeMatchingArchetypePtrList match, ComponentDependencyManager* safetyManager, uint globalSystemVersion,
             ref EntityQueryFilter filter)
         {
             m_MatchingArchetypeList = match;

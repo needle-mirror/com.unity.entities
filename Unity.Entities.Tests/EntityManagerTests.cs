@@ -727,8 +727,84 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, instanceComponent.List.Count);
             Assert.AreEqual("SomeListData", instanceComponent.List[0].data);
             ValidateInstance(instanceComponent);
+            
+            Assert.AreSame(m_Manager.GetComponentData<ComplexManagedComponent>(entity), originalManagedComponent);
+            Assert.AreNotSame(instanceComponent, originalManagedComponent);
+        }
+        
+        class ManagedComponentWithArray : IComponentData
+        {
+            public int[] IntArray;
         }
 
+        [Test]
+        [StandaloneFixme] // Requires Unity.Properties support
+        public void Instantiate_DeepClone_ManagedComponentWithZeroSizedArray()
+        {
+            var originalEntity = m_Manager.CreateEntity();
+            var originalComponent = new ManagedComponentWithArray { IntArray = new int[0] };
+            
+            m_Manager.AddComponentData(originalEntity, originalComponent);
+            
+            var instance = m_Manager.Instantiate(originalEntity);
+            var instanceComponent = m_Manager.GetComponentData<ManagedComponentWithArray>(instance);
+
+            Assert.That(originalComponent.IntArray, Is.Not.SameAs(instanceComponent.IntArray));
+            Assert.That(instanceComponent.IntArray.Length, Is.EqualTo(0));
+        }
+        
+        [Test]
+        [StandaloneFixme] // Requires Unity.Properties support
+        public void Instantiate_DeepClone_ManagedComponentWithNullArray()
+        {
+            var originalEntity = m_Manager.CreateEntity();
+            var originalComponent = new ManagedComponentWithArray { IntArray = null };
+            
+            m_Manager.AddComponentData(originalEntity, originalComponent);
+            
+            var instance = m_Manager.Instantiate(originalEntity);
+            var instanceComponent = m_Manager.GetComponentData<ManagedComponentWithArray>(instance);
+
+            Assert.That(instanceComponent.IntArray, Is.Null);
+        }
+        
+        class ManagedComponentWithNestedClass : IComponentData
+        {
+#pragma warning disable 649
+            public class NestedClass
+            {
+                public float x;
+            }
+            
+            public NestedClass Nested;
+        }
+#pragma warning restore 649
+        
+        [Test]
+        [StandaloneFixme] // Requires Unity.Properties support
+        public void Instantiate_DeepClone_ManagedComponentWithNullReferenceType()
+        {
+            var originalEntity = m_Manager.CreateEntity();
+            var originalComponent = new ManagedComponentWithNestedClass { Nested = null };
+            
+            m_Manager.AddComponentData(originalEntity, originalComponent);
+            
+            var instance = m_Manager.Instantiate(originalEntity);
+            var instanceComponent = m_Manager.GetComponentData<ManagedComponentWithNestedClass>(instance);
+
+            Assert.That(instanceComponent.Nested, Is.Null);
+        }
+        
+        [Test]
+        public void AddComponentKeepsObjectReference()
+        {
+            var entity = m_Manager.CreateEntity();
+            var obj = new EcsTestManagedComponent();
+            m_Manager.AddComponentData(entity, obj);
+            m_Manager.AddComponentData(entity, new EcsTestData());
+            m_Manager.AddComponentData(entity, new ComplexManagedComponent());
+            Assert.AreSame(m_Manager.GetComponentData<EcsTestManagedComponent>(entity), obj);
+        }
 #endif
     }
 }

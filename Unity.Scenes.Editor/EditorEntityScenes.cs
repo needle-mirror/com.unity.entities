@@ -415,7 +415,8 @@ namespace Unity.Scenes.Editor
                         var obj = objRefs.Array[i];
                         if (obj != null && !EditorUtility.IsPersistent(obj))
                         {
-                            if ((obj.hideFlags & HideFlags.DontSaveInBuild) != 0)
+                            var saveInBuild = (obj.hideFlags & HideFlags.DontSaveInBuild) == 0;
+                            if (saveInBuild)
                                 serializedObjectArray.Add(obj);
                             else
                                 objRefs.Array[i] = null;
@@ -471,13 +472,5 @@ namespace Unity.Scenes.Editor
                 }
             }
         }
-
-        
-        // OBSOLETE
-        
-        [Obsolete("WriteEntityScene now receives its configuration parameters through a GameObjectConversionSettings (RemovedAfter 2019-11-30)")]
-        [EditorBrowsable(EditorBrowsableState.Never), UsedImplicitly]
-        public static SceneSectionData[] WriteEntityScene(Scene scene, Hash128 sceneGUID, ConversionFlags conversionFlags)
-            => WriteEntityScene(scene, new GameObjectConversionSettings { SceneGUID = sceneGUID, ConversionFlags = conversionFlags });        
     }    
 }

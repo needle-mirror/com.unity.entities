@@ -33,6 +33,7 @@ namespace Unity.Entities
 
         public void RemoveSystemFromUpdateList(ComponentSystemBase sys)
         {
+            m_systemSortDirty = true;
             m_systemsToRemove.Add(sys);
         }
 
@@ -42,6 +43,13 @@ namespace Unity.Entities
                 return;
             m_systemSortDirty = false;
 
+            if (m_systemsToRemove.Count > 0)
+            {
+                foreach (var sys in m_systemsToRemove)
+                    m_systemsToUpdate.Remove(sys);
+                m_systemsToRemove.Clear();
+            }
+            
             foreach (var sys in m_systemsToUpdate)
             {
                 if (TypeManager.IsSystemAGroup(sys.GetType()))
@@ -114,14 +122,6 @@ namespace Unity.Entities
 
                 if (World.QuitUpdate)
                     break;
-            }
-
-            if (m_systemsToRemove.Count > 0)
-            {
-                foreach (var sys in m_systemsToRemove)
-                    m_systemsToUpdate.Remove(sys);
-                m_systemSortDirty = true;
-                m_systemsToRemove.Clear();
             }
         }
     }

@@ -63,7 +63,7 @@ unsafe struct EntityDataAccess : IDisposable
         Profiler.BeginSample("DestroyEntity(EntityQuery entityQueryFilter)");
 
         Profiler.BeginSample("GetAllMatchingChunks");
-        using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, EntityManager.ComponentJobSafetyManager))
+        using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, EntityManager.DependencyManager))
         {
             Profiler.EndSample();
 
@@ -188,7 +188,7 @@ unsafe struct EntityDataAccess : IDisposable
 
         EntityComponentStore->AssertCanAddComponent(archetypeList, componentType);
 
-        using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, EntityManager.ComponentJobSafetyManager))
+        using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, EntityManager.DependencyManager))
         {
             if (chunks.Length == 0)
                 return;
@@ -244,7 +244,7 @@ unsafe struct EntityDataAccess : IDisposable
         if (!m_IsMainThread)
             throw new InvalidOperationException("Must be called from the main thread");
 
-        using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, EntityManager.ComponentJobSafetyManager))
+        using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, EntityManager.DependencyManager))
         {
             RemoveComponent(chunks, componentType);
         }
@@ -285,7 +285,7 @@ unsafe struct EntityDataAccess : IDisposable
 #endif
 
         if (m_IsMainThread)
-            EntityManager.ComponentJobSafetyManager->CompleteWriteDependency(typeIndex);
+            EntityManager.DependencyManager->CompleteWriteDependency(typeIndex);
 
         var ptr = EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex);
 
@@ -326,7 +326,7 @@ unsafe struct EntityDataAccess : IDisposable
 #endif
 
         if (m_IsMainThread)
-            EntityManager.ComponentJobSafetyManager->CompleteReadAndWriteDependency(typeIndex);
+            EntityManager.DependencyManager->CompleteReadAndWriteDependency(typeIndex);
 
         var ptr = EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex,
             EntityComponentStore->GlobalSystemVersion);
@@ -373,7 +373,7 @@ unsafe struct EntityDataAccess : IDisposable
             throw new InvalidOperationException("Must be called from the main thread");
 
         ComponentType componentType = ComponentType.FromTypeIndex(typeIndex);
-        using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, EntityManager.ComponentJobSafetyManager))
+        using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, EntityManager.DependencyManager))
         {
             if (chunks.Length == 0)
                 return;
@@ -468,7 +468,7 @@ unsafe struct EntityDataAccess : IDisposable
 #endif
 
         if (m_IsMainThread)
-            EntityManager.ComponentJobSafetyManager->CompleteReadAndWriteDependency(typeIndex);
+            EntityManager.DependencyManager->CompleteReadAndWriteDependency(typeIndex);
 
         BufferHeader* header =
             (BufferHeader*) EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex,
@@ -499,7 +499,7 @@ unsafe struct EntityDataAccess : IDisposable
         EntityComponentStore->AssertEntityHasComponent(entity, componentTypeIndex);
 
         if (m_IsMainThread)
-            EntityManager.ComponentJobSafetyManager->CompleteReadAndWriteDependency(componentTypeIndex);
+            EntityManager.DependencyManager->CompleteReadAndWriteDependency(componentTypeIndex);
 
         var ptr = EntityComponentStore->GetComponentDataWithTypeRW(entity, componentTypeIndex,
             EntityComponentStore->GlobalSystemVersion);

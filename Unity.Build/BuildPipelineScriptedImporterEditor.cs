@@ -5,8 +5,10 @@ using Unity.Properties;
 using UnityEditor;
 using UnityEditor.Experimental.AssetImporters;
 using UnityEditor.Searcher;
+using UnityEditor.UIElements;
 using UnityEditorInternal;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Unity.Build
 {
@@ -15,6 +17,8 @@ namespace Unity.Build
     {
         ReorderableList m_BuildStepsList;
         bool m_IsModified;
+        TextField m_RunStepTextInput;
+        Label m_CustomInspectorHeader;
 
         public override bool showImportedObject { get; } = false;
 
@@ -84,6 +88,7 @@ namespace Unity.Build
             }
 
             BuildPipeline.DeserializeFromPath(pipeline, importer.assetPath);
+            SetRunStepValue(pipeline);
             Refresh();
         }
 
@@ -96,7 +101,11 @@ namespace Unity.Build
                 return;
             }
 
+            if (m_CustomInspectorHeader != null)
+                SetCustomInspectorHeader();
+
             m_BuildStepsList = new ReorderableList(pipeline.BuildSteps, typeof(IBuildStep), true, true, true, true);
+            m_BuildStepsList.headerHeight = 3;
             m_BuildStepsList.onAddDropdownCallback = AddDropdownCallbackDelegate;
             m_BuildStepsList.drawElementCallback = ElementCallbackDelegate;
             m_BuildStepsList.drawHeaderCallback = HeaderCallbackDelegate;
@@ -216,7 +225,7 @@ namespace Unity.Build
                 editorWindow,
                 searcher,
                 AddStep,
-                buttonRect.min + Vector2.up * 90.0f,
+                buttonRect.min + Vector2.up * 35.0f,
                 a => { },
                 new SearcherWindow.Alignment(SearcherWindow.Alignment.Vertical.Top,
                     SearcherWindow.Alignment.Horizontal.Left)
@@ -297,7 +306,7 @@ namespace Unity.Build
 
         void HeaderCallbackDelegate(Rect rect)
         {
-            GUI.Label(rect, new GUIContent("Build Steps"));
+//            GUI.Label(rect, new GUIContent("Build Steps"));
             HandleDragDrop(rect, 0);
         }
 
@@ -314,10 +323,61 @@ namespace Unity.Build
             m_IsModified = true;
         }
 
-        public override void OnInspectorGUI()
+        public override VisualElement CreateInspectorGUI()
         {
-            m_BuildStepsList.DoLayoutList();
-            ApplyRevertGUI();
+            var root = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(@"Packages/com.unity.entities/Unity.Build/GUI/uxml/BuildPipelineCustomInspector.uxml").CloneTree();
+            root.AddStyleSheetAndVariant("BuildPipelineCustomInspector");
+            m_CustomInspectorHeader = root.Q<Label>(className: "InspectorHeader__Label");
+            root.Q<VisualElement>("BuildSteps__IMGUIContainer").Add(new IMGUIContainer(m_BuildStepsList.DoLayoutList));
+            root.Q<VisualElement>("ApplyRevertButtons").Add(new IMGUIContainer(ApplyRevertGUI));
+            root.Q<Button>("RunStep__SelectButton").clickable.clickedWithEventInfo += OnRunStepSelectorClicked;
+            m_RunStepTextInput = root.Q<TextField>("RunStep__RunStepTypeName");
+            SetRunStepValue();
+            SetCustomInspectorHeader();
+            return root;
         }
+
+        void OnRunStepSelectorClicked(EventBase @event)
+        {
+            SearcherWindow.Show(
+                EditorWindow.focusedWindow,
+                new Searcher(
+                    TypeSearcherDatabase.GetRunStepDatabase(new HashSet<Type>(RunStep.GetAvailableTypes(type => !IsShown(type)))),
+                    new AddTypeSearcherAdapter("Select Run Script")),
+                UpdateRunStep,
+                @event.originalMousePosition + Vector2.up * 35.0f,
+                a => { },
+                new SearcherWindow.Alignment(SearcherWindow.Alignment.Vertical.Top,
+                                             SearcherWindow.Alignment.Horizontal.Left)
+            );
+        }
+
+        bool UpdateRunStep(SearcherItem item)
+        {
+            var pipeline = assetTarget as BuildPipeline;
+            var importer = target as BuildPipelineScriptedImporter;
+            if (null == pipeline || null == importer)
+            {
+                return false;
+            }
+
+            if (item is TypeSearcherItem typeItem)
+            {
+                if (TypeConstruction.TryConstruct<IRunStep>(typeItem.Type, out var step))
+                {
+                    pipeline.RunStep = step;
+                    SetRunStepValue(pipeline);
+                    m_IsModified = true;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void SetRunStepValue(BuildPipeline pipeline = null)
+            => m_RunStepTextInput.value = (pipeline ? pipeline : assetTarget as BuildPipeline)?.RunStep?.GetType()?.Name ?? string.Empty;
+
+        void SetCustomInspectorHeader()
+            => m_CustomInspectorHeader.text = $"{(assetTarget as BuildPipeline)?.name} (Build Pipeline Asset)";
     }
 }

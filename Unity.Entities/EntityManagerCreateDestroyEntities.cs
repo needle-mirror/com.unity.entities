@@ -80,6 +80,28 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Creates a set of entities of the specified archetype.
+        /// </summary>
+        /// <remarks>Creates a [NativeArray](https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeArray_1.html) of entities,
+        /// each of which has the components specified by the <see cref="EntityArchetype"/> object assigned
+        /// to the `archetype` parameter. The EntityManager adds these entities to the <see cref="World"/> entity list.</remarks>
+        /// <param name="archetype">The archetype defining the structure for the new entities.</param>
+        /// <param name="entityCount">The number of entities to create with the specified archetype.</param>
+        /// <param name="allocator">How the created native array should be allocated.</param>
+        /// <returns>
+        /// A [NativeArray](https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeArray_1.html) of entities
+        /// with the given archetype.
+        /// </returns>
+        [StructuralChangeMethod]
+        public NativeArray<Entity> CreateEntity(EntityArchetype archetype, int entityCount, Allocator allocator)
+        {
+            var entities = new NativeArray<Entity>(entityCount, allocator);
+            m_EntityDataAccess.CreateEntity(archetype, entities);
+            
+            return entities;
+        }
+        
+        /// <summary>
         /// Destroy all entities having a common set of component types.
         /// </summary>
         /// <remarks>Since entities in the same chunk share the same component structure, this function effectively destroys
@@ -177,13 +199,40 @@ namespace Unity.Entities
         /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         /// </remarks>
-        /// <param name="srcEntity">The entity to clone</param>
+        /// <param name="srcEntity">The entity to clone.</param>
         /// <param name="outputEntities">An array to receive the Entity objects of the root entity in each clone.
         /// The length of this array determines the number of clones.</param>
         [StructuralChangeMethod]
         public void Instantiate(Entity srcEntity, NativeArray<Entity> outputEntities)
         {
             InstantiateInternal(srcEntity, (Entity*) outputEntities.GetUnsafePtr(), outputEntities.Length);
+        }
+
+        /// <summary>
+        /// Makes multiple clones of an entity.
+        /// </summary>
+        /// <remarks>
+        /// The new entities have the same archetype and component values as the original.
+        /// 
+        /// If the source entity has a <see cref="LinkedEntityGroup"/> component, the entire group is cloned as a new
+        /// set of entities.
+        /// 
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating these entities and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="srcEntity">The entity to clone.</param>
+        /// <param name="instanceCount">The number of entities to instantiate with the same components as the source entity.</param>
+        /// <param name="allocator">How the created native array should be allocated.</param>
+        /// <returns>A [NativeArray](https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeArray_1.html) of entities.</returns>
+        [StructuralChangeMethod]
+        public NativeArray<Entity> Instantiate(Entity srcEntity, int instanceCount, Allocator allocator)
+        {
+            var entities = new NativeArray<Entity>(instanceCount, allocator);
+            InstantiateInternal(srcEntity, (Entity*) entities.GetUnsafePtr(), entities.Length);            
+            
+            return entities;
         }
 
         /// <summary>

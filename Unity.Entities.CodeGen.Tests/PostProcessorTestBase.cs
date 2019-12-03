@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -7,6 +8,7 @@ using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using NUnit.Framework;
 using NUnit.Framework.Constraints;
+using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.Entities.CodeGen;
 
 namespace Unity.Entities.CodeGen.Tests
@@ -104,7 +106,7 @@ namespace Unity.Entities.CodeGen.Tests
                 {
                     foreach (var forEachDescriptionConstruction in LambdaJobDescriptionConstruction.FindIn(methodToAnalyze))
                     {
-                        LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction);
+                        LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction, null);
                     }
                 }
 
@@ -120,30 +122,50 @@ namespace Unity.Entities.CodeGen.Tests
             });
         }
 
-        protected void AssertProducesError(Type systemType, params string[] shouldContains)
+        void AssertProducesInternal(Type systemType, DiagnosticType type, string[] shouldContains)
         {
             var methodToAnalyze = MethodDefinitionForOnlyMethodOf(systemType);
-            var userCodeException = Assert.Throws<FoundErrorInUserCodeException>(() =>
+            var errors = new List<DiagnosticMessage>();
+
+            try
             {
                 foreach (var forEachDescriptionConstruction in LambdaJobDescriptionConstruction.FindIn(methodToAnalyze))
                 {
-                    LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction);
+                    LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction, errors);
                 }
-            });
+            }
+            catch (FoundErrorInUserCodeException exc)
+            {
+                errors.AddRange(exc.DiagnosticMessages);
+            }
+
+            Assert.AreEqual(type, errors[0].DiagnosticType);
+            string diagnostic = errors.Select(dm=>dm.MessageData).SeparateByComma();
+
             foreach(var s in shouldContains)
-                StringAssert.Contains(s, userCodeException.ToString());
+                StringAssert.Contains(s, diagnostic);
 
-            if (!userCodeException.ToString().Contains(".cs"))
-                Assert.Fail("Diagnostic message had no file info: "+userCodeException);
+            if (!diagnostic.Contains(".cs"))
+                Assert.Fail("Diagnostic message had no file info: "+diagnostic);
 
-            var match = Regex.Match(userCodeException.ToString(), "\\.cs:?\\((?<line>.*?),(?<column>.*?)\\)");
+            var match = Regex.Match(diagnostic, "\\.cs:?\\((?<line>.*?),(?<column>.*?)\\)");
             if (!match.Success)
-                Assert.Fail("Diagnostic message had no line info: "+userCodeException);
+                Assert.Fail("Diagnostic message had no line info: "+diagnostic);
 
             
             var line = int.Parse(match.Groups["line"].Value);
             if (line > 1000)
-                Assert.Fail("Unreasonable line number in errormessage: " + userCodeException);
+                Assert.Fail("Unreasonable line number in errormessage: " + diagnostic);            
+        }
+
+        protected void AssertProducesWarning(Type systemType, params string[] shouldContainErrors)
+        {
+            AssertProducesInternal(systemType, DiagnosticType.Warning, shouldContainErrors);
+        }
+
+        protected void AssertProducesError(Type systemType, params string[] shouldContainErrors)
+        {
+            AssertProducesInternal(systemType, DiagnosticType.Error, shouldContainErrors);
         }
     }
 }

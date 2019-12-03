@@ -3,7 +3,7 @@ using UnityEditor;
 
 namespace Unity.Build.Common
 {
-    static class MenuItemBuildSettings
+    public static class MenuItemBuildSettings
     {
         const string kBuildSettingsClassic = "Assets/Create/Build/BuildSettings Classic";
         const string kBuildPipelineClassicAssetPath = "Packages/com.unity.entities/Unity.Build.Common/Assets/Hybrid.buildpipeline";
@@ -23,7 +23,7 @@ namespace Unity.Build.Common
             Selection.activeObject = CreateNewBuildSettingsAsset("Classic", new ClassicBuildProfile { Pipeline = pipeline });
         }
 
-        static BuildSettings CreateNewBuildSettingsAsset(string prefix, params IBuildSettingsComponent[] components)
+        public static BuildSettings CreateNewBuildSettingsAsset(string prefix, params IBuildSettingsComponent[] components)
         {
             var dependency = Selection.activeObject as BuildSettings;
             var path = CreateAssetPathInActiveDirectory(prefix + $"BuildSettings{BuildSettings.AssetExtension}");

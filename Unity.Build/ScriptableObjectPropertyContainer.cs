@@ -246,6 +246,7 @@ namespace Unity.Build
                     {
                         var errors = result.AllEvents.Select(e => e.ToString());
                         LogDeserializeError(string.Join("\n", errors), container, assetPath);
+                        container.Sanitize();
                         return false;
                     }
                 }
@@ -253,6 +254,7 @@ namespace Unity.Build
             catch (Exception e)
             {
                 LogDeserializeError(e.Message, container, assetPath);
+                container.Sanitize();
                 return false;
             }
         }

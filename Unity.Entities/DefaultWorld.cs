@@ -102,11 +102,6 @@ namespace Unity.Entities
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public class BeginPresentationEntityCommandBufferSystem : EntityCommandBufferSystem {}
 
-    [UnityEngine.ExecuteAlways]
-    [UpdateInGroup(typeof(PresentationSystemGroup))]
-    [Obsolete("please use BeginInitializationEntityCommandBufferSystem instead. (RemovedAfter 2019-11-06)")]
-    public class EndPresentationEntityCommandBufferSystem : EntityCommandBufferSystem {}
-
     public class PresentationSystemGroup : ComponentSystemGroup
     {
         [Preserve] public PresentationSystemGroup() {}
@@ -117,18 +112,12 @@ namespace Unity.Entities
             var toSort = new List<ComponentSystemBase>(m_systemsToUpdate.Count);
             BeginPresentationEntityCommandBufferSystem beginEcbSys = null;
 #pragma warning disable 0618
-            // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
-            EndPresentationEntityCommandBufferSystem endEcbSys = null;
 #pragma warning restore 0618
             foreach (var s in m_systemsToUpdate)
             {
-                if (s is BeginPresentationEntityCommandBufferSystem) {
+                if (s is BeginPresentationEntityCommandBufferSystem)
+                {
                     beginEcbSys = (BeginPresentationEntityCommandBufferSystem)s;
-#pragma warning disable 0618
-                    // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
-                } else if (s is EndPresentationEntityCommandBufferSystem) {
-                    endEcbSys = (EndPresentationEntityCommandBufferSystem)s;
-#pragma warning restore 0618
                 } else {
                     toSort.Add(s);
                 }
@@ -141,8 +130,6 @@ namespace Unity.Entities
                 finalSystemList.Add(beginEcbSys);
             foreach (var s in m_systemsToUpdate)
                 finalSystemList.Add(s);
-            if (endEcbSys != null)
-                finalSystemList.Add(endEcbSys);
             m_systemsToUpdate = finalSystemList;
         }
     }

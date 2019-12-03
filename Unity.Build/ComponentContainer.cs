@@ -23,7 +23,11 @@ namespace Unity.Build
         /// Determine if a <see cref="Type"/> component is stored in this container or its dependencies.
         /// </summary>
         /// <param name="type"><see cref="Type"/> of the component.</param>
-        public bool HasComponent(Type type) => HasComponentOnSelf(type) || HasComponentOnDependency(type);
+        public bool HasComponent(Type type)
+        {
+            CheckTypeAndThrowIfInvalid(type);
+            return HasComponentOnSelf(type) || HasComponentOnDependency(type);
+        }
 
         /// <summary>
         /// Determine if a <typeparamref name="T"/> component is stored in this container or its dependencies.
@@ -35,7 +39,11 @@ namespace Unity.Build
         /// Determine if a <see cref="Type"/> component is inherited from a dependency.
         /// </summary>
         /// <param name="type"><see cref="Type"/> of the component.</param>
-        public bool IsComponentInherited(Type type) => !HasComponentOnSelf(type) && HasComponentOnDependency(type);
+        public bool IsComponentInherited(Type type)
+        {
+            CheckTypeAndThrowIfInvalid(type);
+            return !HasComponentOnSelf(type) && HasComponentOnDependency(type);
+        }
 
         /// <summary>
         /// Determine if a <typeparamref name="T"/> component is inherited from a dependency.
@@ -47,7 +55,11 @@ namespace Unity.Build
         /// Determine if a <see cref="Type"/> component overrides a dependency.
         /// </summary>
         /// <param name="type"><see cref="Type"/> of the component.</param>
-        public bool IsComponentOverridden(Type type) => HasComponentOnSelf(type) && HasComponentOnDependency(type);
+        public bool IsComponentOverridden(Type type)
+        {
+            CheckTypeAndThrowIfInvalid(type);
+            return HasComponentOnSelf(type) && HasComponentOnDependency(type);
+        }
 
         /// <summary>
         /// Determine if a <typeparamref name="T"/> component overrides a dependency.
@@ -61,21 +73,11 @@ namespace Unity.Build
         /// <param name="type"><see cref="Type"/> of the component.</param>
         public TComponent GetComponent(Type type)
         {
-            if (type == null)
-            {
-                throw new NullReferenceException(nameof(type));
-            }
-
-            if (type == typeof(object))
-            {
-                throw new InvalidOperationException($"{nameof(type)} cannot be '{typeof(object).FullName}'.");
-            }
-
+            CheckTypeAndThrowIfInvalid(type);
             if (!TryGetComponent(type, out var value))
             {
                 throw new InvalidOperationException($"Component type '{type.FullName}' not found.");
             }
-
             return value;
         }
 
@@ -92,20 +94,10 @@ namespace Unity.Build
         /// <param name="value">Out value of the component.</param>
         public bool TryGetComponent(Type type, out TComponent value)
         {
-            if (!TryGetDerivedTypeFromBaseType(type, out type) || !HasComponent(type))
+            if (!TryGetDerivedTypeFromBaseType(type, out type) ||
+                !(HasComponentOnSelf(type) || HasComponentOnDependency(type)) ||
+                !TypeConstruction.TryConstruct<TComponent>(type, out var result))
             {
-                value = default;
-                return false;
-            }
-
-            TComponent result;
-            try
-            {
-                result = TypeConstruction.Construct<TComponent>(type);
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"Failed to construct type '{type.FullName}'.\n{e.Message}");
                 value = default;
                 return false;
             }
@@ -156,23 +148,17 @@ namespace Unity.Build
         }
 
         /// <summary>
-        /// Get a flatten list of all components from this container and its dependencies.
+        /// Get a flatten list of all components recursively from this container and its dependencies.
         /// </summary>
-        public List<TComponent> GetComponents()
+        /// <returns>List of components.</returns>
+        public IEnumerable<TComponent> GetComponents()
         {
             var lookup = new Dictionary<Type, TComponent>();
-
-            foreach (var dependency in Dependencies)
+            foreach (var dependency in GetDependencies())
             {
-                if (dependency == null || !dependency)
+                foreach (var component in dependency.Components)
                 {
-                    continue;
-                }
-
-                var components = dependency.GetComponents();
-                foreach (var component in components)
-                {
-                    lookup[component.GetType()] = component;
+                    lookup[component.GetType()] = CopyComponent(component);
                 }
             }
 
@@ -181,8 +167,49 @@ namespace Unity.Build
                 lookup[component.GetType()] = CopyComponent(component);
             }
 
-            return lookup.Values.ToList();
+            return lookup.Values;
         }
+
+        /// <summary>
+        /// Get a flatten list of all components recursively from this container and its dependencies, that matches <see cref="Type"/>.
+        /// </summary>
+        /// <typeparam name="T">Type of the components.</typeparam>
+        /// <returns>List of components.</returns>
+        public IEnumerable<TComponent> GetComponents(Type type)
+        {
+            CheckTypeAndThrowIfInvalid(type);
+
+            var lookup = new Dictionary<Type, TComponent>();
+            foreach (var dependency in GetDependencies())
+            {
+                foreach (var component in dependency.Components)
+                {
+                    var componentType = component.GetType();
+                    if (type.IsAssignableFrom(componentType))
+                    {
+                        lookup[componentType] = CopyComponent(component);
+                    }
+                }
+            }
+
+            foreach (var component in Components)
+            {
+                var componentType = component.GetType();
+                if (type.IsAssignableFrom(componentType))
+                {
+                    lookup[componentType] = CopyComponent(component);
+                }
+            }
+
+            return lookup.Values;
+        }
+
+        /// <summary>
+        /// Get a flatten list of all components recursively from this container and its dependencies, that matches <typeparamref name="T"/>.
+        /// </summary>
+        /// <typeparam name="T">Type of the components.</typeparam>
+        /// <returns>List of components.</returns>
+        public IEnumerable<T> GetComponents<T>() where T : TComponent => GetComponents(typeof(T)).Cast<T>();
 
         /// <summary>
         /// Set the value of a <see cref="Type"/> component on this container.
@@ -191,16 +218,7 @@ namespace Unity.Build
         /// <param name="value">Value of the component to set.</param>
         public void SetComponent(Type type, TComponent value)
         {
-            if (type == null)
-            {
-                throw new NullReferenceException(nameof(type));
-            }
-
-            if (type == typeof(object))
-            {
-                throw new InvalidOperationException($"{nameof(type)} cannot be '{typeof(object).FullName}'.");
-            }
-
+            CheckTypeAndThrowIfInvalid(type);
             if (type.IsInterface || type.IsAbstract)
             {
                 throw new InvalidOperationException($"{nameof(type)} cannot be interface or abstract.");
@@ -231,30 +249,12 @@ namespace Unity.Build
         /// <param name="type"><see cref="Type"/> of the component.</param>
         public bool RemoveComponent(Type type)
         {
-            if (type == null)
-            {
-                throw new NullReferenceException(nameof(type));
-            }
-
-            if (type == typeof(object))
-            {
-                throw new InvalidOperationException($"{nameof(type)} cannot be '{typeof(object).FullName}'.");
-            }
-
-            for (var i = 0; i < Components.Count; ++i)
-            {
-                if (type.IsAssignableFrom(Components[i].GetType()))
-                {
-                    Components.RemoveAt(i);
-                    return true;
-                }
-            }
-
-            return false;
+            CheckTypeAndThrowIfInvalid(type);
+            return Components.RemoveAll(c => type.IsAssignableFrom(c.GetType())) > 0;
         }
 
         /// <summary>
-        /// Remove a <typeparamref name="T"/> component from this container.
+        /// Remove all <typeparamref name="T"/> components from this container.
         /// </summary>
         /// <typeparam name="T">Type of the component.</typeparam>
         public bool RemoveComponent<T>() where T : TComponent => RemoveComponent(typeof(T));
@@ -263,20 +263,6 @@ namespace Unity.Build
         /// Remove all components from this container.
         /// </summary>
         public void ClearComponents() => Components.Clear();
-
-        /// <summary>
-        /// Visit a flatten list of all components from this container and its dependencies.
-        /// </summary>
-        /// <param name="visitor">The visitor to use for visiting each component.</param>
-        public void VisitComponents(IPropertyVisitor visitor)
-        {
-            var components = GetComponents();
-            for (var i = 0; i < components.Count; ++i)
-            {
-                var component = components[i];
-                PropertyContainer.Visit(ref component, visitor);
-            }
-        }
 
         /// <summary>
         /// Determine if a dependency exist in this container or its dependencies.
@@ -326,16 +312,6 @@ namespace Unity.Build
 
             Dependencies.Add(dependency);
             return true;
-        }
-
-        /// <summary>
-        /// Override the dependencies on this container.
-        /// </summary>
-        /// <param name="dependencies"></param>
-        public void SetDependencies(TContainer[] dependencies)
-        {
-            Dependencies.Clear();
-            Dependencies.AddRange(dependencies);
         }
 
         /// <summary>
@@ -389,39 +365,36 @@ namespace Unity.Build
         protected override void Sanitize()
         {
             base.Sanitize();
+            Dependencies.RemoveAll(dependency => dependency == null);
             Components.RemoveAll(component => component == null);
         }
 
-        bool HasComponentOnSelf(Type type)
+        void CheckTypeAndThrowIfInvalid(Type type)
         {
-            if (type == null || type == typeof(object))
+            if (type == null)
             {
-                return false;
+                throw new ArgumentNullException(nameof(type));
             }
-            return Components.Any(component => type.IsAssignableFrom(component.GetType()));
+
+            if (type == typeof(object))
+            {
+                throw new InvalidOperationException($"{nameof(type)} cannot be 'object'.");
+            }
+
+            if (!typeof(TComponent).IsAssignableFrom(type))
+            {
+                throw new InvalidOperationException($"{nameof(type)} must derive from '{typeof(TComponent).FullName}'.");
+            }
         }
 
-        bool HasComponentOnDependency(Type type)
-        {
-            if (type == null || type == typeof(object))
-            {
-                return false;
-            }
-            return Dependencies.Any(dependency =>
-            {
-                if (dependency == null || !dependency)
-                {
-                    return false;
-                }
-                return dependency.HasComponent(type);
-            });
-        }
+        bool HasComponentOnSelf(Type type) => Components.Any(component => type.IsAssignableFrom(component.GetType()));
+
+        bool HasComponentOnDependency(Type type) => GetDependencies().Any(dependency => dependency.HasComponentOnSelf(type));
 
         bool TryGetDerivedTypeFromBaseType(Type baseType, out Type value)
         {
             value = baseType;
-
-            if (baseType == null || baseType == typeof(object))
+            if (baseType == null || baseType == typeof(object) || !typeof(TComponent).IsAssignableFrom(baseType))
             {
                 return false;
             }

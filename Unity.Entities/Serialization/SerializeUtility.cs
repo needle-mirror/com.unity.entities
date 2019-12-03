@@ -40,7 +40,7 @@ namespace Unity.Entities.Serialization
             public int ComponentSize;
         }
 
-        public static int CurrentFileFormatVersion = 24;
+        public static int CurrentFileFormatVersion = 25;
 
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, object[] unityObjects = null)
         {
@@ -66,9 +66,10 @@ namespace Unity.Entities.Serialization
             manager.EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
 
             var numSharedComponents = ReadSharedComponentMetadata(reader, out var sharedComponentArray, out var sharedComponentRecordArray);
+            var sharedComponentRemap = new NativeArray<int>(numSharedComponents + 1, Allocator.Temp);
 
             int numManagedArrayIndices = reader.ReadInt();
-            NativeArray<int> managedArrayIndices = new NativeArray<int>(numManagedArrayIndices, Allocator.Temp);
+            var managedArrayIndices = new NativeArray<int>(numManagedArrayIndices, Allocator.Temp);
             reader.ReadArray<int>(managedArrayIndices, numManagedArrayIndices);
             manager.EntityComponentStore->ReserveManagedObjectArrays(managedArrayIndices);
 
@@ -79,9 +80,9 @@ namespace Unity.Entities.Serialization
             reader.ReadBytes(sharedAndManagedBuffer.Ptr, sharedAndManagedDataSize);
             var sharedAndManagedStream = sharedAndManagedBuffer.AsReader();
             var managedDataReader = new PropertiesBinaryReader(&sharedAndManagedStream, (UnityEngine.Object[])unityObjects);
-            ReadSharedComponents(manager, managedDataReader, sharedComponentRecordArray);
+            ReadSharedComponents(manager, managedDataReader, sharedComponentRemap, sharedComponentRecordArray);
 #else
-            ReadSharedComponents(manager, reader, sharedAndManagedDataSize, sharedComponentRecordArray);
+            ReadSharedComponents(manager, reader, sharedAndManagedDataSize, sharedComponentRemap, sharedComponentRecordArray);
 #endif
 
             manager.AllocateConsecutiveEntitiesForLoading(totalEntityCount);
@@ -128,7 +129,7 @@ namespace Unity.Entities.Serialization
 
                 var remapedSharedComponentValues = stackalloc int[archetype->NumSharedComponents];
                 
-                RemapSharedComponentIndices(remapedSharedComponentValues, archetype, sharedComponentValueArray);
+                RemapSharedComponentIndices(remapedSharedComponentValues, archetype, sharedComponentRemap, sharedComponentValueArray);
 
                 sharedComponentArraysIndex += numSharedComponentsInArchetype;
 
@@ -214,6 +215,7 @@ namespace Unity.Entities.Serialization
             chunksWithMetaChunkEntities.Dispose();
             archetypes.Dispose();
             types.Dispose();
+            sharedComponentRemap.Dispose();
 #if !NET_DOTS
             sharedAndManagedBuffer.Dispose();
 #endif
@@ -589,19 +591,66 @@ namespace Unity.Entities.Serialization
             managedArrayIndices.Dispose();
         }
 
-#if !NET_DOTS
-        static unsafe void ReadSharedComponents(ExclusiveEntityTransaction manager, PropertiesBinaryReader managedDataReader, NativeArray<SharedComponentRecord> sharedComponentRecordArray)
+#if NET_DOTS
+        static unsafe void ReadSharedComponents(ExclusiveEntityTransaction manager, BinaryReader reader, int expectedReadSize, NativeArray<int> sharedComponentRemap, NativeArray<SharedComponentRecord> sharedComponentRecordArray)
         {
+            int tempBufferSize = 0;
+            for (int i = 0; i < sharedComponentRecordArray.Length; ++i)
+                tempBufferSize = math.max(sharedComponentRecordArray[i].ComponentSize, tempBufferSize);
+            var buffer = stackalloc byte[tempBufferSize];
+
+            sharedComponentRemap[0] = 0;
+            
+            int sizeRead = 0;
+            for (int i = 0; i < sharedComponentRecordArray.Length; ++i)
+            {
+                var record = sharedComponentRecordArray[i];
+
+                reader.ReadBytes(buffer, record.ComponentSize);
+                sizeRead += record.ComponentSize;
+
+                var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(record.StableTypeHash);
+                if (typeIndex == -1)
+                {
+                    Console.WriteLine($"Can't find type index for type hash {record.StableTypeHash.ToString()}");
+                    throw new InvalidOperationException();
+                }
+
+                var data = TypeManager.ConstructComponentFromBuffer(typeIndex, buffer);
+
+                // TODO: this recalculation should be removed once we merge the NET_DOTS and non NET_DOTS hashcode calculations
+                var hashCode = TypeManager.GetHashCode(data, typeIndex); // record.hashCode;
+                int runtimeIndex = manager.ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, data);
+
+                sharedComponentRemap[i + 1] = runtimeIndex;
+            }
+
+            Assert.AreEqual(expectedReadSize, sizeRead, "The amount of shared component data we read doesn't match the amount we serialized.");
+        }
+#else
+        static void ReadSharedComponents(ExclusiveEntityTransaction manager, PropertiesBinaryReader managedDataReader, NativeArray<int> sharedComponentRemap, NativeArray<SharedComponentRecord> sharedComponentRecordArray)
+        {
+            // 0 index is special and means default shared component value
+            // Also see below the offset + 1 indices for the same reason
+            sharedComponentRemap[0] = 0;
+            
             for (int i = 0; i < sharedComponentRecordArray.Length; ++i)
             {
                 var record = sharedComponentRecordArray[i];
                 var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(record.StableTypeHash);
                 var typeInfo = TypeManager.GetTypeInfo(typeIndex);
                 var managedObject = BoxedProperties.ReadBoxedClass(typeInfo.Type, managedDataReader);
-                manager.ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, record.HashCode, managedObject);
+                int sharedComponentIndex = manager.ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, record.HashCode, managedObject);
+                
+                // When deserialization a shared component it is possible that it's hashcode changes if for example the referenced object (a UnityEngine.Object for example) becomes null.
+                // This can result in the sharedComponentIndex at serialize time being different from the sharedComponentIndex at load time.
+                // Thus we keep a remap table to handle this potential remap.
+                // NOTE: in most cases the remap table will always be all indices matching,
+                // But it doesn't look like it's worth optimizing this away at this point.
+                sharedComponentRemap[i + 1] = sharedComponentIndex;
             }
         }
-
+        
         // True when a component is valid to using in world serialization. A component IsSerializable when it is valid to blit
         // the data across storage media. Thus components containing pointers have an IsSerializable of false as the component
         // is blittable but no longer valid upon deserialization.
@@ -643,8 +692,8 @@ namespace Unity.Entities.Serialization
                     $"reason the pointer field should in fact be serialized, add the [ChunkSerializable] attribute to your type to bypass this error.");
             }
         }
-#endif
-
+#endif 
+       
         static unsafe int ReadSharedComponentMetadata(BinaryReader reader, out NativeArray<int> sharedComponentArrays, out NativeArray<SharedComponentRecord> sharedComponentRecordArray)
         {
             int sharedComponentArraysLength = reader.ReadInt();
@@ -657,39 +706,9 @@ namespace Unity.Entities.Serialization
 
             return sharedComponentRecordArrayLength;
         }
+        
 
-        static unsafe void ReadSharedComponents(ExclusiveEntityTransaction manager, BinaryReader reader, int expectedReadSize, NativeArray<SharedComponentRecord> sharedComponentRecordArray)
-        {
-            int tempBufferSize = 0;
-            for (int i = 0; i < sharedComponentRecordArray.Length; ++i)
-                tempBufferSize = math.max(sharedComponentRecordArray[i].ComponentSize, tempBufferSize);
-            var buffer = stackalloc byte[tempBufferSize];
-            
-            int sizeRead = 0;
-            for (int i = 0; i < sharedComponentRecordArray.Length; ++i)
-            {
-                var record = sharedComponentRecordArray[i];
 
-                reader.ReadBytes(buffer, record.ComponentSize);
-                sizeRead += record.ComponentSize;
-
-                var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(record.StableTypeHash);
-                if (typeIndex == -1)
-                {
-                    Console.WriteLine($"Can't find type index for type hash {record.StableTypeHash.ToString()}");
-                    throw new InvalidOperationException();
-                }
-
-                var data = TypeManager.ConstructComponentFromBuffer(typeIndex, buffer);
-
-                // TODO: this recalculation should be removed once we merge the NET_DOTS and non NET_DOTS hashcode calculations
-                var hashCode = TypeManager.GetHashCode(data, typeIndex); // record.hashCode;
-                int index = manager.ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, data);
-                Assert.AreEqual(i + 1, index);
-            }
-
-            Assert.AreEqual(expectedReadSize, sizeRead, "The amount of shared component data we read doesn't match the amount we serialized.");
-        }
 
         unsafe struct BlobAssetPtr : IEquatable<BlobAssetPtr>
         {
@@ -994,14 +1013,14 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        static unsafe void RemapSharedComponentIndices(int* destValues, Archetype* archetype, int* sourceValues)
+        static unsafe void RemapSharedComponentIndices(int* destValues, Archetype* archetype, NativeArray<int> remappedIndices, int* sourceValues)
         {
             int i = 0;
             for (int iType = 1; iType < archetype->TypesCount; ++iType)
             {
                 int orderedIndex = archetype->TypeMemoryOrder[iType] - archetype->FirstSharedComponent;
                 if (0 <= orderedIndex && orderedIndex < archetype->NumSharedComponents)
-                    destValues[orderedIndex] = sourceValues[i++];
+                    destValues[orderedIndex] = remappedIndices[sourceValues[i++]];
             }
         }
 

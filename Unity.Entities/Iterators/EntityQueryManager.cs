@@ -11,14 +11,14 @@ namespace Unity.Entities
 {
     internal unsafe class EntityQueryManager : IDisposable
     {
-        private readonly ComponentJobSafetyManager* m_JobSafetyManager;
+        private readonly ComponentDependencyManager* m_JobSafetyManager;
         private ChunkAllocator m_GroupDataChunkAllocator;
         private UnsafeEntityQueryDataPtrList m_EntityGroupDatas;
         private NativeMultiHashMap<int, int> m_EntityGroupDataCache;
 
         internal int m_EntityQueryMasksAllocated;
 
-        public EntityQueryManager(ComponentJobSafetyManager* safetyManager)
+        public EntityQueryManager(ComponentDependencyManager* safetyManager)
         {
             m_JobSafetyManager = safetyManager;
             m_GroupDataChunkAllocator = new ChunkAllocator();

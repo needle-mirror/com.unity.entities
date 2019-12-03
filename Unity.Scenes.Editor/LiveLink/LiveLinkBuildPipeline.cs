@@ -18,9 +18,9 @@ namespace Unity.Scenes.Editor
         const string k_TempBuildPath = "Temp/LLBP";
         private const int AssetBundleBuildVersion = 8;
 
-        static GUID k_UnityEditorResources = new GUID("0000000000000000d000000000000000");
-        static GUID k_UnityBuiltinResources = new GUID("0000000000000000e000000000000000");
-        static GUID k_UnityBuiltinExtraResources = new GUID("0000000000000000f000000000000000");
+        internal static GUID k_UnityEditorResources = new GUID("0000000000000000d000000000000000");
+        internal static GUID k_UnityBuiltinResources = new GUID("0000000000000000e000000000000000");
+        internal static GUID k_UnityBuiltinExtraResources = new GUID("0000000000000000f000000000000000");
 
         // TODO: This should be part of the IDeterministicIdentifiers api.
         static string GenerateAssetBundleInternalFileName(this IDeterministicIdentifiers generator, string name)
@@ -45,30 +45,30 @@ namespace Unity.Scenes.Editor
             return $"{internalName}.sharedAssets";
         }
 
-        static void FilterBuiltinResourcesObjectManifest()
+        static void FilterBuiltinResourcesObjectManifest(string manifestPath)
         {
             // Builtin Resources in the editor contains a mix of Editor Only & Runtime types.
             // Based on some trial an error, objects with these flags are the Runtime types.
             // TODO: This will probably break someday, and we need a more reliable method for handling this.
             // TODO: Builtin Resources should not contain Editor only types, there are Editor Builtin Resources for this
-            var manifest = (AssetObjectManifest)UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(LiveLinkAssetBundleBuildSystem.AssetObjectManifestPath)[0];
+            var manifest = (AssetObjectManifest)UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(manifestPath)[0];
             var objects = manifest.Objects.Where(x => x.hideFlags == (HideFlags.HideInInspector | HideFlags.HideAndDontSave)).ToArray();
             AssetObjectManifestBuilder.BuildManifest(objects, manifest);
 
-            UnityEditorInternal.InternalEditorUtility.SaveToSerializedFileAndForget(new[] { manifest }, LiveLinkAssetBundleBuildSystem.AssetObjectManifestPath, true);
+            UnityEditorInternal.InternalEditorUtility.SaveToSerializedFileAndForget(new[] { manifest }, manifestPath, true);
         }
 
-        static void FilterBuiltinExtraResourcesObjectManifest()
+        static void FilterBuiltinExtraResourcesObjectManifest(string manifestPath)
         {
             // Builtin Extra Resources in the editor contains a mix of Editor Only & Runtime types.
             // This is easier to filter as the type info is available to C# and we can just filter on UnityEngine vs UnityEditor
             // TODO: This will probably break someday, and we need a more reliable method for handling this.
             // TODO: Builtin Extra Resources should not contain Editor only types, there are Editor Builtin Resources for this
-            var manifest = (AssetObjectManifest)UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(LiveLinkAssetBundleBuildSystem.AssetObjectManifestPath)[0];
+            var manifest = (AssetObjectManifest)UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(manifestPath)[0];
             var objects = manifest.Objects.Where(x => !x.GetType().FullName.Contains("UnityEditor")).ToArray();
             AssetObjectManifestBuilder.BuildManifest(objects, manifest);
 
-            UnityEditorInternal.InternalEditorUtility.SaveToSerializedFileAndForget(new[] { manifest }, LiveLinkAssetBundleBuildSystem.AssetObjectManifestPath, true);
+            UnityEditorInternal.InternalEditorUtility.SaveToSerializedFileAndForget(new[] { manifest }, manifestPath, true);
         }
 
         struct BlobGlobalUsage
@@ -91,7 +91,32 @@ namespace Unity.Scenes.Editor
             return *(BuildUsageTagGlobal*)&blob;
         }
 
-        public static bool BuildSceneBundle(GUID sceneGuid, string cacheFilePath, BuildTarget target, bool collectDependencies = false)
+        public static void RemapBuildInAssetGuid(ref string assetGUID)
+        {
+            // Update ADBv2 to allow extra artifacts to be generated for BuiltIn types
+            var path = AssetDatabase.GUIDToAssetPath(assetGUID).ToLower();
+            if (path.StartsWith("library/") || path.StartsWith("resources/") || path.StartsWith("projectsettings/"))
+            {
+                var tempPath = $"Assets/TempAssetCache/{assetGUID}.txt";
+                if (!File.Exists(tempPath))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(tempPath));
+                    File.WriteAllText(tempPath, "");
+                    AssetDatabase.ImportAsset(tempPath, ImportAssetOptions.ForceSynchronousImport);
+                }
+                assetGUID = AssetDatabase.AssetPathToGUID(tempPath);
+            }
+        }
+
+        public static void RemapBuildInAssetPath(ref string assetPath)
+        {
+            // Update ADBv2 to allow extra artifacts to be generated for BuiltIn types
+            var newPath = AssetDatabase.GUIDToAssetPath(Path.GetFileNameWithoutExtension(assetPath));
+            if (!string.IsNullOrEmpty(newPath))
+                assetPath = newPath;
+        }
+
+        public static bool BuildSceneBundle(GUID sceneGuid, string cacheFilePath, BuildTarget target, bool collectDependencies = false, HashSet<Entities.Hash128> dependencies = null)
         {
             using (new BuildInterfacesWrapper())
             using (new SceneStateCleanup())
@@ -179,6 +204,8 @@ namespace Unity.Scenes.Editor
 
                     // TODO: MonoScript complications: There is no way to properly determine which MonoScripts are being referenced by which Asset in the returned manifestDependencies
                     // This will be solvable after we move SBP into the asset pipeline as importers.
+                    if (!obj.guid.Empty() && obj.guid != sceneGuid)
+                        dependencies?.Add(obj.guid);
                 }
 
                 // Write the serialized file
@@ -198,7 +225,7 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        public static bool BuildAssetBundle(GUID assetGuid, string cacheFilePath, BuildTarget target, bool collectDependencies = false)
+        public static bool BuildAssetBundle(string manifestPath, GUID assetGuid, string cacheFilePath, BuildTarget target, bool collectDependencies = false, HashSet<Entities.Hash128> dependencies = null)
         {
             using (new BuildInterfacesWrapper())
             {
@@ -219,14 +246,14 @@ namespace Unity.Scenes.Editor
                 };
 
                 if (assetGuid == k_UnityBuiltinResources)
-                    FilterBuiltinResourcesObjectManifest();
+                    FilterBuiltinResourcesObjectManifest(manifestPath);
 
                 if (assetGuid == k_UnityBuiltinExtraResources)
-                    FilterBuiltinExtraResourcesObjectManifest();
+                    FilterBuiltinExtraResourcesObjectManifest(manifestPath);
 
                 var method = typeof(ContentBuildInterface).GetMethod("GetPlayerObjectIdentifiersInSerializedFile", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
                 // Collect all the objects we need for this asset & bundle (returned array order is deterministic)
-                var manifestObjects = (ObjectIdentifier[])method.Invoke(null, new object[] { LiveLinkAssetBundleBuildSystem.AssetObjectManifestPath, settings.target });
+                var manifestObjects = (ObjectIdentifier[])method.Invoke(null, new object[] { manifestPath, settings.target });
 
                 // Collect all the objects we need to reference for this asset (returned array order is deterministic)
                 var manifestDependencies = ContentBuildInterface.GetPlayerDependenciesForObjects(manifestObjects, settings.target, settings.typeDB);
@@ -313,6 +340,8 @@ namespace Unity.Scenes.Editor
 
                     // TODO: MonoScript complications: There is no way to properly determine which MonoScripts are being referenced by which Asset in the returned manifestDependencies
                     // This will be solvable after we move SBP into the asset pipeline as importers.
+                    if (!obj.guid.Empty() && obj.guid != assetGuid)
+                        dependencies?.Add(obj.guid);
                 }
 
                 // Write the serialized file
@@ -332,6 +361,7 @@ namespace Unity.Scenes.Editor
             }
         }
 
+#if !LIVELINKS_ASSETPIPELINE
         static CachedInfo LoadTargetCachedInfo(GUID guid, BuildTarget target)
         {
             var cache = new BuildCache();
@@ -362,9 +392,13 @@ namespace Unity.Scenes.Editor
             // cache.SaveCachedData(new List<CachedInfo> { cachedInfo }); // TODO: Disabled because we have file contention as "Save" is async only with no wait functionality
             return cachedInfo;
         }
+#endif
 
         public static Hash128 CalculateTargetHash(GUID guid, BuildTarget target)
         {
+#if LIVELINKS_ASSETPIPELINE
+            return LiveLinkBuildImporter.GetHash(guid.ToString(), target);
+#else
             // Always calculate & return the new hash
             // TODO: target is not taken into account, this will be included when sbp moves into the asset pipeline
             var cache = new BuildCache();
@@ -379,10 +413,20 @@ namespace Unity.Scenes.Editor
             }
 
             return targetHash;
+#endif
         }
 
         public static void CalculateTargetDependencies(GUID guid, BuildTarget target, out ResolvedAssetID[] dependencies)
         {
+#if LIVELINKS_ASSETPIPELINE
+            var assets = LiveLinkBuildImporter.GetDependencies(guid.ToString(), target);
+            dependencies = new ResolvedAssetID[assets.Length];
+            for (int i = 0; i < assets.Length; i++)
+            {
+                dependencies[i].GUID = assets[i];
+                dependencies[i].TargetHash = CalculateTargetHash(assets[i], target);
+            }
+#else
             // This is only called after CalculateTargetHash, so we can just load the cached results and return those.
             // TODO: target is not taken into account, this will be included when sbp moves into the asset pipeline
             var cachedInfo = LoadTargetCachedInfo(guid, target);
@@ -397,6 +441,7 @@ namespace Unity.Scenes.Editor
                 });
             }
             dependencies = deps.ToArray();
+#endif
         }
     }
 }

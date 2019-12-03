@@ -28,7 +28,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var typeIndex = TypeManager.GetTypeIndex<T>();
             return new ArchetypeChunkComponentType<T>(
-                ComponentJobSafetyManager->GetSafetyHandle(typeIndex, isReadOnly), isReadOnly,
+                SafetyHandles->GetSafetyHandle(typeIndex, isReadOnly), isReadOnly,
                 GlobalSystemVersion);
 #else
             return new ArchetypeChunkComponentType<T>(isReadOnly, GlobalSystemVersion);
@@ -50,7 +50,7 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             return new ArchetypeChunkComponentTypeDynamic(componentType,
-                ComponentJobSafetyManager->GetSafetyHandle(componentType.TypeIndex, componentType.AccessModeType == ComponentType.AccessMode.ReadOnly), 
+                SafetyHandles->GetSafetyHandle(componentType.TypeIndex, componentType.AccessModeType == ComponentType.AccessMode.ReadOnly), 
                 GlobalSystemVersion);
 #else
             return new ArchetypeChunkComponentTypeDynamic(componentType, GlobalSystemVersion);
@@ -76,8 +76,8 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var typeIndex = TypeManager.GetTypeIndex<T>();
             return new ArchetypeChunkBufferType<T>(
-                ComponentJobSafetyManager->GetSafetyHandle(typeIndex, isReadOnly),
-                ComponentJobSafetyManager->GetBufferSafetyHandle(typeIndex),
+                SafetyHandles->GetSafetyHandle(typeIndex, isReadOnly),
+                SafetyHandles->GetBufferSafetyHandle(typeIndex),
                 isReadOnly, GlobalSystemVersion);
 #else
             return new ArchetypeChunkBufferType<T>(isReadOnly,GlobalSystemVersion);
@@ -99,8 +99,7 @@ namespace Unity.Entities
             where T : struct, ISharedComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new ArchetypeChunkSharedComponentType<T>(
-                ComponentJobSafetyManager->GetEntityManagerSafetyHandle());
+            return new ArchetypeChunkSharedComponentType<T>(SafetyHandles->GetEntityManagerSafetyHandle());
 #else
             return new ArchetypeChunkSharedComponentType<T>(false);
 #endif
@@ -122,7 +121,7 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             return new ArchetypeChunkEntityType(
-                ComponentJobSafetyManager->GetSafetyHandle(TypeManager.GetTypeIndex<Entity>(), true));
+                SafetyHandles->GetSafetyHandle(TypeManager.GetTypeIndex<Entity>(), true));
 #else
             return new ArchetypeChunkEntityType(false);
 #endif

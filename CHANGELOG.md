@@ -1,5 +1,34 @@
 # Change log
 
+## [0.3.0] - 2019-12-03
+
+### New Features
+
+* ENABLE_SIMPLE_SYSTEM_DEPENDENCIES define can now be used to replace the automatic dependency chaining with a much simplified strategy. With ENABLE_SIMPLE_SYSTEM_DEPENDENCIES it simply chains jobs in the order of the systems against previous jobs. Without ENABLE_SIMPLE_SYSTEM_DEPENDENCIES, dependencies are automatically chained based on read / write access of component data of each system. In cases when there game code is forced to very few cores, this can improve performance since it reduces overhead in calculating optimal dependencies.
+* Two new methods added to the public API:
+  * EntityManager.CreateEntity(Archetype type, int count, Allocator allocator);
+  * EntityManager.Instantiate(Entity entity, int count, Allocator allocator);
+  Both methods return a `NativeArray<Entity>`.
+
+### Changes
+
+Removed the following deprecated API as announced in/before `0.1.1-preview`:
+
+* From GameObjectConversionUtility.cs: `ConvertIncrementalInitialize()` and `ConvertScene()`.
+* From Translation.cs: `struct Position`.
+* From EditorEntityScenes.cs: `WriteEntityScene()`.
+* From GameObjectConversionSystem.cs: `AddReferencedPrefab()`, `AddDependency()`, `AddLinkedEntityGroup()`, `DstWorld`.
+* From DefaultWorld.cs: `class EndPresentationEntityCommandBufferSystem`.
+
+### Fixes
+
+* ConvertAndInject won't destroy the root GameObject anymore (fixes regression introduced in 0.2.0)
+* Fix Android build when using new build pipeline
+  * Provide correct application extension apk, aab or empty for project export
+  * Set package name to be com.UnityTechnologies.Samples
+  * Set API Compatibility to be .NET Standard 2.0
+
+
 ## [0.2.0] - 2019-11-22
 
 **This version requires Unity 2019.3 0b11+**
@@ -7,7 +36,7 @@
 ### New Features
 
 * Automatically generate authoring components for IComponentData with IL post-processing. Any component data marked with a GenerateAuthoringComponent attribute will generate the corresponding authoring MonoBehaviour with a Convert method.
-* BuildSettings assets are now used to define a single build recipe asset on disk. This gives full control over the build pipeline in a modular way from C# code. 
+* BuildSettings assets are now used to define a single build recipe asset on disk. This gives full control over the build pipeline in a modular way from C# code.
   * BuildSettings let you attach builtin or your own custom IBuildSettingsComponents for full configurability
   * BuildPipelines let you define the exact IBuildStep that should be run and in which order
   * IBuildStep is either builtin or your own custom build step
@@ -330,18 +359,18 @@ EntityArchetypeQuery has been renamed to EntityQueryDesc
 * Fix for an issue causing filtering with IJobForEachWithEntity to try to access entities outside of the range of the group it was scheduled with.
 
 <!-- Template for version sections
-## [0.0.0-preview.0]
+
+## [Unreleased]
 
 ### New Features
 
-
 ### Upgrade guide
 
-
 ### Changes
-
 
 ### Fixes
 
 ### Known Issues
+
+
 -->

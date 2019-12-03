@@ -38,16 +38,28 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // Can't work for Dots runtime because we can't dynamically create a managed object from a Type
         public void GetAllEntities_WithSharedTagEntity()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestSharedTag));
 
             var debugEntities = DebugEntity.GetAllEntities(m_Manager);
 
+            #if NET_DOTS
+
+            // until ManagedComponentStore.GetSharedComponentDataBoxed supports an alternative to Activator to construct
+            // a default instance of T, we can't support it here. once implemented, remove this special case to the test
+            // and drop the try/catch from DebugComponent ctor.
+            Assert.That(
+                debugEntities[0].Components[0].Data,
+                Is.InstanceOf<Exception>().With.Message.Match("Implement TypeManager.*DefaultValue"));
+
+            #else
+
             EntitiesAssert.AreEqual(
                 new[] { new DebugEntity(entity, new DebugComponent { Type = typeof(EcsTestSharedTag), Data = new EcsTestSharedTag() }) },
                 debugEntities);
+
+            #endif
         }
 
         [Test]

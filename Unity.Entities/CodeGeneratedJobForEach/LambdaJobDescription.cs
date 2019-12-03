@@ -160,12 +160,12 @@ namespace Unity.Entities
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
             try
             {
-                query.SafetyManager->IsInForEachDisallowStructuralChange++;
+                query.DependencyManager->IsInForEachDisallowStructuralChange++;
                 functionPointer(&myIterator, UnsafeUtility.AddressOf(ref jobData));
             }
             finally
             {
-                query.SafetyManager->IsInForEachDisallowStructuralChange--;
+                query.DependencyManager->IsInForEachDisallowStructuralChange--;
             }
             #else
             functionPointer(&myIterator, UnsafeUtility.AddressOf(ref jobData));

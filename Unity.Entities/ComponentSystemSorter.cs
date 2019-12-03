@@ -372,14 +372,6 @@ namespace Unity.Entities
                             throw new ArgumentException($"Invalid [UpdateBefore] BeginPreesntationEntityCommandBufferSystem, because that system is already restricted to be first.");
 #endif
                         }
-#pragma warning disable 0618
-                        // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
-                        if (dep.SystemType == typeof(EndPresentationEntityCommandBufferSystem))
-                        {
-                            WarningForBeforeCheck(systemType, dep.SystemType);
-                            continue;
-                        }
-#pragma warning restore 0618
                     }
 
                     int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
@@ -490,18 +482,6 @@ namespace Unity.Entities
                             WarningForAfterCheck(systemType, dep.SystemType);
                             continue;
                         }
-#pragma warning disable 0618
-                        // warning CS0618: 'EndPresentationEntityCommandBufferSystem' is obsolete
-                        if (dep.SystemType == typeof(EndPresentationEntityCommandBufferSystem))
-                        {
-#if !NET_DOTS
-                            throw new ArgumentException(
-                                $"Invalid [UpdateAfter] {dep.SystemType} attribute on {systemType}, because that system is already restricted to be last.");
-#else
-                            throw new ArgumentException($"Invalid [UpdateAfter] EndPresentationEntityCommandBufferSystem, because that system is already restricted to be last.");
-#endif
-                        }
-#pragma warning restore 0618
                     }
 
                     int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);

@@ -101,15 +101,15 @@ namespace Unity.Entities
         /// <param name="allocator">Allocator to use for the array.</param>
         /// <param name="jobHandle">Handle to the GatherChunks job used to fill the output array.</param>
         /// <param name="filter">Filter used to filter the resulting chunks</param>
-        /// <param name="safetyManager">The ComponentJobSafetyManager belonging to this world</param>
+        /// <param name="dependencyManager">The ComponentDependencyManager belonging to this world</param>
         /// <param name="dependsOn">All jobs spawned will depend on this JobHandle</param>
 
         /// <returns>NativeArray of all the chunks in the matchingArchetypes list.</returns>
         public static NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(
             UnsafeMatchingArchetypePtrList matchingArchetypes, Allocator allocator,
-            ref EntityQueryFilter filter, ComponentJobSafetyManager* safetyManager)
+            ref EntityQueryFilter filter, ComponentDependencyManager* dependencyManager)
         {
-            EntityQuery.SyncFilterTypes(ref matchingArchetypes, ref filter, safetyManager);
+            EntityQuery.SyncFilterTypes(ref matchingArchetypes, ref filter, dependencyManager);
             var chunks = CreateArchetypeChunkArrayWithoutSync(matchingArchetypes, allocator, out var jobHandle, ref filter);
             jobHandle.Complete();
             return chunks;

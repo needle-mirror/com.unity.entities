@@ -350,17 +350,5 @@ namespace Unity.Entities
         //@TODO(scobi): publish this method from UnityEngineExtensions
         public static EntityGuid GetEntityGuid(GameObject gameObject, int index) =>
             gameObject.ComputeEntityGuid(0, index);
-
-        // OBSOLETE
-
-        [Obsolete("ConvertIncrementalInitialize now receives its configuration parameters through a GameObjectConversionSettings (RemovedAfter 2019-11-30)")]
-        [EditorBrowsable(EditorBrowsableState.Never), UsedImplicitly]
-        public static World ConvertIncrementalInitialize(World dstEntityWorld, Scene scene, Hash128 sceneHash, ConversionFlags conversionFlags)
-            => ConvertIncrementalInitialize(scene, new GameObjectConversionSettings { DestinationWorld = dstEntityWorld, SceneGUID = sceneHash, ConversionFlags = conversionFlags });
-
-        [Obsolete("ConvertScene now receives its configuration parameters through a GameObjectConversionSettings (RemovedAfter 2019-11-30)")]
-        [EditorBrowsable(EditorBrowsableState.Never), UsedImplicitly]
-        public static void ConvertScene(Scene scene, Hash128 sceneHash, World dstEntityWorld, ConversionFlags conversionFlags = 0)
-            => ConvertScene(scene, new GameObjectConversionSettings { SceneGUID = sceneHash, DestinationWorld = dstEntityWorld, ConversionFlags = conversionFlags });
     }
 }

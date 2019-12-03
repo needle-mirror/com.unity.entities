@@ -1,0 +1,15 @@
+.InspectorHeader {
+    border-bottom-color: rgb(0, 0, 0);
+}
+
+.InspectorHeader__Icon {
+    background-image: resource('d_ScriptableObject Icon');
+}
+
+.CustomInspectorSection__Header {
+    background-color: rgb(62, 62, 62);
+}
+
+.CustomInspectorSection__HelpIcon {
+    background-image: resource('d__Help.png');
+}

@@ -15,7 +15,7 @@ namespace Unity.Entities
     {
         public static World DefaultGameObjectInjectionWorld { get; set; }
 
-        [Obsolete("World.Active has been deprecated. The most common & incorrect usage has been to use World.Active from a ComponentSystem. From a ComponentSystem you should use the ComponentSystem's World property directly. It returns the world that this system belongs to. There are some rare cases where a MonoBehaviour needs to inject data into the active world, in this case use World.DefaultGameObjectInjectionWorld. (RemovedAfter 2019-11-22)")]
+        [Obsolete("World.Active has been deprecated. The most common & incorrect usage has been to use World.Active from a ComponentSystem. From a ComponentSystem you should use the ComponentSystem's World property directly. It returns the world that this system belongs to. There are some rare cases where a MonoBehaviour needs to inject data into the active world, in this case use World.DefaultGameObjectInjectionWorld. (RemovedAfter 2020-01-22)")]
         public static World Active
         {
             get { return DefaultGameObjectInjectionWorld; }

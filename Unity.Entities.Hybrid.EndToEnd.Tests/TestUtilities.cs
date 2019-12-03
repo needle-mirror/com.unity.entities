@@ -20,6 +20,7 @@ namespace Unity.Entities.Hybrid.EndToEnd.Tests
             {
                 systems.AddRange(new []
                 {
+                    typeof(SceneSystemGroup),
                     typeof(SceneSystem),
                     typeof(ResolveSceneReferenceSystem),
                     typeof(SceneSectionStreamingSystem)

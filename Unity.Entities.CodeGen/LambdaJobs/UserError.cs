@@ -195,12 +195,12 @@ namespace Unity.Entities.CodeGen
         
         public static DiagnosticMessage DC0032(TypeReference jobComponentSystemType, MethodDefinition method, Instruction instruction)
         {
-            return MakeError(nameof(DC0032), $"Entities.ForEach Lambda expression exists in JobComponentSystem {jobComponentSystemType.Name} marked with ExecuteAlways.  This is not supported yet.  Please move this code out to a non-jobified ComponentSystem.", method, instruction);
+            return MakeWarning(nameof(DC0032), $"Entities.ForEach Lambda expression exists in JobComponentSystem {jobComponentSystemType.Name} marked with ExecuteAlways.  This will result in a temporary exception being thrown during compilation, using it is not supported yet.  Please move this code out to a non-jobified ComponentSystem. This will be fixed in upcoming 19.3 releases.", method, instruction);
         }
-        
-        public static DiagnosticMessage MakeError(string errorCode, string messageData, MethodDefinition method, Instruction instruction)
+
+        static DiagnosticMessage MakeInternal(DiagnosticType type, string errorCode, string messageData, MethodDefinition method, Instruction instruction)
         {
-            var result = new DiagnosticMessage {Column = 0, Line = 0, DiagnosticType = DiagnosticType.Error, File = ""};
+            var result = new DiagnosticMessage {Column = 0, Line = 0, DiagnosticType = type, File = ""};
             
             var seq = instruction != null ? CecilHelpers.FindBestSequencePointFor(method, instruction) : null;
 
@@ -225,6 +225,15 @@ namespace Unity.Entities.CodeGen
             return result;
         }
 
+        public static DiagnosticMessage MakeError(string errorCode, string messageData, MethodDefinition method, Instruction instruction)
+        {
+            return MakeInternal(DiagnosticType.Error, errorCode, messageData, method, instruction);
+        }
+
+        public static DiagnosticMessage MakeWarning(string errorCode, string messageData, MethodDefinition method, Instruction instruction)
+        {
+            return MakeInternal(DiagnosticType.Warning, errorCode, messageData, method, instruction);
+        }
         public static void Throw(this DiagnosticMessage dm)
         {
             throw new FoundErrorInUserCodeException(new[] { dm});

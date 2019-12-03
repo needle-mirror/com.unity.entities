@@ -272,8 +272,8 @@ namespace Unity.Entities
             var typeIndex = TypeManager.GetTypeIndex<T>();
             return m_EntityDataAccess.GetBuffer<T>(entity
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                , ComponentJobSafetyManager->GetSafetyHandle(typeIndex, false),
-                ComponentJobSafetyManager->GetBufferSafetyHandle(typeIndex)
+                , SafetyHandles->GetSafetyHandle(typeIndex, false),
+                SafetyHandles->GetBufferSafetyHandle(typeIndex)
 #endif
             );
         }
@@ -359,7 +359,7 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             return new ComponentDataFromEntity<T>(typeIndex, EntityComponentStore,
-                ComponentJobSafetyManager->GetSafetyHandle(typeIndex, isReadOnly));
+                SafetyHandles->GetSafetyHandle(typeIndex, isReadOnly));
 #else
             return new ComponentDataFromEntity<T>(typeIndex, EntityComponentStore);
 #endif
@@ -376,8 +376,8 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             return new BufferFromEntity<T>(typeIndex, EntityComponentStore, isReadOnly,
-                ComponentJobSafetyManager->GetSafetyHandle(typeIndex, isReadOnly),
-                ComponentJobSafetyManager->GetBufferSafetyHandle(typeIndex));
+                SafetyHandles->GetSafetyHandle(typeIndex, isReadOnly),
+                SafetyHandles->GetBufferSafetyHandle(typeIndex));
 #else
             return new BufferFromEntity<T>(typeIndex, EntityComponentStore, isReadOnly);
 #endif
@@ -386,7 +386,7 @@ namespace Unity.Entities
         internal void SetComponentDataRaw(Entity entity, int typeIndex, void* data, int size)
         {
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-            ComponentJobSafetyManager->CompleteReadAndWriteDependency(typeIndex);
+            DependencyManager->CompleteReadAndWriteDependency(typeIndex);
 
             m_EntityDataAccess.SetComponentDataRawEntityHasComponent(entity, typeIndex, data, size);
         }
@@ -394,7 +394,7 @@ namespace Unity.Entities
         internal void* GetComponentDataRawRW(Entity entity, int typeIndex)
         {
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-            ComponentJobSafetyManager->CompleteReadAndWriteDependency(typeIndex);
+            DependencyManager->CompleteReadAndWriteDependency(typeIndex);
 
             return m_EntityDataAccess.GetComponentDataRawRWEntityHasComponent(entity, typeIndex);
         }
@@ -402,7 +402,7 @@ namespace Unity.Entities
         internal void* GetComponentDataRawRO(Entity entity, int typeIndex)
         {
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-            ComponentJobSafetyManager->CompleteReadAndWriteDependency(typeIndex);
+            DependencyManager->CompleteReadAndWriteDependency(typeIndex);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (TypeManager.GetTypeInfo(typeIndex).IsZeroSized)
@@ -427,7 +427,7 @@ namespace Unity.Entities
         {
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
 
-            ComponentJobSafetyManager->CompleteReadAndWriteDependency(typeIndex);
+            DependencyManager->CompleteReadAndWriteDependency(typeIndex);
 
             BufferHeader* header =
                 (BufferHeader*) EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex,
@@ -440,7 +440,7 @@ namespace Unity.Entities
         {
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
 
-            ComponentJobSafetyManager->CompleteReadAndWriteDependency(typeIndex);
+            DependencyManager->CompleteReadAndWriteDependency(typeIndex);
 
             BufferHeader* header = (BufferHeader*) EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex);
 
@@ -451,7 +451,7 @@ namespace Unity.Entities
         {
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
 
-            ComponentJobSafetyManager->CompleteReadAndWriteDependency(typeIndex);
+            DependencyManager->CompleteReadAndWriteDependency(typeIndex);
 
             BufferHeader* header = (BufferHeader*) EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex);
 

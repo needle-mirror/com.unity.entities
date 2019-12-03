@@ -4,6 +4,7 @@ using UnityEditor;
 using UnityEngine;
 using AssetImportContext = UnityEditor.Experimental.AssetImporters.AssetImportContext;
 using System.Reflection;
+using Unity.Entities.Serialization;
 using Unity.Profiling;
 
 namespace Unity.Scenes.Editor
@@ -18,6 +19,18 @@ namespace Unity.Scenes.Editor
             public string FullName;
             public string    UserName;
             public int    Version;
+
+            public void Init(Type type, string fullName)
+            {
+                FullName = fullName;
+                var systemVersionAttribute = type.GetCustomAttribute<ConverterVersionAttribute>();
+                if (systemVersionAttribute != null)
+                {
+                    Version = systemVersionAttribute.Version;
+                    UserName = systemVersionAttribute.UserName;
+                }
+            }
+
             public int CompareTo(NameAndVersion other)
             {
                 return FullName.CompareTo(other.FullName);
@@ -27,7 +40,7 @@ namespace Unity.Scenes.Editor
         static ProfilerMarker kRegisterComponentTypes = new ProfilerMarker("TypeDependencyCache.RegisterComponentTypes");
         static ProfilerMarker kRegisterConversionSystemVersions = new ProfilerMarker("TypeDependencyCache.RegisterConversionSystems");
 
-        static TypeDependencyCache()
+        static unsafe TypeDependencyCache()
         {
             //TODO: Find a better way to enforce Version 2 compatibility
             bool v2Enabled = (bool)typeof(AssetDatabase).GetMethod("IsV2Enabled", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, null);
@@ -43,6 +56,11 @@ namespace Unity.Scenes.Editor
         
             using(kRegisterConversionSystemVersions.Auto())
                 RegisterConversionSystems();
+
+            int fileFormatVersion = SerializeUtility.CurrentFileFormatVersion;
+            UnityEngine.Hash128 fileFormatHash = default;
+            HashUnsafeUtilities.ComputeHash128(&fileFormatVersion, sizeof(int), &fileFormatHash);
+            UnityEditor.Experimental.AssetDatabaseExperimental.RegisterCustomDependency("EntityBinaryFileFormatVersion", fileFormatHash);
         }
     
         static void RegisterComponentTypes()
@@ -67,37 +85,31 @@ namespace Unity.Scenes.Editor
             var behaviours = TypeCache.GetTypesDerivedFrom<IConvertGameObjectToEntity>();
             var nameAndVersion = new NameAndVersion[systems.Count + behaviours.Count];
 
+            int count = 0;
             // System versions
             for (int i = 0; i != systems.Count; i++)
             {
-                nameAndVersion[i].FullName = systems[i].FullName;
+                var fullName = systems[i].FullName;
+                if (fullName == null)
+                    continue;
 
-                var systemVersionAttribute = systems[i].GetCustomAttribute<ConverterVersionAttribute>();
-                if (systemVersionAttribute != null)
-                {
-                    nameAndVersion[i].Version = systemVersionAttribute.Version;
-                    nameAndVersion[i].UserName = systemVersionAttribute.UserName;
-                }
+                nameAndVersion[count++].Init(systems[i], fullName);
             }
 
             // IConvertGameObjectToEntity versions
             for (int i = 0; i != behaviours.Count; i++)
             {
-                var o = i + systems.Count;
-                nameAndVersion[o].FullName = behaviours[i].FullName;
+                var fullName = behaviours[i].FullName;
+                if (fullName == null)
+                    continue;
 
-                var systemVersionAttribute = behaviours[i].GetCustomAttribute<ConverterVersionAttribute>();
-                if (systemVersionAttribute != null)
-                {
-                    nameAndVersion[o].Version = systemVersionAttribute.Version;
-                    nameAndVersion[o].UserName = systemVersionAttribute.UserName;
-                }
+                nameAndVersion[count++].Init(behaviours[i], fullName);
             }
         
-            Array.Sort(nameAndVersion);
+            Array.Sort(nameAndVersion, 0, count);
 
             UnityEngine.Hash128 hash = default;
-            for (int i = 0; i != nameAndVersion.Length; i++)
+            for (int i = 0; i != count; i++)
             {
                 var fullName = nameAndVersion[i].FullName;
                 fixed (char* str = fullName)

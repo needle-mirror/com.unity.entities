@@ -37,9 +37,7 @@ namespace Unity.Core
         public static unsafe uint Hash32(byte* buffer, int bufferLength, uint seed = 0)
         {
             const int stripeLength = 16;
-
-            bool bigEndian = Bits.IsBigEndian;
-
+            
             int len = bufferLength;
             int remainingLen = len;
             uint acc;
@@ -55,7 +53,7 @@ namespace Unity.Core
 
                 do
                 {
-                    acc = processStripe32(ref pInput, ref acc1, ref acc2, ref acc3, ref acc4, bigEndian);
+                    acc = processStripe32(ref pInput, ref acc1, ref acc2, ref acc3, ref acc4);
                     remainingLen -= stripeLength;
                 }
                 while (remainingLen >= stripeLength);
@@ -66,7 +64,7 @@ namespace Unity.Core
             }
 
             acc += (uint)len;
-            acc = processRemaining32(pInput, acc, remainingLen, bigEndian);
+            acc = processRemaining32(pInput, acc, remainingLen);
 
             return avalanche32(acc);
         }
@@ -83,7 +81,6 @@ namespace Unity.Core
             const int stripeLength = 16;
             const int readBufferSize = stripeLength * 1024; // 16kb read buffer - has to be stripe aligned
 
-            bool bigEndian = Bits.IsBigEndian;
             var buffer = new byte[readBufferSize];
             uint acc;
 
@@ -105,7 +102,7 @@ namespace Unity.Core
                     {
                         do
                         {
-                            acc = processStripe32(ref pInput, ref acc1, ref acc2, ref acc3, ref acc4, bigEndian);
+                            acc = processStripe32(ref pInput, ref acc1, ref acc2, ref acc3, ref acc4);
                             readBytes -= stripeLength;
                         }
                         while (readBytes >= stripeLength);
@@ -126,7 +123,7 @@ namespace Unity.Core
                 }
 
                 acc += (uint)len;
-                acc = processRemaining32(pInput, acc, readBytes, bigEndian);
+                acc = processRemaining32(pInput, acc, readBytes);
             }
 
             return avalanche32(acc);
@@ -142,9 +139,7 @@ namespace Unity.Core
         public static unsafe ulong Hash64(byte* buffer, int bufferLength, ulong seed = 0)
         {
             const int stripeLength = 32;
-
-            bool bigEndian = Bits.IsBigEndian;
-
+            
             int len = bufferLength;
             int remainingLen = len;
             ulong acc;
@@ -160,7 +155,7 @@ namespace Unity.Core
 
                 do
                 {
-                    acc = processStripe64(ref pInput, ref acc1, ref acc2, ref acc3, ref acc4, bigEndian);
+                    acc = processStripe64(ref pInput, ref acc1, ref acc2, ref acc3, ref acc4);
                     remainingLen -= stripeLength;
                 }
                 while (remainingLen >= stripeLength);
@@ -171,7 +166,7 @@ namespace Unity.Core
             }
 
             acc += (ulong)len;
-            acc = processRemaining64(pInput, acc, remainingLen, bigEndian);
+            acc = processRemaining64(pInput, acc, remainingLen);
             
 
             return avalanche64(acc);
@@ -188,9 +183,7 @@ namespace Unity.Core
         {
             const int stripeLength = 32;
             const int readBufferSize = stripeLength * 1024; // 32kb buffer length
-
-            bool bigEndian = Bits.IsBigEndian;
-
+            
             ulong acc;
 
             var buffer = new byte[readBufferSize];
@@ -217,8 +210,7 @@ namespace Unity.Core
                                 ref acc1,
                                 ref acc2,
                                 ref acc3,
-                                ref acc4,
-                                bigEndian);
+                                ref acc4);
                             readBytes -= stripeLength;
                         }
                         while (readBytes >= stripeLength);
@@ -239,7 +231,7 @@ namespace Unity.Core
                 }
 
                 acc += len;
-                acc = processRemaining64(pInput, acc, readBytes, bigEndian);
+                acc = processRemaining64(pInput, acc, readBytes);
             }
 
             return avalanche64(acc);
@@ -258,23 +250,12 @@ namespace Unity.Core
             ref ulong acc1,
             ref ulong acc2,
             ref ulong acc3,
-            ref ulong acc4,
-            bool bigEndian)
+            ref ulong acc4)
         {
-            if (bigEndian)
-            {
-                processLaneBigEndian64(ref acc1, ref pInput);
-                processLaneBigEndian64(ref acc2, ref pInput);
-                processLaneBigEndian64(ref acc3, ref pInput);
-                processLaneBigEndian64(ref acc4, ref pInput);
-            }
-            else
-            {
-                processLane64(ref acc1, ref pInput);
-                processLane64(ref acc2, ref pInput);
-                processLane64(ref acc3, ref pInput);
-                processLane64(ref acc4, ref pInput);
-            }
+            processLane64(ref acc1, ref pInput);
+            processLane64(ref acc2, ref pInput);
+            processLane64(ref acc3, ref pInput);
+            processLane64(ref acc4, ref pInput);
 
             ulong acc = Bits.RotateLeft(acc1, 1)
                       + Bits.RotateLeft(acc2, 7)
@@ -297,28 +278,14 @@ namespace Unity.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe void processLaneBigEndian64(ref ulong accn, ref byte* pInput)
-        {
-            ulong lane = *(ulong*)pInput;
-            lane = Bits.SwapBytes64(lane);
-            accn = round64(accn, lane);
-            pInput += 8;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static unsafe ulong processRemaining64(
             byte* pInput,
             ulong acc,
-            int remainingLen,
-            bool bigEndian)
+            int remainingLen)
         {
             for (ulong lane; remainingLen >= 8; remainingLen -= 8, pInput += 8)
             {
                 lane = *(ulong*)pInput;
-                if (bigEndian)
-                {
-                    lane = Bits.SwapBytes64(lane);
-                }
 
                 acc ^= round64(0, lane);
                 acc = Bits.RotateLeft(acc, 27) * prime64v1;
@@ -328,11 +295,7 @@ namespace Unity.Core
             for (uint lane32; remainingLen >= 4; remainingLen -= 4, pInput += 4)
             {
                 lane32 = *(uint*)pInput;
-                if (bigEndian)
-                {
-                    lane32 = Bits.SwapBytes32(lane32);
-                }
-
+              
                 acc ^= lane32 * prime64v1;
                 acc = Bits.RotateLeft(acc, 23) * prime64v2;
                 acc += prime64v3;
@@ -387,23 +350,13 @@ namespace Unity.Core
             ref uint acc1,
             ref uint acc2,
             ref uint acc3,
-            ref uint acc4,
-            bool bigEndian)
+            ref uint acc4)
         {
-            if (bigEndian)
-            {
-                processLaneBigEndian32(ref pInput, ref acc1);
-                processLaneBigEndian32(ref pInput, ref acc2);
-                processLaneBigEndian32(ref pInput, ref acc3);
-                processLaneBigEndian32(ref pInput, ref acc4);
-            }
-            else
-            {
-                processLane32(ref pInput, ref acc1);
-                processLane32(ref pInput, ref acc2);
-                processLane32(ref pInput, ref acc3);
-                processLane32(ref pInput, ref acc4);
-            }
+       
+            processLane32(ref pInput, ref acc1);
+            processLane32(ref pInput, ref acc2);
+            processLane32(ref pInput, ref acc3);
+            processLane32(ref pInput, ref acc4);
 
             return Bits.RotateLeft(acc1, 1)
                  + Bits.RotateLeft(acc2, 7)
@@ -420,28 +373,14 @@ namespace Unity.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe void processLaneBigEndian32(ref byte* pInput, ref uint accn)
-        {
-            uint lane = Bits.SwapBytes32(*(uint*)pInput);
-            accn = round32(accn, lane);
-            pInput += 4;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static unsafe uint processRemaining32(
             byte* pInput,
             uint acc,
-            int remainingLen,
-            bool bigEndian)
+            int remainingLen)
         {
             for (uint lane; remainingLen >= 4; remainingLen -= 4, pInput += 4)
             {
                 lane = *(uint*)pInput;
-                if (bigEndian)
-                {
-                    lane = Bits.SwapBytes32(lane);
-                }
-
                 acc += lane * prime32v3;
                 acc = Bits.RotateLeft(acc, 17) * prime32v4;
             }
@@ -482,8 +421,6 @@ namespace Unity.Core
         [BurstCompile]
         static class Bits
         {
-            internal static bool IsBigEndian = false; // Always false until proven otherwise
-
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal static ulong RotateLeft(ulong value, int bits)
             {
@@ -623,14 +560,7 @@ namespace Unity.Core
                     }
                     else
                     {
-                        if (!IsBigEndian)
-                        {
-                            return (*pbyte) | (*(pbyte + 1) << 8) | (*(pbyte + 2) << 16) | (*(pbyte + 3) << 24);
-                        }
-                        else
-                        {
-                            return (*pbyte << 24) | (*(pbyte + 1) << 16) | (*(pbyte + 2) << 8) | (*(pbyte + 3));
-                        }
+                        return (*pbyte) | (*(pbyte + 1) << 8) | (*(pbyte + 2) << 16) | (*(pbyte + 3) << 24);
                     }
                 }
             }

@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using Unity.Properties;
+using UnityEditor;
 
 namespace Unity.Build
 {
@@ -42,6 +44,24 @@ namespace Unity.Build
             }
 
             return null;
+        }
+
+        public static IReadOnlyCollection<Type> GetAvailableTypes(Func<Type, bool> filter = null)
+        {
+            var types = new HashSet<Type>();
+            foreach (var type in TypeCache.GetTypesDerivedFrom<IRunStep>())
+            {
+                if (type.IsAbstract || type.IsInterface)
+                {
+                    continue;
+                }
+                if (filter != null && !filter(type))
+                {
+                    continue;
+                }
+                types.Add(type);
+            }
+            return types;
         }
     }
 }

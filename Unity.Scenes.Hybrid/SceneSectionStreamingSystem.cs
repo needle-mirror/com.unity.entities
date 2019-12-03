@@ -9,7 +9,7 @@ using UnityEngine.Assertions;
 namespace Unity.Scenes
 {
     [ExecuteAlways]
-    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    [UpdateInGroup(typeof(SceneSystemGroup))]
     [UpdateAfter(typeof(ResolveSceneReferenceSystem))]
     class SceneSectionStreamingSystem : ComponentSystem
     {

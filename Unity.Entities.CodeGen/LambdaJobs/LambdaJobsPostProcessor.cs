@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
+using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
@@ -192,7 +193,7 @@ namespace Unity.Entities.CodeGen
                     foreach (var description in lambdaJobDescriptionConstructions)
                     {
                         madeChange = true;
-                        Rewrite(m, description);
+                        Rewrite(m, description, _diagnosticMessages);
                     }
                 }
                 catch (PostProcessException ppe)
@@ -246,10 +247,10 @@ namespace Unity.Entities.CodeGen
 
         private static bool keepUnmodifiedVersionAroundForDebugging = false;
 
-        public static JobStructForLambdaJob Rewrite(MethodDefinition methodContainingLambdaJob, LambdaJobDescriptionConstruction lambdaJobDescriptionConstruction)
+        public static JobStructForLambdaJob Rewrite(MethodDefinition methodContainingLambdaJob, LambdaJobDescriptionConstruction lambdaJobDescriptionConstruction, List<DiagnosticMessage> warnings)
         {
             if (methodContainingLambdaJob.DeclaringType.CustomAttributes.Any(c => (c.AttributeType.Name == "ExecuteAlways" && c.AttributeType.Namespace == "UnityEngine")))
-                UserError.DC0032(methodContainingLambdaJob.DeclaringType, methodContainingLambdaJob, lambdaJobDescriptionConstruction.ScheduleOrRunInvocationInstruction).Throw();
+                warnings.Add(UserError.DC0032(methodContainingLambdaJob.DeclaringType, methodContainingLambdaJob, lambdaJobDescriptionConstruction.ScheduleOrRunInvocationInstruction));
             
             if (keepUnmodifiedVersionAroundForDebugging) CecilHelpers.CloneMethodForDiagnosingProblems(methodContainingLambdaJob);
 

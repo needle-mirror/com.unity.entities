@@ -171,7 +171,7 @@ namespace Unity.Entities.CodeGen
                 if (mr.Name == nameof(LambdaJobDescriptionConstructionMethods.Schedule) || mr.Name == nameof(LambdaJobDescriptionConstructionMethods.Run))
                 {
                     var withNameModifier = modifiers.FirstOrDefault(m => m.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithName));
-                    var lambdaJobName = withNameModifier?.Arguments.OfType<string>().Single() ?? $"{method.DeclaringType.Name}_{method.Name}_LambdaJob{lambdaNumber}";
+                    var lambdaJobName = withNameModifier?.Arguments.OfType<string>().Single() ?? $"{method.Name}_LambdaJob{lambdaNumber}";
 
                     var hasWithStructuralChangesModifier 
                         = modifiers.Any(m => m.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithStructuralChanges));

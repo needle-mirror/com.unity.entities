@@ -288,6 +288,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(chunkComponentType.m_Safety);
 #endif
+            entityComponentStore->AssertEntityHasComponent(m_Chunk->metaChunkEntity, chunkComponentType.m_TypeIndex);
             var ptr = entityComponentStore->GetComponentDataWithTypeRO(m_Chunk->metaChunkEntity, chunkComponentType.m_TypeIndex);
             T value;
             UnsafeUtility.CopyPtrToStructure(ptr, out value);
@@ -306,6 +307,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndThrow(chunkComponentType.m_Safety);
 #endif
+            entityComponentStore->AssertEntityHasComponent(m_Chunk->metaChunkEntity, chunkComponentType.m_TypeIndex);
             var ptr = entityComponentStore->GetComponentDataWithTypeRW(m_Chunk->metaChunkEntity, chunkComponentType.m_TypeIndex, entityComponentStore->GlobalSystemVersion);
             UnsafeUtility.CopyStructureToPtr(ref value, ptr);
         }

@@ -92,7 +92,14 @@ namespace Unity.Entities.Tests
             }
             else if (typeof(ISharedComponentData).IsAssignableFrom(Type))
             {
-                Data = entityManager.GetSharedComponentData(entity, componentType.TypeIndex);
+                try
+                {
+                    Data = entityManager.GetSharedComponentData(entity, componentType.TypeIndex);
+                }
+                catch (Exception x) // currently triggered in dots runtime (see GetAllEntities_WithSharedTagEntity)
+                {
+                    Data = x;
+                }
             }
             else if (typeof(IBufferElementData).IsAssignableFrom(Type))
             {
