@@ -10,7 +10,7 @@ using NUnit.Framework;
 namespace Unity.Entities.CodeGen.Tests
 {
     [TestFixture]
-    public abstract class IntegrationTest : PostProcessorTestBase
+    public abstract class IntegrationTest : LambdaJobsPostProcessorTestBase
     {
         // Make sure to not check this in with true or your tests will always pass!
         public static bool overwriteExpectationWithReality = false;

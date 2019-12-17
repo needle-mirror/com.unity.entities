@@ -47,7 +47,39 @@ namespace Unity.Entities.Editor
         public NativeArray<ArchetypeChunk> ChunkArray => chunkArray;
         private NativeArray<ArchetypeChunk> chunkArray;
 
-        public EntityListView(TreeViewState state, EntityListQuery entityQuery, EntitySelectionCallback entitySelectionCallback, WorldSelectionGetter getWorldSelection, SystemSelectionGetter getSystemSelection, ChunkArrayAssignmentCallback setChunkArray) : base(state)
+        static MultiColumnHeaderState CreateState()
+        {
+            var columns = new[]
+            {
+                new MultiColumnHeaderState.Column
+                {
+                    headerContent = new GUIContent("Index"),
+                    headerTextAlignment = TextAlignment.Left,
+                    sortingArrowAlignment = TextAlignment.Right,
+                    canSort = false,
+                    sortedAscending = false,
+                    width = 70,
+                    minWidth = 70,
+                    maxWidth = 70,
+                    autoResize = false,
+                    allowToggleVisibility = false
+                },
+                new MultiColumnHeaderState.Column
+                {
+                    headerContent = new GUIContent("Name"),
+                    headerTextAlignment = TextAlignment.Left,
+                    canSort = false,
+                    width = 400,
+                    minWidth = 100,
+                    autoResize = true,
+                    allowToggleVisibility = false
+                }
+            };
+            return new MultiColumnHeaderState(columns);
+        }
+
+        public EntityListView(TreeViewState state, EntityListQuery entityQuery, EntitySelectionCallback entitySelectionCallback, WorldSelectionGetter getWorldSelection, SystemSelectionGetter getSystemSelection, ChunkArrayAssignmentCallback setChunkArray)
+            : base(state, new MultiColumnHeader(CreateState()))
         {
             this.setEntitySelection = entitySelectionCallback;
             this.getWorldSelection = getWorldSelection;
@@ -56,6 +88,7 @@ namespace Unity.Entities.Editor
             selectedEntityQuery = entityQuery;
             rows = new EntityArrayListAdapter();
             getNewSelectionOverride = (item, selection, shift) => new List<int>() {item.id};
+            showAlternatingRowBackgrounds = true;
             Reload();
         }
 
@@ -116,27 +149,11 @@ namespace Unity.Entities.Editor
             return rows;
         }
 
-        private int widestIndex = 0;
-        private float widestIndexWith = 10f;
-        private readonly GUIContent tempContent = new GUIContent("");
-
         protected override void RowGUI(RowGUIArgs args)
         {
-            var index = EntityArrayListAdapter.ItemIdToIndex(args.item.id);
-            if (index > widestIndex)
-            {
-                widestIndex = index;
-                tempContent.text = widestIndex.ToString();
-                widestIndexWith = DefaultStyles.label.CalcSize(tempContent).x;
-            }
-            var rowRect = args.rowRect;
-            var idRect = args.rowRect;
-            rowRect.xMin += widestIndexWith;
-            args.rowRect = rowRect;
-            
-            base.RowGUI(args);
-            
-            DefaultGUI.Label(idRect, index.ToString(), args.selected, args.focused);
+            var index = args.item.id;
+            DefaultGUI.Label(args.GetCellRect(0), index.ToString(), args.selected, args.focused);
+            DefaultGUI.Label(args.GetCellRect(1), args.label, args.selected, args.focused);
         }
 
         protected override IList<int> GetAncestors(int id)
@@ -147,12 +164,6 @@ namespace Unity.Entities.Editor
         protected override IList<int> GetDescendantsThatHaveChildren(int id)
         {
             return new List<int>();
-        }
-
-        public override void OnGUI(Rect rect)
-        {
-            if (getWorldSelection()?.EntityManager.IsCreated == true)
-                base.OnGUI(rect);
         }
 
         protected override void SelectionChanged(IList<int> selectedIds)
@@ -174,27 +185,6 @@ namespace Unity.Entities.Editor
             return false;
         }
 
-        protected override bool CanRename(TreeViewItem item)
-        {
-            return true;
-        }
-
-        protected override void RenameEnded(RenameEndedArgs args)
-        {
-            if (args.acceptedRename)
-            {
-                var manager = getWorldSelection()?.EntityManager;
-                if (manager != null)
-                {
-                    Entity entity;
-                    if (rows.GetById(args.itemID, out entity))
-                    {
-                        manager.SetName(entity, args.newName);
-                    }
-                }
-            }
-        }
-
         public void SelectNothing()
         {
             SetSelection(new List<int>());
@@ -203,7 +193,7 @@ namespace Unity.Entities.Editor
         public void SetEntitySelection(Entity entitySelection)
         {
             if (entitySelection != Entity.Null && getWorldSelection().EntityManager.Exists(entitySelection))
-                SetSelection(new List<int>{EntityArrayListAdapter.IndexToItemId(entitySelection.Index)});
+                SetSelection(new List<int>{entitySelection.Index});
         }
 
         public void TouchSelection()

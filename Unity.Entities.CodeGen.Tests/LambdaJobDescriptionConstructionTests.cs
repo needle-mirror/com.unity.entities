@@ -10,7 +10,7 @@ using Unity.Jobs;
 namespace Unity.Entities.CodeGen.Tests
 {
     [TestFixture]
-    public class LambdaJobDescriptionConstructionTests : PostProcessorTestBase
+    public class LambdaJobDescriptionConstructionTests : LambdaJobsPostProcessorTestBase
     {
         [Test]
         public void EntitiesForEachTest()
@@ -257,8 +257,35 @@ namespace Unity.Entities.CodeGen.Tests
                     .Schedule(default);
             }
         }
-
         
+        [Test]
+        public void WithReadOnlyCapturedVariableFromTwoScopesTest()
+        {
+            var methodToAnalyze = MethodDefinitionForOnlyMethodOf(typeof(WithReadOnlyCapturedVariableFromTwoScopes));
+            var description = LambdaJobDescriptionConstruction.FindIn(methodToAnalyze).Single();
+
+            var withReadOnlyMethods = description.InvokedConstructionMethods.Where(m => m.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithReadOnly));
+            Assert.AreEqual(2, withReadOnlyMethods.Count());
+            foreach (var withReadOnly in withReadOnlyMethods)
+                Assert.IsInstanceOf<FieldDefinition>(withReadOnly.Arguments.Single());
+        }
+
+        class WithReadOnlyCapturedVariableFromTwoScopes : TestJobComponentSystem
+        {
+            void Test()
+            {
+                NativeArray<int> outerScopeArray = new NativeArray<int>();
+                {
+                    NativeArray<int> innerScopeArray = new NativeArray<int>();
+                    Entities
+                        .WithReadOnly(outerScopeArray)
+                        .WithReadOnly(innerScopeArray)
+                        .ForEach((ref Translation translation) => translation.Value += outerScopeArray[0] + innerScopeArray[0])
+                        .Schedule(default);
+                }
+            }
+        }
+
         [Test]
         public void WithoutScheduleInvocationTest()
         {

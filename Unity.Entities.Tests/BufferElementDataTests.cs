@@ -859,7 +859,7 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
 
-            buffer.Reserve(100);
+            buffer.EnsureCapacity(100);
 
             Assert.AreEqual(100, buffer.Capacity);
             Assert.AreEqual(0, buffer.Length);
@@ -874,7 +874,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(8, buffer.Capacity);
             Assert.AreEqual(0, buffer.Length);
 
-            buffer.Reserve(100);
+            buffer.EnsureCapacity(100);
             buffer.Add(1);
             buffer.Add(2);
             buffer.Add(3);

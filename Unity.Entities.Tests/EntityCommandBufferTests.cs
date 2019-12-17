@@ -10,6 +10,46 @@ namespace Unity.Entities.Tests
 {
     class EntityCommandBufferTests : ECSTestsFixture
     {
+        World m_World2;
+        EntityManager m_Manager2;
+        EntityManager.EntityManagerDebug m_ManagerDebug2;
+
+        [SetUp]
+        public override void Setup()
+        {
+            base.Setup();
+            
+#if !UNITY_DOTSPLAYER
+            m_World2 = new World("Test World 2");
+#else
+            m_World2 = new World("Test World 2");
+            DefaultTinyWorldInitialization.InitializeSystems(m_World2);
+#endif
+            m_Manager2 = m_World2.EntityManager;
+            m_ManagerDebug2 = new EntityManager.EntityManagerDebug(m_Manager2);
+        }
+        
+        [TearDown]
+        public override void TearDown()
+        {
+            if (m_Manager2 != null && m_Manager2.IsCreated)
+            {
+                // Clean up systems before calling CheckInternalConsistency because we might have filters etc
+                // holding on SharedComponentData making checks fail
+                while (m_World2.Systems.ToArray().Length > 0)
+                {
+                    m_World2.DestroySystem(m_World2.Systems.ToArray()[0]);
+                }
+
+                m_ManagerDebug2.CheckInternalConsistency();
+
+                m_World2.Dispose();
+                m_World2 = null;
+            }
+            
+            base.TearDown();
+        }
+
         [Test]
         public void EmptyOK()
         {
@@ -19,13 +59,15 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void Playback_AlreadyPlayedBack_Fails()
+        public void Playback_AlreadyPlayedBack_DoesNotThrow()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
             // First playback should succeed
             Assert.DoesNotThrow(() => {cmds.Playback(m_Manager); });
-            // Subsequent playback attempts should fail
-            Assert.Throws<InvalidOperationException>(() => {cmds.Playback(m_Manager); });
+            // Subsequent playback attempts should not fail
+            Assert.DoesNotThrow(() => {cmds.Playback(m_Manager); });
+            // Playback on a second EntityManager also does not fail
+            Assert.DoesNotThrow(() => {cmds.Playback(m_Manager2); });
             cmds.Dispose();
         }
 
@@ -89,15 +131,24 @@ namespace Unity.Entities.Tests
             handle.Complete();
 
             cmds.Playback(m_Manager);
+            cmds.Playback(m_Manager2);
             cmds.Dispose();
 
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            var arr = query.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             Assert.AreEqual(2, arr.Length);
             Assert.AreEqual(42, arr[0].value);
             Assert.AreEqual(1, arr[1].value);
             arr.Dispose();
-            group.Dispose();
+            query.Dispose();
+            
+            var query2 = m_Manager2.CreateEntityQuery(typeof(EcsTestData));
+            var arr2 = query2.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            Assert.AreEqual(2, arr2.Length);
+            Assert.AreEqual(42, arr2[0].value);
+            Assert.AreEqual(1, arr2[1].value);
+            arr2.Dispose();
+            query2.Dispose();
         }
 
         [Test]
@@ -250,14 +301,24 @@ namespace Unity.Entities.Tests
             var e = cmds.CreateEntity();
             cmds.AddComponent(e, new EcsTestData { value = 12 });
             cmds.Playback(m_Manager);
+            cmds.Playback(m_Manager2);
             cmds.Dispose();
-
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
-            Assert.AreEqual(1, arr.Length);
-            Assert.AreEqual(12, arr[0].value);
-            arr.Dispose();
-            group.Dispose();
+            {
+                var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+                var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+                Assert.AreEqual(1, arr.Length);
+                Assert.AreEqual(12, arr[0].value);
+                arr.Dispose();
+                group.Dispose();
+            }
+            {
+                var group = m_Manager2.CreateEntityQuery(typeof(EcsTestData));
+                var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+                Assert.AreEqual(1, arr.Length);
+                Assert.AreEqual(12, arr[0].value);
+                arr.Dispose();
+                group.Dispose();
+            }
         }
 
         [Test]
@@ -269,14 +330,17 @@ namespace Unity.Entities.Tests
             var e = cmds.CreateEntity(a);
             cmds.SetComponent(e, new EcsTestData { value = 12 });
             cmds.Playback(m_Manager);
+            cmds.Playback(m_Manager);
             cmds.Dispose();
 
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
-            Assert.AreEqual(1, arr.Length);
-            Assert.AreEqual(12, arr[0].value);
-            arr.Dispose();
-            group.Dispose();
+            {
+                var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+                var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+                Assert.AreEqual(2, arr.Length);
+                Assert.AreEqual(12, arr[0].value);
+                arr.Dispose();
+                group.Dispose();
+            }
         }
 
         [Test]
@@ -287,6 +351,7 @@ namespace Unity.Entities.Tests
             cmds.AddComponent(e, new EcsTestData { value = 12 });
             cmds.AddComponent(e, new EcsTestData2 { value0 = 1, value1 = 2 });
             cmds.Playback(m_Manager);
+            cmds.Playback(m_Manager2);
             cmds.Dispose();
 
             {
@@ -300,6 +365,25 @@ namespace Unity.Entities.Tests
 
             {
                 var group = m_Manager.CreateEntityQuery(typeof(EcsTestData2));
+                var arr = group.ToComponentDataArray<EcsTestData2>(Allocator.TempJob);
+                Assert.AreEqual(1, arr.Length);
+                Assert.AreEqual(1, arr[0].value0);
+                Assert.AreEqual(2, arr[0].value1);
+                arr.Dispose();
+                group.Dispose();
+            }
+            
+            {
+                var group = m_Manager2.CreateEntityQuery(typeof(EcsTestData));
+                var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+                Assert.AreEqual(1, arr.Length);
+                Assert.AreEqual(12, arr[0].value);
+                arr.Dispose();
+                group.Dispose();
+            }
+
+            {
+                var group = m_Manager2.CreateEntityQuery(typeof(EcsTestData2));
                 var arr = group.ToComponentDataArray<EcsTestData2>(Allocator.TempJob);
                 Assert.AreEqual(1, arr.Length);
                 Assert.AreEqual(1, arr[0].value0);
@@ -325,10 +409,26 @@ namespace Unity.Entities.Tests
             }
 
             cmds.Playback(m_Manager);
+            cmds.Playback(m_Manager2);
             cmds.Dispose();
 
             {
                 var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
+                var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+                var arr2 = group.ToComponentDataArray<EcsTestData2>(Allocator.TempJob);
+                Assert.AreEqual(count, arr.Length);
+                for (int i = 0; i < count; ++i)
+                {
+                    Assert.AreEqual(i, arr[i].value);
+                    Assert.AreEqual(i, arr2[i].value0);
+                    Assert.AreEqual(i, arr2[i].value1);
+                }
+                arr.Dispose();
+                arr2.Dispose();
+                group.Dispose();
+            }
+            {
+                var group = m_Manager2.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
                 var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
                 var arr2 = group.ToComponentDataArray<EcsTestData2>(Allocator.TempJob);
                 Assert.AreEqual(count, arr.Length);
@@ -374,19 +474,36 @@ namespace Unity.Entities.Tests
             cmds.AddSharedComponent(e, new EcsTestSharedComp2(20));
 
             cmds.Playback(m_Manager);
+            cmds.Playback(m_Manager2);
 
-            var sharedComp1List = new List<EcsTestSharedComp>();
-            var sharedComp2List = new List<EcsTestSharedComp2>();
+            {
+                var sharedComp1List = new List<EcsTestSharedComp>();
+                var sharedComp2List = new List<EcsTestSharedComp2>();
 
-            m_Manager.GetAllUniqueSharedComponentData(sharedComp1List);
-            m_Manager.GetAllUniqueSharedComponentData(sharedComp2List);
+                m_Manager.GetAllUniqueSharedComponentData(sharedComp1List);
+                m_Manager.GetAllUniqueSharedComponentData(sharedComp2List);
 
-            // the count must be 2 - the default value of the shared component and the one we actually set
-            Assert.AreEqual(2, sharedComp1List.Count);
-            Assert.AreEqual(2, sharedComp2List.Count);
+                // the count must be 2 - the default value of the shared component and the one we actually set
+                Assert.AreEqual(2, sharedComp1List.Count);
+                Assert.AreEqual(2, sharedComp2List.Count);
 
-            Assert.AreEqual(10, sharedComp1List[1].value);
-            Assert.AreEqual(20, sharedComp2List[1].value1);
+                Assert.AreEqual(10, sharedComp1List[1].value);
+                Assert.AreEqual(20, sharedComp2List[1].value1);
+            }
+            {
+                var sharedComp1List = new List<EcsTestSharedComp>();
+                var sharedComp2List = new List<EcsTestSharedComp2>();
+
+                m_Manager2.GetAllUniqueSharedComponentData(sharedComp1List);
+                m_Manager2.GetAllUniqueSharedComponentData(sharedComp2List);
+
+                // the count must be 2 - the default value of the shared component and the one we actually set
+                Assert.AreEqual(2, sharedComp1List.Count);
+                Assert.AreEqual(2, sharedComp2List.Count);
+
+                Assert.AreEqual(10, sharedComp1List[1].value);
+                Assert.AreEqual(20, sharedComp2List[1].value1);
+            }
 
             cmds.Dispose();
         }
@@ -442,12 +559,22 @@ namespace Unity.Entities.Tests
             cmds.SetSharedComponent(e, new EcsTestSharedComp());
 
             cmds.Playback(m_Manager);
+            cmds.Playback(m_Manager2);
 
-            var sharedCompList = new List<EcsTestSharedComp>();
-            m_Manager.GetAllUniqueSharedComponentData<EcsTestSharedComp>(sharedCompList);
+            {
+                var sharedCompList = new List<EcsTestSharedComp>();
+                m_Manager.GetAllUniqueSharedComponentData<EcsTestSharedComp>(sharedCompList);
 
-            Assert.AreEqual(1, sharedCompList.Count);
-            Assert.AreEqual(0, sharedCompList[0].value);
+                Assert.AreEqual(1, sharedCompList.Count);
+                Assert.AreEqual(0, sharedCompList[0].value);
+            }
+            {
+                var sharedCompList = new List<EcsTestSharedComp>();
+                m_Manager2.GetAllUniqueSharedComponentData<EcsTestSharedComp>(sharedCompList);
+
+                Assert.AreEqual(1, sharedCompList.Count);
+                Assert.AreEqual(0, sharedCompList[0].value);
+            }
 
             cmds.Dispose();
         }
@@ -594,6 +721,26 @@ namespace Unity.Entities.Tests
             entityQuery.Dispose();
             m_Manager.DestroyEntity(entities);
             entities.Dispose();
+        }
+
+        [Test]
+        public void AddComponentToEntityQuery_OnDifferentEntityManager_Throws()
+        {
+            using (var cmds = new EntityCommandBuffer(Allocator.TempJob))
+            {
+                var entity = cmds.CreateEntity();
+                var data1 = new EcsTestData();
+                cmds.AddComponent(entity, data1);
+
+                // create a query in one manager ...
+                var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+                cmds.AddComponent(entityQuery, typeof(EcsTestData2));
+
+                // ... and playback on a different manager
+                Assert.Throws<ArgumentException>(() => cmds.Playback(m_Manager2));
+                
+                entityQuery.Dispose();
+            }
         }
 
         [Test]
@@ -1293,7 +1440,9 @@ namespace Unity.Entities.Tests
             DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>(e);
             buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
             cmds.Playback(m_Manager);
-            VerifySingleBuffer(3);
+            cmds.Playback(m_Manager2);
+            VerifySingleBuffer(m_Manager, 3);
+            VerifySingleBuffer(m_Manager2, 3);
             cmds.Dispose();
         }
 
@@ -1305,7 +1454,21 @@ namespace Unity.Entities.Tests
             DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>(e);
             buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
             cmds.Playback(m_Manager);
-            VerifySingleBuffer(10);
+            VerifySingleBuffer(m_Manager, 10);
+            cmds.Dispose();
+        }
+        
+        [Test]
+        public void AddBufferOverflowOnMultipleEntityManagers()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var e = cmds.CreateEntity();
+            DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>(e);
+            buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+            cmds.Playback(m_Manager);
+            cmds.Playback(m_Manager2);
+            VerifySingleBuffer(m_Manager, 10);
+            VerifySingleBuffer(m_Manager2, 10);
             cmds.Dispose();
         }
 
@@ -1359,6 +1522,24 @@ namespace Unity.Entities.Tests
             cmds.Playback(m_Manager);
             VerifySingleBuffer(3);
             cmds.Dispose();
+        }
+
+        [Test]
+        public void AddBuffer_OnEntityFromOtherWorld_Fails()
+        {
+            var e = m_Manager.CreateEntity();
+            using (var cmds = new EntityCommandBuffer(Allocator.TempJob))
+            {
+                DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>(e);
+                buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
+                Assert.Throws<ArgumentException>(() => cmds.Playback(m_Manager2));
+
+                using (var allEntities = m_Manager.GetAllEntities())
+                {
+                    Assert.AreEqual(1, allEntities.Length);
+                    Assert.IsFalse(m_Manager.HasComponent<EcsIntElement>(e));
+                }
+            }
         }
 
         [Test]
@@ -1417,9 +1598,14 @@ namespace Unity.Entities.Tests
 
         private void VerifySingleBuffer(int length)
         {
-            var allEntities = m_Manager.GetAllEntities();
+            VerifySingleBuffer(m_Manager, length);
+        }
+        
+        private static void VerifySingleBuffer(EntityManager manager, int length)
+        {
+            var allEntities = manager.GetAllEntities();
             Assert.AreEqual(1, allEntities.Length);
-            var resultBuffer = m_Manager.GetBuffer<EcsIntElement>(allEntities[0]);
+            var resultBuffer = manager.GetBuffer<EcsIntElement>(allEntities[0]);
             Assert.AreEqual(length, resultBuffer.Length);
 
             for (int i = 0; i < length; ++i)
@@ -1489,7 +1675,6 @@ namespace Unity.Entities.Tests
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
-
         public void EntityCommandBufferSystemPlaybackExceptionIsolation()
         {
             var entityCommandBufferSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
@@ -1532,6 +1717,20 @@ namespace Unity.Entities.Tests
 
             cmds.Dispose();
         }
+        
+        [Test]
+        public void AddComponent_WhenDataContainsDeferredEntity_ThrowsOnMultiplePlaybacks()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            Entity e0 = cmds.CreateEntity();
+            cmds.AddComponent(e0, new EcsTestDataEntity(1, e0));
+
+            Assert.DoesNotThrow(() => cmds.Playback(m_Manager));
+            Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager));
+            Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager2));
+            cmds.Dispose();
+        }
 
         [Test]
         public void AddComponent_WhenDataContainsDeferredEntity_DeferredEntityIsResolved()
@@ -1544,16 +1743,18 @@ namespace Unity.Entities.Tests
             cmds.Playback(m_Manager);
             cmds.Dispose();
 
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestDataEntity));
-            var arr = group.ToComponentDataArray<EcsTestDataEntity>(Allocator.TempJob);
+            {
+                var group = m_Manager.CreateEntityQuery(typeof(EcsTestDataEntity));
+                var arr = group.ToComponentDataArray<EcsTestDataEntity>(Allocator.TempJob);
 
-            Assert.AreEqual(1, arr.Length);
-            var e0real = arr[0].value1;
-            EcsTestDataEntity v0 = m_Manager.GetComponentData<EcsTestDataEntity>(e0real);
-            Assert.AreEqual(v0.value1, e0real);
+                Assert.AreEqual(1, arr.Length);
+                var e0real = arr[0].value1;
+                EcsTestDataEntity v0 = m_Manager.GetComponentData<EcsTestDataEntity>(e0real);
+                Assert.AreEqual(v0.value1, e0real);
 
-            arr.Dispose();
-            group.Dispose();
+                arr.Dispose();
+                group.Dispose();
+            }
         }
 
         [Test]
@@ -1611,6 +1812,38 @@ namespace Unity.Entities.Tests
             EntityCommandBuffer.Concurrent cmds = new EntityCommandBuffer.Concurrent();
             var exception = Assert.Throws<NullReferenceException>(() => cmds.CreateEntity(0));
             Assert.AreEqual(exception.Message, "The EntityCommandBuffer has not been initialized!");
+        }
+        
+        [Test]
+        public void AddOrSetBufferWithEntity_NeedsFixup_ThrowsOnMultiplePlayback([Values(true,false)] bool setBuffer)
+        {
+            EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            Entity e0 = m_Manager.CreateEntity();
+            Entity e1 = m_Manager.CreateEntity();
+            Entity e2 = m_Manager.CreateEntity();
+
+            if (setBuffer)
+                m_Manager.AddComponent(e1, typeof(EcsComplexEntityRefElement));
+
+            var deferred0 = cmds.CreateEntity();
+            var deferred1 = cmds.CreateEntity();
+            var deferred2 = cmds.CreateEntity();
+
+            cmds.AddComponent(e0, new EcsTestDataEntity() { value1 = deferred0 });
+            cmds.AddComponent(e1, new EcsTestDataEntity() { value1 = deferred1 });
+            cmds.AddComponent(e2, new EcsTestDataEntity() { value1 = deferred2 });
+
+            var buf = setBuffer ? cmds.SetBuffer<EcsComplexEntityRefElement>(e1) : cmds.AddBuffer<EcsComplexEntityRefElement>(e1);
+            buf.Add(new EcsComplexEntityRefElement() {Entity = e0});
+            buf.Add(new EcsComplexEntityRefElement() {Entity = deferred1});
+            buf.Add(new EcsComplexEntityRefElement() {Entity = deferred2});
+            buf.Add(new EcsComplexEntityRefElement() {Entity = deferred0});
+                
+            Assert.DoesNotThrow(() => cmds.Playback(m_Manager));
+            Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager));
+            Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager2));
+            cmds.Dispose();
         }
 
         [Test]
@@ -1817,13 +2050,23 @@ namespace Unity.Entities.Tests
             var e = cmds.CreateEntity();
             cmds.AddComponent(e, new EcsTestManagedComponent { value = "SomeString" });
             cmds.Playback(m_Manager);
+            cmds.Playback(m_Manager2);
             cmds.Dispose();
 
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent));
-            var arr = group.ToComponentDataArray<EcsTestManagedComponent>();
-            Assert.AreEqual(1, arr.Length);
-            Assert.AreEqual("SomeString", arr[0].value);
-            group.Dispose();
+            {
+                var group = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent));
+                var arr = group.ToComponentDataArray<EcsTestManagedComponent>();
+                Assert.AreEqual(1, arr.Length);
+                Assert.AreEqual("SomeString", arr[0].value);
+                group.Dispose();
+            }
+            {
+                var group = m_Manager2.CreateEntityQuery(typeof(EcsTestManagedComponent));
+                var arr = group.ToComponentDataArray<EcsTestManagedComponent>();
+                Assert.AreEqual(1, arr.Length);
+                Assert.AreEqual("SomeString", arr[0].value);
+                group.Dispose();
+            }
         }
 
         [Test]
@@ -1852,6 +2095,7 @@ namespace Unity.Entities.Tests
             cmds.AddComponent(e, new EcsTestManagedComponent { value = "SomeString" });
             cmds.AddComponent(e, new EcsTestManagedComponent2 { value = "SomeString", value2 = "SomeOtherString" });
             cmds.Playback(m_Manager);
+            cmds.Playback(m_Manager2);
             cmds.Dispose();
 
             {
@@ -1864,6 +2108,22 @@ namespace Unity.Entities.Tests
 
             {
                 var group = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent2));
+                var arr = group.ToComponentDataArray<EcsTestManagedComponent2>();
+                Assert.AreEqual(1, arr.Length);
+                Assert.AreEqual("SomeString", arr[0].value);
+                Assert.AreEqual("SomeOtherString", arr[0].value2);
+                group.Dispose();
+            }
+            {
+                var group = m_Manager2.CreateEntityQuery(typeof(EcsTestManagedComponent));
+                var arr = group.ToComponentDataArray<EcsTestManagedComponent>();
+                Assert.AreEqual(1, arr.Length);
+                Assert.AreEqual("SomeString", arr[0].value);
+                group.Dispose();
+            }
+
+            {
+                var group = m_Manager2.CreateEntityQuery(typeof(EcsTestManagedComponent2));
                 var arr = group.ToComponentDataArray<EcsTestManagedComponent2>();
                 Assert.AreEqual(1, arr.Length);
                 Assert.AreEqual("SomeString", arr[0].value);
@@ -2188,5 +2448,38 @@ namespace Unity.Entities.Tests
         }
 #endif
 
+        [Test]
+        public void AddCommandsAfterPlayback_Throws()
+        {
+            var archetype = m_Manager.CreateArchetype(ComponentType.ReadOnly<EcsTestData>());
+            var e = m_Manager.CreateEntity(archetype);
+            var query = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsTestData>());
+            
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            cmds.Playback(m_Manager);
+
+            Assert.Throws<InvalidOperationException>(() => cmds.CreateEntity());
+            Assert.Throws<InvalidOperationException>(() => cmds.CreateEntity(archetype));
+            Assert.Throws<InvalidOperationException>(() => cmds.Instantiate(e));
+            Assert.Throws<InvalidOperationException>(() => cmds.DestroyEntity(e));
+            Assert.Throws<InvalidOperationException>(() => cmds.DestroyEntity(query));
+            Assert.Throws<InvalidOperationException>(() => cmds.AddBuffer<EcsIntElement>(e));
+            Assert.Throws<InvalidOperationException>(() => cmds.SetBuffer<EcsIntElement>(e));
+            Assert.Throws<InvalidOperationException>(() => cmds.AddSharedComponent(e, new EcsTestSharedComp(10)));
+            Assert.Throws<InvalidOperationException>(() => cmds.SetSharedComponent(e, new EcsTestSharedComp(10)));
+            Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(e, new EcsTestData2(10)));
+            Assert.Throws<InvalidOperationException>(() => cmds.SetComponent(e, new EcsTestData2(10)));
+            Assert.Throws<InvalidOperationException>(() => cmds.SetComponent(e, new EcsTestData2(10)));
+            Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(query, ComponentType.ReadOnly<EcsTestData2>()));
+            Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent<EcsTestData>(e));
+            Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent(query, ComponentType.ReadOnly<EcsTestData>()));
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(e, new EcsTestManagedComponent()));
+            Assert.Throws<InvalidOperationException>(() => cmds.SetComponent(e, new EcsTestManagedComponent()));
+            Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent<EcsTestManagedComponent>(e));
+#endif
+            cmds.Dispose();
+            query.Dispose();
+        }
     }
 }

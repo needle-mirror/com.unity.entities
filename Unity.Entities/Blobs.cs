@@ -404,6 +404,32 @@ namespace Unity.Entities
                 return true;
             }
         }
+        
+        /// <summary>
+        /// Reads bytes from a buffer, validates the expected serialized version, and deserializes them into a new blob asset.
+        /// </summary>
+        /// <param name="buffer">Byte array of buffer</param>
+        /// <param name="version">Expected version number of the blob data.</param>
+        /// <param name="result">The resulting BlobAssetReference if the data was read successful.</param>
+        /// <returns>A bool if the read was successful or not.</returns>
+        public static bool TryRead(byte[] buffer, int version, out BlobAssetReference<T> result)
+        {
+            fixed (byte* fixedBuffer = buffer)
+            {
+                using (var binaryReader = new MemoryBinaryReader(fixedBuffer))
+                {
+                    var storedVersion = binaryReader.ReadInt();
+                    if (storedVersion != version)
+                    {
+                        result = default;
+                        return false;
+                    }
+
+                    result = binaryReader.Read<T>();
+                    return true;
+                }
+            }
+        }
 
         /// <summary>
         /// Writes the blob data to a path with serialized version.
@@ -485,6 +511,7 @@ namespace Unity.Entities
     /// </summary>
     /// <typeparam name="T">The data type of the referenced object.</typeparam>
     /// <seealso cref="BlobBuilder"/>
+    [MayOnlyLiveInBlobStorage]
     unsafe public struct BlobPtr<T> where T : struct
     {
         internal int m_OffsetPtr;
@@ -536,6 +563,7 @@ namespace Unity.Entities
     /// <see cref="BlobBuilder"/> instance to set the array elements.</remarks>
     /// <typeparam name="T">The data type of the elements in the array. Must be a struct or other value type.</typeparam>
     /// <seealso cref="BlobBuilder"/>
+    [MayOnlyLiveInBlobStorage]
     unsafe public struct BlobArray<T> where T : struct
     {
         internal int m_OffsetPtr;
@@ -612,9 +640,19 @@ namespace Unity.Entities
     }
 
     /// <summary>
+    /// Use this attribute if you have structs that use offset pointers that are only valid when they live inside the blob storage.
+    /// It will turn ensure a compiler error is generated for every time a reference to the struct is copied, or a field is read
+    /// from a reference to the struct this attribute is applied on.
+    /// </summary>
+    public class MayOnlyLiveInBlobStorageAttribute : Attribute
+    {
+    }
+
+    /// <summary>
     /// An immutable, variable-length string stored in a blob asset.
     /// </summary>
     /// <seealso cref="BlobBuilder"/>
+    [MayOnlyLiveInBlobStorage]
     unsafe public struct BlobString
     {
         internal BlobArray<char> Data;

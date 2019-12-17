@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Text;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -27,6 +28,21 @@ namespace Unity.Entities.CodeGen
         {
             return UserError.MakeError(nameof(DCICE004), $"Next instruction in initialization of DisplayClass needs to be stloc in {method.Name}", method, instruction);
         }
+        
+        public static DiagnosticMessage DCICE005(MethodDefinition method, Instruction instruction)
+        {
+            return UserError.MakeError(nameof(DCICE005), $"Previous instruction needs to be Ldfld or Ldflda while parsing IL to generate lambda for method {method.Name}.", method, instruction);
+        }
+
+        public static DiagnosticMessage DCICE006(MethodDefinition method)
+        {
+            return UserError.MakeError(nameof(DCICE006), $"Next instruction used in constructing the DisplayClass needs to be a store local instruction in {method.Name}", method, null);
+        }
+
+        public static DiagnosticMessage DCICE007(MethodDefinition methodToAnalyze, LambdaJobDescriptionConstruction.InvokedConstructionMethod constructionMethod)
+        {
+            return UserError.MakeError(nameof(DCICE007),$"Could not find field for local captured variable for argument of {constructionMethod.MethodName}.", methodToAnalyze, constructionMethod.InstructionInvokingMethod);
+        }
     }
     
     static class UserError
@@ -43,7 +59,7 @@ namespace Unity.Entities.CodeGen
         
         public static DiagnosticMessage DC0003(string name, MethodDefinition method, Instruction instruction)
         {
-            return MakeError(nameof(DC0003),$"The name {name} is already used in this system.", method, instruction);
+            return MakeError(nameof(DC0003),$"The name '{name}' is already used in this system.", method, instruction);
         }
         
         public static DiagnosticMessage DC0004(MethodDefinition methodToAnalyze, Instruction illegalInvocation, FieldDefinition field)
@@ -133,13 +149,15 @@ namespace Unity.Entities.CodeGen
         
         public static DiagnosticMessage DC0021(MethodDefinition containingMethod, string parameterName, TypeReference unsupportedType,Instruction instruction)
         {
-            return MakeError(nameof(DC0021),$"parameter {parameterName} has type {unsupportedType.Name}. This type is not a IComponentData / ISharedComponentData which makes it not supported",containingMethod, instruction);
+            return MakeError(nameof(DC0021),$"parameter '{parameterName}' has type {unsupportedType.Name}. This type is not a IComponentData / ISharedComponentData and is therefore not a supported parameter type for Entities.ForEach.",containingMethod, instruction);
         }
 
+        /* This message is no longer valid.  We now support capturing from multiple scopes.
         public static DiagnosticMessage DC0022(MethodDefinition containingMethod, Instruction instruction)
         {
             return MakeError(nameof(DC0022),$"It looks like you're capturing local variables from two different scopes in the method. This is not supported yet.",containingMethod, instruction);
         }
+        */
         
         public static DiagnosticMessage DC0023(MethodDefinition containingMethod, TypeReference componentType, Instruction instruction)
         {
@@ -170,12 +188,12 @@ namespace Unity.Entities.CodeGen
         
         public static DiagnosticMessage DC0027(MethodDefinition method, Instruction instruction)
         {
-            return MakeError(nameof(DC0027), $"Entities.ForEach Lambda expression makes a structural change. Use an {nameof(EntityCommandBuffer)} to make structural changes or add a .{nameof(LambdaJobDescriptionConstructionMethods.WithStructuralChanges)} invocation to the Entities.ForEach to allow for structural changes.  Note: the generated code for this expression will not be bursted and must run on the main thread.", method, instruction);
+            return MakeError(nameof(DC0027), $"Entities.ForEach Lambda expression makes a structural change. Use an {nameof(EntityCommandBuffer)} to make structural changes or add a .{nameof(LambdaJobDescriptionConstructionMethods.WithStructuralChanges)} invocation to the Entities.ForEach to allow for structural changes.  Note: {nameof(LambdaJobDescriptionConstruction)} is only allowed with .WithoutBurst() and .Run().", method, instruction);
         }
 
         public static DiagnosticMessage DC0028(MethodDefinition method, Instruction instruction)
         {
-            return MakeError(nameof(DC0028), $"Entities.ForEach Lambda expression makes a structural change with a .Schedule call. Structural() changes are only supported with .Run().", method, instruction);
+            return MakeError(nameof(DC0028), $"Entities.ForEach Lambda expression makes a structural change with a .Schedule() call. Structural changes are only supported with .Run().", method, instruction);
         }
 
         public static DiagnosticMessage DC0029(MethodDefinition method, Instruction instruction)
@@ -196,6 +214,11 @@ namespace Unity.Entities.CodeGen
         public static DiagnosticMessage DC0032(TypeReference jobComponentSystemType, MethodDefinition method, Instruction instruction)
         {
             return MakeWarning(nameof(DC0032), $"Entities.ForEach Lambda expression exists in JobComponentSystem {jobComponentSystemType.Name} marked with ExecuteAlways.  This will result in a temporary exception being thrown during compilation, using it is not supported yet.  Please move this code out to a non-jobified ComponentSystem. This will be fixed in upcoming 19.3 releases.", method, instruction);
+        }
+        
+        public static DiagnosticMessage DC0033(MethodDefinition containingMethod, string parameterName, TypeReference unsupportedType,Instruction instruction)
+        {
+            return MakeError(nameof(DC0021),$"{unsupportedType.Name} implements {nameof(IBufferElementData)} and must be used as DynamicBuffer<{unsupportedType.Name}>. Parameter '{parameterName}' is not a IComponentData / ISharedComponentData and is therefore not a supported parameter type for Entities.ForEach.",containingMethod, instruction);
         }
 
         static DiagnosticMessage MakeInternal(DiagnosticType type, string errorCode, string messageData, MethodDefinition method, Instruction instruction)

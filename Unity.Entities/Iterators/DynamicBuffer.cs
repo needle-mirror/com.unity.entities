@@ -77,12 +77,32 @@ namespace Unity.Entities
         /// <summary>
         /// The number of elements the buffer can hold.
         /// </summary>
+        /// <remarks>
+        /// <paramref name="Capacity"/> can not be set lower than <see cref="Length"/> - this will raise an exception. 
+        /// If <paramref name="Capacity"/> grows greater than the internal capacity of the DynamicBuffer, memory external to the DynamicBuffer will be allocated.
+        /// If <paramref name="Capacity"/> shrinks to the internal capacity of the DynamicBuffer or smaller, memory external to the DynamicBuffer will be freed.
+        /// No effort is made to avoid costly reallocations when <paramref name="Capacity"/> changes slightly;
+        /// if <paramref name="Capacity"/> is incremented by 1, an array 1 element bigger is allocated.
+        /// </remarks>
         public int Capacity
         {
             get
             {
                 CheckReadAccess();
                 return m_Buffer->Capacity;
+            }
+            set
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if(value < Length)
+                    throw new InvalidOperationException($"Capacity {value} can't be set smaller than Length {Length}");
+#endif
+                CheckWriteAccessAndInvalidateArrayAliases();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                BufferHeader.SetCapacity(m_Buffer, value, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, m_useMemoryInitPattern, m_memoryInitPattern, m_InternalCapacity);
+#else
+                BufferHeader.SetCapacity(m_Buffer, value, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, false, 0, m_InternalCapacity);
+#endif
             }
         }
 
@@ -168,8 +188,30 @@ namespace Unity.Entities
         /// <param name="length">The new length of the buffer.</param>
         public void ResizeUninitialized(int length)
         {
-            Reserve(length);
+            EnsureCapacity(length);
             m_Buffer->Length = length;
+        }
+
+        /// <summary>
+        /// Ensures that the buffer has at least the specified capacity.
+        /// </summary>
+        /// <remarks>If <paramref name="length"/> is greater than the current <see cref="Capacity"/>
+        /// of this buffer and greater than the capacity reserved with
+        /// <see cref="InternalBufferCapacityAttribute"/>, this function allocates a new memory block
+        /// and copies the current buffer to it. The number of elements in the buffer remains
+        /// unchanged.</remarks>
+        /// <example>
+        /// <code source="../../DocCodeSamples.Tests/DynamicBufferExamples.cs" language="csharp" region="dynamicbuffer.reserve"/>
+        /// </example>
+        /// <param name="length">The buffer capacity is ensured to be at least this big.</param> 
+        public void EnsureCapacity(int length)
+        {
+            CheckWriteAccessAndInvalidateArrayAliases();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            BufferHeader.EnsureCapacity(m_Buffer, length, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, m_useMemoryInitPattern, m_memoryInitPattern);
+#else
+            BufferHeader.EnsureCapacity(m_Buffer, length, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, false, 0);
+#endif
         }
 
         /// <summary>
@@ -184,6 +226,7 @@ namespace Unity.Entities
         /// <code source="../../DocCodeSamples.Tests/DynamicBufferExamples.cs" language="csharp" region="dynamicbuffer.reserve"/>
         /// </example>
         /// <param name="length">The new buffer capacity.</param>
+        [Obsolete("Reserve has been deprecated in favor of setting the Capacity property. This method will be (RemovedAfter 2020-03-5)")]
         public void Reserve(int length)
         {
             CheckWriteAccessAndInvalidateArrayAliases();
@@ -193,7 +236,7 @@ namespace Unity.Entities
             BufferHeader.EnsureCapacity(m_Buffer, length, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, false, 0);
 #endif
         }
-
+        
         /// <summary>
         /// Sets the buffer length to zero.
         /// </summary>

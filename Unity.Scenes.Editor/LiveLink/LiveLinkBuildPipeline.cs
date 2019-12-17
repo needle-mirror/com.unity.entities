@@ -7,7 +7,6 @@ using UnityEditor.Build.Content;
 using UnityEditor.Build.Pipeline;
 using UnityEditor.Build.Pipeline.Interfaces;
 using UnityEditor.Build.Pipeline.Utilities;
-using UnityEditor.Build.Player;
 using UnityEditor.Build.Utilities;
 using UnityEngine;
 
@@ -116,7 +115,7 @@ namespace Unity.Scenes.Editor
                 assetPath = newPath;
         }
 
-        public static bool BuildSceneBundle(GUID sceneGuid, string cacheFilePath, BuildTarget target, bool collectDependencies = false, HashSet<Entities.Hash128> dependencies = null)
+        public static bool BuildSceneBundle(GUID sceneGuid, string cacheFilePath, BuildTarget target, bool collectDependencies = false, HashSet<Entities.Hash128> dependencies = null, HashSet<System.Type> types = null)
         {
             using (new BuildInterfacesWrapper())
             using (new SceneStateCleanup())
@@ -194,7 +193,7 @@ namespace Unity.Scenes.Editor
                         // TODO: Once we switch to using GlobalObjectId for SBP, we will need a mapping for certain special cases of GUID <> FilePath for Builtin Resources
                         writeParams.referenceMap.AddMapping(obj.filePath, obj.localIdentifierInFile, obj);
                     }
-                    else if (collectDependencies || type == typeof(MonoScript) || obj.guid == sceneGuid)
+                    else if (collectDependencies || (collectDependencies && type == typeof(MonoScript)) || obj.guid == sceneGuid)
                     {
                         writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj) });
                         writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName, generator.SerializationIndexFromObjectIdentifier(obj), obj);
@@ -202,10 +201,12 @@ namespace Unity.Scenes.Editor
                     else if (!obj.guid.Empty())
                         writeParams.referenceMap.AddMapping(generator.GenerateAssetBundleInternalFileName(obj.guid.ToString()), generator.SerializationIndexFromObjectIdentifier(obj), obj);
 
-                    // TODO: MonoScript complications: There is no way to properly determine which MonoScripts are being referenced by which Asset in the returned manifestDependencies
                     // This will be solvable after we move SBP into the asset pipeline as importers.
                     if (!obj.guid.Empty() && obj.guid != sceneGuid)
                         dependencies?.Add(obj.guid);
+
+                    if (type != null)
+                        types?.Add(type);
                 }
 
                 // Write the serialized file
@@ -225,7 +226,7 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        public static bool BuildAssetBundle(string manifestPath, GUID assetGuid, string cacheFilePath, BuildTarget target, bool collectDependencies = false, HashSet<Entities.Hash128> dependencies = null)
+        public static bool BuildAssetBundle(string manifestPath, GUID assetGuid, string cacheFilePath, BuildTarget target, bool collectDependencies = false, HashSet<Entities.Hash128> dependencies = null, HashSet<System.Type> types = null)
         {
             using (new BuildInterfacesWrapper())
             {
@@ -251,9 +252,14 @@ namespace Unity.Scenes.Editor
                 if (assetGuid == k_UnityBuiltinExtraResources)
                     FilterBuiltinExtraResourcesObjectManifest(manifestPath);
 
+#if UNITY_2020_1_OR_NEWER
+                // Collect all the objects we need for this asset & bundle (returned array order is deterministic)
+                var manifestObjects = ContentBuildInterface.GetPlayerObjectIdentifiersInSerializedFile(manifestPath, settings.target);
+#else
                 var method = typeof(ContentBuildInterface).GetMethod("GetPlayerObjectIdentifiersInSerializedFile", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
                 // Collect all the objects we need for this asset & bundle (returned array order is deterministic)
                 var manifestObjects = (ObjectIdentifier[])method.Invoke(null, new object[] { manifestPath, settings.target });
+#endif
 
                 // Collect all the objects we need to reference for this asset (returned array order is deterministic)
                 var manifestDependencies = ContentBuildInterface.GetPlayerDependenciesForObjects(manifestObjects, settings.target, settings.typeDB);
@@ -330,7 +336,7 @@ namespace Unity.Scenes.Editor
                         // TODO: Once we switch to using GlobalObjectId for SBP, we will need a mapping for certain special cases of GUID <> FilePath for Builtin Resources
                         writeParams.referenceMap.AddMapping(obj.filePath, obj.localIdentifierInFile, obj);
                     }
-                    else if (collectDependencies || type == typeof(MonoScript) || obj.guid == assetGuid)
+                    else if (collectDependencies || (collectDependencies && type == typeof(MonoScript)) || obj.guid == assetGuid)
                     {
                         writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj) });
                         writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName, generator.SerializationIndexFromObjectIdentifier(obj), obj);
@@ -338,10 +344,12 @@ namespace Unity.Scenes.Editor
                     else if (!obj.guid.Empty())
                         writeParams.referenceMap.AddMapping(generator.GenerateAssetBundleInternalFileName(obj.guid.ToString()), generator.SerializationIndexFromObjectIdentifier(obj), obj);
 
-                    // TODO: MonoScript complications: There is no way to properly determine which MonoScripts are being referenced by which Asset in the returned manifestDependencies
                     // This will be solvable after we move SBP into the asset pipeline as importers.
                     if (!obj.guid.Empty() && obj.guid != assetGuid)
                         dependencies?.Add(obj.guid);
+
+                    if (type != null)
+                        types?.Add(type);
                 }
 
                 // Write the serialized file
@@ -361,64 +369,13 @@ namespace Unity.Scenes.Editor
             }
         }
 
-#if !LIVELINKS_ASSETPIPELINE
-        static CachedInfo LoadTargetCachedInfo(GUID guid, BuildTarget target)
-        {
-            var cache = new BuildCache();
-            var entries = new List<CacheEntry> { cache.GetCacheEntry(guid, AssetBundleBuildVersion) };
-            cache.LoadCachedData(entries, out IList<CachedInfo> cachedInfos);
-            if (cachedInfos[0] == null)
-            {
-                cachedInfos[0] = CalculateTargetCachedInfo(entries[0], target);
-                // cache.SaveCachedData(cachedInfos); // TODO: Disabled because we have file contention as "Save" is async only with no wait functionality
-            }
-            return cachedInfos[0];
-        }
-
-        static CachedInfo CalculateTargetCachedInfo(CacheEntry entry, BuildTarget target, TypeDB typeDB = null)
-        {
-            var cache = new BuildCache();
-            List<ObjectIdentifier> objects = new List<ObjectIdentifier>();
-            objects.AddRange(ContentBuildInterface.GetPlayerObjectIdentifiersInAsset(entry.Guid, target));
-            objects.AddRange(ContentBuildInterface.GetPlayerDependenciesForObjects(objects.ToArray(), target, typeDB));
-
-            var cachedInfo = new CachedInfo();
-            cachedInfo.Asset = entry;
-            cachedInfo.Data = new[] { objects };
-
-            // TODO: Handle built-in objects, might require some low level build changes like an option to ignore the hideFlags
-            var dependencies = objects.Select(x => x.guid).Where(x => !x.Empty() && x != entry.Guid && x != k_UnityBuiltinResources).Distinct();
-            cachedInfo.Dependencies = dependencies.Select(cache.GetCacheEntry).ToArray();
-            // cache.SaveCachedData(new List<CachedInfo> { cachedInfo }); // TODO: Disabled because we have file contention as "Save" is async only with no wait functionality
-            return cachedInfo;
-        }
-#endif
-
         public static Hash128 CalculateTargetHash(GUID guid, BuildTarget target)
         {
-#if LIVELINKS_ASSETPIPELINE
             return LiveLinkBuildImporter.GetHash(guid.ToString(), target);
-#else
-            // Always calculate & return the new hash
-            // TODO: target is not taken into account, this will be included when sbp moves into the asset pipeline
-            var cache = new BuildCache();
-            var cachedInfo = CalculateTargetCachedInfo(cache.GetCacheEntry(guid, AssetBundleBuildVersion), target, null); // TODO: Script Property dependency
-
-            // TODO: SBP returns recursive dependencies which is too much for Live Link, this will need to be changed when sbp moves into asset pipeline
-            var targetHash = cachedInfo.Asset.Hash;
-            foreach (var dependency in cachedInfo.Dependencies)
-            {
-                var dependencyHash = dependency.Hash;
-                HashUtilities.ComputeHash128(ref dependencyHash, ref targetHash);
-            }
-
-            return targetHash;
-#endif
         }
 
         public static void CalculateTargetDependencies(GUID guid, BuildTarget target, out ResolvedAssetID[] dependencies)
         {
-#if LIVELINKS_ASSETPIPELINE
             var assets = LiveLinkBuildImporter.GetDependencies(guid.ToString(), target);
             dependencies = new ResolvedAssetID[assets.Length];
             for (int i = 0; i < assets.Length; i++)
@@ -426,22 +383,6 @@ namespace Unity.Scenes.Editor
                 dependencies[i].GUID = assets[i];
                 dependencies[i].TargetHash = CalculateTargetHash(assets[i], target);
             }
-#else
-            // This is only called after CalculateTargetHash, so we can just load the cached results and return those.
-            // TODO: target is not taken into account, this will be included when sbp moves into the asset pipeline
-            var cachedInfo = LoadTargetCachedInfo(guid, target);
-
-            List<ResolvedAssetID> deps = new List<ResolvedAssetID>();
-            foreach (var entry in cachedInfo.Dependencies)
-            {
-                deps.Add(new ResolvedAssetID
-                {
-                    GUID = entry.Guid,
-                    TargetHash = CalculateTargetHash(entry.Guid, target)
-                });
-            }
-            dependencies = deps.ToArray();
-#endif
         }
     }
 }

@@ -635,10 +635,7 @@ namespace Unity.Entities.Conversion
                 return;
 
             if (!prefab.IsPrefab())
-            {
-                LogWarning("Object is not a Prefab", prefab);
                 return;
-            }
 
             m_DstLinkedEntityGroups.Add(prefab);
             CreateEntitiesForGameObjectsRecurse(prefab.transform, m_DstPrefabs);

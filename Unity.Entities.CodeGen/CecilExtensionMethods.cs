@@ -8,6 +8,11 @@ namespace Unity.Entities.CodeGen
 {
     static class TypeReferenceExtensions
     {
+        public static TypeDefinition CheckedResolve(this TypeReference typeReference)
+        {
+            return typeReference.Resolve() ?? throw new ResolutionException(typeReference);
+        }
+
         public static bool TypeReferenceEquals(this TypeReference ref1, TypeReference ref2) =>
             ref1.FullName == ref2.FullName;
 
@@ -64,6 +69,15 @@ namespace Unity.Entities.CodeGen
         {
             return type.MetadataType == MetadataType.Void;
         }
+        
+        public static bool IsDisplayClass(this TypeReference tr) =>
+            tr.Name.Contains("<>c__DisplayClass");
+    }
+
+    static class FieldReferenceExtensions
+    {
+        public static bool IsNestedDisplayClassField(this FieldReference fieldReference) =>
+            fieldReference.FieldType.IsDisplayClass() && fieldReference.Name.Contains("__locals");
     }
 
     static class MethodReferenceExtensions
@@ -393,5 +407,8 @@ namespace Unity.Entities.CodeGen
 
             throw new ArgumentException(instruction.ToString());
         }
+
+        public static bool IsLoadFieldOrLoadFieldAddress(this Instruction instruction) => (instruction.OpCode == OpCodes.Ldfld || instruction.OpCode == OpCodes.Ldflda);
+        public static bool IsStoreField(this Instruction instruction) => (instruction.OpCode == OpCodes.Stfld);
     }
 }

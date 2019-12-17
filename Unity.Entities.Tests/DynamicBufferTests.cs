@@ -25,13 +25,13 @@ namespace Unity.Entities.Tests
             var src = m_Manager.GetBuffer<DynamicBufferElement>(srcEntity);
             var dst = m_Manager.GetBuffer<DynamicBufferElement>(dstEntity);
 
-            src.Reserve(srcBufferLength);
+            src.EnsureCapacity(srcBufferLength);
             for (var i = 0; i < srcBufferLength; ++i)
             {
                 src.Add(new DynamicBufferElement() {Value = i});
             }
 
-            dst.Reserve(2);
+            dst.EnsureCapacity(2);
 
             for (var i = 0; i < 2; ++i)
             {
@@ -61,7 +61,7 @@ namespace Unity.Entities.Tests
                 src[i] = new DynamicBufferElement() {Value = i};
             }
 
-            dst.Reserve(2);
+            dst.EnsureCapacity(2);
 
             for (var i = 0; i < 2; ++i)
             {
@@ -87,7 +87,7 @@ namespace Unity.Entities.Tests
             var src = m_Manager.GetBuffer<DynamicBufferElement>(srcEntity);
             var dst = m_Manager.GetBuffer<DynamicBufferElement>(dstEntity);
 
-            src.Reserve(64);
+            src.EnsureCapacity(64);
             for (var i = 0; i < 64; ++i)
             {
                 src.Add(new DynamicBufferElement() {Value = i});
@@ -111,6 +111,53 @@ namespace Unity.Entities.Tests
             var dst = m_Manager.GetBuffer<DynamicBufferElement>(dstEntity);
 
             Assert.Throws<ArgumentNullException>(() => dst.CopyFrom(null));
+        }
+
+        [Test]
+        public void SetCapacity()
+        {
+            var dstEntity = m_Manager.CreateEntity(typeof(DynamicBufferElement));
+            var dst = m_Manager.GetBuffer<DynamicBufferElement>(dstEntity);
+            dst.Add(new DynamicBufferElement(){Value = 0});
+            dst.Add(new DynamicBufferElement(){Value = 1});
+            dst.Capacity = 100;
+            Assert.AreEqual(100, dst.Capacity);
+            Assert.AreEqual(dst[0], new DynamicBufferElement(){Value =0});
+            Assert.AreEqual(dst[1], new DynamicBufferElement(){Value =1});
+        }
+        
+        [Test]
+        public void SetCapacitySmallerThanLengthThrows()
+        {
+            var dstEntity = m_Manager.CreateEntity(typeof(DynamicBufferElement));
+            var dst = m_Manager.GetBuffer<DynamicBufferElement>(dstEntity);
+            dst.Add(new DynamicBufferElement(){Value = 0});
+            dst.Add(new DynamicBufferElement(){Value = 1});
+            Assert.Throws<InvalidOperationException>(() => dst.Capacity = 1);
+        }
+        
+        [Test]
+        public void SetCapacitySmallerActuallyShrinksBuffer()
+        {
+            var dstEntity = m_Manager.CreateEntity(typeof(DynamicBufferElement));
+            var dst = m_Manager.GetBuffer<DynamicBufferElement>(dstEntity);
+            dst.Capacity = 1000;
+            Assert.AreEqual(1000, dst.Capacity);
+            dst.Capacity = 100;
+            Assert.AreEqual(100, dst.Capacity);
+        }
+
+        [Test]
+        public void SetCapacityZeroWorks()
+        {
+            var dstEntity = m_Manager.CreateEntity(typeof(DynamicBufferElement));
+            var dst = m_Manager.GetBuffer<DynamicBufferElement>(dstEntity);
+            dst.Capacity = 0;
+            Assert.AreEqual(0, dst.Capacity);
+            dst.Capacity = 100;
+            Assert.AreEqual(100, dst.Capacity);
+            dst.Capacity = 0;
+            Assert.AreEqual(0, dst.Capacity);
         }
 
 #if !UNITY_DOTSPLAYER

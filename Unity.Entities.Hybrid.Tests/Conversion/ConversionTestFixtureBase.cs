@@ -36,14 +36,19 @@ namespace Unity.Entities.Tests.Conversion
         [TearDown]
         public new void TearDown()
         {
-            m_ObjectsDestroyedByFixture.ForEach(item =>
-                Assert.IsFalse(item.obj == null, $"GameObject {item.name} has been destroyed but was expected to still exist after test completion"));
-            m_ObjectsDestroyedByTest.ForEach(go =>
-                Assert.IsTrue(go == null, $"GameObject {go} was expected to be destroyed before test completion but wasn't"));
+            // Making a copy so we can clean the lists before running the asserts, otherwise a failure will propagate to the subsequent tests
+            var destroyedByFixture = m_ObjectsDestroyedByFixture.ToArray();
+            var destroyedByTest = m_ObjectsDestroyedByTest.ToArray();
 
-            m_ObjectsDestroyedByFixture.ForEach(item => UnityObject.DestroyImmediate(item.obj));
             m_ObjectsDestroyedByFixture.Clear();
             m_ObjectsDestroyedByTest.Clear();
+
+            Array.ForEach(destroyedByFixture, item =>
+                Assert.IsFalse(item.obj == null, $"GameObject {item.name} has been destroyed but was expected to still exist after test completion"));
+            Array.ForEach(destroyedByTest, go =>
+                Assert.IsTrue(go == null, $"GameObject {go} was expected to be destroyed before test completion but wasn't"));
+
+            Array.ForEach(destroyedByFixture, item => UnityObject.DestroyImmediate(item.obj));
         }
 
         T RegisterUnityObject<T>(T uobject, DestructionBy destructionBy = DestructionBy.Fixture)

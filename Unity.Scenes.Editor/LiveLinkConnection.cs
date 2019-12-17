@@ -30,9 +30,11 @@ namespace Unity.Scenes.Editor
         Dictionary<Hash128, Scene>                 _GUIDToEditScene = new Dictionary<Hash128, Scene>();
 
         BuildSettings                              _BuildSettings;
-        Hash128                                    _BuildSettingsGUID;
         UnityEngine.Hash128                        _BuildSettingsArtifactHash;
-        
+
+        internal bool                              _IsEnabled = true;
+        internal readonly Hash128                  _BuildSettingsGUID;
+
         public LiveLinkConnection(Hash128 buildSettingsGuid)
         {
             _BuildSettingsGUID = buildSettingsGuid;

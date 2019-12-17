@@ -1047,7 +1047,10 @@ namespace Unity.Entities.PerformanceTests
                         m_Manager.DestroyEntity(entities);
 
                         for (int i = 0; i < queries.Length; i++)
-                            queries[i].Dispose();
+                        {
+                            if (m_Manager.UniversalQuery != queries[i])
+                                queries[i].Dispose();
+                        }
 
                         entities.Dispose();
                     })

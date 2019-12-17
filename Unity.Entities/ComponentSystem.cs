@@ -80,39 +80,45 @@ namespace Unity.Entities
             m_DeferredEntities.Dispose();
         }
 
-        internal sealed override void InternalUpdate()
+        public sealed override void Update()
         {
-            if (Enabled && ShouldRunSystem())
+#if ENABLE_PROFILER
+            using (m_ProfilerMarker.Auto())
+#endif
+
             {
-                if (!m_PreviouslyEnabled)
+                if (Enabled && ShouldRunSystem())
                 {
-                    m_PreviouslyEnabled = true;
-                    OnStartRunning();
+                    if (!m_PreviouslyEnabled)
+                    {
+                        m_PreviouslyEnabled = true;
+                        OnStartRunning();
+                    }
+
+                    BeforeOnUpdate();
+
+            #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    var oldExecutingSystem = ms_ExecutingSystem;
+                    ms_ExecutingSystem = this;
+            #endif
+
+                    try
+                    {
+                        OnUpdate();
+                    }
+                    finally
+                    {
+            #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                        ms_ExecutingSystem = oldExecutingSystem;
+            #endif
+                        AfterOnUpdate();
+                    }
                 }
-
-                BeforeOnUpdate();
-
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                var oldExecutingSystem = ms_ExecutingSystem;
-                ms_ExecutingSystem = this;
-        #endif
-
-                try
+                else if (m_PreviouslyEnabled)
                 {
-                    OnUpdate();
-                }
-                finally
-                {
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    ms_ExecutingSystem = oldExecutingSystem;
-        #endif
-                    AfterOnUpdate();
-                }
-            }
-            else if (m_PreviouslyEnabled)
-            {
-                m_PreviouslyEnabled = false;
-                OnStopRunningInternal();
+                    m_PreviouslyEnabled = false;
+                    OnStopRunningInternal();
+                }            
             }
         }
 

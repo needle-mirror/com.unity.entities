@@ -102,15 +102,10 @@ namespace Unity.Entities.CodeGen
                     if (name.Name == _compiledAssembly.Name)
                         return _selfAssembly;
                     
-                    var fileName = _references.FirstOrDefault(r => r.EndsWith(name.Name + ".dll"));
+                    var fileName = FindFile(name);
                     if (fileName == null)
-                    {
-                        // perhaps the type comes from an exe instead
-                        fileName = _references.FirstOrDefault(r => r.EndsWith(name.Name + ".exe"));
-                        if (fileName == null)
-                            return null;
-                    }
-
+                        return null;
+                    
                     var lastWriteTime = File.GetLastWriteTime(fileName);
 
                     var cacheKey = fileName + lastWriteTime.ToString();
@@ -131,7 +126,34 @@ namespace Unity.Entities.CodeGen
                     return assemblyDefinition;
                 }
             }
-            
+
+            private string FindFile(AssemblyNameReference name)
+            {
+                var fileName = _references.FirstOrDefault(r => r.EndsWith(name.Name + ".dll"));
+                if (fileName != null) 
+                    return fileName;
+                
+                // perhaps the type comes from an exe instead
+                fileName = _references.FirstOrDefault(r => r.EndsWith(name.Name + ".exe"));
+                if (fileName != null)
+                    return fileName;
+
+                //Unfortunately the current ICompiledAssembly API only provides direct references.
+                //It is very much possible that a postprocessor ends up investigating a type in a directly
+                //referenced assembly, that contains a field that is not in a directly referenced assembly.
+                //if we don't do anything special for that situation, it will fail to resolve.  We should fix this
+                //in the ILPostProcessing api. As a workaround, we rely on the fact here that the indirect references
+                //are always located next to direct references, so we search in all directories of direct references we
+                //got passed, and if we find the file in there, we resolve to it.
+                foreach (var parentDir in _references.Select(Path.GetDirectoryName).Distinct())
+                { 
+                    var candidate = Path.Combine(parentDir,name.Name + ".dll");
+                    if (File.Exists(candidate))
+                        return candidate;
+                }
+
+                return null;
+            }
 
             static MemoryStream MemoryStreamFor(string fileName)
             {

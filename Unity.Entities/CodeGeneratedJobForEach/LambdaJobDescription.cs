@@ -101,7 +101,8 @@ namespace Unity.Entities
 
     public static class LambdaSimpleJobDescriptionConstructionMethods
     {
-        public static LambdaSingleJobDescription WithCode(this LambdaSingleJobDescription description,  [AllowDynamicValue] Action code) =>description;
+        public delegate void WithCodeAction();
+        public static LambdaSingleJobDescription WithCode(this LambdaSingleJobDescription description,  [AllowDynamicValue] WithCodeAction code) =>description;
     }
     
     public static class LambdaJobChunkDescriptionConstructionMethods
@@ -160,12 +161,12 @@ namespace Unity.Entities
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
             try
             {
-                query.DependencyManager->IsInForEachDisallowStructuralChange++;
+                query._DependencyManager->IsInForEachDisallowStructuralChange++;
                 functionPointer(&myIterator, UnsafeUtility.AddressOf(ref jobData));
             }
             finally
             {
-                query.DependencyManager->IsInForEachDisallowStructuralChange--;
+                query._DependencyManager->IsInForEachDisallowStructuralChange--;
             }
             #else
             functionPointer(&myIterator, UnsafeUtility.AddressOf(ref jobData));

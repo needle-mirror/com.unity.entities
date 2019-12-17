@@ -326,7 +326,7 @@ namespace Unity.Entities
             public bool IsZeroSized => SizeInChunk == 0;
             public bool HasWriteGroups => WriteGroupCount > 0;
 
-            // NOTE: We explictly exclude Type as a member of TypeInfo so the type can remain a ValueType
+            // NOTE: We explicitly exclude Type as a member of TypeInfo so the type can remain a ValueType
             public Type Type => StaticTypeRegistry.StaticTypeRegistry.Types[TypeIndex & ClearFlagsMask];
 #endif
 
@@ -495,10 +495,9 @@ namespace Unity.Entities
 #if !NET_DOTS
         private static void AddTypeInfoToTables(Type type, TypeInfo typeInfo)
         {
-            #if !NET_DOTS
             GetTypeInfoPointer()[typeInfo.TypeIndex & ClearFlagsMask] = typeInfo;
             SharedTypeIndex.Get(type) = typeInfo.TypeIndex;
-            #endif
+            
             s_TypeInfos[typeInfo.TypeIndex & ClearFlagsMask] = typeInfo;
             s_StableTypeHashToTypeIndex.TryAdd(typeInfo.StableTypeHash, typeInfo.TypeIndex);
             s_ManagedIndexToType.Add(typeInfo.TypeIndex, type);
@@ -1334,14 +1333,14 @@ namespace Unity.Entities
         static EntityOffsetInfo[] CalculatBlobAssetRefOffsets(Type type)
         {
             var offsets = new List<EntityOffsetInfo>();
-            CalculatBlobAssetRefOffsetsRecurse(ref offsets, type, 0);
+            CalculateBlobAssetRefOffsetsRecurse(ref offsets, type, 0);
             if (offsets.Count > 0)
                 return offsets.ToArray();
             else
                 return null;
         }
 
-        static void CalculatBlobAssetRefOffsetsRecurse(ref List<EntityOffsetInfo> offsets, Type type, int baseOffset)
+        static void CalculateBlobAssetRefOffsetsRecurse(ref List<EntityOffsetInfo> offsets, Type type, int baseOffset)
         {
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(BlobAssetReference<>))
             {
@@ -1353,7 +1352,7 @@ namespace Unity.Entities
                 foreach (var field in fields)
                 {
                     if (field.FieldType.IsValueType && !field.FieldType.IsPrimitive)
-                        CalculatBlobAssetRefOffsetsRecurse(ref offsets, field.FieldType, baseOffset + UnsafeUtility.GetFieldOffset(field));
+                        CalculateBlobAssetRefOffsetsRecurse(ref offsets, field.FieldType, baseOffset + UnsafeUtility.GetFieldOffset(field));
                 }
             }
         }
@@ -1573,27 +1572,69 @@ namespace Unity.Entities
                 bufferCapacity, elementSize > 0 ? elementSize : componentSize, alignmentInBytes, stableTypeHash, writeGroupIndex, writeGroupCount, maxChunkCapacity, isSystemStateSharedComponent, isSystemStateBufferElement, isSystemStateComponent, isManaged);
         }
 
+        [Obsolete("CreateTypeIndexForComponent is deprecated. TypeIndices can be created for new Types using AddNewComponentTypes (editor only) (RemovedAfter 2020-03-3)", false)]
         public static int CreateTypeIndexForComponent<T>() where T : IComponentData
         {
             return GetTypeIndex<T>();
         }
 
+        [Obsolete("CreateTypeIndexForSharedComponent is deprecated. TypeIndices can be created for new Types using AddNewComponentTypes (editor only) (RemovedAfter 2020-03-3)", false)]
         public static int CreateTypeIndexForSharedComponent<T>() where T : struct, ISharedComponentData
         {
             return GetTypeIndex<T>();
         }
 
+        [Obsolete("CreateTypeIndexForBufferElement is deprecated. TypeIndices can be created for new Types using AddNewComponentTypes (editor only) (RemovedAfter 2020-03-3)", false)]
         public static int CreateTypeIndexForBufferElement<T>() where T : struct, IBufferElementData
         {
             return GetTypeIndex<T>();
         }
-#else
-        private static int CreateTypeIndexThreadSafe(Type type)
+        
+#if UNITY_EDITOR
+        /// <summary>
+        /// This function allows for unregistered component types to be added to the TypeManager allowing for their use
+        /// across the ECS apis _after_ TypeManager.Initialize() may have been called. Importantly, this function must
+        /// be called from the main thread and will create a synchronization point across all worlds. If a type which
+        /// is already registered with the TypeManager is passed in, this function will throw.
+        /// </summary>
+        /// <remarks>Types with [WriteGroup] attributes will be accepted for registration however their
+        /// write group information will be ignored.</remarks>
+        /// <param name="types"></param>
+        /// <exception cref="InvalidOperationException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        public static void AddNewComponentTypes(Type[] types)
         {
-            throw new ArgumentException("Tried to GetTypeIndex for type that has not been set up by the static registry.");
+            if (!UnityEditorInternal.InternalEditorUtility.CurrentThreadIsMainThread())
+                throw new InvalidOperationException("Must be called from the main thread");
+            
+            // We might invalidate the SharedStatics ptr so we must synchronize all jobs that might be using those ptrs
+            foreach (var world in World.AllWorlds)
+                world.EntityManager.BeforeStructuralChange();
+            
+            // Is this a new type, or are we replacing an existing one?
+            foreach (var type in types)
+            {
+                if(s_ManagedTypeToIndex.ContainsKey(type))
+                    throw new ArgumentException($"Type '{type.FullName}' has already been added to TypeManager.");
+                
+                var typeInfo = BuildComponentType(type);
+                AddTypeInfoToTables(type, typeInfo);
+            }
+            
+            // We may have added enough types to cause the underlying containers to resize so re-fetch their ptrs
+            SharedEntityOffsetInfo.Ref.Data = new IntPtr(s_EntityOffsetList.GetUnsafePtr());
+            SharedBlobAssetRefOffset.Ref.Data = new IntPtr(s_BlobAssetRefOffsetList.GetUnsafePtr());
+            SharedWriteGroup.Ref.Data = new IntPtr(s_WriteGroupList.GetUnsafePtr());
+            
+            // Since the ptrs may have changed we need to ensure all entity component stores are using the correct ones
+            foreach (var w in World.AllWorlds)
+            {
+                w.EntityManager.EntityComponentStore->InitializeTypeManagerPointers();
+            }
         }
-
 #endif
+#endif
+        
         public struct FieldInfo
         {
             public int componentTypeIndex;

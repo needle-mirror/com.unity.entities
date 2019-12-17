@@ -6,7 +6,7 @@ namespace Unity.Entities
 {
     public unsafe struct ComponentTypes
     {
-        ResizableArray64Byte<int> m_sorted;
+        FixedListInt64 m_sorted;
 
         public struct Masks
         {
@@ -67,72 +67,65 @@ namespace Unity.Entities
 
         public ComponentTypes(ComponentType a)
         {
-            m_sorted = new ResizableArray64Byte<int>();
+            m_sorted = new FixedListInt64();
             m_masks = new Masks();
-            m_sorted.Length = 1;
-            var pointer = (int*) m_sorted.GetUnsafePointer();
-            SortingUtilities.InsertSorted(pointer, 0, a.TypeIndex);
+            m_sorted.Add(a.TypeIndex);
             ComputeMasks();
         }
 
         public ComponentTypes(ComponentType a, ComponentType b)
         {
-            m_sorted = new ResizableArray64Byte<int>();
+            m_sorted = new FixedListInt64();
             m_masks = new Masks();
-            m_sorted.Length = 2;
-            var pointer = (int*) m_sorted.GetUnsafePointer();
-            SortingUtilities.InsertSorted(pointer, 0, a.TypeIndex);
-            SortingUtilities.InsertSorted(pointer, 1, b.TypeIndex);
+            m_sorted.Add(a.TypeIndex);
+            m_sorted.Add(b.TypeIndex);
+            m_sorted.Sort();
             ComputeMasks();
         }
 
         public ComponentTypes(ComponentType a, ComponentType b, ComponentType c)
         {
-            m_sorted = new ResizableArray64Byte<int>();
+            m_sorted = new FixedListInt64();
             m_masks = new Masks();
-            m_sorted.Length = 3;
-            var pointer = (int*) m_sorted.GetUnsafePointer();
-            SortingUtilities.InsertSorted(pointer, 0, a.TypeIndex);
-            SortingUtilities.InsertSorted(pointer, 1, b.TypeIndex);
-            SortingUtilities.InsertSorted(pointer, 2, c.TypeIndex);
+            m_sorted.Add(a.TypeIndex);
+            m_sorted.Add(b.TypeIndex);
+            m_sorted.Add(c.TypeIndex);
+            m_sorted.Sort();
             ComputeMasks();
         }
 
         public ComponentTypes(ComponentType a, ComponentType b, ComponentType c, ComponentType d)
         {
-            m_sorted = new ResizableArray64Byte<int>();
+            m_sorted = new FixedListInt64();
             m_masks = new Masks();
-            m_sorted.Length = 4;
-            var pointer = (int*) m_sorted.GetUnsafePointer();
-            SortingUtilities.InsertSorted(pointer, 0, a.TypeIndex);
-            SortingUtilities.InsertSorted(pointer, 1, b.TypeIndex);
-            SortingUtilities.InsertSorted(pointer, 2, c.TypeIndex);
-            SortingUtilities.InsertSorted(pointer, 3, d.TypeIndex);
+            m_sorted.Add(a.TypeIndex);
+            m_sorted.Add(b.TypeIndex);
+            m_sorted.Add(c.TypeIndex);
+            m_sorted.Add(d.TypeIndex);
+            m_sorted.Sort();
             ComputeMasks();
         }
 
         public ComponentTypes(ComponentType a, ComponentType b, ComponentType c, ComponentType d, ComponentType e)
         {
-            m_sorted = new ResizableArray64Byte<int>();
+            m_sorted = new FixedListInt64();
             m_masks = new Masks();
-            m_sorted.Length = 5;
-            var pointer = (int*) m_sorted.GetUnsafePointer();
-            SortingUtilities.InsertSorted(pointer, 0, a.TypeIndex);
-            SortingUtilities.InsertSorted(pointer, 1, b.TypeIndex);
-            SortingUtilities.InsertSorted(pointer, 2, c.TypeIndex);
-            SortingUtilities.InsertSorted(pointer, 3, d.TypeIndex);
-            SortingUtilities.InsertSorted(pointer, 4, e.TypeIndex);
+            m_sorted.Add(a.TypeIndex);
+            m_sorted.Add(b.TypeIndex);
+            m_sorted.Add(c.TypeIndex);
+            m_sorted.Add(d.TypeIndex);
+            m_sorted.Add(e.TypeIndex);
+            m_sorted.Sort();
             ComputeMasks();
         }
 
         public ComponentTypes(ComponentType[] componentType)
         {
-            m_sorted = new ResizableArray64Byte<int>();
+            m_sorted = new FixedListInt64();
             m_masks = new Masks();
-            m_sorted.Length = componentType.Length;
-            var pointer = (int*) m_sorted.GetUnsafePointer();
             for (var i = 0; i < componentType.Length; ++i)
-                SortingUtilities.InsertSorted(pointer, i, componentType[i].TypeIndex);
+                m_sorted.Add(componentType[i].TypeIndex);
+            m_sorted.Sort();
             ComputeMasks();
         }
     }

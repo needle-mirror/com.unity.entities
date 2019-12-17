@@ -25,8 +25,8 @@ namespace Unity.Entities
     {
         public static unsafe TransformAccessArray GetTransformAccessArray(this EntityQuery group)
         {
-            var state = (TransformAccessArrayState?)group.m_CachedState ?? new TransformAccessArrayState();
-            var orderVersion = group.EntityComponentStore->GetComponentTypeOrderVersion(TypeManager.GetTypeIndex<Transform>());
+            var state = (TransformAccessArrayState?)group._CachedState ?? new TransformAccessArrayState();
+            var orderVersion = group._EntityComponentStore->GetComponentTypeOrderVersion(TypeManager.GetTypeIndex<Transform>());
 
             if (state.Data.isCreated && orderVersion == state.OrderVersion)
                 return state.Data;
@@ -41,7 +41,7 @@ namespace Unity.Entities
                 state.Data.SetTransforms(trans);
             UnityEngine.Profiling.Profiler.EndSample();
 
-            group.m_CachedState = state;
+            group._CachedState = state;
 
             return state.Data;
         }

@@ -71,6 +71,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
         
         [Test]
+        public void WithJobAndThenEntitiesForEach()
+        {
+            TestSystem.WithJobAndThenEntitiesForEach().Complete();
+            Assert.AreEqual(6, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
+        
+        [Test]
         public void StoresEntityQueryInField()
         {
             var entityCountFromQuery = TestSystem.m_StoredQuery.CalculateEntityCount();
@@ -224,6 +231,19 @@ namespace Unity.Entities.Tests.ForEachCodegen
             var result = TestSystem.CaptureFieldAndLocalNoBurstAndRun();
             Assert.AreEqual(124, result);
         }
+        
+        [Test]
+        public void CaptureFromMultipleScopesAndRunTest()
+        {
+            TestSystem.CaptureFromMultipleScopesAndRun();
+        }
+
+        [Test]
+        public void CaptureFromMultipleScopesAndScheduleTest()
+        {
+            TestSystem.CaptureFromMultipleScopesAndSchedule().Complete();
+            Assert.AreEqual(6, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
@@ -338,6 +358,17 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
                 return default;
             }
+            
+            public JobHandle WithJobAndThenEntitiesForEach()
+            {
+                int multiplier = 1;
+                
+                Job.WithCode(() => { multiplier = 3; }).Run();
+                
+                return Entities
+                    .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
+                    .Schedule(default);
+            }
 
             public int StoresEntityQueryInField()
             {
@@ -390,6 +421,46 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 return total;
             }
 
+            public void CaptureFromMultipleScopesAndRun()
+            {
+                int scope1 = 1;
+                {
+                    int scope2 = 2;
+                    {
+                        int scope3 = 3;
+                        Entities
+                            .ForEach((ref EcsTestData e1) =>
+                            {
+                                var sum = scope1 + scope2 + scope3;
+                                scope1 = sum;
+                                scope2 = -sum;
+                                scope3 = 321;
+                            })
+                            .Run();
+
+                        Assert.AreEqual(-6, scope2);
+                        Assert.AreEqual(6, scope1);
+                        Assert.AreEqual(321, scope3);
+                    }
+                }
+            }
+
+            public JobHandle CaptureFromMultipleScopesAndSchedule()
+            {
+                int scope1 = 1;
+                {
+                    int scope2 = 2;
+                    {
+                        int scope3 = 3;
+                        return Entities
+                            .ForEach((ref EcsTestData e1) =>
+                            {
+                                e1.value = scope1 + scope2 + scope3;
+                            })
+                            .Schedule(default);
+                    }
+                }
+            }
 
             public JobHandle ExecuteLocalFunctionThatCaptures()
             {
@@ -554,7 +625,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 }).Run();
                 return result;
             }
-#endif            
+#endif
         }
 
         void AssertNothingChanged() => Assert.AreEqual(3, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);

@@ -429,8 +429,7 @@ namespace Unity.Entities
 
             entities->m_ChunkHeaderComponentType = ComponentType.ReadWrite<ChunkHeader>();
             entities->m_EntityComponentType = ComponentType.ReadWrite<Entity>();
-            entities->m_TypeInfos = TypeManager.GetTypeInfoPointer();
-            entities->m_EntityOffsetInfos = TypeManager.GetEntityOffsetsPointer();
+            entities->InitializeTypeManagerPointers();
 
             // Sanity check a few alignments
 #if UNITY_ASSERTIONS
@@ -448,6 +447,12 @@ namespace Unity.Entities
             return entities;
         }
 
+        internal void InitializeTypeManagerPointers()
+        {
+            m_TypeInfos = TypeManager.GetTypeInfoPointer();
+            m_EntityOffsetInfos = TypeManager.GetEntityOffsetsPointer();
+        }
+        
         public TypeManager.TypeInfo GetTypeInfo(int typeIndex)
         {
             return m_TypeInfos[typeIndex & TypeManager.ClearFlagsMask];

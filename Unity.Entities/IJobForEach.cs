@@ -266,7 +266,7 @@ namespace Unity.Entities
             iterator.m_IsParallelFor = isParallelFor;
             iterator.m_Length = query.CalculateChunkCountWithoutFiltering();
 
-            iterator.GlobalSystemVersion = query.EntityComponentStore->GlobalSystemVersion;
+            iterator.GlobalSystemVersion = query._EntityComponentStore->GlobalSystemVersion;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             iterator.m_MaxIndex = iterator.m_Length - 1;

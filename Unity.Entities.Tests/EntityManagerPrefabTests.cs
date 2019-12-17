@@ -116,6 +116,15 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(m_Manager.Exists(external));
         }
 
+        [Test]
+        public void DestroyEmptyLinkedEntityGroup()
+        {
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddBuffer<LinkedEntityGroup>(entity);
+            m_Manager.DestroyEntity(entity);
+            Assert.IsFalse(m_Manager.Exists(entity));
+        }
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         public Entity PrepareLinkedGroup_ManagedComponents(Entity external, int count = 4)
         {

@@ -477,7 +477,7 @@ namespace Doc.CodeSamples.Tests
 
             #region dynamicbuffer.reserve
 
-            buffer.Reserve(buffer.Capacity + 10);
+            buffer.EnsureCapacity(buffer.Capacity + 10);
 
             #endregion
 

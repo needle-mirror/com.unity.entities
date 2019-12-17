@@ -31,13 +31,20 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             protected override JobHandle OnUpdate(JobHandle inputDeps) => default;
 
+            static void SetValues(NativeArray<int> myArray, int value)
+            {
+                for (int i = 0; i < myArray.Length; i++)
+                {
+                    myArray[i] = value;
+                }
+            }
+
             public JobHandle TestMe(NativeArray<int> myArray)
             {
                 int capturedValue = 12;
                 return Job.WithCode(() =>
                 {
-                    var nativeArray = myArray;
-                    nativeArray[5] = capturedValue;
+                    SetValues(myArray, capturedValue);
                 }).Schedule(default);
             }
         }

@@ -43,6 +43,7 @@ namespace Unity.Entities
                 DebugConversionName = $"{DebugConversionName}:{entityGuidNamespaceID:x2}",
                 ConversionFlags = ConversionFlags,
                 NamespaceID = entityGuidNamespaceID,
+                BlobAssetStore = BlobAssetStore,
                 #if UNITY_EDITOR
                 BuildSettings = BuildSettings,
                 AssetImportContext = AssetImportContext,

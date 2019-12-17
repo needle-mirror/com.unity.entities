@@ -1,6 +1,5 @@
 using System.IO;
 using System.Reflection;
-using Unity.Build.Common;
 using UnityEditor;
 using UnityEngine;
 
@@ -8,65 +7,10 @@ namespace Unity.Entities.Editor
 {
     static class Icons
     {
-        const string k_IconsDirectory = "Packages/com.unity.entities/Editor/Resources/LiveLink/Icons";
+        const string k_IconsDirectory = "Packages/com.unity.entities/Editor/LiveLink/Icons";
 
         public static GUIContent LiveLink { get; } = new GUIContent(LoadIcon("LiveLink"));
         public static GUIContent LiveLinkOn { get; } = new GUIContent(LoadIcon("LiveLinkActive"));
-        public static GUIContent BuildSettingsDropdownDefaultIcon { get; } = EditorGUIUtility.IconContent("CustomTool");
-
-        internal static class Platform
-        {
-            static readonly GUIContent s_Windows = EditorGUIUtility.IconContent("BuildSettings.Metro");
-            static readonly GUIContent s_XboxOne = EditorGUIUtility.IconContent("BuildSettings.XboxOne");
-            static readonly GUIContent s_Standalone = EditorGUIUtility.IconContent("BuildSettings.Standalone");
-            static readonly GUIContent s_iOS = EditorGUIUtility.IconContent("BuildSettings.iPhone");
-            static readonly GUIContent s_Android = EditorGUIUtility.IconContent("BuildSettings.Android");
-            static readonly GUIContent s_WebGL = EditorGUIUtility.IconContent("BuildSettings.WebGL");
-            static readonly GUIContent s_PS4 = EditorGUIUtility.IconContent("BuildSettings.PS4");
-            static readonly GUIContent s_TvOS = EditorGUIUtility.IconContent("BuildSettings.tvOS");
-            static readonly GUIContent s_Switch = EditorGUIUtility.IconContent("BuildSettings.Switch");
-            static readonly GUIContent s_Lumin = EditorGUIUtility.IconContent("BuildSettings.Lumin");
-            static readonly GUIContent s_Stadia = EditorGUIUtility.IconContent("BuildSettings.Stadia");
-
-            public static GUIContent GetIcon(BuildTarget buildTarget)
-            {
-                switch (buildTarget)
-                {
-                    case BuildTarget.StandaloneWindows:
-                        return s_Windows;
-                    case BuildTarget.StandaloneOSX:
-                        return s_Standalone;
-                    case BuildTarget.XboxOne:
-                        return s_XboxOne;
-                    case BuildTarget.iOS:
-                        return s_iOS;
-                    case BuildTarget.Android:
-                        return s_Android;
-                    case BuildTarget.StandaloneWindows64:
-                        return s_Windows;
-                    case BuildTarget.WebGL:
-                        return s_WebGL;
-                    case BuildTarget.WSAPlayer:
-                        return s_Windows;
-                    case BuildTarget.StandaloneLinux64:
-                        return s_Standalone;
-                    case BuildTarget.PS4:
-                        return s_PS4;
-                    case BuildTarget.tvOS:
-                        return s_TvOS;
-                    case BuildTarget.Switch:
-                        return s_Switch;
-                    case BuildTarget.Lumin:
-                        return s_Lumin;
-                    case BuildTarget.Stadia:
-                        return s_Stadia;
-                    case BuildTarget.NoTarget:
-                        return BuildSettingsDropdownDefaultIcon;
-                }
-
-                return null;
-            }
-        }
 
         /// <summary>
         /// Workaround for `EditorGUIUtility.LoadIcon` not working with packages. This can be removed once it does
@@ -76,9 +20,7 @@ namespace Unity.Entities.Editor
         static Texture2D LoadIcon(string relativePathInIconDirectory)
         {
             if (string.IsNullOrEmpty(relativePathInIconDirectory))
-            {
                 return null;
-            }
 
             if (EditorGUIUtility.isProSkin)
             {
@@ -95,9 +37,7 @@ namespace Unity.Entities.Editor
                 var texture = LoadIconTexture($"{k_IconsDirectory}/{relativePathInIconDirectory}@2x.png");
 
                 if (null != texture)
-                {
                     return texture;
-                }
             }
 
             // Fallback to low DPI if we couldn't find the high res or we are on a low res screen
@@ -108,12 +48,10 @@ namespace Unity.Entities.Editor
         {
             var texture = (Texture2D) AssetDatabase.LoadAssetAtPath(path, typeof(Texture2D));
 
-            if (texture != null &&
-                !Mathf.Approximately(texture.GetPixelsPerPoint(), (float) EditorGUIUtility.pixelsPerPoint) &&
-                !Mathf.Approximately((float) EditorGUIUtility.pixelsPerPoint % 1f, 0.0f))
-            {
+            if (texture != null
+                && !Mathf.Approximately(texture.GetPixelsPerPoint(), EditorGUIUtility.pixelsPerPoint)
+                && !Mathf.Approximately(EditorGUIUtility.pixelsPerPoint % 1f, 0.0f))
                 texture.filterMode = FilterMode.Bilinear;
-            }
 
             return texture;
         }

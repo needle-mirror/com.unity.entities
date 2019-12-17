@@ -292,7 +292,7 @@ namespace Unity.Entities
                     var header = (BufferHeader*)(baseHeader + stride * i);
 
                     var entityGroupCount = header->Length - 1;
-                    if (entityGroupCount == 0)
+                    if (entityGroupCount <= 0)
                         continue;
 
                     var entityGroupArray = (Entity*)BufferHeader.GetElementPointer(header) + 1;

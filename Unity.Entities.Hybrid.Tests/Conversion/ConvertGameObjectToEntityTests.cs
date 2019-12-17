@@ -186,7 +186,48 @@ namespace Unity.Entities.Tests.Conversion
                 EntityMatch.Exact<Transform>(k_ChildComponents),
                 EntityMatch.Exact(k_CommonComponents));
         }
-        
+
+        [Test]
+        public void ConvertAndInject_PreserveGameObjectHierarchy()
+        {
+            var a = CreateGameObject("a");
+            var b = CreateGameObject("b").ParentTo(a);
+            var c = CreateGameObject("c").ParentTo(b);
+            var d = CreateGameObject("d").ParentTo(c);
+
+            c.AddConvertAndInject();
+
+            AwakeConversion(a);
+
+            EntitiesAssert.ContainsOnly(m_Manager,
+                EntityMatch.Exact(k_CommonComponents, typeof(Transform)));
+
+            Assert.AreEqual(a.transform.parent, null);
+            Assert.AreEqual(b.transform.parent, a.transform);
+            Assert.AreEqual(c.transform.parent, b.transform);
+            Assert.AreEqual(d.transform.parent, c.transform);
+        }
+
+        [Test]
+        public void ConvertAndInject_StopAndConvertOnSameGameObject([Values] bool inject)
+        {
+            var a = CreateGameObject("a");
+            var b = CreateGameObject("b").ParentTo(a);
+            var c = CreateGameObject("c").ParentTo(b);
+            var d = CreateGameObject("d").ParentTo(c);
+
+            (inject ? c.AddConvertAndInject() : c.AddConvertAndDestroy()).AddStopConvert();
+
+            AwakeConversion(a);
+
+            EntitiesAssert.IsEmpty(m_Manager);
+
+            Assert.AreEqual(a.transform.parent, null);
+            Assert.AreEqual(b.transform.parent, a.transform);
+            Assert.AreEqual(c.transform.parent, b.transform);
+            Assert.AreEqual(d.transform.parent, c.transform);
+        }
+
         //@TODO: ConvertToEntity w/ multiple Worlds registered via ConvertToEntitySystem.AddToBeConverted()
     }
 }

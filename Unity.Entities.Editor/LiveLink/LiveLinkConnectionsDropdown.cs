@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using Unity.Scenes;
 using Unity.Scenes.Editor;
 using UnityEditor;
 using UnityEditor.Networking.PlayerConnection;
@@ -14,43 +14,50 @@ namespace Unity.Entities.Editor
     class LiveLinkConnectionsDropdown : PopupWindowContent, IDisposable
     {
         readonly List<LiveLinkConnection> m_LinkConnections = new List<LiveLinkConnection>();
-        EditorConnectionWatcher m_EditorConnectionWatcher;
+        bool m_IsOpen;
 
         public LiveLinkConnectionsDropdown()
         {
-            m_EditorConnectionWatcher = EditorConnectionWatcher.instance;
-
-            m_EditorConnectionWatcher.PlayerConnected += OnPlayerConnected;
-            m_EditorConnectionWatcher.PlayerDisconnected += OnPlayerDisconnected;
+            EditorSceneLiveLinkToPlayerSendSystem.instance.LiveLinkPlayerConnected += OnPlayerConnected;
+            EditorSceneLiveLinkToPlayerSendSystem.instance.LiveLinkPlayerDisconnected += OnPlayerDisconnected;
 
             foreach (var connectedPlayer in EditorConnection.instance.ConnectedPlayers)
             {
-                m_LinkConnections.Add(new LiveLinkConnection(connectedPlayer.playerId, connectedPlayer.name, LiveLinkConnectionStatus.Connected));
+                var playerId = connectedPlayer.playerId;
+                var buildSettingGuid = EditorSceneLiveLinkToPlayerSendSystem.instance.GetBuildSettingsGUIDForLiveLinkConnection(playerId);
+                m_LinkConnections.Add(new LiveLinkConnection(playerId, connectedPlayer.name, LiveLinkConnectionStatus.Connected, buildSettingGuid));
             }
         }
 
         void OnPlayerDisconnected(int playerId)
         {
             m_LinkConnections.RemoveAll(x => x.PlayerId == playerId);
-            LiveLinkToolbar.RepaintPlaybar();
+            LiveLinkToolbar.RepaintPlaybar(); // to repaint the dropdown button itself
         }
 
-        void OnPlayerConnected(int playerId)
+        void OnPlayerConnected(int playerId, Hash128 buildSettingsGuid)
         {
-            if (m_LinkConnections.Any(x => x.PlayerId == playerId))
-                return;
-
             var connectedPlayer = EditorConnection.instance.ConnectedPlayers.Find(x => x.playerId == playerId);
             if (connectedPlayer == null)
                 return;
 
-            m_LinkConnections.Add(new LiveLinkConnection(connectedPlayer.playerId, connectedPlayer.name, LiveLinkConnectionStatus.Connected));
-            LiveLinkToolbar.RepaintPlaybar();
+            var existingConnection = m_LinkConnections.FirstOrDefault(x => x.PlayerId == playerId);
+            if (existingConnection != null)
+                existingConnection.Reset(connectedPlayer.name, LiveLinkConnectionStatus.Connected, buildSettingsGuid);
+            else
+                m_LinkConnections.Add(new LiveLinkConnection(connectedPlayer.playerId, connectedPlayer.name, LiveLinkConnectionStatus.Connected, buildSettingsGuid));
+
+            if (m_IsOpen)
+            {
+                GenerateUiFromState();
+            }
+
+            LiveLinkToolbar.RepaintPlaybar(); // to repaint the dropdown button itself
         }
 
         public void DrawDropdown()
         {
-            var dropdownRect = new Rect(172, 0, 40, 22);
+            var dropdownRect = new Rect(130, 0, 40, 22);
             var hasConnectedDevices = m_LinkConnections.Any(c => c.Status == LiveLinkConnectionStatus.Connected);
             var icon = hasConnectedDevices ? Icons.LiveLinkOn : Icons.LiveLink;
             icon.tooltip = hasConnectedDevices
@@ -67,7 +74,13 @@ namespace Unity.Entities.Editor
 
         public override void OnOpen()
         {
-            const string basePath = "Packages/com.unity.entities/Editor/Resources/LiveLink";
+            m_IsOpen = true;
+            GenerateUiFromState();
+        }
+
+        void GenerateUiFromState()
+        {
+            const string basePath = "Packages/com.unity.entities/Editor/LiveLink";
             var template = m_LinkConnections.Count == 0
                 ? UIElementHelpers.LoadTemplate(basePath, "LiveLinkConnectionsDropdown.Empty", "LiveLinkConnectionsDropdown")
                 : UIElementHelpers.LoadTemplate(basePath, "LiveLinkConnectionsDropdown");
@@ -79,27 +92,20 @@ namespace Unity.Entities.Editor
                 foreach (var connection in m_LinkConnections)
                 {
                     var item = tpl.GetNewInstance();
-                    item.Q<Image>().AddToClassList(GetStatusClass(connection.Status));
+                    var icon = item.Q<Image>();
+                    icon.AddToClassList(GetStatusClass(connection.Status));
+                    icon.RegisterCallback<PointerDownEvent>(i => ToggleConnectionStatus(i, connection));
                     var label = item.Q<Label>();
                     label.text = connection.Name.Length <= SizeHelper.MaxCharCount ? connection.Name : connection.Name.Substring(0, SizeHelper.MaxCharCount) + "...";
-                    if (connection.Name.Length > SizeHelper.MaxCharCount) label.tooltip = connection.Name;
+                    label.tooltip = $"{connection.Name} - build setting: {connection.BuildSettingsName}";
                     placeholder.Add(item);
                 }
             }
 
             var footer = UIElementHelpers.LoadTemplate(basePath, "LiveLinkConnectionsDropdown.Footer", "LiveLinkConnectionsDropdown");
-            var buildButton = footer.Q<Button>("live-link-connections-dropdown__footer__build");
+            footer.Q<Button>("live-link-connections-dropdown__footer__build").SetEnabled(false);
             var resetButton = footer.Q<Button>("live-link-connections-dropdown__footer__reset");
             var clearButton = footer.Q<Button>("live-link-connections-dropdown__footer__clear");
-            if (LiveLinkBuildSettings.CurrentLiveLinkBuildSettings != null)
-            {
-                buildButton.clickable.clicked += LiveLinkCommands.BuildAndRunLiveLinkPlayer;
-            }
-            else
-            {
-                buildButton.SetEnabled(false);
-                buildButton.tooltip = "Please first select a build setting.";
-            }
 
             if (m_LinkConnections.Count > 0)
             {
@@ -113,89 +119,109 @@ namespace Unity.Entities.Editor
             }
 
             template.Add(footer);
+            editorWindow.rootVisualElement.Clear();
             editorWindow.rootVisualElement.Add(template);
+        }
+
+        public override void OnClose()
+        {
+            m_IsOpen = false;
+        }
+
+        void ToggleConnectionStatus(PointerDownEvent e, LiveLinkConnection connection)
+        {
+            switch (connection.Status)
+            {
+                case LiveLinkConnectionStatus.Connected:
+                    DisconnectPlayer(e, connection);
+                    break;
+                case LiveLinkConnectionStatus.SoftDisconnected:
+                    ReconnectPlayer(e, connection);
+                    break;
+            }
+        }
+
+        static void DisconnectPlayer(EventBase e, LiveLinkConnection connection)
+        {
+            var previousCls = GetStatusClass(connection.Status);
+            var target = (VisualElement) e.target;
+            connection.Status = LiveLinkConnectionStatus.SoftDisconnected;
+            target.RemoveFromClassList(previousCls);
+            target.AddToClassList(GetStatusClass(connection.Status));
+
+            EditorSceneLiveLinkToPlayerSendSystem.instance.DisableSendForPlayer(connection.PlayerId);
+
+            LiveLinkToolbar.RepaintPlaybar(); // to repaint the dropdown button itself
+        }
+
+        static void ReconnectPlayer(EventBase e, LiveLinkConnection connection)
+        {
+            var target = (VisualElement) e.target;
+            var previousCls = GetStatusClass(connection.Status);
+            connection.Status = LiveLinkConnectionStatus.Reseting;
+            target.RemoveFromClassList(previousCls);
+            target.AddToClassList(GetStatusClass(connection.Status));
+
+            EditorSceneLiveLinkToPlayerSendSystem.instance.ResetPlayer(connection.PlayerId);
         }
 
         static string GetStatusClass(LiveLinkConnectionStatus connectionStatus)
         {
-            if ((connectionStatus & LiveLinkConnectionStatus.Error) == LiveLinkConnectionStatus.Error)
-                return "live-link-connections-dropdown__status--error";
-            if ((connectionStatus & LiveLinkConnectionStatus.Connected) == LiveLinkConnectionStatus.Connected)
-                return "live-link-connections-dropdown__status--connected";
-            if ((connectionStatus & LiveLinkConnectionStatus.SoftDisconnected) == LiveLinkConnectionStatus.SoftDisconnected)
-                return "live-link-connections-dropdown__status--soft-disconnected";
-
-            return null;
+            switch (connectionStatus)
+            {
+                case LiveLinkConnectionStatus.Error:
+                    return "live-link-connections-dropdown__status--error";
+                case LiveLinkConnectionStatus.Connected:
+                    return "live-link-connections-dropdown__status--connected";
+                case LiveLinkConnectionStatus.SoftDisconnected:
+                    return "live-link-connections-dropdown__status--soft-disconnected";
+                case LiveLinkConnectionStatus.Reseting:
+                    return "live-link-connections-dropdown__status--soft-reseting";
+                default:
+                    return null;
+            }
         }
 
         public override void OnGUI(Rect rect) { }
 
         public void Dispose()
         {
-            if (m_EditorConnectionWatcher == null)
-                return;
-
-            m_EditorConnectionWatcher.PlayerConnected -= OnPlayerConnected;
-            m_EditorConnectionWatcher.PlayerDisconnected -= OnPlayerDisconnected;
-            m_EditorConnectionWatcher = null;
+            EditorSceneLiveLinkToPlayerSendSystem.instance.LiveLinkPlayerConnected -= OnPlayerConnected;
+            EditorSceneLiveLinkToPlayerSendSystem.instance.LiveLinkPlayerDisconnected -= OnPlayerDisconnected;
         }
 
         class LiveLinkConnection
         {
             public int PlayerId { get; }
-            public string Name { get; }
-
-            public LiveLinkConnectionStatus Status { get; }
-
-            public LiveLinkConnection(int playerId, string name, LiveLinkConnectionStatus status)
+            public string Name { get; private set; }
+            public LiveLinkConnectionStatus Status { get; set; }
+            public Hash128 BuildSettingsGuid { get; private set; }
+            public string BuildSettingsName { get; private set; }
+            public LiveLinkConnection(int playerId, string name, LiveLinkConnectionStatus status, Hash128 buildSettingsGuid)
             {
                 PlayerId = playerId;
                 Name = name;
                 Status = status;
+                BuildSettingsGuid = buildSettingsGuid;
+                BuildSettingsName = buildSettingsGuid != default ? Path.GetFileNameWithoutExtension(AssetDatabase.GUIDToAssetPath(buildSettingsGuid.ToString())) : "Unknown";
+            }
+
+            public void Reset(string name, LiveLinkConnectionStatus status, Hash128 buildSettingsGuid)
+            {
+                Name = name;
+                Status = status;
+                BuildSettingsGuid = buildSettingsGuid;
+                BuildSettingsName = buildSettingsGuid != default ? Path.GetFileNameWithoutExtension(AssetDatabase.GUIDToAssetPath(buildSettingsGuid.ToString())) : "Unknown";
             }
         }
 
-        [Flags]
         enum LiveLinkConnectionStatus
         {
-            None = 0,
-            Connected = 1,
-            SoftDisconnected = 2,
-            Error = 4,
+            Connected,
+            SoftDisconnected,
+            Error,
+            Reseting
         }
-
-        class EditorConnectionWatcher : ScriptableSingleton<EditorConnectionWatcher>
-        {
-            EditorConnection m_EditorConnection;
-
-            public event Action<int> PlayerConnected = delegate { };
-            public event Action<int> PlayerDisconnected = delegate { };
-
-            void OnPlayerConnected(int playerId) => PlayerConnected(playerId);
-            void OnPlayerDisconnected(int playerId) => PlayerDisconnected(playerId);
-
-            void OnEnable()
-            {
-                m_EditorConnection = EditorConnection.instance;
-                m_EditorConnection.RegisterConnection(OnPlayerConnected);
-                m_EditorConnection.RegisterDisconnection(OnPlayerDisconnected);
-            }
-
-            void OnDestroy() => Unregister();
-
-            void Unregister()
-            {
-                if (m_EditorConnection == null)
-                    return;
-
-                m_EditorConnection.UnregisterConnection(OnPlayerConnected);
-                m_EditorConnection.UnregisterDisconnection(OnPlayerDisconnected);
-                m_EditorConnection = null;
-            }
-
-            ~EditorConnectionWatcher() => Unregister();
-        }
-
     }
 
     static class SizeHelper

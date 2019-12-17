@@ -577,7 +577,7 @@ namespace Unity.Entities.Tests
                 m_Manager.AddBuffer<EcsTestDataBlobAssetElement>(entities[i]);
                 var buffer = m_Manager.GetBuffer<EcsTestDataBlobAssetElement>(entities[i]);
                 int numBlobs = i % 100;
-                buffer.Reserve(numBlobs);
+                buffer.EnsureCapacity(numBlobs);
                 for (int j = 0; j < numBlobs; ++j)
                 {
                     buffer.Add(new EcsTestDataBlobAssetElement() { blobElement = BlobAssetReference<int>.Create(j) });
@@ -585,7 +585,7 @@ namespace Unity.Entities.Tests
 
                 m_Manager.AddBuffer<EcsTestDataBlobAssetElement2>(entities[i]);
                 var buffer2 = m_Manager.GetBuffer<EcsTestDataBlobAssetElement2>(entities[i]);
-                buffer2.Reserve(numBlobs);
+                buffer2.EnsureCapacity(numBlobs);
                 for (int j = 0; j < numBlobs; ++j)
                 {
                     buffer2.Add(new EcsTestDataBlobAssetElement2()
@@ -766,7 +766,7 @@ namespace Unity.Entities.Tests
                 m_Manager.AddBuffer<EcsTestDataBlobAssetElement>(entities[i]);
                 var buffer = m_Manager.GetBuffer<EcsTestDataBlobAssetElement>(entities[i]);
                 int numBlobs = i % 100;
-                buffer.Reserve(numBlobs);
+                buffer.EnsureCapacity(numBlobs);
                 for (int j = 0; j < numBlobs; ++j)
                 {
                     buffer.Add(new EcsTestDataBlobAssetElement() { blobElement = BlobAssetReference<int>.Create(j) });
@@ -774,7 +774,7 @@ namespace Unity.Entities.Tests
 
                 m_Manager.AddBuffer<EcsTestDataBlobAssetElement2>(entities[i]);
                 var buffer2 = m_Manager.GetBuffer<EcsTestDataBlobAssetElement2>(entities[i]);
-                buffer2.Reserve(numBlobs);
+                buffer2.EnsureCapacity(numBlobs);
                 for (int j = 0; j < numBlobs; ++j)
                 {
                     buffer2.Add(new EcsTestDataBlobAssetElement2()

@@ -20,6 +20,7 @@
     * [Using IJobChunk](chunk_iteration_job.md)
     * [Manual iteration](manual_iteration.md)
     * [Entity Queries](ecs_entity_query.md)
+  * [Sync points and structural changes](sync_points.md)
   * [Component WriteGroups](ecs_write_groups.md)
   * [Versions and Generations](version_numbers.md)
   * [Jobs in ECS](ecs_job_overview.md)

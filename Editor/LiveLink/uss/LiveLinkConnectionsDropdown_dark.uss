@@ -1,0 +1,7 @@
+.live-link-connections-dropdown__status--connected { background-image: url("../Icons/d_Connected@2x.png"); }
+.live-link-connections-dropdown__status--error { background-image: url("../Icons/d_ConnectionError@2x.png"); }
+.live-link-connections-dropdown__status--soft-disconnected { background-image: url("../Icons/d_Disconnected@2x.png"); }
+
+.live-link-connections-dropdown__footer {
+    border-color: #5D5D5D;
+}

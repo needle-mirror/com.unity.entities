@@ -43,6 +43,21 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(EmptySystem.ShouldRunSystem());
         }
 
+        [AlwaysUpdateSystem]
+        class TestAlwaysUpdateSystem : ComponentSystem
+        {
+            protected override void OnUpdate()
+            {
+            }
+        }
+
+        [Test]
+        public void RequireSingletonWithAlwaysUpdateThrows()
+        {
+            var system = World.CreateSystem<TestAlwaysUpdateSystem>();
+            Assert.Throws<InvalidOperationException>(() => system.RequireSingletonForUpdate<EcsTestData>());
+        }
+
         [Test]
         public void HasSingletonWorks()
         {

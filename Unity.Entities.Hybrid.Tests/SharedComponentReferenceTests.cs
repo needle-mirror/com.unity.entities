@@ -39,7 +39,7 @@ namespace Unity.Entities.Tests
 
         // https://github.com/Unity-Technologies/dots/issues/1813
         [Test]
-        public void CorrectlyImplementedHashCodeDoesNotThrow()
+        public void CorrectlyImplementedHashCodeWorksWithDestroy()
         {
             var e = m_Manager.CreateEntity();
             var obj = new TextAsset();
@@ -49,7 +49,7 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        public void IncorrectlyImplementedHashCodeThrows()
+        public void IncorrectlyImplementedHashWorksWithDestroy()
         {
             var e = m_Manager.CreateEntity();
             var obj = new TextAsset();
@@ -61,5 +61,37 @@ namespace Unity.Entities.Tests
             
             Assert.IsTrue(m_Manager.Debug.IsSharedComponentManagerEmpty());
         }
+        
+        [Test]
+        public void CorrectlyImplementedHashCodeWorksWithFilters()
+        {
+            var e = m_Manager.CreateEntity();
+            var obj = new TextAsset();
+            var sharedComponent = new CorrectHashCode {Target = obj};
+            m_Manager.AddSharedComponentData(e, sharedComponent);
+            UnityEngine.Object.DestroyImmediate(obj);
+
+            var query = m_Manager.CreateEntityQuery(typeof(CorrectHashCode));
+            
+            query.SetSharedComponentFilter(sharedComponent);
+            Assert.AreEqual(0, query.CalculateEntityCount());
+        }
+        
+        [Test]
+        public void IncorrectlyImplementedHashCodeDoesntWorksWithFilters()
+        {
+            var e = m_Manager.CreateEntity();
+            var obj = new TextAsset();
+            var sharedComponent = new IncorrectHashCode {Target = obj};
+            m_Manager.AddSharedComponentData(e, sharedComponent);
+            UnityEngine.Object.DestroyImmediate(obj);
+
+            var query = m_Manager.CreateEntityQuery(typeof(IncorrectHashCode));
+            
+            query.SetSharedComponentFilter(sharedComponent);
+            Assert.AreEqual(0, query.CalculateEntityCount());
+        }
+        
+        //@TODO: Adding two entities with both broken object reference. removes right one...s
     }
 }

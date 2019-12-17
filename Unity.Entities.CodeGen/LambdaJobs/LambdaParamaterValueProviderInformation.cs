@@ -210,9 +210,12 @@ namespace Unity.Entities.CodeGen
 
                 UserError.DC0014(lambdaJobDescriptionConstruction.ContainingMethod, lambdaJobDescriptionConstruction.WithCodeInvocationInstruction, parameter, allNames).Throw();
             }
+
+            if (resolvedParameterType.IsIBufferElementData())
+                UserError.DC0033(lambdaJobDescriptionConstruction.ContainingMethod, parameter.Name, parameter.ParameterType.GetElementType(), lambdaJobDescriptionConstruction.WithCodeInvocationInstruction).Throw();
             
             if (!resolvedParameterType.GetElementType().IsPrimitive && resolvedParameterType.GetElementType().IsValueType)
-                UserError.DC0021(lambdaJobDescriptionConstruction.ContainingMethod, parameter.Name,parameter.ParameterType.GetElementType(),lambdaJobDescriptionConstruction.WithCodeInvocationInstruction).Throw();
+                UserError.DC0021(lambdaJobDescriptionConstruction.ContainingMethod, parameter.Name, parameter.ParameterType.GetElementType(), lambdaJobDescriptionConstruction.WithCodeInvocationInstruction).Throw();
 
             UserError.DC0005(lambdaJobDescriptionConstruction.ContainingMethod, lambdaJobDescriptionConstruction.WithCodeInvocationInstruction, parameter).Throw();
             return null;

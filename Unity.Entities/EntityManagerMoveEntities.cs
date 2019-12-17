@@ -90,7 +90,7 @@ namespace Unity.Entities
             NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (filter.EntityComponentStore != srcEntities.EntityComponentStore)
+            if (filter._EntityComponentStore != srcEntities.EntityComponentStore)
                 throw new ArgumentException(
                     "EntityManager.MoveEntitiesFrom failed - srcEntities and filter must belong to the same World)");
 #endif
@@ -155,7 +155,7 @@ namespace Unity.Entities
             NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (filter.EntityComponentStore != srcEntities.EntityComponentStore)
+            if (filter._EntityComponentStore != srcEntities.EntityComponentStore)
                 throw new ArgumentException(
                     "EntityManager.MoveEntitiesFrom failed - srcEntities and filter must belong to the same World)");
 #endif

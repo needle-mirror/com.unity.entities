@@ -489,6 +489,30 @@ namespace Unity.Entities
                         "srcEntity is not instantiable because it has already been destroyed. (Only system state components are left on it)");
             }
         }
+        
+        
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public static void AssertValidEntityQuery(EntityQuery query, EntityComponentStore* store)
+        {
+            if (query._EntityComponentStore != store)
+            {
+                AssertValidEntityQuery(query._EntityComponentStore, store);
+            }
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public static void AssertValidEntityQuery(EntityComponentStore* queryStore, EntityComponentStore* store)
+        {
+            if (queryStore != store)
+            {
+                if (queryStore ==  null)
+                    throw new System.ArgumentException("The EntityQuery has been disposed and can no longer be used.");
+                else
+                    throw new System.ArgumentException("EntityQuery is associated with a different world");
+            }
+        }
+
+        
         // ----------------------------------------------------------------------------------------------------------
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------

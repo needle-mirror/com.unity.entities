@@ -11,7 +11,46 @@ using UnityEditor.Experimental.AssetImporters;
 
 namespace Unity.Scenes.Editor
 {
-    [ScriptedImporter(8, "liveLinkBundles")]
+    static class AssetBundleTypeCache
+    {
+        static bool s_Initialized = false;
+
+        public static string TypeString(Type type) => $"UnityEngineType/{type.FullName}";
+
+        public static void RegisterMonoScripts()
+        {
+            if (AssetDatabaseExperimental.IsAssetImportWorkerProcess() || s_Initialized)
+                return;
+            s_Initialized = true;
+
+            AssetDatabaseExperimental.UnregisterCustomDependencyPrefixFilter("UnityEngineType/");
+
+            var behaviours = TypeCache.GetTypesDerivedFrom<UnityEngine.MonoBehaviour>();
+            var scripts = TypeCache.GetTypesDerivedFrom<UnityEngine.ScriptableObject>();
+
+            for (int i = 0; i != behaviours.Count; i++)
+            {
+                var type = behaviours[i];
+                if (type.IsGenericType)
+                    continue;
+                var hash = TypeHash.CalculateStableTypeHash(type);
+                AssetDatabaseExperimental.RegisterCustomDependency(TypeString(type),
+                    new UnityEngine.Hash128(hash, hash));
+            }
+
+            for (int i = 0; i != scripts.Count; i++)
+            {
+                var type = scripts[i];
+                if (type.IsGenericType)
+                    continue;
+                var hash = TypeHash.CalculateStableTypeHash(type);
+                AssetDatabaseExperimental.RegisterCustomDependency(TypeString(type),
+                    new UnityEngine.Hash128(hash, hash));
+            }
+        }
+    }
+
+    [ScriptedImporter(10, "liveLinkBundles")]
     public class LiveLinkBuildImporter : ScriptedImporter
     {
         const int k_CurrentFileFormatVersion = 1;
@@ -31,6 +70,7 @@ namespace Unity.Scenes.Editor
         public static Hash128 GetHash(string guid, BuildTarget target)
         {
             LiveLinkBuildPipeline.RemapBuildInAssetGuid(ref guid);
+            AssetBundleTypeCache.RegisterMonoScripts();
 
             // TODO: GetArtifactHash needs to take BuildTarget so we can get Artifacts for other than the ActiveBuildTarget
             return AssetDatabaseExperimental.GetArtifactHash(guid, typeof(LiveLinkBuildImporter), AssetDatabaseExperimental.ImportSyncMode.Block);
@@ -91,7 +131,7 @@ namespace Unity.Scenes.Editor
             builder.Dispose();
         }
 
-        void AddImportDependencies(AssetImportContext ctx, IEnumerable<Hash128> dependencies)
+        void AddImportDependencies(AssetImportContext ctx, IEnumerable<Hash128> dependencies, IEnumerable<Type> types)
         {
             ctx.DependsOnSourceAsset(ctx.assetPath);
             var extension = Path.GetExtension(ctx.assetPath).ToLower();
@@ -113,6 +153,9 @@ namespace Unity.Scenes.Editor
                 var path = AssetDatabase.GUIDToAssetPath(dependencyGuid.ToString());
                 ctx.DependsOnSourceAsset(path);
             }
+
+            foreach (var type in types)
+                ctx.DependsOnCustomDependency(AssetBundleTypeCache.TypeString(type));
         }
 
         private void ImportAssetBundle(AssetImportContext ctx)
@@ -128,12 +171,13 @@ namespace Unity.Scenes.Editor
 
             var bundlePath = ctx.GetResultPath(k_BundleExtension);
             var dependencies = new HashSet<Hash128>();
-            LiveLinkBuildPipeline.BuildAssetBundle(manifestPath, guid, bundlePath, ctx.selectedBuildTarget, false, dependencies);
+            var types = new HashSet<Type>();
+            LiveLinkBuildPipeline.BuildAssetBundle(manifestPath, guid, bundlePath, ctx.selectedBuildTarget, false, dependencies, types);
 
             var dependenciesPath = ctx.GetResultPath(k_DependenciesExtension);
             WriteDependenciesResult(dependenciesPath, dependencies.ToArray());
 
-            AddImportDependencies(ctx, dependencies);
+            AddImportDependencies(ctx, dependencies, types);
         }
 
         private void ImportSceneBundle(AssetImportContext ctx)
@@ -141,12 +185,13 @@ namespace Unity.Scenes.Editor
             var guid = new GUID(AssetDatabase.AssetPathToGUID(ctx.assetPath));
             var bundlePath = ctx.GetResultPath(k_BundleExtension);
             var dependencies = new HashSet<Hash128>();
-            LiveLinkBuildPipeline.BuildSceneBundle(guid, bundlePath, ctx.selectedBuildTarget, false, dependencies);
+            var types = new HashSet<Type>();
+            LiveLinkBuildPipeline.BuildSceneBundle(guid, bundlePath, ctx.selectedBuildTarget, false, dependencies, types);
 
             var dependenciesPath = ctx.GetResultPath(k_DependenciesExtension);
             WriteDependenciesResult(dependenciesPath, dependencies.ToArray());
 
-            AddImportDependencies(ctx, dependencies);
+            AddImportDependencies(ctx, dependencies, types);
         }
     }
 }

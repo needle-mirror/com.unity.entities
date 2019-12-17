@@ -9,16 +9,16 @@ namespace Unity.Entities
     {
         ComponentSystem m_System;
         uint m_AnyWritableBitField, m_AllWritableBitField;
-        ResizableArray64Byte<int> m_Any, m_None, m_All;
+        FixedListInt64 m_Any, m_None, m_All;
         EntityQueryOptions m_Options;
         EntityQuery m_Query;
 
         internal EntityQueryBuilder(ComponentSystem system)
         {
             m_System = system;
-            m_Any    = new ResizableArray64Byte<int>();
-            m_None   = new ResizableArray64Byte<int>();
-            m_All    = new ResizableArray64Byte<int>();
+            m_Any    = new FixedListInt64();
+            m_None   = new FixedListInt64();
+            m_All    = new FixedListInt64();
             m_AnyWritableBitField = m_AllWritableBitField = 0;
             m_Options = EntityQueryOptions.Default;
             m_Query  = null;
@@ -35,9 +35,9 @@ namespace Unity.Entities
             #endif
 
             return
-                m_Any.Equals(ref other.m_Any) &&
-                m_None.Equals(ref other.m_None) &&
-                m_All.Equals(ref other.m_All) &&
+                m_Any.Equals(other.m_Any) &&
+                m_None.Equals(other.m_None) &&
+                m_All.Equals(other.m_All) &&
                 m_AnyWritableBitField == other.m_AnyWritableBitField &&
                 m_AllWritableBitField == other.m_AllWritableBitField &&
                 m_Options == other.m_Options &&
@@ -54,8 +54,8 @@ namespace Unity.Entities
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         void ValidateHasNoSpec() => ThrowIfInvalidMixing(
-            m_Any           .Length    != 0 || 
-            m_None          .Length    != 0 || 
+            m_Any           .Length    != 0 ||
+            m_None          .Length    != 0 ||
             m_All           .Length    != 0);
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
@@ -89,14 +89,14 @@ namespace Unity.Entities
 
         /// <summary>
         /// This sets the options IncludeDisabled and EntityQueryOptions.IncludePrefab so that Entities with Disabled or
-        /// Prefab components will not be hidden from the query. 
+        /// Prefab components will not be hidden from the query.
         /// </summary>
-        public EntityQueryBuilder WithIncludeAll() 
+        public EntityQueryBuilder WithIncludeAll()
             => With(EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab);
-        
+
         EntityQueryDesc ToEntityQueryDesc(int delegateTypeCount)
         {
-            ComponentType[] ToComponentTypes(ref ResizableArray64Byte<int> typeIndices, uint writableBitField, int extraCapacity)
+            ComponentType[] ToComponentTypes(ref FixedListInt64 typeIndices, uint writableBitField, int extraCapacity)
             {
                 var length = typeIndices.Length + extraCapacity;
                 if (length == 0)
@@ -105,7 +105,7 @@ namespace Unity.Entities
                 var types = new ComponentType[length];
 
                 for (var i = 0; i < typeIndices.Length; ++i)
-                    types[i] = new ComponentType { TypeIndex = typeIndices[i], 
+                    types[i] = new ComponentType { TypeIndex = typeIndices[i],
                         AccessModeType = (writableBitField & (1 << i)) != 0 ? ComponentType.AccessMode.ReadWrite : ComponentType.AccessMode.ReadOnly };
 
                 return types;
@@ -133,9 +133,9 @@ namespace Unity.Entities
         EntityManager.InsideForEach InsideForEach() =>
             new EntityManager.InsideForEach(m_System.EntityManager);
         #endif
-        
+
         // this changes the existing query in the following ways:
-        // a) change anything that is currently ReadWrite in m_All but not in delegate types to ReadOnly 
+        // a) change anything that is currently ReadWrite in m_All but not in delegate types to ReadOnly
         //  (there is no way to access as ReadWrite if not in delegate)
         // b) remove anything in delegate types that is also in m_All (m_All access type takes precedent)
         unsafe void SanitizeTypes(int* delegateTypeIndices, ref int delegateTypeCount)
@@ -154,14 +154,14 @@ namespace Unity.Entities
                         delegateTypeIndices[iDelegateType] = -1;
                     }
                 }
-                
+
                 if (delegateTypeIndices[iDelegateType] != -1)
                     filteredDelegateTypeCount++;
             }
 
             // Toggle all writable types to read only if they are not in delegate (they can't be written to anyways)
-            m_AllWritableBitField &= allTypesThatMatchWriteDelegate; 
-            
+            m_AllWritableBitField &= allTypesThatMatchWriteDelegate;
+
             // sort all non -1 types forward in the case we marked some as invalid
             // (they are already in m_All as ReadOnly)
             if (filteredDelegateTypeCount < delegateTypeCount)
@@ -187,7 +187,7 @@ namespace Unity.Entities
         unsafe EntityQuery ResolveEntityQuery(int* delegateTypeIndices, int delegateTypeCount)
         {
             SanitizeTypes(delegateTypeIndices, ref delegateTypeCount);
-            
+
             var hash
                 = (uint)m_Any 					.GetHashCode() * 0xEA928FF9
                 ^ (uint)m_None   				.GetHashCode() * 0x4B772F25

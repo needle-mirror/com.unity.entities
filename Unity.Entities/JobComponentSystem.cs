@@ -94,43 +94,52 @@ namespace Unity.Entities
 #endif
         }
 
-        internal sealed override void InternalUpdate()
+        public sealed override void Update()
         {
-            if (Enabled && ShouldRunSystem())
+#if ENABLE_PROFILER
+            using (m_ProfilerMarker.Auto())
+#endif
             {
-                if (!m_PreviouslyEnabled)
+                if (Enabled && ShouldRunSystem())
                 {
-                    m_PreviouslyEnabled = true;
-                    OnStartRunning();
-                }
+                    if (!m_PreviouslyEnabled)
+                    {
+                        m_PreviouslyEnabled = true;
+                        OnStartRunning();
+                    }
 
-                var inputJob = BeforeOnUpdate();
-                JobHandle outputJob = new JobHandle();
+                    var inputJob = BeforeOnUpdate();
+                    JobHandle outputJob = new JobHandle();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                var oldExecutingSystem = ms_ExecutingSystem;
-                ms_ExecutingSystem = this;
+                    var oldExecutingSystem = ms_ExecutingSystem;
+                    ms_ExecutingSystem = this;
 #endif
-                try
-                {
-                    outputJob = OnUpdate(inputJob);
-                }
-                catch
-                {
+                    try
+                    {
+                        outputJob = OnUpdate(inputJob);
+                    }
+                    catch
+                    {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                        ms_ExecutingSystem = oldExecutingSystem;
+#endif
+
+                        AfterOnUpdate(outputJob, false);
+                        throw;
+                    }
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     ms_ExecutingSystem = oldExecutingSystem;
 #endif
 
-                    AfterOnUpdate(outputJob, false);
-                    throw;
+                    AfterOnUpdate(outputJob, true);
                 }
-
-                AfterOnUpdate(outputJob, true);
-            }
-            else if (m_PreviouslyEnabled)
-            {
-                m_PreviouslyEnabled = false;
-                OnStopRunning();
+                else if (m_PreviouslyEnabled)
+                {
+                    m_PreviouslyEnabled = false;
+                    OnStopRunning();
+                }
             }
         }
         

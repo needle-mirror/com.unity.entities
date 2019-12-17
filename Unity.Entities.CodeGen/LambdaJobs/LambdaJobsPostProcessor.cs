@@ -200,6 +200,21 @@ namespace Unity.Entities.CodeGen
                 {
                     AddDiagnostic(ppe.ToDiagnosticMessage(m));
                 }
+                catch (FoundErrorInUserCodeException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    var seq = m.DebugInformation.SequencePoints.FirstOrDefault();
+                    AddDiagnostic(new DiagnosticMessage
+                    {
+                        MessageData = $"Unexpected error while post-processing {m.DeclaringType.FullName}:{m.Name}. Please report this error.{Environment.NewLine}{ex.Message}{Environment.NewLine}{ex.StackTrace}",
+                        DiagnosticType = DiagnosticType.Error,
+                        Line = seq?.StartLine ?? 0,
+                        Column = seq?.StartColumn ?? 0,
+                    });
+                }
             }
 
             return madeChange;
@@ -302,11 +317,8 @@ namespace Unity.Entities.CodeGen
                 //as I found it introduced the most reasonable artifacts when the code is decompiled back into C#.
                 lambdaJobDescriptionConstruction.DelegateProducingSequence.RewriteToKeepDisplayClassOnEvaluationStack();
 
-                if (!lambdaJobDescriptionConstruction.DisplayClass.IsValueType && allDelegatesAreGuaranteedNotToOutliveMethod)
-                {
-                    CecilHelpers.PatchMethodThatUsedDisplayClassToTreatItAsAStruct(body, displayClassVariable, lambdaJobDescriptionConstruction.DisplayClass);
-                    CecilHelpers.PatchDisplayClassToBeAStruct(lambdaJobDescriptionConstruction.DisplayClass);
-                }
+                if (allDelegatesAreGuaranteedNotToOutliveMethod)
+                    ChangeAllDisplayClassesToStructs(methodContainingLambdaJob);
             }
             else
             {
@@ -521,5 +533,57 @@ namespace Unity.Entities.CodeGen
             return generatedJobStruct;
         }
 
+        static void ChangeAllDisplayClassesToStructs(MethodDefinition methodContainingLambdaJob)
+        {
+            var result = FindDisplayClassesIn(methodContainingLambdaJob).ToList();
+            
+            foreach (var (typeDefinition, variableDefinition) in result)
+            {
+                if (!typeDefinition.IsValueType)
+                {
+                    CecilHelpers.PatchMethodThatUsedDisplayClassToTreatItAsAStruct(methodContainingLambdaJob.Body, variableDefinition);
+                    CecilHelpers.PatchDisplayClassToBeAStruct(typeDefinition);
+                }
+            }
+        }
+
+        static IEnumerable<(TypeDefinition typeDefinition, VariableDefinition variableDefinition)> FindDisplayClassesIn(MethodDefinition method)
+        {
+            var displayClassConstructingInstructions = method.Body.Instructions.Where(IsDisplayClassConstructingInstruction).ToList();
+
+            foreach (var displayClassConstructingInstruction in displayClassConstructingInstructions)
+            {
+                if (!displayClassConstructingInstruction.Next.IsStoreLocal(out var displayClassVariableIndex))
+                {
+                    InternalCompilerError.DCICE006(method).Throw();
+                }
+
+                var displayClassVariable = method.Body.Variables[displayClassVariableIndex];
+                var displayClassTypeDefinition = displayClassVariable.VariableType.Resolve();
+                if (!displayClassTypeDefinition.IsClass)
+                    continue;
+                yield return (displayClassTypeDefinition, displayClassVariable);
+            }
+        }
+        
+        
+        static bool IsDisplayClassConstructingInstruction(Instruction i)
+        {
+            if (i.OpCode != OpCodes.Newobj)
+                return false;
+            
+            var methodRef = (MethodReference) i.Operand;
+            if (methodRef.Parameters.Any())
+                return false;
+
+            var declaringType = methodRef.DeclaringType;
+            if (!declaringType.IsDisplayClass())
+                return false;
+
+            if (declaringType.Resolve().CustomAttributes.Any(a => a.Constructor.DeclaringType.Name != typeof(CompilerGeneratedAttribute).Name))
+                return false;
+            
+            return true;
+        }
     }
 }

@@ -140,6 +140,14 @@ namespace Unity.Entities
                     {
                         toBeConverted.RemoveAll(convert =>
                         {
+                            if (convert.GetComponent<StopConvertToEntity>() != null)
+                            {
+                                LogWarning(
+                                    $"{nameof(ConvertToEntity)} will be ignored because of a {nameof(StopConvertToEntity)} on the same GameObject",
+                                    convert.gameObject);
+                                return true;
+                            }
+
                             var parent = convert.transform.parent;
                             var remove = parent != null && parent.GetComponentInParent<ConvertToEntity>() != null;
                             if (remove && parent.GetComponentInParent<StopConvertToEntity>() != null)
@@ -153,10 +161,13 @@ namespace Unity.Entities
                         });
 
                         foreach (var convert in toBeConverted)
-                            conversionRoots.Add(convert.gameObject);
+                            AddRecurse(gameObjectWorld.EntityManager, convert.transform, toBeDetached, toBeInjected);
 
                         foreach (var convert in toBeConverted)
-                            AddRecurse(gameObjectWorld.EntityManager, convert.transform, toBeDetached, toBeInjected);
+                        {
+                            conversionRoots.Add(convert.gameObject);
+                            toBeDetached.Remove(convert.transform);
+                        }
 
                         GameObjectConversionUtility.Convert(gameObjectWorld);
 
@@ -177,7 +188,7 @@ namespace Unity.Entities
 
                 foreach (var go in conversionRoots)
                 {
-                    if(!toBeDetached.Contains(go.transform))
+                    if(!IsConvertAndInject(go))
                         UnityObject.DestroyImmediate(go);
                 }
             }

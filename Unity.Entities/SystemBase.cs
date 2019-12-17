@@ -118,42 +118,51 @@ namespace Unity.Entities
 #endif
         }
 
-        internal sealed override void InternalUpdate()
+        public sealed override void Update()
         {
-            if (Enabled && ShouldRunSystem())
-            {
-                if (!m_PreviouslyEnabled)
-                {
-                    m_PreviouslyEnabled = true;
-                    OnStartRunning();
-                }
-
-                BeforeOnUpdate();
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                var oldExecutingSystem = ms_ExecutingSystem;
-                ms_ExecutingSystem = this;
+#if ENABLE_PROFILER
+            using (m_ProfilerMarker.Auto())
 #endif
-                try
+            {
+                if (Enabled && ShouldRunSystem())
                 {
-                    OnUpdate();
-                }
-                catch
-                {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    if (!m_PreviouslyEnabled)
+                    {
+                        m_PreviouslyEnabled = true;
+                        OnStartRunning();
+                    }
+
+                    BeforeOnUpdate();
+
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    var oldExecutingSystem = ms_ExecutingSystem;
+                    ms_ExecutingSystem = this;
+    #endif
+                    try
+                    {
+                        OnUpdate();
+                    }
+                    catch
+                    {
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                        ms_ExecutingSystem = oldExecutingSystem;
+    #endif
+
+                        AfterOnUpdate(false);
+                        throw;
+                    }
+
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     ms_ExecutingSystem = oldExecutingSystem;
-#endif
+    #endif
 
-                    AfterOnUpdate(false);
-                    throw;
+                    AfterOnUpdate(true);
                 }
-
-                AfterOnUpdate(true);
-            }
-            else if (m_PreviouslyEnabled)
-            {
-                m_PreviouslyEnabled = false;
-                OnStopRunning();
+                else if (m_PreviouslyEnabled)
+                {
+                    m_PreviouslyEnabled = false;
+                    OnStopRunning();
+                }                
             }
         }
 

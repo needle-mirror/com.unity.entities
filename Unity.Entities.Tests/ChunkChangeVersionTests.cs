@@ -57,6 +57,34 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(chunk.DidChange(type, version-1));
         }
 
+        
+        [Test]
+        public void VersionWrapAround()
+        {
+            var firstSystemFrame = 0U;
+            var initial = ChangeVersionUtility.InitialGlobalSystemVersion;
+            var lastVersion = uint.MaxValue;
+            var lastVersionPlus = lastVersion;
+            ChangeVersionUtility.IncrementGlobalSystemVersion(ref lastVersionPlus);
+
+            // In order to support wrap around we wrap numbers
+            Assert.IsTrue(ChangeVersionUtility.DidChange(initial+1, initial));
+            Assert.IsTrue(ChangeVersionUtility.DidChange(lastVersion / 2 - 10U, initial));
+            Assert.IsFalse(ChangeVersionUtility.DidChange(lastVersion / 2 + 10U, initial));
+            Assert.IsFalse(ChangeVersionUtility.DidChange(lastVersion, initial));
+            Assert.IsFalse(ChangeVersionUtility.DidChange(initial, initial));
+
+            // Wrap around
+            Assert.IsTrue(ChangeVersionUtility.DidChange(lastVersionPlus, lastVersion));
+            Assert.IsTrue(ChangeVersionUtility.DidChange(lastVersionPlus, lastVersion - 1000));
+            Assert.IsFalse(ChangeVersionUtility.DidChange(lastVersionPlus, 10));
+            
+            // first frame is always changed
+            Assert.IsTrue(ChangeVersionUtility.DidChange(initial, firstSystemFrame));
+            Assert.IsTrue(ChangeVersionUtility.DidChange(lastVersion, firstSystemFrame));
+            Assert.IsTrue(ChangeVersionUtility.DidChange(lastVersion / 2, firstSystemFrame));
+        }
+        
         [Test]
         public void NewlyCreatedChunkGetsCurrentVersion()
         {

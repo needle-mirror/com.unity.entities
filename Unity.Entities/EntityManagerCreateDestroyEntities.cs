@@ -110,7 +110,8 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void DestroyEntity(EntityQuery entityQuery)
         {
-            DestroyEntity(entityQuery.m_QueryData->MatchingArchetypes, entityQuery.m_Filter);
+            Unity.Entities.EntityComponentStore.AssertValidEntityQuery(entityQuery, EntityComponentStore);
+            DestroyEntity(entityQuery._QueryData->MatchingArchetypes, entityQuery._Filter);
         }
 
         /// <summary>

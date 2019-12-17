@@ -1,4 +1,5 @@
-using Unity.Scenes.Editor;
+using System;
+using System.Reflection;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
@@ -8,7 +9,6 @@ namespace Unity.Entities.Editor
     class LiveLinkToolbar
     {
         static readonly LiveLinkConnectionsDropdown s_LinkConnectionsDropdown = new LiveLinkConnectionsDropdown();
-        static readonly LiveLinkBuildSettingsDropdown s_LiveLinkBuildSettingsDropdown = new LiveLinkBuildSettingsDropdown();
         static readonly GUIContent[] s_PlayIcons = s_PlayIcons = new []
         {
             EditorGUIUtility.TrIconContent("PlayButton", "Play"),
@@ -20,16 +20,23 @@ namespace Unity.Entities.Editor
             EditorGUIUtility.IconContent("StepButton On"),
             EditorGUIUtility.IconContent("PlayButtonProfile On")
         };
+        static readonly Action s_RepaintToolbar = BuildRepaintToolbarDelegate() ?? InternalEditorUtility.RepaintAllViews;
+
+        internal static Action BuildRepaintToolbarDelegate()
+        {
+            var toolbarRepaintMethod = Type.GetType("UnityEditor.Toolbar, UnityEditor")?.GetMethod("RepaintToolbar", BindingFlags.NonPublic | BindingFlags.Static);
+            if (toolbarRepaintMethod != null && toolbarRepaintMethod.GetParameters().Length == 0)
+                return (Action) Delegate.CreateDelegate(typeof(Action), toolbarRepaintMethod);
+
+            return null;
+        }
 
         ~LiveLinkToolbar()
         {
             s_LinkConnectionsDropdown.Dispose();
         }
 
-        internal static void RepaintPlaybar()
-        {
-            InternalEditorUtility.RepaintAllViews();
-        }
+        internal static void RepaintPlaybar() => s_RepaintToolbar();
 
         [CommandHandler("DOTS/GUI/LiveLinkToolbar", CommandHint.UI)]
         static void DrawPlaybar(CommandExecuteContext ctx)
@@ -75,7 +82,6 @@ namespace Unity.Entities.Editor
                 }
             }
 
-            s_LiveLinkBuildSettingsDropdown.DrawDropdown();
             s_LinkConnectionsDropdown.DrawDropdown();
         }
 

@@ -1,5 +1,3 @@
-using UnityEngine.Networking.PlayerConnection;
-using Hash128 = UnityEngine.Hash128;
 using System.Collections.Generic;
 using System.IO;
 using Unity.Collections;
@@ -9,7 +7,8 @@ using Unity.Entities.Serialization;
 using UnityEditor;
 using UnityEditor.Experimental;
 using UnityEditor.Networking.PlayerConnection;
-using UnityEngine;
+using UnityEngine.Networking.PlayerConnection;
+using Hash128 = UnityEngine.Hash128;
 
 namespace Unity.Scenes.Editor
 {
@@ -342,7 +341,6 @@ namespace Unity.Scenes.Editor
             var buildTarget = EditorUserBuildSettings.activeBuildTarget;
             targetHash = LiveLinkBuildPipeline.CalculateTargetHash(guid, buildTarget);
 
-#if LIVELINKS_ASSETPIPELINE
             var bundlePath = LiveLinkBuildImporter.GetBundlePath(guid.ToString(), buildTarget);
             if (string.IsNullOrEmpty(bundlePath) || !File.Exists(bundlePath))
             {
@@ -350,34 +348,6 @@ namespace Unity.Scenes.Editor
                 return null;
             }
             return bundlePath;
-#else
-            // TODO: Move caching into LiveLinkBuildPipeline
-            var cachePath = ResolveCachePath(targetHash);
-
-            if (File.Exists(cachePath))
-                return cachePath;
-
-            if (!Directory.Exists(cachePath))
-                Directory.CreateDirectory(Path.GetDirectoryName(cachePath));
-
-            // Debug.Log($"Building {guid} fresh");
-            // Patching only works if the ObjectManifest comes from the same GUID every time.
-            // So we can't delete this file. Optimally we would control the build pipeline
-            // to make it always be at a specific local identifier in file
-            var manifest = ScriptableObject.CreateInstance<AssetObjectManifest>();
-            AssetObjectManifestBuilder.BuildManifest(guid, manifest);
-            UnityEditorInternal.InternalEditorUtility.SaveToSerializedFileAndForget(new[] { manifest }, AssetObjectManifestPath, true);
-
-            var didSucceed = LiveLinkBuildPipeline.BuildAssetBundle(AssetObjectManifestPath, guid, $"{cachePath}", EditorUserBuildSettings.activeBuildTarget);
-
-            if (!didSucceed)
-            {
-                Debug.LogError($"Failed to build asset bundle: '{guid}'");
-                return null;
-            }
-
-            return cachePath;
-#endif
         }
 
         void DetectChangedAssets()

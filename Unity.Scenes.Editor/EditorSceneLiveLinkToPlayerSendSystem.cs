@@ -1,6 +1,6 @@
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
-using Unity.Entities;
 using UnityEditor;
 using UnityEditor.Networking.PlayerConnection;
 using UnityEngine.Networking.PlayerConnection;
@@ -17,6 +17,9 @@ namespace Unity.Scenes.Editor
         List<LiveLinkChangeSet>             _ChangeSets = new List<LiveLinkChangeSet>();
         NativeList<Hash128>                 _UnloadScenes;
         NativeList<Hash128>                 _LoadScenes;
+
+        internal event Action<int, Hash128> LiveLinkPlayerConnected;
+        internal event Action<int> LiveLinkPlayerDisconnected;
 
         unsafe void SetLoadedScenes(MessageEventArgs args)
         {
@@ -46,11 +49,14 @@ namespace Unity.Scenes.Editor
             LiveLinkAssetBundleBuildSystem.instance.ClearUsedAssetsTargetHash();
             if (_Connections.TryGetValue(player, out var connection))
                 connection.Dispose();
-                
-            _Connections[player] = new LiveLinkConnection(buildSettings);
+
+            var newConnection = new LiveLinkConnection(buildSettings);
+            _Connections[player] = newConnection;
 
             TimeBasedCallbackInvoker.SetCallback(DetectSceneChanges);
             EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
+
+            LiveLinkPlayerConnected?.Invoke(player, newConnection._BuildSettingsGUID);
         }
 
         void OnPlayerConnected(int playerID)
@@ -61,12 +67,20 @@ namespace Unity.Scenes.Editor
         void OnPlayerDisconnected(int playerID)
         {
             LiveLinkMsg.LogInfo("OnPlayerDisconnected " + playerID);
-                
+
             if (_Connections.TryGetValue(playerID, out var connection))
             {
                 connection.Dispose();
                 _Connections.Remove(playerID);
+                LiveLinkPlayerDisconnected?.Invoke(playerID);
             }
+
+        }
+
+        internal void DisableSendForPlayer(int playerId)
+        {
+            if (_Connections.TryGetValue(playerId, out var connection))
+                connection._IsEnabled = false;
         }
 
         static void SendChangeSet(LiveLinkChangeSet entityChangeSet, int playerID)
@@ -93,7 +107,10 @@ namespace Unity.Scenes.Editor
             LiveLinkMsg.LogSend($"LoadScenes {loadScenes.ToDebugString()}");
             EditorConnection.instance.SendArray(LiveLinkMsg.LoadScenes, loadScenes, playerID);
         }
-        
+
+        internal Hash128 GetBuildSettingsGUIDForLiveLinkConnection(int playerConnectionId)
+            => _Connections.TryGetValue(playerConnectionId, out var connection) ? connection._BuildSettingsGUID : default;
+
         void DetectSceneChanges()
         {
             if (_Connections.Count == 0)
@@ -105,9 +122,13 @@ namespace Unity.Scenes.Editor
 
             foreach (var c in _Connections)
             {
+                var connection = c.Value;
+                if (!connection._IsEnabled)
+                    continue;
+
                 try
                 {
-                    var connection = c.Value;
+
                     connection.Update(_ChangeSets, _LoadScenes, _UnloadScenes, LiveLinkMode.LiveConvertGameView);
 
                     // Load scenes that are not being edited live
@@ -160,6 +181,16 @@ namespace Unity.Scenes.Editor
 
             _UnloadScenes.Dispose();
             _LoadScenes.Dispose();
+        }
+
+        internal void ResetAllPlayers()
+        {
+            EditorConnection.instance.Send(LiveLinkMsg.ResetGame, new byte[0]);
+        }
+
+        internal void ResetPlayer(int playerId)
+        {
+            EditorConnection.instance.Send(LiveLinkMsg.ResetGame, new byte[0], playerId);
         }
     }
 }

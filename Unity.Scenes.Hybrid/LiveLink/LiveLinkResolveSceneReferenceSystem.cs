@@ -24,7 +24,7 @@ namespace Unity.Scenes
 #endif
     [ExecuteAlways]
     [AlwaysUpdateSystem]
-    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    [UpdateInGroup(typeof(SceneSystemGroup))]
     [UpdateAfter(typeof(SceneSystem))]
     class LiveLinkResolveSceneReferenceSystem : ComponentSystem
     {

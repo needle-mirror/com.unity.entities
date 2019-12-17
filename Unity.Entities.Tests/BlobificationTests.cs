@@ -265,23 +265,7 @@ public class BlobTests : ECSTestsFixture
         blob1.Release();
         blob2.Release();
     }
-    
-    [Test]
-    public void AllocateThrowsWhenCopiedByValue()
-    {
-        var builder = new BlobBuilder(Allocator.Temp);
 
-        Assert.Throws<InvalidOperationException>(() =>
-        {
-            var root = builder.ConstructRoot<MyData>();
-
-            // Throw here because root was copied by value instead of ref
-            builder.Allocate(ref root.floatArray, 3);
-        });
-
-        builder.Dispose();
-    }
-    
     [Test]
     public void SourceBlobArrayThrowsOnIndex()
     {

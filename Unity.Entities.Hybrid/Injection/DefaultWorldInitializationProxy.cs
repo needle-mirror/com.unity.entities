@@ -8,7 +8,7 @@ namespace Unity.Entities
     /// and has to be executed after all proxy MonoBehaviours are disabled (e.g. ComponentDataProxyBase.OnDisable).
     /// </summary>
     [ExecuteAlways]
-    [AddComponentMenu("Hidden/Disabled")]
+    [AddComponentMenu("")]
     class DefaultWorldInitializationProxy : MonoBehaviour
     {
         public bool IsActive;

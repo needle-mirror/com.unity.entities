@@ -841,5 +841,31 @@ namespace Unity.Entities.Tests
             query.ResetFilter();
         }
 #endif
+        
+        [Test]
+        public void QueryFromWrongWorldThrows()
+        {
+            using (var world = new World("temp"))
+            {
+                Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(world.EntityManager.UniversalQuery, typeof(EcsTestData)));
+                Assert.Throws<ArgumentException>(() => m_Manager.AddSharedComponentData(world.EntityManager.UniversalQuery, new EcsTestSharedComp()));
+                Assert.Throws<ArgumentException>(() => m_Manager.DestroyEntity(world.EntityManager.UniversalQuery));
+                Assert.Throws<ArgumentException>(() => m_Manager.RemoveComponent<EcsTestData>(world.EntityManager.UniversalQuery));
+
+                using (var cmd = new EntityCommandBuffer(Allocator.TempJob))
+                {
+                    cmd.AddComponent(world.EntityManager.UniversalQuery, typeof(EcsTestData));
+                    Assert.Throws<ArgumentException>(() => cmd.Playback(m_Manager));
+                }
+            }
+        }
+        
+        [Test]
+        public void UseDisposedQueryThrows()
+        {
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            query.Dispose();
+            Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(query, typeof(EcsTestData2)));
+        }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Linq;
 
@@ -212,6 +213,20 @@ namespace Unity.Entities.Conversion
         }
     }
 
+    class MultiListEnumeratorDebugView<T>
+    {
+        MultiListEnumerator<T> m_Enumerator;
+
+        public MultiListEnumeratorDebugView(MultiListEnumerator<T> enumerator)
+        {
+            m_Enumerator = enumerator;
+        }
+
+        [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+        public T[] Items => m_Enumerator.ToArray();
+    }
+
+    [DebuggerTypeProxy(typeof(MultiListEnumeratorDebugView<>))]
     public struct MultiListEnumerator<T> : IEnumerable<T>, IEnumerator<T>
     {
         T[]   m_Data;

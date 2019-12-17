@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Unity.Assertions;
+using Unity.Core;
 #if !NET_DOTS
 using System.Linq;
 #endif
@@ -14,6 +16,13 @@ namespace Unity.Entities
         protected List<ComponentSystemBase> m_systemsToRemove = new List<ComponentSystemBase>();
 
         public virtual IEnumerable<ComponentSystemBase> Systems => m_systemsToUpdate;
+
+        // Fixed-Rate Support
+        // internal for now, until we figure out proper API
+        internal bool FixedTimeStepEnabled { get; /*protected*/ set; }
+        internal float FixedTimeStep { get; /*protected*/ set; }
+        protected double m_LastFixedUpdateTime;
+        protected int m_FixedUpdateCount;
 
         public void AddSystemToUpdateList(ComponentSystemBase sys)
         {
@@ -97,7 +106,71 @@ namespace Unity.Entities
             }
         }
 
+        // Fixed-Rate Support
+        // internal for now, until we figure out proper API
+        internal void SetFixedTimeStep(float step)
+        {
+            Assert.IsTrue(step > 0.0f, "Fixed time step must be > 0.0f");
+
+            if (!FixedTimeStepEnabled)
+            {
+                m_LastFixedUpdateTime = 0.0;
+                m_FixedUpdateCount = 0;
+            }
+
+            FixedTimeStepEnabled = true;
+            FixedTimeStep = step;
+        }
+
+        internal void DisableFixedTimeStep()
+        {
+            FixedTimeStepEnabled = false;
+            FixedTimeStep = 0.0f;
+        }
+
         protected override void OnUpdate()
+        {
+            if (FixedTimeStepEnabled)
+            {
+                // First trigger after enabling always ticks at the current time
+                if (m_FixedUpdateCount == 0)
+                {
+                    m_LastFixedUpdateTime = Time.ElapsedTime;
+                    m_FixedUpdateCount = 1;
+
+                    World.PushTime(new TimeData(
+                        elapsedTime: m_LastFixedUpdateTime,
+                        deltaTime: FixedTimeStep));  // fudge the initial delta time to be what's expected, even though it's really 0
+
+                    UpdateAllSystems();
+
+                    World.PopTime();
+
+                    return;
+                }
+
+                // Note that FixedTimeStep of 0.0f will never update
+                while (Time.ElapsedTime - m_LastFixedUpdateTime > FixedTimeStep)
+                {
+                    m_LastFixedUpdateTime += FixedTimeStep;
+                    m_FixedUpdateCount++;
+
+                    World.PushTime(new TimeData(
+                        elapsedTime: m_LastFixedUpdateTime,
+                        deltaTime: FixedTimeStep));
+
+                    UpdateAllSystems();
+
+                    World.PopTime();
+                }
+            }
+            else
+            {
+                UpdateAllSystems();
+            }
+        }
+
+        void UpdateAllSystems()
         {
             if (m_systemSortDirty)
                 SortSystemUpdateList();

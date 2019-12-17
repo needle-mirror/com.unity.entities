@@ -91,8 +91,8 @@ namespace Unity.Entities.PerformanceTests
             var src = m_Manager.GetBuffer<EcsIntElement>(e);
             var dst = m_Manager.GetBuffer<EcsIntElement>(f);
 
-            src.Reserve(kTinyAllocation);
-            dst.Reserve(kTinyAllocation);
+            src.EnsureCapacity(kTinyAllocation);
+            dst.EnsureCapacity(kTinyAllocation);
 
             for (var i = 0; i < kTinyAllocation; ++i)
             {
@@ -111,8 +111,8 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(500)
                 .Run();
 
-            src.Reserve(kSmallAllocation);
-            dst.Reserve(kSmallAllocation);
+            src.EnsureCapacity(kSmallAllocation);
+            dst.EnsureCapacity(kSmallAllocation);
 
             for (var i = kTinyAllocation; i < kSmallAllocation; ++i)
             {
@@ -131,8 +131,8 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(500)
                 .Run();
 
-            src.Reserve(kLargeAllocation);
-            dst.Reserve(kLargeAllocation);
+            src.EnsureCapacity(kLargeAllocation);
+            dst.EnsureCapacity(kLargeAllocation);
 
             for (var i = kSmallAllocation; i < kLargeAllocation; ++i)
             {
@@ -164,7 +164,7 @@ namespace Unity.Entities.PerformanceTests
 
             var dst = m_Manager.GetBuffer<EcsIntElement>(e);
 
-            dst.Reserve(kTinyAllocation);
+            dst.EnsureCapacity(kTinyAllocation);
 
             for (var i = 0; i < kTinyAllocation; ++i)
             {
@@ -182,7 +182,7 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(500)
                 .Run();
 
-            dst.Reserve(kSmallAllocation);
+            dst.EnsureCapacity(kSmallAllocation);
 
             for (var i = kTinyAllocation; i < kSmallAllocation; ++i)
             {
@@ -200,7 +200,7 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(500)
                 .Run();
 
-            dst.Reserve(kLargeAllocation);
+            dst.EnsureCapacity(kLargeAllocation);
 
             for (var i = kSmallAllocation; i < kLargeAllocation; ++i)
             {
@@ -229,7 +229,7 @@ namespace Unity.Entities.PerformanceTests
 
             var dst = m_Manager.GetBuffer<EcsIntElement>(e);
 
-            dst.Reserve(kTinyAllocation);
+            dst.EnsureCapacity(kTinyAllocation);
 
             for (var i = 0; i < kTinyAllocation; ++i)
             {
@@ -247,7 +247,7 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(500)
                 .Run();
 
-            dst.Reserve(kSmallAllocation);
+            dst.EnsureCapacity(kSmallAllocation);
 
             for (var i = kTinyAllocation; i < kSmallAllocation; ++i)
             {
@@ -265,7 +265,7 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(500)
                 .Run();
 
-            dst.Reserve(kLargeAllocation);
+            dst.EnsureCapacity(kLargeAllocation);
 
             for (var i = kSmallAllocation; i < kLargeAllocation; ++i)
             {

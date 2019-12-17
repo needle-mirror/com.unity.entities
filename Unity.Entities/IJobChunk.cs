@@ -124,7 +124,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = query.CalculateChunkCountWithoutFiltering();
 
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount,
-                query.m_QueryData->MatchingArchetypes, query.m_Filter, dependsOn, mode,
+                query._QueryData->MatchingArchetypes, query._Filter, dependsOn, mode,
                 out NativeArray<byte> prefilterData,
                 out void* deferredCountData);
 
@@ -150,11 +150,17 @@ namespace Unity.Entities
             try 
             {          
 #endif
-            if(mode == ScheduleMode.Batched)
-                return JobsUtility.ScheduleParallelForDeferArraySize(ref scheduleParams, 1, deferredCountData, null);
-
-            var count = unfilteredChunkCount;
-            return JobsUtility.ScheduleParallelFor(ref scheduleParams, count, count);
+                JobHandle handle = default;
+                if (mode == ScheduleMode.Batched)
+                {
+                    handle = JobsUtility.ScheduleParallelForDeferArraySize(ref scheduleParams, 1, deferredCountData, null);
+                }
+                else
+                {
+                    var count = unfilteredChunkCount;
+                    handle = JobsUtility.ScheduleParallelFor(ref scheduleParams, count, count);
+                }
+                return handle;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             }

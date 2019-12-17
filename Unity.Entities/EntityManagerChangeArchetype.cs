@@ -38,10 +38,10 @@ namespace Unity.Entities
         
         public static void Initialize()
         {
-// **** NOTE: **** https://github.com/Unity-Technologies/dots/issues/3682
-// Burst fastpath This can't be enabled until it is proven to work in Environment system
-// We also need to have stress tests for this to prove that it works.
-#if true
+            if (AddComponentEntitiesBatch != null)
+                return;
+
+#if NET_DOTS
             AddComponentEntitiesBatch = AddComponentEntitiesBatchExecute;
             AddComponentEntity = AddComponentEntityExecute;
             AddComponentChunks = AddComponentChunksExecute;
@@ -217,10 +217,11 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void AddComponent(EntityQuery entityQuery, ComponentType componentType)
         {
+            Unity.Entities.EntityComponentStore.AssertValidEntityQuery(entityQuery, EntityComponentStore);
             if (entityQuery.IsEmptyIgnoreFilter)
                 return;
             
-            m_EntityDataAccess.AddComponent(entityQuery.m_QueryData->MatchingArchetypes, entityQuery.m_Filter, componentType);
+            m_EntityDataAccess.AddComponent(entityQuery._QueryData->MatchingArchetypes, entityQuery._Filter, componentType);
         }
         
         /// <summary>
@@ -233,6 +234,7 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void AddComponentData<T>(EntityQuery entityQuery, NativeArray<T> componentArray) where T : struct, IComponentData
         {
+            Unity.Entities.EntityComponentStore.AssertValidEntityQuery(entityQuery, EntityComponentStore);
             if (entityQuery.IsEmptyIgnoreFilter)
                 return;
 
@@ -497,10 +499,12 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void RemoveComponent(EntityQuery entityQuery, ComponentType componentType)
         {
+            Unity.Entities.EntityComponentStore.AssertValidEntityQuery(entityQuery, EntityComponentStore);
+
             if (entityQuery.IsEmptyIgnoreFilter)
                 return;
-
-            RemoveComponent(entityQuery.m_QueryData->MatchingArchetypes, entityQuery.m_Filter, componentType);
+            
+            RemoveComponent(entityQuery._QueryData->MatchingArchetypes, entityQuery._Filter, componentType);
         }
 
         /// <summary>
@@ -520,11 +524,14 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void RemoveComponent(EntityQuery entityQuery, ComponentTypes types)
         {
+            Unity.Entities.EntityComponentStore.AssertValidEntityQuery(entityQuery, EntityComponentStore);
+
             if (entityQuery.IsEmptyIgnoreFilter)
                 return;
 
             if (entityQuery.CalculateEntityCount() == 0)
                 return;
+            
 
             // @TODO: Opportunity to do all components in batch on a per chunk basis.
             for (int i = 0; i != types.Length; i++)
@@ -688,6 +695,8 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void AddChunkComponentData<T>(EntityQuery entityQuery, T componentData) where T : unmanaged, IComponentData 
         {
+            Unity.Entities.EntityComponentStore.AssertValidEntityQuery(entityQuery, EntityComponentStore);
+
             if (entityQuery.IsEmptyIgnoreFilter)
                 return;
 
@@ -843,9 +852,11 @@ namespace Unity.Entities
         public void AddSharedComponentData<T>(EntityQuery entityQuery, T componentData)
             where T : struct, ISharedComponentData
         {
+            Unity.Entities.EntityComponentStore.AssertValidEntityQuery(entityQuery, EntityComponentStore);
+
             if (entityQuery.IsEmptyIgnoreFilter)
                 return;
-
+            
             var componentType = ComponentType.ReadWrite<T>();
             using (var chunks = entityQuery.CreateArchetypeChunkArray(Allocator.TempJob))
             {
@@ -1003,6 +1014,8 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of component, which must implement IComponentData.</typeparam>
         public static void AddChunkComponentData<T>(this EntityManager manager, EntityQuery entityQuery, T componentData) where T : class, IComponentData
         {
+            EntityComponentStore.AssertValidEntityQuery(entityQuery, manager.EntityComponentStore);
+            
             using (var chunks = entityQuery.CreateArchetypeChunkArray(Allocator.TempJob))
             {
                 if (chunks.Length == 0)

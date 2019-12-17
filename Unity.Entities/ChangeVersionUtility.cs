@@ -12,7 +12,7 @@
             return (int)(changeVersion - requiredVersion) > 0;
         }
 
-        public static void IncrementGlobalSystemVersion(ref uint globalSystemVersion)
+        internal static void IncrementGlobalSystemVersion(ref uint globalSystemVersion)
         {
             globalSystemVersion++;
             // Handle wrap around, 0 is reserved for systems that have never run..
@@ -21,7 +21,6 @@
         }
 
         // 0 is reserved for systems that have never run
-        public const int InitialGlobalSystemVersion = 1;
-
+        internal const uint InitialGlobalSystemVersion = 1;
     }
 }

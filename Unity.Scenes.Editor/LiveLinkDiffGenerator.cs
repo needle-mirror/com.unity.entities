@@ -123,11 +123,14 @@ namespace Unity.Scenes.Editor
                         GameObjectConversionUtility.ConvertIncremental(_GameObjectWorld, _ChangedGameObjects, flags);
                         _ChangedGameObjects.Clear();
                     }
+                    #pragma warning disable 168
                     catch (Exception e)
                     {
                         _RequestCleanConversion = true;
-                        Debug.LogWarning("Incremental conversion failed. Performing full conversion instead\n" + e.ToString());
+                        
+                        // Debug.Log("Incremental conversion failed. Performing full conversion instead\n" + e.ToString());
                     }
+                    #pragma warning restore 168
                 }
 
                 // If anything failed, fall back to clean conversion

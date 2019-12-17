@@ -5,7 +5,10 @@ using System.IO;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.Serialization;
+using Unity.IO.LowLevel.Unsafe;
+using Unity.Scenes;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 using Hash128 = Unity.Entities.Hash128;
 
@@ -118,6 +121,25 @@ namespace Unity.Scenes
 #else
             var sceneHeaderPath = EntityScenesPaths.GetLoadPath(scene.SceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1);
 #endif
+            
+#if UNITY_ANDROID && !UNITY_EDITOR
+            var uwrFile = new UnityWebRequest(sceneHeaderPath);
+            uwrFile.downloadHandler = new DownloadHandlerBuffer();
+            uwrFile.SendWebRequest();
+            while(!uwrFile.isDone) {}
+
+            if (uwrFile.isNetworkError || uwrFile.isHttpError)
+            {
+                Debug.LogError($"Loading Entity Scene failed because the entity header file could not be found: {scene.SceneGUID}\nNOTE: In order to load SubScenes in the player you have to use the new BuildSettings asset based workflow to build & run your player.\n{sceneHeaderPath}");
+                return;
+            }
+            
+            if (!BlobAssetReference<SceneMetaData>.TryRead(uwrFile.downloadHandler.data, SceneMetaDataSerializeUtility.CurrentFileFormatVersion, out var sceneMetaDataRef))
+            {
+                Debug.LogError("Loading Entity Scene failed because the entity header file was an old version: " + scene.SceneGUID);
+                return;
+            }
+#else
             if (!File.Exists(sceneHeaderPath))
             {
                 #if UNITY_EDITOR
@@ -127,12 +149,13 @@ namespace Unity.Scenes
                 #endif
                 return;
             }
-
+            
             if (!BlobAssetReference<SceneMetaData>.TryRead(sceneHeaderPath, SceneMetaDataSerializeUtility.CurrentFileFormatVersion, out var sceneMetaDataRef))
             {
                 Debug.LogError("Loading Entity Scene failed because the entity header file was an old version: " + scene.SceneGUID);
                 return;
             }
+#endif
 
             LogResolving("ResolveScene (success)", scene.SceneGUID);
 

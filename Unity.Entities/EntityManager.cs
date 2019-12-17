@@ -194,6 +194,11 @@ namespace Unity.Entities
                     Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
                 }
             );
+
+            #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_UniversalQuery._DisallowDisposing = "EntityManager.UniversalQuery may not be disposed";
+            m_UniversalQueryWithChunks._DisallowDisposing = "EntityManager.UniversalQuery may not be disposed";
+            #endif
         }
 
         internal void DestroyInstance()
@@ -202,10 +207,13 @@ namespace Unity.Entities
 
             m_DependencyManager->PreDisposeCheck();
 
+            #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_UniversalQuery._DisallowDisposing = null;
+            m_UniversalQueryWithChunks._DisallowDisposing = null;
+            #endif
             m_UniversalQuery.Dispose();
-            m_UniversalQuery = null;
-            
             m_UniversalQueryWithChunks.Dispose();
+            m_UniversalQuery = null;
             m_UniversalQueryWithChunks = null;
 
             m_DependencyManager->Dispose();

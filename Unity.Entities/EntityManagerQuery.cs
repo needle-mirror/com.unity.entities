@@ -85,8 +85,8 @@ namespace Unity.Entities
                 throw new Exception("GetEntityQueryMask can only be called on an EntityQuery without a filter applied to it."
                 + "  You can call EntityQuery.ResetFilter to remove the filters from an EntityQuery.");
 
-            if (query.m_QueryData->EntityQueryMask.IsCreated())
-                return query.m_QueryData->EntityQueryMask;
+            if (query._QueryData->EntityQueryMask.IsCreated())
+                return query._QueryData->EntityQueryMask;
 
             if (m_EntityQueryManager.m_EntityQueryMasksAllocated >= 1024)
                 throw new Exception("You have reached the limit of 1024 unique EntityQueryMasks, and cannot generate any more.");
@@ -94,16 +94,16 @@ namespace Unity.Entities
             var mask = new EntityQueryMask(
                 (byte) (m_EntityQueryManager.m_EntityQueryMasksAllocated / 8),
                 (byte) (1 << (m_EntityQueryManager.m_EntityQueryMasksAllocated % 8)),
-                query.EntityComponentStore);
+                query._EntityComponentStore);
 
             m_EntityQueryManager.m_EntityQueryMasksAllocated++;
 
-            for (var i = 0; i < query.m_QueryData->MatchingArchetypes.Length; ++i)
+            for (var i = 0; i < query._QueryData->MatchingArchetypes.Length; ++i)
             {
-                query.m_QueryData->MatchingArchetypes.Ptr[i]->Archetype->QueryMaskArray[mask.Index] |= mask.Mask;
+                query._QueryData->MatchingArchetypes.Ptr[i]->Archetype->QueryMaskArray[mask.Index] |= mask.Mask;
             }
 
-            query.m_QueryData->EntityQueryMask = mask;
+            query._QueryData->EntityQueryMask = mask;
             
             return mask;
         }

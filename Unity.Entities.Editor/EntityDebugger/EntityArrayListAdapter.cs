@@ -8,16 +8,6 @@ namespace Unity.Entities.Editor
 {
     internal class EntityArrayListAdapter : IList<TreeViewItem>
     {
-
-        internal static int IndexToItemId(int index)
-        {
-            return -1 - index;
-        }
-        internal static int ItemIdToIndex(int id)
-        {
-            return -id - 1;
-        }
-        
         private readonly TreeViewItem currentItem = new TreeViewItem();
 
         private NativeArray<ArchetypeChunk> chunkArray;
@@ -121,7 +111,7 @@ namespace Unity.Entities.Editor
                     var entityArray = adapter.chunkArray[currentChunk].GetNativeArray(adapter.entityManager.GetArchetypeChunkEntityType());
                     var entity = entityArray[currentIndexInChunk];
             
-                    adapter.currentItem.id = IndexToItemId(entity.Index);
+                    adapter.currentItem.id = entity.Index;
                     var name = adapter.entityManager.GetName(entity);
                     if (string.IsNullOrEmpty(name))
                         name = $"Entity {entity.Index}";
@@ -147,9 +137,8 @@ namespace Unity.Entities.Editor
 
         public bool IsReadOnly => false;
 
-        public bool GetById(int id, out Entity foundEntity)
+        public bool GetById(int index, out Entity foundEntity)
         {
-            var index = ItemIdToIndex(id);
             foreach (var chunk in chunkArray)
             {
                 var array = chunk.GetNativeArray(entityManager.GetArchetypeChunkEntityType());

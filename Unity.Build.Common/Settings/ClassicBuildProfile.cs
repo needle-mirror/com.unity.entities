@@ -83,8 +83,12 @@ namespace Unity.Build.Common
                         return ".aab";
                     else
                         return ".apk";
+                case BuildTarget.Lumin:
+                    return ".mpk";   
+                case BuildTarget.iOS:
+                case BuildTarget.tvOS:
                 default:
-                    throw new ArgumentException($"Invalid or unhandled enum {m_Target.ToString()} (index {(int)m_Target})");
+                    return "";
             }
 #pragma warning restore CS0618
         }

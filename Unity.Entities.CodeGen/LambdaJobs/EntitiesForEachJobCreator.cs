@@ -22,6 +22,21 @@ using TypeAttributes = Mono.Cecil.TypeAttributes;
 
 namespace Unity.Entities.CodeGen
 {
+    class CapturedVariableDescription
+    {
+        // In order to have our lambda interact with our DisplayClass as a struct, we need
+        // to make sure that all fields exist in the root DisplayClass (since Roslyn will put captured variables
+        // in nested DisplayClasses in the case where variables are captured from multiple scopes):
+        // https://sharplab.io/#v2:CYLg1APgAgTAjAWAFBQMwAJboMLoN7LpGYZQAs6AsgBQCU6hxBSxr6AlgHYAu6AxgEMADgEF0AXnRwA3Izb5Wc+cS69BQgEIT0MWS2WL9BogBEA9gBUAFlwDm1OuIB8zY8qhwAnNXViw/YQ1aPTciAF9gpVYwqOIlGKMGRLRMCnNrO2oPGHRuG05bWiVXZTzMyMSEsKA
+        //
+        // We do this by building up the sequence of fields we use to get to our captured variable in
+        // CloneClosureExecuteMethodAndItsLocalFunctions.  We then nop those
+        // Ldflds (since the field now exists in our root JobStruct) and create the ReadFromDisplayClass
+        // and WriteToDisplayClass methods to copy our new field from (and back to if necessary) the original field.
+        public FieldReference[] ChainOfFieldsToOldField;
+        public FieldReference NewField;
+    }
+    
     internal class JobStructForLambdaJob
     {
         public LambdaJobDescriptionConstruction LambdaJobDescriptionConstruction { get; }
@@ -40,7 +55,8 @@ namespace Unity.Entities.CodeGen
         
         public MethodDefinition[] ClonedMethods;
         public MethodDefinition ClonedLambdaBody => ClonedMethods.First();
-        public Dictionary<FieldDefinition, FieldDefinition> ClonedFields;
+        
+        public Dictionary<FieldReference, CapturedVariableDescription> CapturedVariables;
         
         static Type InterfaceTypeFor(LambdaJobDescriptionConstruction lambdaJobDescriptionConstruction)
         {
@@ -158,11 +174,11 @@ namespace Unity.Entities.CodeGen
             
             foreach (var fieldToDeallocate in fieldsToDeallocate)
             {
-                var clonedField = ClonedFields[fieldToDeallocate];
+                var capturedVariable = CapturedVariables[fieldToDeallocate];
                 ilProcessor.Emit(OpCodes.Ldarg_0);
-                ilProcessor.Emit(OpCodes.Ldflda, clonedField);
+                ilProcessor.Emit(OpCodes.Ldflda, capturedVariable.NewField);
                 
-                var disposeReference = new MethodReference("Dispose", TypeSystem.Void, clonedField.FieldType){HasThis = true};
+                var disposeReference = new MethodReference("Dispose", TypeSystem.Void, capturedVariable.NewField.FieldType){HasThis = true};
                 var disposeMethod = ImportReference(disposeReference);
                 //todo: check for null
                 
@@ -274,7 +290,10 @@ namespace Unity.Entities.CodeGen
                 {
                     if (constructionMethod.Arguments.Single() is FieldDefinition fieldDefinition)
                     {
-                        var correspondingJobField = ClonedFields.Values.Single(f => f.Name == fieldDefinition.Name);
+                        CapturedVariableDescription capturedVariable;
+                        if (!CapturedVariables.TryGetValue(fieldDefinition, out capturedVariable))
+                            InternalCompilerError.DCICE007(LambdaJobDescriptionConstruction.ContainingMethod, constructionMethod).Throw();
+                        var correspondingJobField = capturedVariable.NewField.Resolve();
                         correspondingJobField.CustomAttributes.Add(new CustomAttribute(TypeDefinition.Module.ImportReference(attributeType.GetConstructor(Array.Empty<Type>()))));
                         continue;
                     }
@@ -333,7 +352,7 @@ namespace Unity.Entities.CodeGen
             if (hasNestedLambdaJob)
                 UserError.DC0029(lambdaJobMethod, lambdaJobInstruction).Throw();
 
-            (ClonedMethods, ClonedFields) = CecilHelpers.CloneClosureExecuteMethodAndItsLocalFunctions(displayClassExecuteMethodAndItsLocalMethods, TypeDefinition, "OriginalLambdaBody");
+            (ClonedMethods, CapturedVariables) = CecilHelpers.CloneClosureExecuteMethodAndItsLocalFunctions(displayClassExecuteMethodAndItsLocalMethods, TypeDefinition, "OriginalLambdaBody");
 
             if (LambdaJobDescriptionConstruction.DelegateProducingSequence.CapturesLocals)
             {
@@ -342,7 +361,7 @@ namespace Unity.Entities.CodeGen
                     WriteToDisplayClassMethod = AddMethodToTransferFieldsWithDisplayClass("WriteToDisplayClass", TransferDirection.JobToDisplayClass);
             }
 
-            //todo: ressurect
+            // Kept around for reference when implementing IJobChunk ForEach 
             //ApplyPostProcessingOnJobCode(clonedMethods, providerInformations);
 
             VerifyDisplayClassFieldsAreValid();
@@ -378,9 +397,9 @@ namespace Unity.Entities.CodeGen
             if (LambdaJobDescriptionConstruction.AllowReferenceTypes)
                 return;
             
-            foreach (var field in ClonedFields.Values)
+            foreach (var capturedVariable in CapturedVariables.Values)
             {
-                var typeDefinition = field.FieldType.Resolve();
+                var typeDefinition = capturedVariable.NewField.FieldType.Resolve();
                 if (typeDefinition.TypeReferenceEquals(LambdaJobDescriptionConstruction.ContainingMethod.DeclaringType))
                 {
                     foreach (var method in ClonedMethods)
@@ -414,12 +433,7 @@ namespace Unity.Entities.CodeGen
                         }
                     }
 
-                    //todo: we need a better way to detect this, and a much better error message, but let's start with this stopgap version
-                    //since it's already much better than the generic DC0004 we would otherwise have thrown below.
-                    if (field.Name.Contains("_locals"))
-                        UserError.DC0022(LambdaJobDescriptionConstruction.ContainingMethod,LambdaJobDescriptionConstruction.WithCodeInvocationInstruction).Throw();
-                    
-                    UserError.DC0004(LambdaJobDescriptionConstruction.ContainingMethod,LambdaJobDescriptionConstruction.WithCodeInvocationInstruction, field).Throw();
+                    UserError.DC0004(LambdaJobDescriptionConstruction.ContainingMethod,LambdaJobDescriptionConstruction.WithCodeInvocationInstruction, capturedVariable.NewField.Resolve()).Throw();
                 }
             }
         }
@@ -432,8 +446,8 @@ namespace Unity.Entities.CodeGen
             return mr.Name == nameof(LambdaJobChunkDescriptionConstructionMethods.ForEach) && mr.DeclaringType.Name == nameof(LambdaForEachDescriptionConstructionMethods);
         }
 
-        private void ApplyPostProcessingOnJobCode(MethodDefinition[] methodUsedByLambdaJobs,
-            LambdaParameterValueInformations lambdaParameterValueInformations)
+        // Kept around for reference when implementing IJobChunk ForEach
+        private void ApplyPostProcessingOnJobCode(MethodDefinition[] methodUsedByLambdaJobs, LambdaParameterValueInformations lambdaParameterValueInformations)
         {
             var forEachInvocations = new List<(MethodDefinition, Instruction)>();
             var methodDefinition = methodUsedByLambdaJobs.First();
@@ -453,8 +467,7 @@ namespace Unity.Entities.CodeGen
 
                     if (!displayClass.IsValueType && allDelegatesAreGuaranteedNotToOutliveMethod)
                     {
-                        CecilHelpers.PatchMethodThatUsedDisplayClassToTreatItAsAStruct(methodBody,
-                            displayClassVariable, displayClass);
+                        CecilHelpers.PatchMethodThatUsedDisplayClassToTreatItAsAStruct(methodBody, displayClassVariable);
                         CecilHelpers.PatchDisplayClassToBeAStruct(displayClass);
                     }
                 }
@@ -819,23 +832,27 @@ namespace Unity.Entities.CodeGen
             method.Parameters.Add(new ParameterDefinition("displayClass", ParameterAttributes.None,parameterType));
 
             var ilProcessor = method.Body.GetILProcessor();
-            foreach (var kvp in ClonedFields)
+            foreach (var capturedVariable in CapturedVariables.Values)
             {
-                var oldField = kvp.Key;
-                var newField = kvp.Value;
                 if (direction == TransferDirection.DisplayClassToJob)
                 {
                     ilProcessor.Emit(OpCodes.Ldarg_0);
                     ilProcessor.Emit(OpCodes.Ldarg_1);
-                    ilProcessor.Emit(OpCodes.Ldfld, oldField); //load field from displayClassVariable
-                    ilProcessor.Emit(OpCodes.Stfld, newField); //store that value in corresponding field in newJobStruct
+                    foreach (var oldField in capturedVariable.ChainOfFieldsToOldField)
+                        ilProcessor.Emit(OpCodes.Ldfld, oldField); //load field from displayClassVariable
+                    ilProcessor.Emit(OpCodes.Stfld, capturedVariable.NewField); //store that value in corresponding field in newJobStruct
                 }
                 else
                 {
                     ilProcessor.Emit(OpCodes.Ldarg_1);
+                    for (var iOldField = 0; iOldField < capturedVariable.ChainOfFieldsToOldField.Length - 1; ++iOldField)
+                    {
+                        ilProcessor.Emit(capturedVariable.ChainOfFieldsToOldField[iOldField].FieldType.IsValueType ? OpCodes.Ldflda : OpCodes.Ldfld,
+                            capturedVariable.ChainOfFieldsToOldField[iOldField]); //load field from displayClassVariable
+                    }
                     ilProcessor.Emit(OpCodes.Ldarg_0);
-                    ilProcessor.Emit(OpCodes.Ldfld, newField); //load field from job
-                    ilProcessor.Emit(OpCodes.Stfld, oldField); //store that value in corresponding field in displayclass
+                    ilProcessor.Emit(OpCodes.Ldfld, capturedVariable.NewField); //load field from job
+                    ilProcessor.Emit(OpCodes.Stfld, capturedVariable.ChainOfFieldsToOldField.Last()); //store that value in corresponding field in displayclass
                 }
             }
 

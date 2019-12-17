@@ -1,10 +1,51 @@
 # Change log
 
+## [0.4.0] - 2019-12-16
+
+**This version requires Unity 2019.3.0f1+**
+
+### New Features
+* Two new methods added to the public API:
+  * `void EntityCommandBuffer.AddComponent<T>(EntityQuery entityQuery)`
+  * `void EntityCommandBuffer.RemoveComponent<T>(EntityQuery entityQuery)`
+* BlobArray, BlobString & BlobPtr are not allowed to be copied by value since they carry offset pointers that aree relative to the location of the memory. This could easily result in programming mistakes. The compiler now prevents incorrect usage by enforcing any type attributed with [MayOnlyLiveInBlobStorage] to never be copied by value.
+
+
+### Upgrade guide
+
+### Changes
+* Deprecates `TypeManager.CreateTypeIndexForComponent` and it's other component type variants. Types can be dynamically added (in Editor builds) by instead passing the new unregistered types to `TypeManager.AddNewComponentTypes` instead.
+
+* `RequireForUpdate(EntityQuery)` and `RequireSingletonForUpdate` on a system with `[AlwaysUpdate]` will now throw an exception instead of being ignored.
+* ChangeVersionUtility.IncrementGlobalSystemVersion & ChangeVersionUtility.InitialGlobalSystemVersion is now internal. They were accidentally public previously.
+* Entity inspector now shows entity names and allows to rename the selected entity
+* Improved entity debugger UI 
+* Create WorldRenderBounds for prefabs and disabled entities with renderers during conversion, this make instantiation of those entities significantly faster.
+* Reduced stack depth of System.Update / OnUpdate method (So it looks better in debugger)
+* Assert when using EntityQuery from another world
+* Using an EntityQuery created in one world on another world was resulting in memory corruption. We now detect it in the EntityManager API and throw an argument exception
+* Structural changes now go through a bursted codepath and are significantly faster
+* DynamicBuffer.Capacity is now settable
+
+
+### Fixes
+
+* Remove unnecessary & incorrect warning in DeclareReferencedPrefab when the referenced game object is a scene object
+* GameObjects with ConvertAndInject won't get detached from a non-converted parent (fixes regression) 
+* Fixed a crash that could occur when destroying an entity with an empty LinkedEntityGroup.
+* Updated performance package dependency to 1.3.2 which fixes an obsoletion warning
+* The `EntityCommandBuffer` can be replayed repeatedly.
+* Fixed exception in entity binary scene serialization when referencing a null UnityEngine.Object from a shared component
+* Moving scripts between assemblies now triggers asset bundle rebuilds where necessary for live link
+* Fixed LiveLink on Android
+
+
 ## [0.3.0] - 2019-12-03
 
 ### New Features
 
-* ENABLE_SIMPLE_SYSTEM_DEPENDENCIES define can now be used to replace the automatic dependency chaining with a much simplified strategy. With ENABLE_SIMPLE_SYSTEM_DEPENDENCIES it simply chains jobs in the order of the systems against previous jobs. Without ENABLE_SIMPLE_SYSTEM_DEPENDENCIES, dependencies are automatically chained based on read / write access of component data of each system. In cases when there game code is forced to very few cores, this can improve performance since it reduces overhead in calculating optimal dependencies.
+* ENABLE_SIMPLE_SYSTEM_DEPENDENCIES define can now be used to replace the automatic dependency chaining with a much simplified strategy. With ENABLE_SIMPLE_SYSTEM_DEPENDENCIES it simply chains jobs in the order of the systems against previous jobs. Without ENABLE_SIMPLE_SYSTEM_DEPENDENCIES, dependencies are automatically chained based on read / write access of component data of each system. In cases when there game code is forced to very few cores or there are many systems, this can improve performance since it reduces overhead in calculating optimal dependencies.
+* Added `DebuggerTypeProxy` for `MultiListEnumerator<T>` (e.g. this makes the results of `GameObjectConversionSystem.GetEntities` calls readable in the debugger)
 * Two new methods added to the public API:
   * EntityManager.CreateEntity(Archetype type, int count, Allocator allocator);
   * EntityManager.Instantiate(Entity entity, int count, Allocator allocator);
@@ -23,10 +64,8 @@ Removed the following deprecated API as announced in/before `0.1.1-preview`:
 ### Fixes
 
 * ConvertAndInject won't destroy the root GameObject anymore (fixes regression introduced in 0.2.0)
-* Fix Android build when using new build pipeline
-  * Provide correct application extension apk, aab or empty for project export
-  * Set package name to be com.UnityTechnologies.Samples
-  * Set API Compatibility to be .NET Standard 2.0
+* Fix Android/iOS build when using new build pipeline
+  * Provide correct application extension apk, aab or empty for project export when building to Android
 
 
 ## [0.2.0] - 2019-11-22
@@ -90,6 +129,7 @@ Removed the following deprecated API as announced in/before `0.1.1-preview`:
 
 ### Changes
 
+* Deprecated `DynamicBuffer.Reserve` and made `DynamicBuffer.Capacity` a settable property. `DynamicBuffer.Reserve(10)` should now be `DynamicBuffer.Capacity = 10`.
 * Moved `NativeString` code from Unity.Entities to Unity.Collections.
 * Updated dependencies for this package.
 * Significantly improved `Entity` instantiation performance when running in-Editor.
@@ -133,9 +173,6 @@ class MyCustomBootStrap : ICustomBootstrap
 * Updated `com.unity.platforms` to `0.1.6-preview`.
 * The default Api Compatibility Level should now be `.NET Standard 2.0` and a warning is generated when the project uses `.NET 4.x`.
 * Added `[UnityEngine.ExecuteAlways]` to `LateSimulationSystemGroup`, so its systems run in Edit Mode.
-
-### Known Issues
-
 
 
 ## [0.1.1] - 2019-08-06

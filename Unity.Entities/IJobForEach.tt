@@ -156,7 +156,7 @@ foreach(var combination in combinations) {
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_<#=comboString#><T>.Cache.EntityQuery;
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery.m_QueryData->MatchingArchetypes, resolvedQuery.m_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
 
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_<#=comboString#><T>.Cache, deferredCountData, prefilterHandle, mode);
         }

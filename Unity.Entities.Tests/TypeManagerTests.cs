@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.Tests;
+using Unity.Transforms;
+
 #pragma warning disable 649
 
 [assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<int>))]
@@ -146,6 +149,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void TestCreateTypeIndexFor()
         {
+#pragma warning disable 618
             int typeIndex = TypeManager.CreateTypeIndexForComponent<EcsTestData>();
             Assert.Greater(typeIndex, 1);
 
@@ -175,6 +179,7 @@ namespace Unity.Entities.Tests
             Assert.Greater(typeIndex, 1);
             Assert.IsTrue(TypeManager.IsSharedComponent(typeIndex));
         }
+#pragma warning restore 618
 #endif
 
         [Test]
@@ -409,6 +414,152 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(TypeManager.IsAssemblyReferencingEntities(typeof(IComponentData).Assembly));
             Assert.IsTrue(TypeManager.IsAssemblyReferencingEntities(typeof(EcsTestData).Assembly));
         }
+
+        class TestSystem : ComponentSystem
+        {
+            EntityQuery m_EntityQuery;
+
+            protected override void OnCreate()
+            {
+                m_EntityQuery = GetEntityQuery(typeof(Translation));
+            }
+
+            protected override void OnUpdate()
+            {
+                Entities.With(m_EntityQuery).ForEach((Entity e, ref Translation t) =>
+                {
+                });
+            }
+        }
+
+        [DisableAutoTypeRegistration]
+        public struct UnregisteredComponent : IComponentData
+        {
+            public int Int;
+        }
+        
+        [Test]
+        public void AddNewComponentTypes()
+        {
+            Dictionary<int, TypeManager.TypeInfo> typeInfoMap = new Dictionary<int, TypeManager.TypeInfo>();
+            Dictionary<int, int[]> entityOffsetMap = new Dictionary<int, int[]>();
+            Dictionary<int, int[]> blobOffsetMap = new Dictionary<int, int[]>();
+            Dictionary<int, int[]> writeGroupMap = new Dictionary<int, int[]>();
+
+            void AddTypeInfoToCache(TypeManager.TypeInfo ti)
+            {
+                unsafe
+                {
+                    var typeIndex = ti.TypeIndex;
+                    var entityOffsets = new int[ti.EntityOffsetCount];
+                    var blobOffsets = new int[ti.BlobAssetRefOffsetCount];
+                    var writeGroups = new int[ti.WriteGroupCount];
+
+                    typeInfoMap.Add(typeIndex, ti);
+
+                    var pEntityOffsets = TypeManager.GetEntityOffsets(ti);
+                    for (int i = 0; i < ti.EntityOffsetCount; ++i)
+                        entityOffsets[i] = pEntityOffsets[i].Offset;
+                    entityOffsetMap.Add(typeIndex, entityOffsets);
+
+                    var pBlobOffsets = TypeManager.GetBlobAssetRefOffsets(ti);
+                    for (int i = 0; i < ti.BlobAssetRefOffsetCount; ++i)
+                        blobOffsets[i] = pBlobOffsets[i].Offset;
+                    blobOffsetMap.Add(typeIndex, blobOffsets);
+
+                    var pWriteGroups = TypeManager.GetWriteGroups(ti);
+                    for (int i = 0; i < ti.WriteGroupCount; ++i)
+                        writeGroups[i] = pWriteGroups[i];
+                    writeGroupMap.Add(typeIndex, writeGroups);
+                }
+            }
+
+            unsafe void EnsureMatch(TypeManager.TypeInfo expected, TypeManager.TypeInfo actual)
+            {
+                Assert.AreEqual(expected.TypeIndex, actual.TypeIndex);
+                Assert.AreEqual(expected.SizeInChunk, actual.SizeInChunk);
+                Assert.AreEqual(expected.ElementSize, actual.ElementSize);
+                Assert.AreEqual(expected.AlignmentInBytes, actual.AlignmentInBytes);
+                Assert.AreEqual(expected.BufferCapacity, actual.BufferCapacity);
+                Assert.AreEqual(expected.FastEqualityIndex, actual.FastEqualityIndex);
+                Assert.AreEqual(expected.Category, actual.Category);
+
+                Assert.AreEqual(expected.EntityOffsetCount, actual.EntityOffsetCount);
+                var expectedEntityOffsets = entityOffsetMap[expected.TypeIndex];
+                var pActualEntityOffsets = TypeManager.GetEntityOffsets(actual);
+                for (int i = 0; i < actual.EntityOffsetCount; ++i)
+                {
+                    Assert.AreEqual(expectedEntityOffsets[i], pActualEntityOffsets[i].Offset);
+                }
+
+                Assert.AreEqual(expected.BlobAssetRefOffsetCount, actual.BlobAssetRefOffsetCount);
+                var expectedBlobOffsets = blobOffsetMap[expected.TypeIndex];
+                var pActualBlobOffsets = TypeManager.GetBlobAssetRefOffsets(actual);
+                for (int i = 0; i < actual.BlobAssetRefOffsetCount; ++i)
+                {
+                    Assert.AreEqual(expectedBlobOffsets[i], pActualBlobOffsets[i].Offset);
+                }
+
+                Assert.AreEqual(expected.WriteGroupCount, actual.WriteGroupCount);
+                var expectedWriteGroups = writeGroupMap[expected.TypeIndex];
+                var pActualWriteGroups = TypeManager.GetWriteGroups(actual);
+                for (int i = 0; i < actual.WriteGroupCount; ++i)
+                {
+                    Assert.AreEqual(expectedWriteGroups[i], pActualWriteGroups[i]);
+                }
+
+                Assert.AreEqual(expected.MemoryOrdering, actual.MemoryOrdering);
+                Assert.AreEqual(expected.StableTypeHash, actual.StableTypeHash);
+                Assert.AreEqual(expected.MaximumChunkCapacity, actual.MaximumChunkCapacity);
+                Assert.AreEqual(expected.AlignmentInChunkInBytes, actual.AlignmentInChunkInBytes);
+                Assert.AreEqual(expected.Type, actual.Type);
+                Assert.AreEqual(expected.IsZeroSized, actual.IsZeroSized);
+                Assert.AreEqual(expected.HasWriteGroups, actual.HasWriteGroups);
+                Assert.AreEqual(expected.HasEntities, actual.HasEntities);
+            }
+
+            foreach (var ti in TypeManager.AllTypes)
+            {
+                AddTypeInfoToCache(ti);
+            }
+
+            World w = new World("AddNewComponentsTestWorld");
+            w.GetOrCreateSystem<TestSystem>();
+
+            // Ensure all the Types in the TypeManager match what we think they are
+            foreach (var ti in TypeManager.AllTypes)
+                EnsureMatch(typeInfoMap[ti.TypeIndex], ti);
+
+            var typeToAdd = typeof(UnregisteredComponent);
+            Assert.Throws<ArgumentException>(() => TypeManager.GetTypeIndex(typeToAdd));
+            TypeManager.AddNewComponentTypes(new Type[] { typeToAdd });
+
+            // Now that we added a new type, again ensure all the Types in the TypeManager match what we think they are
+            // to ensure adding the new type didn't change any other type info
+            foreach (var ti in TypeManager.AllTypes)
+            {
+                if (typeInfoMap.ContainsKey(ti.TypeIndex))
+                    EnsureMatch(typeInfoMap[ti.TypeIndex], ti);
+                else
+                {
+                    // We should only enter this case for 'UnregisteredComponent'
+                    Assert.AreEqual(ti.Type, typeof(UnregisteredComponent));
+                    AddTypeInfoToCache(ti);
+                }
+            }
+
+            var e2 = w.EntityManager.CreateEntity(typeof(Translation), typeToAdd);
+
+            // If adding the type did not succeed we might throw for many different reasons
+            // stemming from bad type information. In fact even succeeding could cause issues if someone caches the
+            // internal SharedStatic pointers (which is done, and now handled for, in the EntityComponentStore) 
+            Assert.DoesNotThrow(()=> w.Update());
+            Assert.DoesNotThrow(() => w.EntityManager.CreateEntity(typeof(Translation), typeToAdd));
+            Assert.DoesNotThrow(() => TypeManager.GetTypeIndex(typeToAdd));
+
+            // We do not allow anyone to re-add the same type so ensure we throw
+            Assert.Throws<ArgumentException>(()=>TypeManager.AddNewComponentTypes(new Type[] { typeToAdd }));
+        }
 #endif
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -446,9 +597,32 @@ namespace Unity.Entities.Tests
         [Test]
         public void TestCreateTypeIndexFor_ManagedComponents()
         {
+#pragma warning disable 618
             int typeIndex = TypeManager.CreateTypeIndexForComponent<EcsTestManagedComponent>();
+#pragma warning restore 618
             Assert.Greater(typeIndex, 1);
             Assert.IsTrue(TypeManager.IsManagedComponent(typeIndex));
+        }
+        
+#pragma warning disable 649
+        class TestScriptableObjectWithFields : UnityEngine.ScriptableObject
+        {
+            public int Value;
+        }
+        
+        class ComponentWithScriptableObjectReference : IComponentData
+        {
+            public TestScriptableObjectWithFields Value;
+        }
+#pragma warning restore 649
+        [Test]
+        public void TypeManagerGetHashCode_WithNullScriptableObject_DoesNotThrow()
+        {
+            var component = new ComponentWithScriptableObjectReference();
+            Assert.DoesNotThrow(() =>
+            {
+                TypeManager.GetHashCode(component, TypeManager.GetTypeIndex<ComponentWithScriptableObjectReference>());
+            });
         }
 #endif
 #endif

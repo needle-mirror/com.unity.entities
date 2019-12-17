@@ -48,35 +48,36 @@ namespace Unity.Entities.Editor
         {
 
             private readonly SelectEntityButtonCallback m_selectButtonCallback;
-            private readonly ShowSelectEntityCallback m_showButtonCallback;
+            private readonly IgnoreEntityCallback m_ignoreEntityCallback;
+            readonly ResolveEntityNameCallback m_resolveNameCallback;
 
-            public EntityIMGUIAdapter(SelectEntityButtonCallback selectButtonCallback, ShowSelectEntityCallback showButtonCallback)
+            public EntityIMGUIAdapter(SelectEntityButtonCallback selectButtonCallback, IgnoreEntityCallback ignoreEntityCallback, ResolveEntityNameCallback resolveEntityNameCallback)
             {
                 m_selectButtonCallback = selectButtonCallback;
-                m_showButtonCallback = showButtonCallback;
+                m_ignoreEntityCallback = ignoreEntityCallback;
+                m_resolveNameCallback = resolveEntityNameCallback;
             }
 
             public VisitStatus Visit<TProperty, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref Entity value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, Entity>
             {
                 InitStyles();
-
-                GUI.enabled = true;
-
-                var pos = EditorGUILayout.GetControlRect();
-                var buttonPos = pos;
-                buttonPos.xMin = buttonPos.xMax - 40f;
-                pos.xMax = pos.xMax - 40f;
-
-                EditorGUI.LabelField(pos, $"{property.GetName()} Index: {value.Index}, Version: {value.Version}", Styles.EntityStyle);
-                if (m_showButtonCallback())
+                
+                if (!m_ignoreEntityCallback())
                 {
+                    GUI.enabled = true;
+                    var pos = EditorGUILayout.GetControlRect();
+                    var buttonPos = pos;
+                    buttonPos.xMin = buttonPos.xMax - 50f;
+                    pos.xMax = pos.xMax - 50f;
+                
+                    EditorGUI.LabelField(pos, $"{property.GetName()}: {m_resolveNameCallback(value)}, Index: {value.Index}, Version: {value.Version}", Styles.EntityStyle);
                     if (GUI.Button(buttonPos, "Select"))
                     {
                         m_selectButtonCallback?.Invoke(value);
                     }
+                    GUI.enabled = false;
                 }
 
-                GUI.enabled = false;
                 return VisitStatus.Handled;
             }
         }
@@ -109,14 +110,15 @@ namespace Unity.Entities.Editor
 
         private const int kBufferPageLength = 5;
 
+        public delegate string ResolveEntityNameCallback(Entity entity);
         public delegate void SelectEntityButtonCallback(Entity entity);
-        public delegate bool ShowSelectEntityCallback();
+        public delegate bool IgnoreEntityCallback();
 
-        public EntityIMGUIVisitor(SelectEntityButtonCallback selectEntityButtonCallback, ShowSelectEntityCallback shouldShowButtonCallback)
+        public EntityIMGUIVisitor(SelectEntityButtonCallback selectEntityButtonCallback, IgnoreEntityCallback shouldIgnoreEntityCallback, ResolveEntityNameCallback resolveEntityNameCallback)
         {
             AddAdapter(new IMGUIPrimitivesAdapter());
             AddAdapter(new IMGUIMathematicsAdapter());
-            AddAdapter(new EntityIMGUIAdapter(selectEntityButtonCallback, shouldShowButtonCallback));
+            AddAdapter(new EntityIMGUIAdapter(selectEntityButtonCallback, shouldIgnoreEntityCallback, resolveEntityNameCallback));
         }
 
         protected override VisitStatus Visit<TProperty, TContainer, TValue>(TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker)

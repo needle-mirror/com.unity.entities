@@ -134,7 +134,7 @@ namespace Unity.Entities
         // ============
 
 #if ENABLE_PROFILER
-        Profiling.ProfilerMarker m_ProfilerMarker;
+        internal Profiling.ProfilerMarker m_ProfilerMarker;
 #endif
 
 #if (!NET_DOTS) && ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -183,7 +183,6 @@ namespace Unity.Entities
                 OnCreateForCompiler();
                 OnCreate();
                 
-
 #if ENABLE_PROFILER
                 m_ProfilerMarker = new Profiling.ProfilerMarker($"{world.Name} {TypeManager.SystemName(GetType())}");
 #endif
@@ -292,15 +291,7 @@ namespace Unity.Entities
         /// <seealso cref="JobComponentSystem"/>
         /// <seealso cref="ComponentSystemGroup"/>
         /// <seealso cref="EntityCommandBufferSystem"/>
-        public void Update()
-        {
-#if ENABLE_PROFILER
-            using (m_ProfilerMarker.Auto())
-#endif
-            {
-                InternalUpdate();
-            }
-        }
+        abstract public void Update();
 
         // ===================
 
@@ -418,7 +409,7 @@ namespace Unity.Entities
             foreach (var query in m_EntityQueries)
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                query.DisallowDisposing = null;
+                query._DisallowDisposing = null;
 #endif
                 query.Dispose();
             }
@@ -431,9 +422,7 @@ namespace Unity.Entities
             m_JobDependencyForReadingSystems.Dispose();
             m_JobDependencyForWritingSystems.Dispose();
         }
-
-        internal abstract void InternalUpdate();
-
+        
         internal virtual void OnBeforeDestroyInternal()
         {
             if (m_PreviouslyEnabled)
@@ -579,6 +568,11 @@ namespace Unity.Entities
         /// vice versa.</remarks>
         public void RequireForUpdate(EntityQuery query)
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (m_AlwaysUpdateSystem)
+                throw new InvalidOperationException($"Cannot require {nameof(EntityQuery)} for update on a system with {nameof(AlwaysSynchronizeSystemAttribute)}");
+#endif
+
             if (m_RequiredEntityQueries == null)
                 m_RequiredEntityQueries = new EntityQuery[1] {query};
             else
@@ -712,7 +706,7 @@ namespace Unity.Entities
         {
             query.SetChangedFilterRequiredVersion(m_LastSystemVersion);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            query.DisallowDisposing = "EntityQuery.Dispose() may not be called on a EntityQuery created with ComponentSystem.GetEntityQuery. The EntityQuery will automatically be disposed by the ComponentSystem.";
+            query._DisallowDisposing = "EntityQuery.Dispose() may not be called on a EntityQuery created with ComponentSystem.GetEntityQuery. The EntityQuery will automatically be disposed by the ComponentSystem.";
 #endif
 
             ArrayUtilityAdd(ref m_EntityQueries, query);

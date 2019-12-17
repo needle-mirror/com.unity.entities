@@ -194,13 +194,15 @@ namespace Unity.Entities.Serialization
                 var closedMethod = openMethod.MakeGenericMethod(tKey, tValue);
                 closedMethod.Invoke(this, new[] { keys, values });
 
-                return VisitStatus.Handled;
+                EndContainer(property, ref container, ref value, ref changeTracker);
+                return VisitStatus.Override;
             }
 #if !NET_DOTS
             else if (typeof(UnityEngine.Object).IsAssignableFrom(typeof(TValue)))
             {
                 AppendObject(value as UnityEngine.Object, ref Buffer);
-                return VisitStatus.Handled;
+                EndContainer(property, ref container, ref value, ref changeTracker);
+                return VisitStatus.Override;
             }
 #endif
             else if (value == null)
@@ -395,7 +397,8 @@ namespace Unity.Entities.Serialization
                 var populateMethod = closedDictContainerType.GetMethods(BindingFlags.Public | BindingFlags.Instance).Single(m => m.Name == "PopulateDictionary");
                 populateMethod.Invoke(dictContainer, new object[] { value });
 
-                return VisitStatus.Handled;
+                EndContainer(property, ref container, ref value, ref changeTracker);
+                return VisitStatus.Override;
             }
 #if !NET_DOTS
             else if (typeof(UnityEngine.Object).IsAssignableFrom(typeof(TValue)))
@@ -406,7 +409,8 @@ namespace Unity.Entities.Serialization
                 var unityObject = ReadObject(_PrimitiveReader.Buffer);
                 Unsafe.As<TValue, UnityEngine.Object>(ref value) = unityObject;
                 
-                return VisitStatus.Handled;
+                EndContainer(property, ref container, ref value, ref changeTracker);
+                return VisitStatus.Override;
             }
             else if (value == null || typeof(TValue) == typeof(object))
             {

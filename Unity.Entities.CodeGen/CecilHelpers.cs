@@ -75,25 +75,92 @@ namespace Unity.Entities.CodeGen
             return sequencePoints.FirstOrDefault();
         }
 
-        public static (MethodDefinition[], Dictionary<FieldDefinition, FieldDefinition> oldFieldtoNewField) CloneClosureExecuteMethodAndItsLocalFunctions(
-            IEnumerable<MethodDefinition> methodsToClone, TypeDefinition targetType,
-            string newMethodName)
+        static IEnumerable<TypeReference> DisplayClassDescendants(TypeReference rootDisplayClass)
         {
-            Dictionary<FieldDefinition, FieldDefinition> oldFieldtoNewField = new Dictionary<FieldDefinition, FieldDefinition>();
-            var displayClassFieldsUsedByMethod =
-                methodsToClone.SelectMany(method=>method.Body.Instructions)
-                    .Select(i => i.Operand)
-                    .OfType<FieldReference>()
-                    .Where(fr => fr.DeclaringType.TypeReferenceEquals(methodsToClone.First().DeclaringType))
-                    .Select(fr => fr.Resolve())
-                    .Distinct()
-                    .ToArray();
-
-            foreach (var field in displayClassFieldsUsedByMethod)
+            var displayClasses = new Stack<TypeReference>(new[] {rootDisplayClass});
+            while (displayClasses.Any())
             {
-                var newField = new FieldDefinition(field.Name, field.Attributes, field.FieldType);
+                TypeReference displayClass = displayClasses.Pop();
+                yield return displayClass;
+                foreach (var displayClassField in displayClass.Resolve().Fields)
+                {
+                    if (displayClassField.FieldType.IsDisplayClass())
+                        displayClasses.Push(displayClassField.FieldType);
+                }
+            }
+        }
+
+        static IEnumerable<Instruction> WalkBackLdFldInstructionsToLdarg0(MethodDefinition containingMethod, Instruction startInstruction)
+        {
+            var currentInstruction = startInstruction;
+            while (currentInstruction != null && currentInstruction.OpCode != OpCodes.Ldarg_0)
+            {
+                if (currentInstruction.OpCode != OpCodes.Ldfld && currentInstruction.OpCode != OpCodes.Ldflda)
+                    InternalCompilerError.DCICE005(containingMethod, currentInstruction).Throw();
+
+                yield return currentInstruction;
+                currentInstruction = currentInstruction.Previous;
+            }
+        }
+        
+        public static (MethodDefinition[], Dictionary<FieldReference, CapturedVariableDescription> capturedVariables) CloneClosureExecuteMethodAndItsLocalFunctions(
+            IEnumerable<MethodDefinition> methodsToClone, TypeDefinition targetType, string newMethodName)
+        {
+            Dictionary<FieldReference, CapturedVariableDescription> capturedVariables = new Dictionary<FieldReference, CapturedVariableDescription>();
+            
+            // Construct list of all DisplayClasses under our declaring type (we need to do this as other delegates might use generate their own DisplayClasses)
+            var lambdaDisplayClasses = DisplayClassDescendants(methodsToClone.First().DeclaringType);
+            
+            // Find all instructions that load or store a variable in one of our DisplayClasses
+            // We use these instructions to discover variables that are captured by our lambda.
+            // Note: we have to look for Stfld instructions as well for the case where a captured variable is only stored into.
+            var instructionsThatLoadsOrStoresVariableInDisplayClass =
+                methodsToClone.SelectMany(method=>method.Body.Instructions)
+                    .Where(i => (i.IsLoadFieldOrLoadFieldAddress() || i.IsStoreField()) && i.Operand is FieldReference &&
+                        !(i.Operand as FieldReference).FieldType.IsDisplayClass() && lambdaDisplayClasses.Contains((i.Operand as FieldReference).DeclaringType))
+                    .ToArray();
+            
+            // Walk through instructions that use a captured variable and try to construct list of CapturedVariableDescriptions (old and new fields)
+            foreach (var instructionThatLoadsOrStoresVariableInDisplayClass in instructionsThatLoadsOrStoresVariableInDisplayClass)
+            {
+                var oldField = instructionThatLoadsOrStoresVariableInDisplayClass.Operand as FieldReference;
+                if (capturedVariables.ContainsKey(oldField))
+                    continue;
+                
+                var oldFields = new List<FieldReference>();
+                oldFields.Add(oldField);
+                
+                var containingMethod = methodsToClone.Single(m => m.Body.Instructions.Contains(instructionThatLoadsOrStoresVariableInDisplayClass));
+                var initialLdFldInstruction = CecilHelpers.FindInstructionThatPushedArg(containingMethod, 0, instructionThatLoadsOrStoresVariableInDisplayClass);
+                foreach (var instruction in WalkBackLdFldInstructionsToLdarg0(containingMethod, initialLdFldInstruction))
+                {
+                    var field = instruction.Operand as FieldReference;
+                    oldFields.Insert(0, field);
+                }
+
+                var oldFieldDefinition = oldField.Resolve();
+                var newField = new FieldDefinition(oldFieldDefinition.Name, oldFieldDefinition.Attributes, oldFieldDefinition.FieldType);
+                capturedVariables[oldField] = new CapturedVariableDescription()
+                {
+                    ChainOfFieldsToOldField = oldFields.ToArray(),
+                    NewField = newField
+                };
                 targetType.Fields.Add(newField);
-                oldFieldtoNewField.Add(field,newField);
+            }
+            
+            // Walk through all instructions that load or store are captured variables and nop out nested DisplayClasses
+            var instructionsThatLoadOrStoreCapturedVariable =
+                methodsToClone.SelectMany(method => method.Body.Instructions)
+                    .Where(i => ((i.IsLoadFieldOrLoadFieldAddress() || i.IsStoreField()) &&
+                                 capturedVariables.Keys.Any(fr => fr == (i.Operand as FieldReference)))).ToArray();
+            foreach (var instructionThatLoadOrStoreCapturedVariable in instructionsThatLoadOrStoreCapturedVariable)
+            {
+                var containingMethod = methodsToClone.Single(m => m.Body.Instructions.Contains(instructionThatLoadOrStoreCapturedVariable));
+                var initialLdFldInstruction = CecilHelpers.FindInstructionThatPushedArg(containingMethod, 0, instructionThatLoadOrStoreCapturedVariable);
+                foreach (var instruction in WalkBackLdFldInstructionsToLdarg0(containingMethod, initialLdFldInstruction))
+                {
+                    instruction.MakeNOP();
+                }
             }
 
             var executeMethod = methodsToClone.First();
@@ -105,7 +172,8 @@ namespace Unity.Entities.CodeGen
                 {
                     var clonedMethod = new MethodDefinition(m == executeMethod ? newMethodName : m.Name, MethodAttributes.Public, m.ReturnType)
                             {HasThis = m.HasThis, DeclaringType = targetType};
-                    clonedMethod.DebugInformation.Scope = new ScopeDebugInformation(m.Body.Instructions.First(), null);
+                    clonedMethod.DebugInformation.Scope = m.DebugInformation.Scope;
+                    
                     targetType.Methods.Add(clonedMethod);
                     return clonedMethod;
                 }
@@ -151,8 +219,8 @@ namespace Unity.Entities.CodeGen
                     var clonedOperand = instruction.Operand;
                     if (clonedOperand is FieldReference fr)
                     {
-                        if (oldFieldtoNewField.TryGetValue(fr.Resolve(), out var replacement))
-                            clonedOperand = replacement;
+                        if (capturedVariables.TryGetValue(clonedOperand as FieldReference, out var capturedVariableForField))
+                        clonedOperand = capturedVariableForField.NewField;
                     }
 
                     if (clonedOperand is VariableDefinition vd)
@@ -193,7 +261,7 @@ namespace Unity.Entities.CodeGen
                 }
             }
 
-            return (clonedMethods.Values.ToArray(), oldFieldtoNewField);
+            return (clonedMethods.Values.ToArray(), capturedVariables);
         }
 
 
@@ -579,6 +647,9 @@ namespace Unity.Entities.CodeGen
 
                 if (mr.DeclaringType.Name == typeof(LambdaJobChunkDescriptionConstructionMethods.JobChunkDelegate).Name && mr.DeclaringType.DeclaringType?.Name == nameof(LambdaJobChunkDescriptionConstructionMethods))
                     continue;
+                
+                if (mr.DeclaringType.Name == typeof(LambdaSimpleJobDescriptionConstructionMethods.WithCodeAction).Name && mr.DeclaringType.DeclaringType?.Name == nameof(LambdaSimpleJobDescriptionConstructionMethods))
+                    continue;
 
                 //ok, it walks like a delegate constructor invocation, let's see if it talks like one:
                 var constructedType = mr.DeclaringType.Resolve();
@@ -600,21 +671,24 @@ namespace Unity.Entities.CodeGen
             constructorDefinition.Body.GetILProcessor().Emit(OpCodes.Ret);
         }
 
-        public static void PatchMethodThatUsedDisplayClassToTreatItAsAStruct(MethodBody body, VariableDefinition displayClassVariable, TypeReference displayClassTypeReference)
+        public static void PatchMethodThatUsedDisplayClassToTreatItAsAStruct(MethodBody body, VariableDefinition displayClassVariable)
         {
+            var displayClassTypeReference = displayClassVariable.VariableType;
             var instructions = body.Instructions.ToArray();
             var ilProcessor = body.GetILProcessor();
-            
+
             foreach (var instruction in instructions)
             {
-                //we will replace all LdLoc of our displayclass to LdLoca_S of our displayclass variable that now lives on the stack.
-                if (instruction.IsLoadLocal(out int loadIndex) && displayClassVariable.Index == loadIndex)
+                // We will replace all LdLoc of our displayclass to LdLoca of our displayclass variable that now lives on the stack.
+                // Except in the case where we are storing a nested DisplayClass!
+                if ((instruction.IsLoadLocal(out int loadIndex) && displayClassVariable.Index == loadIndex) &&
+                    !(instruction.Next != null && instruction.Next.OpCode == OpCodes.Stfld && (instruction.Next.Operand as FieldReference).IsNestedDisplayClassField()))
                 {
-                    instruction.OpCode = OpCodes.Ldloca_S;
+                    instruction.OpCode = OpCodes.Ldloca;
                     instruction.Operand = body.Variables[loadIndex];
                 }
 
-                //Roselyn should never double assign the DisplayClass to a variable, throw if we somehow detect this.
+                // Roselyn should never double assign the DisplayClass to a variable, throw if we somehow detect this.
                 if (instruction.IsStoreLocal(out int storeIndex) && displayClassVariable.Index == storeIndex)
                 {
                     InternalCompilerError.DCICE003(body.Method, instruction).Throw();
@@ -625,8 +699,8 @@ namespace Unity.Entities.CodeGen
                     return thisInstruction.OpCode.Code == Code.Newobj && ((MethodReference) thisInstruction.Operand).DeclaringType.TypeReferenceEquals(displayClassTypeReference);
                 }
 
-                //we need to replace the creation of the displayclass object on the heap, with a initobj of the displayclass on the stack.
-                //the final sequence will be ldloca, initobj (which will replace newobj, stloc.1.
+                // We need to replace the creation of the displayclass object on the heap, with a initobj of the displayclass on the stack.
+                // The final sequence will be ldloca, initobj (which will replace newobj, stloc.1.
                 if (IsInstructionNewObjOfDisplayClass(instruction))
                 {
                     // Remove next stloc.1 instruction so that we can replace both of these with the instructions below
@@ -708,7 +782,6 @@ namespace Unity.Entities.CodeGen
                             UserError.DC0010(containingMethod, cursor).Throw();
                     }
                 }
-
 
                 for (int i = 0; i != pushAmount; i++)
                 {

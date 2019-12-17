@@ -23,7 +23,7 @@ namespace Unity.Entities
                 var chunk = iterator.CurrentArchetypeChunk;
                 for (int entityIndex = 0; entityIndex < chunk.Count; ++entityIndex)
                 {
-                    arr[entityCounter++] = (T) iterator.GetManagedObject(group.ManagedComponentStore, indexInEntityQuery, entityIndex);
+                    arr[entityCounter++] = (T) iterator.GetManagedObject(group._ManagedComponentStore, indexInEntityQuery, entityIndex);
                 }
             }
             
