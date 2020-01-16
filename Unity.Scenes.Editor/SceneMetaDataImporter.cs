@@ -46,7 +46,7 @@ class SceneMetaDataImporter : ScriptedImporter
 
             var metaPath = ctx.GetResultPath("scenemeta");
             var subScenes = SubScene.AllSubScenes;
-            var sceneGuids = subScenes.Select(x => x.SceneGUID).Distinct().ToArray();
+            var sceneGuids = subScenes.Where(x => x.SceneGUID != default(Hash128)).Select(x => x.SceneGUID).Distinct().ToArray();
 
             var builder = new BlobBuilder(Allocator.Temp);
             ref var metaData = ref builder.ConstructRoot<SceneMetaData>();

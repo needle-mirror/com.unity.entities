@@ -9,6 +9,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
+using System;
 using System.Diagnostics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -18,7 +19,7 @@ namespace Unity.Entities
 {
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(UnsafeIntListDebugView))]
-    internal unsafe struct UnsafeIntList
+    internal unsafe struct UnsafeIntList : IDisposable
     {
         [NativeDisableUnsafePtrRestriction]
         public readonly int* Ptr;
@@ -103,7 +104,7 @@ namespace Unity.Entities
 
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(UnsafeUintListDebugView))]
-    internal unsafe struct UnsafeUintList
+    internal unsafe struct UnsafeUintList : IDisposable
     {
         [NativeDisableUnsafePtrRestriction]
         public readonly uint* Ptr;
@@ -188,7 +189,7 @@ namespace Unity.Entities
 
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(UnsafeChunkPtrListDebugView))]
-    internal unsafe struct UnsafeChunkPtrList
+    internal unsafe struct UnsafeChunkPtrList : IDisposable
     {
         [NativeDisableUnsafePtrRestriction]
         public readonly Chunk** Ptr;
@@ -270,7 +271,7 @@ namespace Unity.Entities
     }
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(UnsafeArchetypePtrListDebugView))]
-    internal unsafe struct UnsafeArchetypePtrList
+    internal unsafe struct UnsafeArchetypePtrList : IDisposable
     {
         [NativeDisableUnsafePtrRestriction]
         public readonly Archetype** Ptr;
@@ -352,7 +353,7 @@ namespace Unity.Entities
     }
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(UnsafeEntityQueryDataPtrListDebugView))]
-    internal unsafe struct UnsafeEntityQueryDataPtrList
+    internal unsafe struct UnsafeEntityQueryDataPtrList : IDisposable
     {
         [NativeDisableUnsafePtrRestriction]
         public readonly EntityQueryData** Ptr;

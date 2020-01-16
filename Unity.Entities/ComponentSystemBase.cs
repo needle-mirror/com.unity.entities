@@ -586,7 +586,7 @@ namespace Unity.Entities
         public void RequireSingletonForUpdate<T>()
         {
             var type = ComponentType.ReadOnly<T>();
-            var query = GetEntityQueryInternal(&type, 1);
+            var query = GetSingletonEntityQueryInternal(type);
             RequireForUpdate(query);
         }
 
@@ -599,7 +599,7 @@ namespace Unity.Entities
             where T : struct, IComponentData
         {
             var type = ComponentType.ReadOnly<T>();
-            var query = GetEntityQueryInternal(&type, 1);
+            var query = GetSingletonEntityQueryInternal(type);
             return query.CalculateEntityCount() == 1;
         }
 
@@ -613,8 +613,7 @@ namespace Unity.Entities
             where T : struct, IComponentData
         {
             var type = ComponentType.ReadOnly<T>();
-            var query = GetEntityQueryInternal(&type, 1);
-
+            var query = GetSingletonEntityQueryInternal(type);
             return query.GetSingleton<T>();
         }
 
@@ -628,7 +627,7 @@ namespace Unity.Entities
             where T : struct, IComponentData
         {
             var type = ComponentType.ReadWrite<T>();
-            var query = GetEntityQueryInternal(&type, 1);
+            var query = GetSingletonEntityQueryInternal(type);
             query.SetSingleton(value);
         }
 
@@ -641,8 +640,7 @@ namespace Unity.Entities
         public Entity GetSingletonEntity<T>()
         {
             var type = ComponentType.ReadOnly<T>();
-            var query = GetEntityQueryInternal(&type, 1);
-
+            var query = GetSingletonEntityQueryInternal(type);
             return query.GetSingletonEntity();
         }
 
@@ -660,6 +658,31 @@ namespace Unity.Entities
             {
                 CompleteDependencyInternal();
             }
+        }
+
+        // Fast path for singletons
+        internal EntityQuery GetSingletonEntityQueryInternal(ComponentType type)
+        {
+            for (var i = 0; i != m_EntityQueries.Length; i++)
+            {
+                var queryData = m_EntityQueries[i]._QueryData;
+
+                // EntityQueries are constructed including the Entity ID
+                if (2 != queryData->RequiredComponentsCount)
+                    continue;
+
+                if (queryData->RequiredComponents[i + 1] != type)
+                    continue;
+                
+                return m_EntityQueries[i];
+            }
+            
+            var query = EntityManager.CreateEntityQuery(&type, 1);
+
+            AddReaderWriters(query);
+            AfterQueryCreated(query);
+
+            return query;
         }
 
         internal EntityQuery GetEntityQueryInternal(ComponentType* componentTypes, int count)
@@ -759,7 +782,7 @@ namespace Unity.Entities
         public static bool HasSingleton<T>(this ComponentSystemBase sys) where T : class, IComponentData
         {
             var type = ComponentType.ReadOnly<T>();
-            var query = sys.GetEntityQueryInternal(&type, 1);
+            var query = sys.GetSingletonEntityQueryInternal(type);
             return query.CalculateEntityCount() == 1;
         }
 
@@ -772,8 +795,7 @@ namespace Unity.Entities
         public static T GetSingleton<T>(this ComponentSystemBase sys) where T : class, IComponentData
         {
             var type = ComponentType.ReadOnly<T>();
-            var query = sys.GetEntityQueryInternal(&type, 1);
-
+            var query = sys.GetSingletonEntityQueryInternal(type);
             return query.GetSingleton<T>();
         }
 
@@ -786,7 +808,7 @@ namespace Unity.Entities
         public static void SetSingleton<T>(this ComponentSystemBase sys, T value) where T : class, IComponentData
         {
             var type = ComponentType.ReadWrite<T>();
-            var query = sys.GetEntityQueryInternal(&type, 1);
+            var query = sys.GetSingletonEntityQueryInternal(type);
             query.SetSingleton(value);
         }
     }

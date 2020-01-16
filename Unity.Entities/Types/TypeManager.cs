@@ -1572,19 +1572,19 @@ namespace Unity.Entities
                 bufferCapacity, elementSize > 0 ? elementSize : componentSize, alignmentInBytes, stableTypeHash, writeGroupIndex, writeGroupCount, maxChunkCapacity, isSystemStateSharedComponent, isSystemStateBufferElement, isSystemStateComponent, isManaged);
         }
 
-        [Obsolete("CreateTypeIndexForComponent is deprecated. TypeIndices can be created for new Types using AddNewComponentTypes (editor only) (RemovedAfter 2020-03-3)", false)]
+        [Obsolete("CreateTypeIndexForComponent is deprecated. TypeIndices can be created for new Types using AddNewComponentTypes (editor only) (RemovedAfter 2020-03-03)", false)]
         public static int CreateTypeIndexForComponent<T>() where T : IComponentData
         {
             return GetTypeIndex<T>();
         }
 
-        [Obsolete("CreateTypeIndexForSharedComponent is deprecated. TypeIndices can be created for new Types using AddNewComponentTypes (editor only) (RemovedAfter 2020-03-3)", false)]
+        [Obsolete("CreateTypeIndexForSharedComponent is deprecated. TypeIndices can be created for new Types using AddNewComponentTypes (editor only) (RemovedAfter 2020-03-03)", false)]
         public static int CreateTypeIndexForSharedComponent<T>() where T : struct, ISharedComponentData
         {
             return GetTypeIndex<T>();
         }
 
-        [Obsolete("CreateTypeIndexForBufferElement is deprecated. TypeIndices can be created for new Types using AddNewComponentTypes (editor only) (RemovedAfter 2020-03-3)", false)]
+        [Obsolete("CreateTypeIndexForBufferElement is deprecated. TypeIndices can be created for new Types using AddNewComponentTypes (editor only) (RemovedAfter 2020-03-03)", false)]
         public static int CreateTypeIndexForBufferElement<T>() where T : struct, IBufferElementData
         {
             return GetTypeIndex<T>();

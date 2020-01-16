@@ -678,6 +678,7 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(1, DstEntityManager.Debug.EntityCount);
                 Assert.AreEqual(9, GetComponentData<EcsTestData>(DstEntityManager, entityGuid).value);
                 Assert.AreEqual("SomeString", GetManagedComponentData<EcsTestManagedComponent>(DstEntityManager, entityGuid).value);
+                Assert.IsNull(GetManagedComponentData<EcsTestManagedComponent>(DstEntityManager, entityGuid).nullField);
 
                 // Mutate some component data.
                 SrcEntityManager.SetComponentData(entity, entityGuid);
@@ -689,6 +690,7 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(1, DstEntityManager.Debug.EntityCount);
                 Assert.AreEqual(10, GetComponentData<EcsTestData>(DstEntityManager, entityGuid).value);
                 Assert.AreEqual("SomeOtherString", GetManagedComponentData<EcsTestManagedComponent>(DstEntityManager, entityGuid).value);
+                Assert.IsNull(GetManagedComponentData<EcsTestManagedComponent>(DstEntityManager, entityGuid).nullField);
 
                 // Destroy the entity
                 SrcEntityManager.DestroyEntity(entity);
@@ -724,6 +726,8 @@ namespace Unity.Entities.Tests
 
                 Assert.AreEqual(GetEntity(DstEntityManager, entityGuid1), GetManagedComponentData<EcsTestManagedDataEntity>(DstEntityManager, entityGuid0).value1);
                 Assert.AreEqual(GetEntity(DstEntityManager, entityGuid0), GetManagedComponentData<EcsTestManagedDataEntity>(DstEntityManager, entityGuid1).value1);
+                Assert.IsNull(GetManagedComponentData<EcsTestManagedDataEntity>(DstEntityManager, entityGuid0).nullField);
+                Assert.IsNull(GetManagedComponentData<EcsTestManagedDataEntity>(DstEntityManager, entityGuid1).nullField);
             }
         }
 
@@ -752,6 +756,8 @@ namespace Unity.Entities.Tests
 
                 var c0 = GetManagedComponentData<EcsTestManagedDataEntityCollection>(DstEntityManager, entityGuid0);
                 var c1 = GetManagedComponentData<EcsTestManagedDataEntityCollection>(DstEntityManager, entityGuid1);
+                Assert.IsNull(c0.nullField);
+                Assert.IsNull(c1.nullField);
                 Assert.AreEqual(GetEntity(DstEntityManager, entityGuid1), c0.value1[0]);
                 Assert.AreEqual(GetEntity(DstEntityManager, entityGuid1), c0.value1[1]);
                 Assert.AreEqual(GetEntity(DstEntityManager, entityGuid1), c0.value1[2]);
@@ -788,7 +794,9 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(10, GetComponentData<EcsTestData2>(DstEntityManager, entityGuid).value0);
                 Assert.AreEqual(-1, GetComponentData<EcsTestData>(DstEntityManager, entityGuid).value);
                 Assert.AreEqual("SomeOtherString", GetManagedComponentData<EcsTestManagedComponent2>(DstEntityManager, entityGuid).value);
+                Assert.IsNull(GetManagedComponentData<EcsTestManagedComponent2>(DstEntityManager, entityGuid).nullField);
                 Assert.AreEqual("YetAnotherString", GetManagedComponentData<EcsTestManagedComponent>(DstEntityManager, entityGuid).value);
+                Assert.IsNull(GetManagedComponentData<EcsTestManagedComponent>(DstEntityManager, entityGuid).nullField);
             }
         }
 
@@ -818,6 +826,7 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(HasManagedComponent<EcsTestManagedComponent>(DstEntityManager, entityGuid));
                 Assert.AreEqual(-1, GetComponentData<EcsTestData2>(DstEntityManager, entityGuid).value0);
                 Assert.AreEqual("YetAnotherString", GetManagedComponentData<EcsTestManagedComponent2>(DstEntityManager, entityGuid).value);
+                Assert.IsNull(GetManagedComponentData<EcsTestManagedComponent2>(DstEntityManager, entityGuid).nullField);
             }
         }
 

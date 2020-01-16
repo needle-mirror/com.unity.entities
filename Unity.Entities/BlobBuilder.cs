@@ -401,11 +401,8 @@ namespace Unity.Entities
             m_patches.Dispose();
         }
         
-        [Obsolete("The Allocate parameters have been reversed for consistency. Please swap length & BlobArray parameter order")]
+        [Obsolete("The Allocate parameters have been reversed for consistency. Please swap length & BlobArray parameter order. (RemovedAfter 2020-04-09)")]
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public BlobBuilderArray<T> Allocate<T>(int length, ref BlobArray<T> ptr) where T : struct
-        {
-            return Allocate<T>(ref ptr, length);
-        }
+        public BlobBuilderArray<T> Allocate<T>(int length, ref BlobArray<T> ptr) where T : struct => Allocate(ref ptr, length);
     }
 }

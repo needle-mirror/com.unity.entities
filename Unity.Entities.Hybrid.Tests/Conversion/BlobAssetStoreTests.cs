@@ -170,14 +170,14 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(context.NeedToComputeBlobAsset(k2));
 
                 // Associate the BlobAssets with GO0
-                context.AssociateBlobAssetWithGameObject(k0, go0);
-                context.AssociateBlobAssetWithGameObject(k2, go0);
-                context.AssociateBlobAssetWithGameObject(k4, go0);
+                context.AssociateBlobAssetWithUnityObject(k0, go0);
+                context.AssociateBlobAssetWithUnityObject(k2, go0);
+                context.AssociateBlobAssetWithUnityObject(k4, go0);
                 
                 // Associate the BlobAssets with GO1
-                context.AssociateBlobAssetWithGameObject(k0, go1);
-                context.AssociateBlobAssetWithGameObject(k1, go1);
-                context.AssociateBlobAssetWithGameObject(k2, go1);
+                context.AssociateBlobAssetWithUnityObject(k0, go1);
+                context.AssociateBlobAssetWithUnityObject(k1, go1);
+                context.AssociateBlobAssetWithUnityObject(k2, go1);
 
                 // Check the BlobAsset are retrieved correctly
                 var replayIndex = 0;
@@ -245,13 +245,13 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(context.NeedToComputeBlobAsset(k4));
                 
                 // Associate the BlobAssets with GO0
-                context.AssociateBlobAssetWithGameObject(k1, go0);
-                context.AssociateBlobAssetWithGameObject(k2, go0);
-                context.AssociateBlobAssetWithGameObject(k3, go0);
+                context.AssociateBlobAssetWithUnityObject(k1, go0);
+                context.AssociateBlobAssetWithUnityObject(k2, go0);
+                context.AssociateBlobAssetWithUnityObject(k3, go0);
                 
                 // Associate the BlobAssets with GO1
-                context.AssociateBlobAssetWithGameObject(k3, go1);
-                context.AssociateBlobAssetWithGameObject(k4, go1);
+                context.AssociateBlobAssetWithUnityObject(k3, go1);
+                context.AssociateBlobAssetWithUnityObject(k4, go1);
 
                 // Check BlobAsset are retrieved correctly
                 var replayIndex = 0;

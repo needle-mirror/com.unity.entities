@@ -5,5 +5,5 @@
         "Unity.Build.Common.BuildStepSwitchPlatfomClassic, Unity.Build.Common",
         "Unity.Build.Common.BuildStepBuildClassicLiveLink, Unity.Build.Common"
     ],
-    "RunStep": "Unity.Build.Common.RunStepDesktop, Unity.Build.Common"
+    "RunStep": "Unity.Build.Common.RunStepNotImplemented, Unity.Build.Common"
 }

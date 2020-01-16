@@ -53,7 +53,7 @@ namespace Unity.Entities
         public int ComponentTypeIndex;
 
         public int ComponentSize;
-        public BufferHeader TempBuffer;
+        public BufferHeaderNode BufferNode;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -145,12 +145,20 @@ namespace Unity.Entities
         public EntityComponentGCNode* Prev;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct BufferHeaderNode
+    {
+        public BufferHeaderNode* Prev;
+        public BufferHeader TempBuffer;
+    }
+
     [StructLayout(LayoutKind.Sequential, Size = (64 > JobsUtility.CacheLineSize) ? 64 : JobsUtility.CacheLineSize)]
     internal unsafe struct EntityCommandBufferChain
     {
         public ECBChunk* m_Tail;
         public ECBChunk* m_Head;
         public EntityComponentGCNode* m_CleanupList;
+        public BufferHeaderNode* m_BufferCleanupList;
         public CreateCommand*                m_PrevCreateCommand;
         public EntityCommand*                m_PrevEntityCommand;
         public EntityCommandBufferChain* m_NextChain;
@@ -349,6 +357,8 @@ namespace Unity.Entities
 
         public Allocator m_Allocator;
 
+        public PlaybackPolicy m_PlaybackPolicy;
+
         public bool m_ShouldPlayback;
         
         public bool m_DidPlayback;
@@ -514,8 +524,11 @@ namespace Unity.Entities
             cmd->ComponentTypeIndex = typeIndex;
             cmd->ComponentSize = type.SizeInChunk;
 
-            BufferHeader* header = &cmd->TempBuffer;
+            BufferHeader* header = &cmd->BufferNode.TempBuffer;
             BufferHeader.Initialize(header, type.BufferCapacity);
+            
+            cmd->BufferNode.Prev = chain->m_BufferCleanupList;
+            chain->m_BufferCleanupList = &(cmd->BufferNode);
 
             internalCapacity = type.BufferCapacity;
 
@@ -717,6 +730,22 @@ namespace Unity.Entities
     }
 
     /// <summary>
+    /// Specifies if the <see cref="EntityCommandBuffer"/> can be played a single time or multiple times. 
+    /// </summary>
+    public enum PlaybackPolicy
+    {
+        /// <summary>
+        /// The <see cref="EntityCommandBuffer"/> can only be played once. After a first playback, the EntityCommandBuffer must be disposed.
+        /// </summary>
+        SinglePlayback,
+        /// <summary>
+        /// The <see cref="EntityCommandBuffer"/> can be played back more than once.
+        /// </summary>
+        /// <remarks>Even though the EntityCommandBuffer can be played back more than once, no commands can be added after the first playback.</remarks>
+        MultiPlayback
+    }
+
+    /// <summary>
     ///     A thread-safe command buffer that can buffer commands that affect entities and components for later playback.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -802,7 +831,17 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="label">Memory allocator to use for chunks and data</param>
         public EntityCommandBuffer(Allocator label)
-            : this(label, 1)
+            : this(label, 1, PlaybackPolicy.SinglePlayback)
+        {
+        }
+        
+        /// <summary>
+        ///  Creates a new command buffer.
+        /// </summary>
+        /// <param name="label">Memory allocator to use for chunks and data</param>
+        /// <param name="playbackPolicy">Specifies if the EntityCommandBuffer can be played a single time or more than once.</param>
+        public EntityCommandBuffer(Allocator label, PlaybackPolicy playbackPolicy)
+            : this(label, 1, playbackPolicy)
         {
         }
 
@@ -815,15 +854,18 @@ namespace Unity.Entities
         /// -1 will disable leak detection
         /// 0 or positive values
         /// </param>
-        internal EntityCommandBuffer(Allocator label, int disposeSentinelStackDepth)
+        /// <param name="playbackPolicy">Specifies if the EntityCommandBuffer can be played a single time or more than once.</param>
+        internal EntityCommandBuffer(Allocator label, int disposeSentinelStackDepth, PlaybackPolicy playbackPolicy)
         {
             m_Data = (EntityCommandBufferData*)UnsafeUtility.Malloc(sizeof(EntityCommandBufferData), UnsafeUtility.AlignOf<EntityCommandBufferData>(), label);
             m_Data->m_Allocator = label;
+            m_Data->m_PlaybackPolicy = playbackPolicy;
             m_Data->m_MinimumChunkSize = kDefaultMinimumChunkSize;
             m_Data->m_ShouldPlayback = true;
             m_Data->m_DidPlayback = false;
 
             m_Data->m_MainThreadChain.m_CleanupList = null;
+            m_Data->m_MainThreadChain.m_BufferCleanupList = null;
             m_Data->m_MainThreadChain.m_Tail = null;
             m_Data->m_MainThreadChain.m_Head = null;
             m_Data->m_MainThreadChain.m_PrevCreateCommand = null;
@@ -870,13 +912,13 @@ namespace Unity.Entities
 
             if (m_Data != null)
             {
-                FreeChain(&m_Data->m_MainThreadChain);
+                FreeChain(&m_Data->m_MainThreadChain, m_Data->m_PlaybackPolicy, m_Data->m_DidPlayback);
 
                 if (m_Data->m_ThreadedChains != null)
                 {
                     for (int i = 0; i < JobsUtility.MaxJobThreadCount; ++i)
                     {
-                        FreeChain(&m_Data->m_ThreadedChains[i]);
+                        FreeChain(&m_Data->m_ThreadedChains[i], m_Data->m_PlaybackPolicy, m_Data->m_DidPlayback);
                     }
 
                     m_Data->DestroyConcurrentAccess();
@@ -887,7 +929,7 @@ namespace Unity.Entities
             }
         }
 
-        private void FreeChain(EntityCommandBufferChain* chain)
+        private void FreeChain(EntityCommandBufferChain* chain, PlaybackPolicy playbackPolicy, bool didPlayback)
         {
             if (chain == null)
             {
@@ -902,6 +944,20 @@ namespace Unity.Entities
 
             chain->m_CleanupList = null;
 
+            // Buffers played in ecbs which can be played back more than once are always copied during playback.
+            if (playbackPolicy == PlaybackPolicy.MultiPlayback || !didPlayback)
+            {
+                var bufferCleanupList = chain->m_BufferCleanupList;
+                while (bufferCleanupList != null)
+                {
+                    var prev = bufferCleanupList->Prev;
+                    BufferHeader.Destroy(&bufferCleanupList->TempBuffer);
+                    bufferCleanupList = prev;
+                }
+            }
+
+            chain->m_BufferCleanupList = null;
+
             while (chain->m_Tail != null)
             {
                 var prev = chain->m_Tail->Prev;
@@ -912,7 +968,7 @@ namespace Unity.Entities
             chain->m_Head = null;
             if (chain->m_NextChain != null)
             {
-                FreeChain(chain->m_NextChain);
+                FreeChain(chain->m_NextChain, playbackPolicy, didPlayback);
                 UnsafeUtility.Free(chain->m_NextChain, m_Data->m_Allocator);
                 chain->m_NextChain = null;
             }
@@ -926,8 +982,7 @@ namespace Unity.Entities
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             int index = --m_Data->m_Entity.Index;
-            m_Data->AddCreateCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.CreateEntity,
-                index, archetype, kBatchableCommand);
+            m_Data->AddCreateCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.CreateEntity, index, archetype, kBatchableCommand);
             return m_Data->m_Entity;
         }
 
@@ -1119,6 +1174,12 @@ namespace Unity.Entities
 
             if (!ShouldPlayback || m_Data == null)
                 return;
+            if (m_Data != null && m_Data->m_DidPlayback && m_Data->m_PlaybackPolicy == PlaybackPolicy.SinglePlayback)
+            {
+                throw new InvalidOperationException(
+                    "Attempt to call Playback() on an EntityCommandBuffer that has already been played back. " +
+                    "EntityCommandBuffers created with the SinglePlayback policy can only be played back once.");
+            }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndBumpSecondaryVersion(m_BufferSafety);
@@ -1214,7 +1275,7 @@ namespace Unity.Entities
                         while (currentElem.ChainIndex != -1)
                         {
                             ECBChainHeapElement nextElem = chainQueue.Peek();
-                            PlaybackChain(mgr, ref playbackState, chainStates, currentElem.ChainIndex, nextElem.ChainIndex, !m_Data->m_DidPlayback);
+                            PlaybackChain(mgr, ref playbackState, chainStates, currentElem.ChainIndex, nextElem.ChainIndex, !m_Data->m_DidPlayback, m_Data->m_PlaybackPolicy);
                             if (chainStates[currentElem.ChainIndex].Chunk == null)
                             {
                                 chainQueue.Pop(); // ignore return value; we already have it as nextElem
@@ -1329,14 +1390,21 @@ namespace Unity.Entities
                     EntityDataAccess mgr, EntityBufferCommand* cmd, Entity entity,
                     ECBSharedPlaybackState playbackState)
         {
-            byte* data = (byte*) BufferHeader.GetElementPointer(&cmd->TempBuffer);
-            FixupComponentData(data, cmd->TempBuffer.Length,
+            byte* data = (byte*) BufferHeader.GetElementPointer(&cmd->BufferNode.TempBuffer);
+            FixupComponentData(data, cmd->BufferNode.TempBuffer.Length,
                 cmd->ComponentTypeIndex, playbackState);
 
-            mgr.SetBufferRaw(entity, cmd->ComponentTypeIndex, &cmd->TempBuffer, cmd->ComponentSize);
+            mgr.SetBufferRaw(entity, cmd->ComponentTypeIndex, &cmd->BufferNode.TempBuffer, cmd->ComponentSize);
         }
 
-        static unsafe void PlaybackChain(EntityDataAccess mgr, ref ECBSharedPlaybackState playbackState, NativeArray<ECBChainPlaybackState> chainStates, int currentChain, int nextChain, bool isFirstPlayback)
+        static unsafe void PlaybackChain(
+            EntityDataAccess mgr, 
+            ref ECBSharedPlaybackState playbackState, 
+            NativeArray<ECBChainPlaybackState> chainStates,
+            int currentChain,
+            int nextChain,
+            bool isFirstPlayback,
+            PlaybackPolicy playbackPolicy)
         {
             int nextChainSortIndex = (nextChain != -1) ? chainStates[nextChain].NextSortIndex : -1;
 
@@ -1457,13 +1525,13 @@ namespace Unity.Entities
                                 var cmd = (EntityBufferCommand*)header;
                                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                                 mgr.AddComponent(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex));
-                                if (isFirstPlayback)
-                                    mgr.SetBufferRaw(entity, cmd->ComponentTypeIndex, &cmd->TempBuffer, cmd->ComponentSize);
+                                if (playbackPolicy == PlaybackPolicy.SinglePlayback)
+                                    mgr.SetBufferRaw(entity, cmd->ComponentTypeIndex, &cmd->BufferNode.TempBuffer, cmd->ComponentSize);
                                 else
                                 {
                                     // copy the buffer to ensure that no two entities point to the same buffer from the ECB
                                     // either in the same world or in different worlds
-                                    var buffer = CloneBuffer(&cmd->TempBuffer, cmd->ComponentTypeIndex);
+                                    var buffer = CloneBuffer(&cmd->BufferNode.TempBuffer, cmd->ComponentTypeIndex);
                                     mgr.SetBufferRaw(entity, cmd->ComponentTypeIndex, &buffer, cmd->ComponentSize);
                                 }
                             }
@@ -1482,13 +1550,13 @@ namespace Unity.Entities
                             {
                                 var cmd = (EntityBufferCommand*)header;
                                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                                if (isFirstPlayback)
-                                    mgr.SetBufferRaw(entity, cmd->ComponentTypeIndex, &cmd->TempBuffer, cmd->ComponentSize);
+                                if (playbackPolicy == PlaybackPolicy.SinglePlayback)
+                                    mgr.SetBufferRaw(entity, cmd->ComponentTypeIndex, &cmd->BufferNode.TempBuffer, cmd->ComponentSize);
                                 else
                                 {
                                     // copy the buffer to ensure that no two entities point to the same buffer from the ECB
                                     // either in the same world or in different worlds
-                                    var buffer = CloneBuffer(&cmd->TempBuffer, cmd->ComponentTypeIndex);
+                                    var buffer = CloneBuffer(&cmd->BufferNode.TempBuffer, cmd->ComponentTypeIndex);
                                     mgr.SetBufferRaw(entity, cmd->ComponentTypeIndex, &buffer, cmd->ComponentSize);
                                 }
                             }

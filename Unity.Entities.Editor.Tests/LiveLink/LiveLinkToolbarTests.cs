@@ -3,7 +3,7 @@ using NUnit.Framework;
 namespace Unity.Entities.Editor.Tests.LiveLink
 {
     [TestFixture]
-    public class LiveLinkToolbarTests
+    class LiveLinkToolbarTests
     {
         [Test]
         public void RepaintToolbarMethodMustBePresentOnToolbarInternalClass()

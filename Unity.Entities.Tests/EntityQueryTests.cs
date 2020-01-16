@@ -786,6 +786,60 @@ namespace Unity.Entities.Tests
             
             Assert.True(queryMask.Matches(entity));
         }
+        
+        [AlwaysUpdateSystem]
+        public class CachedSystemQueryTestSystem : JobComponentSystem
+        {
+            // Creates implicit query (All = {EcsTestData}, None = {}, Any = {}
+            private struct ImplicitQueryCreator : IJobForEach<EcsTestData>
+            {
+                public void Execute(ref EcsTestData c0)
+                {
+                    c0.value = 10;
+                }
+            }
+
+            protected override void OnCreate()
+            {
+                // Caches a query in the system.
+                // This occurs before the implicit query is created and will be first in the cached list.
+                GetEntityQuery(new EntityQueryDesc
+                {
+                    All = new[] {ComponentType.ReadWrite<EcsTestData>()},
+                    None = new[] {ComponentType.ReadOnly<EcsTestTag>()}
+                });
+            }
+
+            protected override JobHandle OnUpdate(JobHandle input)
+            {
+                var job = new ImplicitQueryCreator() {};
+                return job.Schedule(this, input);
+            }
+        }        
+        [Test]
+        public void CachedSystemQueryReturnsOnlyExactQuery()
+        {
+            var entityA = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestTag));
+            var entityB = m_Manager.CreateEntity(typeof(EcsTestData));
+            
+            var testSystem = World.GetOrCreateSystem<CachedSystemQueryTestSystem>();
+            testSystem.Update();
+            
+            Assert.AreEqual(2, testSystem.EntityQueries.Length);
+            Assert.AreEqual(10, m_Manager.GetComponentData<EcsTestData>(entityA).value);
+            Assert.AreEqual(10, m_Manager.GetComponentData<EcsTestData>(entityB).value);
+            
+            var queryA = testSystem.GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[] {ComponentType.ReadWrite<EcsTestData>()},
+                None = new[] {ComponentType.ReadOnly<EcsTestTag>()}
+            });
+            
+            var queryB = testSystem.GetEntityQuery(ComponentType.ReadWrite<EcsTestData>(), ComponentType.Exclude<EcsTestTag>());
+            
+            Assert.AreEqual(queryA, queryB);
+
+        }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         private class ManagedComponent : IComponentData

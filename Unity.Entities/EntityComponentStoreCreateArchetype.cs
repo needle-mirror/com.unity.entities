@@ -440,7 +440,7 @@ namespace Unity.Entities
             if (indexInTypeArray != null)
                 *indexInTypeArray = t;
 
-            if (archetype->Types[t] == componentType)
+            if (t != archetype->TypesCount && archetype->Types[t] == componentType)
             {
                 // Tag component type is already there, no new archetype required.
                 return null;

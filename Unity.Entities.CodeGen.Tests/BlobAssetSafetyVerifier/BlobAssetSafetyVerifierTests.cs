@@ -21,9 +21,10 @@ namespace Unity.Entities.CodeGen.Tests
             void Method()
             {
                 MyBlob blob = _blobAssetReference.Value;
+                EnsureNotOptimizedAway(blob.myfloats.Length);
             }
         }
-        
+
         [Test]
         public void StoreBlobAssetReferenceValueInLocal()
         {
@@ -31,7 +32,7 @@ namespace Unity.Entities.CodeGen.Tests
                 typeof(StoreBlobAssetReferenceValueInLocal_Class), 
                 "error MayOnlyLiveInBlobStorageViolation: MyBlob may only live in blob storage. Access it by ref instead: `ref MyBlob yourVariable = ref ...`");
         }
-        
+
         class LoadFieldFromBlobAssetReference_Class
         {
             static BlobAssetReference<MyBlob> _blobAssetReference;
@@ -39,9 +40,10 @@ namespace Unity.Entities.CodeGen.Tests
             void Method()
             {
                 BlobArray<float> myFloats = _blobAssetReference.Value.myfloats;
+                EnsureNotOptimizedAway(myFloats.Length);
             }
         }
-        
+
         [Test]
         public void LoadFieldFromBlobAssetReference()
         {
@@ -49,7 +51,7 @@ namespace Unity.Entities.CodeGen.Tests
                 typeof(LoadFieldFromBlobAssetReference_Class), 
                 " error MayOnlyLiveInBlobStorageViolation: You may only access .myfloats by ref, as it may only live in blob storage. try `ref BlobArray<Single> yourVariable = ref yourMyBlob.myfloats`");
         }
-        
+
         void AssertProducesError(Type typeWithCodeUnderTest, string shouldContain)
         {
             var methodToAnalyze = MethodDefinitionForOnlyMethodOf(typeWithCodeUnderTest);
@@ -64,6 +66,7 @@ namespace Unity.Entities.CodeGen.Tests
                 errors.AddRange(exc.DiagnosticMessages);
             }
 
+            Assert.AreEqual(1, errors.Count);
             Assert.AreEqual(DiagnosticType.Error, errors[0].DiagnosticType);
 
             foreach(var error in errors)

@@ -11,6 +11,7 @@ using Hash128 = Unity.Entities.Hash128;
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using System.Linq;
 #endif
 #pragma warning disable 649
 
@@ -27,9 +28,9 @@ namespace Unity.Scenes
     
         static List<SubScene> m_AllSubScenes = new List<SubScene>();
         public static IReadOnlyCollection<SubScene> AllSubScenes { get { return m_AllSubScenes; } }
-        
+
     #endif
-        
+
         public bool AutoLoadScene = true;
 
 
@@ -50,6 +51,18 @@ namespace Unity.Scenes
             get { return _SceneAsset; }
             set
             {
+                if (_SceneAsset == value)
+                    return;
+
+                // If the SceneAsset has been loaded we need to close it before changing to a new SceneAsset reference so we 
+                // don't end up with loaded scenes which are not visible in the Hierarchy.
+                if (_SceneAsset != null)
+                {
+                    Scene scene = EditingScene;
+                    if (scene.isLoaded && scene.isSubScene)
+                        EditorSceneManager.CloseScene(scene, true);
+                }
+
                 _SceneAsset = value;
                 OnValidate();
             }
@@ -91,6 +104,22 @@ namespace Unity.Scenes
             get { return EditingScene.isLoaded; }
         }
         
+        
+        void WarnDuplicate()
+        {
+            if (SceneAsset != null)
+            {
+                foreach (var subscene in m_AllSubScenes)
+                {
+                    if (subscene.SceneAsset == SceneAsset)
+                    {
+                        UnityEngine.Debug.LogWarning($"A sub-scene can not include the same scene ('{EditableScenePath}') multiple times.", this);
+                        return;
+                    }
+                }
+            }
+        }
+        
         void OnValidate()
         {
             _SceneGUID = new GUID(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(_SceneAsset)));
@@ -109,29 +138,21 @@ namespace Unity.Scenes
     #endif
         
         public Hash128 SceneGUID => _SceneGUID;
-    
+      
         void OnEnable()
         {
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
+            WarnDuplicate();
+            
             _IsEnabled = true;
-    
+            m_AllSubScenes.Add(this);
+
             if (_SceneGUID == default(Hash128))
                 return;
             
             if (UnityEditor.Experimental.SceneManagement.PrefabStageUtility.GetPrefabStage(gameObject) != null)
                 return;
-            
-            foreach (var subscene in m_AllSubScenes)
-            {
-                if (subscene.SceneAsset == SceneAsset)
-                {
-                    UnityEngine.Debug.LogWarning($"A sub-scene can not include the same scene ('{EditableScenePath}') multiple times.", this);
-                    return;
-                }
-            }
-                 
-            m_AllSubScenes.Add(this);    
-    #endif
+#endif
 
             DefaultWorldInitialization.DefaultLazyEditModeInitialize();
             AddSceneEntities();

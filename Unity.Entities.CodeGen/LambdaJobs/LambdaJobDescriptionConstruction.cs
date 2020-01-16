@@ -60,7 +60,8 @@ namespace Unity.Entities.CodeGen
         public MethodDefinition MethodLambdaWasEmittedAs => DelegateProducingSequence.MethodLambdaWasEmittedAs;
 
         public bool LambdaWasEmittedAsInstanceMethodOnContainingType => MethodLambdaWasEmittedAs.DeclaringType.TypeReferenceEquals(ContainingMethod.DeclaringType);
-        
+
+        public static bool UsesNoAlias = true;
         public bool UsesBurst
         {
             get

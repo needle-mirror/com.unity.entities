@@ -254,6 +254,36 @@ namespace Unity.Entities
             return true;
         }
 
+        internal struct CompareComponentsQuery
+        {
+            public FixedListInt128 includeTypeIndices;
+            public FixedListByte32 includeAccessModes;
+            public FixedListInt128 excludeTypeIndices;
+            public FixedListByte32 excludeAccessModes;
+        }
+
+        public static void ConvertComponentListToSortedIntListsNoAlloc(ComponentType* sortedTypes, int componentTypesCount, out CompareComponentsQuery query)
+        {
+            query = new CompareComponentsQuery();
+            
+            for (int i = 0; i < componentTypesCount; ++i)
+            {
+                var type = sortedTypes[i];
+                if (type.AccessModeType == ComponentType.AccessMode.Exclude)
+                {
+                    query.excludeTypeIndices.Add(type.TypeIndex);
+                    
+                    // None forced to read only
+                    query.excludeAccessModes.Add((byte)ComponentType.AccessMode.ReadOnly);
+                }
+                else
+                {
+                    query.includeTypeIndices.Add(type.TypeIndex);
+                    query.includeAccessModes.Add((byte)type.AccessModeType);
+                }
+            }
+        }
+
         public static bool CompareComponents(ComponentType* componentTypes, int componentTypesCount, EntityQueryData* queryData)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -262,6 +292,9 @@ namespace Unity.Entities
                     throw new ArgumentException(
                         "EntityQuery.CompareComponents may not include typeof(Entity), it is implicit");
 #endif
+            if ((queryData->ArchetypeQueryCount != 1) || // This code path only matches one archetypequery
+                (queryData->ArchetypeQuery[0].Options != EntityQueryOptions.Default)) // This code path does not allow query options
+                return false;
 
             var sortedTypes = stackalloc ComponentType[componentTypesCount];
             for (var i = 0; i < componentTypesCount; ++i)
@@ -269,15 +302,25 @@ namespace Unity.Entities
                 SortingUtilities.InsertSorted(sortedTypes, i, componentTypes[i]);
             }
 
-            // EntityQueries are constructed including the Entity ID
-            if (componentTypesCount + 1 != queryData->RequiredComponentsCount)
-                return false;
+            ConvertComponentListToSortedIntListsNoAlloc(sortedTypes, componentTypesCount, out var componentCompareQuery);
 
-            for (var i = 0; i < componentTypesCount; ++i)
-            {
-                if (queryData->RequiredComponents[i + 1] != sortedTypes[i])
+            var includeCount = componentCompareQuery.includeTypeIndices.Length;
+            var excludeCount = componentCompareQuery.excludeTypeIndices.Length;
+            var archetypeQuery = queryData->ArchetypeQuery[0];
+            
+            if ((includeCount != archetypeQuery.AllCount) ||
+                (excludeCount != archetypeQuery.NoneCount))
+                return false;
+            
+            for(int i = 0; i < includeCount; ++i)
+                if(componentCompareQuery.includeTypeIndices[i] != archetypeQuery.All[i] ||  
+                   componentCompareQuery.includeAccessModes[i] != archetypeQuery.AllAccessMode[i] )
                     return false;
-            }
+                    
+            for(int i = 0; i < excludeCount; ++i)
+                if (componentCompareQuery.excludeTypeIndices[i] != archetypeQuery.None[i] ||
+                    componentCompareQuery.excludeAccessModes[i] != archetypeQuery.NoneAccessMode[i])
+                    return false;
 
             return true;
         }

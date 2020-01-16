@@ -172,8 +172,7 @@ namespace Doc.CodeSamples.Tests
             return Entities.WithAll<LocalToWorld>()
                 .WithAny<Rotation, Translation, Scale>()
                 .WithNone<LocalToParent>()
-                .ForEach((ref Destination outputData,
-                    in Source inputData) =>
+                .ForEach((ref Destination outputData, in Source inputData) =>
                 {
                     /* do some work */
                 })
@@ -253,20 +252,17 @@ namespace Doc.CodeSamples.Tests
         {
             List<Cohort> cohorts = new List<Cohort>();
             EntityManager.GetAllUniqueSharedComponentData<Cohort>(cohorts);
-            NativeList<JobHandle> dependencies
-                = new NativeList<JobHandle>();
-
+            JobHandle sequentialDeps = inputDeps; // Chain job dependencies
             foreach (Cohort cohort in cohorts)
             {
                 DisplayColor newColor = ColorTable.GetNextColor(cohort.Value);
-                JobHandle thisJobHandle
-                    = Entities.WithSharedComponentFilter(cohort)
+                JobHandle thisJobHandle =
+                    Entities.WithSharedComponentFilter(cohort)
                         .ForEach((ref DisplayColor color) => { color = newColor; })
-                        .Schedule(inputDeps);
-                dependencies.Add(thisJobHandle);
+                        .Schedule(sequentialDeps);
+                sequentialDeps = thisJobHandle;
             }
-
-            return JobHandle.CombineDependencies(dependencies);
+            return sequentialDeps;
         }
     }
     #endregion

@@ -511,7 +511,7 @@ namespace Unity.Entities.Tests
                     Assert.That(*(int*) forward.BlobAssetData.GetUnsafePtr(), Is.EqualTo(10));
                 }
                 
-                blobAssetReference0.Release();
+                blobAssetReference0.Dispose();
                 
                 var blobAssetReference1 = BlobAssetReference<int>.Create(20);
 
@@ -541,7 +541,7 @@ namespace Unity.Entities.Tests
                     Assert.That(reverse.BlobAssetReferenceChanges[0].Value, Is.EqualTo(reverse.CreatedBlobAssets[0].Hash));
                 }
                 
-                blobAssetReference1.Release();
+                blobAssetReference1.Dispose();
             }
         }
         
@@ -600,8 +600,8 @@ namespace Unity.Entities.Tests
                     Assert.That(changes.ForwardChangeSet.DestroyedBlobAssets.Length, Is.EqualTo(1));
                 }
                 
-                blobAssetReference0.Release();
-                blobAssetReference1.Release();
+                blobAssetReference0.Dispose();
+                blobAssetReference1.Dispose();
             }
         }
         
@@ -694,7 +694,7 @@ namespace Unity.Entities.Tests
                 {
                     for (var i = 0; i < blobAssetReferences.Length; i++)
                     {
-                        blobAssetReferences[i].Release();
+                        blobAssetReferences[i].Dispose();
                     }
                     
                     blobAssetReferences.Dispose();
@@ -743,7 +743,7 @@ namespace Unity.Entities.Tests
                 {
                     for (var i = 0; i < blobAssetReferences.Length; i++)
                     {
-                        blobAssetReferences[i].Release();
+                        blobAssetReferences[i].Dispose();
                     }
 
                     blobAssetReferences.Dispose();
@@ -803,7 +803,7 @@ namespace Unity.Entities.Tests
                 {
                     for (var i = 0; i < blobAssetReferences.Length; i++)
                     {
-                        blobAssetReferences[i].Release();
+                        blobAssetReferences[i].Dispose();
                     }
                     
                     blobAssetReferences.Dispose();

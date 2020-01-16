@@ -75,17 +75,16 @@ namespace Unity.Entities.Tests.Conversion
         }
 
         [Test]
-        public void RecordLogEvent_WithNullGameObject_IgnoresAndReturnsFalse()
+        public void RecordLogEvent_WithNullGameObject_LogsWithInvalidInstanceId()
         {
             var recorded0 = m_JournalData.RecordLogEvent(default, LogType.Error, "test error");
 
-            Assert.That(recorded0, Is.False);
-            Assert.That(m_JournalData.SelectJournalDataDebug(), Is.Empty);
-
-            var recorded1 = m_JournalData.RecordLogEvent(default, LogType.Error, "test error");
-
-            Assert.That(recorded1, Is.False);
-            Assert.That(m_JournalData.SelectJournalDataDebug(), Is.Empty);
+            const int invalidInstanceId = 0;
+            Assert.That(recorded0, Is.True);
+            Assert.That(m_JournalData.SelectJournalDataDebug(), Is.EqualTo(new []
+            {
+               JournalDataDebug.Create(invalidInstanceId, new LogEventData { Type = LogType.Error, Message = "test error" }) 
+            }));
         }
 
         [Test]

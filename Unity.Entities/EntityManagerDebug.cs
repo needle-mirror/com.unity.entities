@@ -84,6 +84,8 @@ namespace Unity.Entities
 
             public void PoisonUnusedDataInAllChunks(EntityArchetype archetype, byte value)
             {
+                Unity.Entities.EntityComponentStore.AssertValidArchetype(m_Manager.EntityComponentStore, archetype);
+
                 for (var i = 0; i < archetype.Archetype->Chunks.Count; ++i)
                 {
                     var chunk = archetype.Archetype->Chunks.p[i];

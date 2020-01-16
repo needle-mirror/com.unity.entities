@@ -59,9 +59,22 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void Playback_AlreadyPlayedBack_DoesNotThrow()
+        public void Playback_WithSinglePlaybackPolicy_ThrowsOnMultiplePlaybacks()
         {
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.SinglePlayback);
+            // First playback should succeed
+            Assert.DoesNotThrow(() => {cmds.Playback(m_Manager); });
+            // Subsequent playback attempts fail
+            Assert.Throws<InvalidOperationException>(() => {cmds.Playback(m_Manager); });
+            // Playback on a second EntityManager fails
+            Assert.Throws<InvalidOperationException>(() => {cmds.Playback(m_Manager2); });
+            cmds.Dispose();
+        }
+        
+        [Test]
+        public void Playback_WithMultiPlaybackPolicy_DoesNotThrow()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
             // First playback should succeed
             Assert.DoesNotThrow(() => {cmds.Playback(m_Manager); });
             // Subsequent playback attempts should not fail
@@ -117,7 +130,7 @@ namespace Unity.Entities.Tests
         [StandaloneFixme]
         public void SingleWriterEnforced()
         {
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
             var job = new TestJob {Buffer = cmds};
 
             var e = cmds.CreateEntity();
@@ -297,7 +310,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void CreateEntity()
         {
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
             var e = cmds.CreateEntity();
             cmds.AddComponent(e, new EcsTestData { value = 12 });
             cmds.Playback(m_Manager);
@@ -326,7 +339,7 @@ namespace Unity.Entities.Tests
         {
             var a = m_Manager.CreateArchetype(typeof(EcsTestData));
 
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
             var e = cmds.CreateEntity(a);
             cmds.SetComponent(e, new EcsTestData { value = 12 });
             cmds.Playback(m_Manager);
@@ -338,6 +351,7 @@ namespace Unity.Entities.Tests
                 var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
                 Assert.AreEqual(2, arr.Length);
                 Assert.AreEqual(12, arr[0].value);
+                Assert.AreEqual(12, arr[1].value);
                 arr.Dispose();
                 group.Dispose();
             }
@@ -346,7 +360,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void CreateTwoComponents()
         {
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
             var e = cmds.CreateEntity();
             cmds.AddComponent(e, new EcsTestData { value = 12 });
             cmds.AddComponent(e, new EcsTestData2 { value0 = 1, value1 = 2 });
@@ -398,7 +412,7 @@ namespace Unity.Entities.Tests
         {
             const int count = 65536;
 
-            var cmds = new EntityCommandBuffer(Allocator.Temp);
+            var cmds = new EntityCommandBuffer(Allocator.Temp, PlaybackPolicy.MultiPlayback);
             cmds.MinimumChunkSize = 512;
 
             for (int i = 0; i < count; ++i)
@@ -467,7 +481,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void AddSharedComponentDefault()
         {
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
 
             var e = cmds.CreateEntity();
             cmds.AddSharedComponent(e, new EcsTestSharedComp(10));
@@ -552,7 +566,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void SetSharedComponentDefault()
         {
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
 
             var e = cmds.CreateEntity();
             cmds.AddSharedComponent(e, new EcsTestSharedComp(10));
@@ -1401,6 +1415,33 @@ namespace Unity.Entities.Tests
             });
             cmds.Dispose();
         }
+        
+        [Test(Description = "Once a buffer command is played back, it has no side effects on the ECB.")]
+        public void BufferChanged_BetweenPlaybacks_HasNoEffectOnECB()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
+            var e = cmds.CreateEntity();
+            DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>(e);
+            buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+            cmds.Playback(m_Manager);
+
+            var entities = m_Manager.GetAllEntities();
+            var emBuffer = m_Manager.GetBuffer<EcsIntElement>(entities[0]);
+            for (int i = 0; i < emBuffer.Length; ++i)
+                emBuffer[i] = 5;
+            entities.Dispose();
+            
+            cmds.Playback(m_Manager);
+
+            entities = m_Manager.GetAllEntities();
+            Assert.AreEqual(2, entities.Length);
+            var b = m_Manager.GetBuffer<EcsIntElement>(entities[1]);
+            for (int i = 0; i < b.Length; ++i)
+                Assert.AreEqual(i + 1, b[i].Value);
+
+            entities.Dispose();
+            cmds.Dispose();
+        }
 
         [Test]
         public void ArrayAliasesOfPendingBuffersAreInvalidateOnResize()
@@ -1440,6 +1481,18 @@ namespace Unity.Entities.Tests
             DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>(e);
             buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
             cmds.Playback(m_Manager);
+            VerifySingleBuffer(m_Manager, 3);
+            cmds.Dispose();
+        }
+        
+        [Test]
+        public void AddBufferNoOverflow_MultiplePlaybacks()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
+            var e = cmds.CreateEntity();
+            DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>(e);
+            buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
+            cmds.Playback(m_Manager);
             cmds.Playback(m_Manager2);
             VerifySingleBuffer(m_Manager, 3);
             VerifySingleBuffer(m_Manager2, 3);
@@ -1459,9 +1512,9 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        public void AddBufferOverflowOnMultipleEntityManagers()
+        public void AddBufferOverflow_MultiplePlaybacks()
         {
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
             var e = cmds.CreateEntity();
             DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>(e);
             buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
@@ -1469,6 +1522,33 @@ namespace Unity.Entities.Tests
             cmds.Playback(m_Manager2);
             VerifySingleBuffer(m_Manager, 10);
             VerifySingleBuffer(m_Manager2, 10);
+            cmds.Dispose();
+        }
+        
+        [Test]
+        public void AddBufferOverflow_MultiplePlaybacks_SingleManager()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
+            var e = cmds.CreateEntity();
+            DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>(e);
+            buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+            cmds.Playback(m_Manager);
+            cmds.Playback(m_Manager);
+            
+            var allEntities = m_Manager.GetAllEntities();
+            Assert.AreEqual(2, allEntities.Length);
+            for (int j = 0; j < allEntities.Length; ++j)
+            {
+                var resultBuffer = m_Manager.GetBuffer<EcsIntElement>(allEntities[j]);
+                Assert.AreEqual(10, resultBuffer.Length);
+
+                for (int i = 0; i < 10; ++i)
+                {
+                    Assert.AreEqual(i + 1, resultBuffer[i].Value);
+                }
+            }
+
+            allEntities.Dispose();
             cmds.Dispose();
         }
 
@@ -1540,6 +1620,21 @@ namespace Unity.Entities.Tests
                     Assert.IsFalse(m_Manager.HasComponent<EcsIntElement>(e));
                 }
             }
+        }
+
+        [Test]
+        public void AddBuffer_AfterDispose_WithoutPlayback_Throws()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            var e = cmds.CreateEntity();
+            var buffer = cmds.AddBuffer<EcsIntElement>(e);
+            
+            Assert.DoesNotThrow(() => buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3, 4, 5 }));
+            
+            cmds.Dispose();
+            
+            Assert.Throws<InvalidOperationException>(() => buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }));
         }
 
         [Test]
@@ -2046,7 +2141,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void CreateEntity_ManagedComponents()
         {
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
             var e = cmds.CreateEntity();
             cmds.AddComponent(e, new EcsTestManagedComponent { value = "SomeString" });
             cmds.Playback(m_Manager);
@@ -2090,7 +2185,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void CreateTwoComponents_ManagedComponents()
         {
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
             var e = cmds.CreateEntity();
             cmds.AddComponent(e, new EcsTestManagedComponent { value = "SomeString" });
             cmds.AddComponent(e, new EcsTestManagedComponent2 { value = "SomeString", value2 = "SomeOtherString" });

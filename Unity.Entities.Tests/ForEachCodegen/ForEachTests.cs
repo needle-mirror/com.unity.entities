@@ -27,18 +27,20 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void SetUp()
         {
             TestSystem = World.GetOrCreateSystem<MyTestSystem>();
+            
             var myArch = m_Manager.CreateArchetype(
                 ComponentType.ReadWrite<EcsTestData>(),
                 ComponentType.ReadWrite<EcsTestData2>(),
                 ComponentType.ReadWrite<EcsTestSharedComp>(),
-                ComponentType.ReadWrite<TestBufferElement>());
+                ComponentType.ReadWrite<TestBufferElement>(),
+                ComponentType.ReadWrite<EcsTestTag>());
+            
             TestEntity = m_Manager.CreateEntity(myArch);
             m_Manager.SetComponentData(TestEntity, new EcsTestData() { value = 3});
             m_Manager.SetComponentData(TestEntity, new EcsTestData2() { value0 = 4});
             var buffer = m_Manager.GetBuffer<TestBufferElement>(TestEntity);
             buffer.Add(new TestBufferElement() {Value = 18});
             buffer.Add(new TestBufferElement() {Value = 19});
-            
             m_Manager.SetSharedComponentData(TestEntity, new EcsTestSharedComp() { value = 5 });
         }
         
@@ -47,6 +49,20 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             TestSystem.SimplestCase().Complete();
             Assert.AreEqual(7, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
+        
+        [Test]
+        public void WithTagComponent()
+        {
+            TestSystem.WithTagComponent().Complete();
+            Assert.AreEqual(5, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
+
+        [Test]
+        public void WithTagComponentReadOnly()
+        {
+            TestSystem.WithTagComponentReadOnly().Complete();
+            Assert.AreEqual(5, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
         
         [Test]
@@ -62,7 +78,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             TestSystem.WithSharedComponentFilter().Complete();
             Assert.AreEqual(4, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
-        
+
         [Test]
         public void WithChangeFilter()
         {
@@ -88,11 +104,18 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [Test]
         public void AddToDynamicBuffer()
         {
-            
             TestSystem.AddToDynamicBuffer().Complete();
             var buffer = m_Manager.GetBuffer<TestBufferElement>(TestEntity);
             Assert.AreEqual(3, buffer.Length);
-            Assert.AreEqual(4, buffer[buffer.Length-1].Value);
+            CollectionAssert.AreEqual(new []{18, 19, 4}, buffer.Reinterpret<int>().AsNativeArray());
+        }
+
+        [Test]
+        public void ModifyDynamicBuffer()
+        {
+            TestSystem.ModifyDynamicBuffer().Complete();
+            var buffer = m_Manager.GetBuffer<TestBufferElement>(TestEntity);
+            CollectionAssert.AreEqual(new []{18 * 2, 19 * 2}, buffer.Reinterpret<int>().AsNativeArray());
         }
 
         [Test]
@@ -245,6 +268,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.AreEqual(6, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
+        [Test]
+        public void CaptureInnerAndOuterStructAndRunTest()
+        {
+            TestSystem.CaptureInnerAndOuterStructAndRun();
+            Assert.AreEqual(9, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         [StandaloneFixme] // UnsafeUtility.CopyObjectAddressToPtr not implemented
@@ -298,6 +328,16 @@ namespace Unity.Entities.Tests.ForEachCodegen
             {
                 //int multiplier = 1;
                 return Entities.ForEach((ref EcsTestData e1, in EcsTestData2 e2) => { e1.value += e2.value0;}).Schedule(default);
+            }
+            
+            public JobHandle WithTagComponent()
+            {
+                return Entities.ForEach((ref EcsTestData e1, ref EcsTestTag e2) => { e1.value = 5;}).Schedule(default);
+            }
+
+            public JobHandle WithTagComponentReadOnly()
+            {
+                return Entities.ForEach((ref EcsTestData e1, in EcsTestTag e2) => { e1.value = 5;}).Schedule(default);
             }
             
             public JobHandle WithNone()
@@ -388,6 +428,16 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     .ForEach((ref EcsTestData e1, ref DynamicBuffer<TestBufferElement> buf) =>
                     {
                         buf.Add(4);
+                    })
+                    .Schedule(default);
+            }
+
+            public JobHandle ModifyDynamicBuffer()
+            {
+                return Entities
+                    .ForEach((ref EcsTestData e1, ref DynamicBuffer<TestBufferElement> buf) =>
+                    {
+                        for (int i = 0; i < buf.Length; ++i) buf[i] = buf[i].Value * 2;
                     })
                     .Schedule(default);
             }
@@ -594,6 +644,26 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 int localValue = 1;
                 Entities.WithoutBurst().ForEach((Entity e) => mySpecialField += localValue).Run();
                 return mySpecialField;
+            }
+            
+            struct CaptureStruct
+            {
+                public int Value;
+            }
+            public void CaptureInnerAndOuterStructAndRun()
+            {
+                var outter = new CaptureStruct() { Value = 1 };
+                {
+                    var inner = new CaptureStruct() {Value = 3};
+                    outter.Value = 2;
+                    int multiplier = 1;
+                    Entities
+                        .ForEach((ref EcsTestData e1) =>
+                        {
+                            e1.value += multiplier + outter.Value + inner.Value;
+                        })
+                        .Run();
+                }
             }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS

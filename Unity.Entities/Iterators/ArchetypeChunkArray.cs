@@ -103,7 +103,10 @@ namespace Unity.Entities
             {
                 return new EntityArchetype()
                 {
-                    Archetype = m_Chunk->Archetype
+                    Archetype = m_Chunk->Archetype,
+                    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    _DebugComponentStore =  entityComponentStore
+                    #endif
                 };
             }
         }
@@ -724,60 +727,12 @@ namespace Unity.Entities
             }
         }
     }
-
-    [BurstCompile]
-    unsafe struct GatherArchetypeChunks : IJobParallelFor
-    {
-        [ReadOnly] public NativeList<EntityArchetype> Archetypes;
-        [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
-        [ReadOnly] public NativeArray<int> Offsets;
-        [NativeDisableParallelForRestriction]
-        public NativeArray<ArchetypeChunk> Chunks;
-
-        public void Execute(int index)
-        {
-            var archetype = Archetypes[index];
-            var offset = Offsets[index];
-            for (var i = 0; i < archetype.Archetype->Chunks.Count; ++i)
-                Chunks[offset + i] = new ArchetypeChunk(archetype.Archetype->Chunks.p[i], entityComponentStore);
-        }
-    }
-
+    
     /// <summary>
     ///
     /// </summary>
     public unsafe struct ArchetypeChunkArray
     {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        static internal NativeArray<ArchetypeChunk> Create(NativeList<EntityArchetype> archetypes, EntityComponentStore* entityComponentStore, Allocator allocator, AtomicSafetyHandle safetyHandle)
-#else
-        static internal NativeArray<ArchetypeChunk> Create(NativeList<EntityArchetype> archetypes, EntityComponentStore* entityComponentStore, Allocator allocator)
-#endif
-        {
-            int length = 0;
-            var archetypeCount = archetypes.Length;
-            var offsets = new NativeArray<int>(archetypeCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            for (var i = 0; i < archetypeCount; i++)
-            {
-                offsets[i] = length;
-                length += archetypes[i].Archetype->Chunks.Count;
-            }
-
-            var chunks = new NativeArray<ArchetypeChunk>(length, allocator, NativeArrayOptions.UninitializedMemory);
-            var gatherChunksJob = new GatherArchetypeChunks
-            {
-                Archetypes = archetypes,
-                entityComponentStore = entityComponentStore,
-                Offsets = offsets,
-                Chunks = chunks
-            };
-            var gatherChunksJobHandle = gatherChunksJob.Schedule(archetypeCount,1);
-            gatherChunksJobHandle.Complete();
-
-            offsets.Dispose();
-            return chunks;
-        }
-
         /// <summary>
         ///
         /// </summary>

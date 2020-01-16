@@ -277,11 +277,9 @@ namespace Unity.Entities
             return m_data.m_Ptr;
         }
 
-        //[Obsolete("Use Dispose instead")]
-        public void Release()
-        {
-            Dispose();
-        }
+        [Obsolete("Use Dispose instead. Release will be (RemovedAfter 2020-04-09). (UnityUpgradable) -> Dispose()")]
+        public void Release() => Dispose();
+
 
         /// <summary>
         /// Destroys the referenced blob asset and frees its memory.

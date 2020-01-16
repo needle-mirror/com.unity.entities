@@ -563,7 +563,52 @@ namespace Unity.Entities.Tests
 
             creationWorld.Dispose();
         }
+        
+        [Test]
+        public void MoveEntitiesVersionBumping([Values]bool useQuery)
+        {
+            const int creationWorldVersion = 42;
+            const int dstWorldVersion = 500;
+            const int initialSharedVersion = 2;
+            //@TODO: AddSharedComponentData should be optimized to only do one move
+            const int initialOrderVersion = 5;
+            
+            var creationWorld = new World("CreationWorld");
+            var creationManager = creationWorld.EntityManager;
 
+            Assert.AreEqual(0, m_Manager.GetSharedComponentOrderVersion(new SharedData1(1)));
+            Assert.AreEqual(0, m_Manager.GetComponentOrderVersion<EcsTestData>());
+            
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.AddSharedComponentData(entity, new SharedData1(1));
+
+            Assert.AreEqual(initialSharedVersion, m_Manager.GetSharedComponentOrderVersion(new SharedData1(1)));
+            Assert.AreEqual(initialOrderVersion, m_Manager.GetComponentOrderVersion<EcsTestData>());
+            AssertHasVersion<EcsTestData>(entity, 1U);
+
+            creationManager.Debug.SetGlobalSystemVersion(creationWorldVersion);
+            m_Manager.Debug.SetGlobalSystemVersion(dstWorldVersion);
+
+            var e = creationManager.CreateEntity(typeof(EcsTestData));
+            creationManager.AddSharedComponentData(e, new SharedData1(1));
+            
+            if (useQuery)
+                m_Manager.MoveEntitiesFrom(creationManager, creationManager.UniversalQuery);
+            else
+                m_Manager.MoveEntitiesFrom(creationManager);
+
+            var movedEntity = m_Manager.GetAllEntities(Allocator.Temp)[1];
+            Assert.AreNotEqual(movedEntity, entity);
+
+            Assert.AreEqual(initialSharedVersion + 1, m_Manager.GetSharedComponentOrderVersion(new SharedData1(1)));
+            Assert.AreEqual(initialOrderVersion + 1, m_Manager.GetComponentOrderVersion<EcsTestData>());
+            AssertHasVersion<EcsTestData>(movedEntity, dstWorldVersion);
+            AssertHasVersion<EcsTestData>(entity, 1);
+            
+            creationWorld.Dispose();
+        }
+        
+        
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         [StandaloneFixme] // No Unity.Properties Support

@@ -871,6 +871,7 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void SetArchetype(Entity entity, EntityArchetype archetype)
         {
+            Unity.Entities.EntityComponentStore.AssertValidArchetype(EntityComponentStore, archetype);
             EntityComponentStore->AssertEntitiesExist(&entity, 1);
             
             var oldArchetype = EntityComponentStore->GetArchetype(entity);

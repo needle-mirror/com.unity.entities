@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Runtime.CompilerServices;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -70,6 +71,9 @@ namespace Unity.Entities.CodeGen.Tests
                 return null;
             return new MemoryStream(File.ReadAllBytes(file));
         }
+        
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        protected static T EnsureNotOptimizedAway<T>(T x) { return x; }
 
         private class OnDemandResolver : IAssemblyResolver
         {

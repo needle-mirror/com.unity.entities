@@ -1,5 +1,5 @@
 #if UNITY_EDITOR
-
+using Unity.Collections;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -40,13 +40,13 @@ namespace Unity.Entities.Serialization
             WriteArchetypes(yaml, entityManager);
             
             var entityComponentStore = entityManager.EntityComponentStore;
-            GetAllArchetypes(entityComponentStore, out var archetypeToIndex, out var archetypeArray);
 
+            using (var archetypeArray = GetAllArchetypes(entityComponentStore, Allocator.Temp))
             using (yaml.WriteCollection(k_ChunksDataCollectionTag))
             {
-                for (int archetypeIndex = 0; archetypeIndex < archetypeArray.Length; ++archetypeIndex)
+                for (int a = 0; a < archetypeArray.Length; ++a)
                 {
-                    var archetype = archetypeArray[archetypeIndex].Archetype;
+                    var archetype = archetypeArray.Ptr[a];
                     using (yaml.WriteCollection(k_ArchetypeCollectionTag))
                     {
                         yaml.WriteKeyValue("name", archetype->ToString());
@@ -157,34 +157,32 @@ namespace Unity.Entities.Serialization
         static unsafe void WriteArchetypes(YamlWriter writer, EntityManager entityManager)
         {
             var entityComponentStore = entityManager.EntityComponentStore;
-            GetAllArchetypes(entityComponentStore, out var archetypeToIndex, out var archetypeArray);
 
+            using (var archetypeArray = GetAllArchetypes(entityComponentStore, Allocator.Temp))
             using (writer.WriteCollection(k_ArchetypesCollectionTag))
             {
-                foreach (var archetype in archetypeArray)
+                for (int i = 0;i != archetypeArray.Length;i++)
                 {
+                    var a = archetypeArray.Ptr[i];
                     using (writer.WriteCollection(k_ArchetypeCollectionTag))
                     {
-                        var a = *archetype.Archetype;
-                        writer.WriteKeyValue("name", a.ToString())
-                              .WriteKeyValue(nameof(Archetype.TypesCount), a.TypesCount)
-                              .WriteKeyValue(nameof(EntityArchetype.ChunkCount), archetype.ChunkCount)
-                              .WriteKeyValue(nameof(EntityArchetype.ChunkCapacity), archetype.ChunkCapacity);
+                        writer.WriteKeyValue("name", a->ToString())
+                              .WriteKeyValue(nameof(Archetype.TypesCount), a->TypesCount)
+                              .WriteKeyValue(nameof(EntityArchetype.ChunkCount), a->Chunks.Count)
+                              .WriteKeyValue(nameof(EntityArchetype.ChunkCapacity), a->ChunkCapacity);
                         
                         var props = new List<string>();
-                        if (a.SystemStateCleanupComplete)     props.Add(nameof(Archetype.SystemStateCleanupComplete));
-                        if (a.SystemStateCleanupNeeded)       props.Add(nameof(Archetype.SystemStateCleanupNeeded));
-                        if (a.Disabled)                       props.Add(nameof(Archetype.Disabled));
-                        if (a.Prefab)                         props.Add(nameof(Archetype.Prefab));
-                        if (a.HasChunkComponents)             props.Add(nameof(Archetype.HasChunkComponents));
-                        if (a.HasChunkHeader)                 props.Add(nameof(Archetype.HasChunkHeader));
-                        if (a.ContainsBlobAssetRefs)          props.Add(nameof(Archetype.ContainsBlobAssetRefs));
+                        if (a->SystemStateCleanupComplete)     props.Add(nameof(Archetype.SystemStateCleanupComplete));
+                        if (a->SystemStateCleanupNeeded)       props.Add(nameof(Archetype.SystemStateCleanupNeeded));
+                        if (a->Disabled)                       props.Add(nameof(Archetype.Disabled));
+                        if (a->Prefab)                         props.Add(nameof(Archetype.Prefab));
+                        if (a->HasChunkComponents)             props.Add(nameof(Archetype.HasChunkComponents));
+                        if (a->HasChunkHeader)                 props.Add(nameof(Archetype.HasChunkHeader));
+                        if (a->ContainsBlobAssetRefs)          props.Add(nameof(Archetype.ContainsBlobAssetRefs));
                         writer.WriteInlineSequence("properties", props);
                     }
                 } 
             }
-
-            archetypeToIndex.Dispose();
         }
         
         static unsafe void WriteChunkData(YamlWriter writer, EntityManager entityManager, Chunk* initialChunk, Archetype* archetype, bool dumpChunkRawData)

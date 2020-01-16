@@ -203,6 +203,41 @@ namespace Unity.Entities.Tests
             return entity;
         }
 
+        public void AssertSameChunk(Entity e0, Entity e1)
+        {
+            Assert.AreEqual(m_Manager.GetChunk(e0), m_Manager.GetChunk(e1));
+        }
+
+        public void AssertHasVersion<T>(Entity e, uint version) where T :
+#if UNITY_DISABLE_MANAGED_COMPONENTS
+            struct, 
+#endif
+            IComponentData
+        {
+            var type = m_Manager.GetArchetypeChunkComponentType<T>(true);
+            var chunk = m_Manager.GetChunk(e);
+            Assert.AreEqual(version, chunk.GetComponentVersion(type));
+            Assert.IsFalse(chunk.DidChange(type, version));
+            Assert.IsTrue(chunk.DidChange(type, version-1));
+        }
+        
+        public void AssertHasBufferVersion<T>(Entity e, uint version) where T : struct, IBufferElementData
+        {
+            var type = m_Manager.GetArchetypeChunkBufferType<T>(true);
+            var chunk = m_Manager.GetChunk(e);
+            Assert.AreEqual(version, chunk.GetComponentVersion(type));
+            Assert.IsFalse(chunk.DidChange(type, version));
+            Assert.IsTrue(chunk.DidChange(type, version-1));
+        }
+
+        public void AssertHasSharedVersion<T>(Entity e, uint version) where T : struct, ISharedComponentData
+        {
+            var type = m_Manager.GetArchetypeChunkSharedComponentType<T>();
+            var chunk = m_Manager.GetChunk(e);
+            Assert.AreEqual(version, chunk.GetComponentVersion(type));
+            Assert.IsFalse(chunk.DidChange(type, version));
+            Assert.IsTrue(chunk.DidChange(type, version-1));
+        }
 
         class EntityForEachSystem : ComponentSystem
         {

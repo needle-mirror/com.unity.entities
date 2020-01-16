@@ -687,6 +687,10 @@ namespace Unity.Entities.CodeGen
                     instruction.OpCode = OpCodes.Ldloca;
                     instruction.Operand = body.Variables[loadIndex];
                 }
+                
+                // We also need to replace and ldfld a nested DisplayClass that we turned into a struct with ldflda
+                if (instruction.OpCode == OpCodes.Ldfld && ((FieldReference)instruction.Operand).IsNestedDisplayClassField())
+                    instruction.OpCode = OpCodes.Ldflda;
 
                 // Roselyn should never double assign the DisplayClass to a variable, throw if we somehow detect this.
                 if (instruction.IsStoreLocal(out int storeIndex) && displayClassVariable.Index == storeIndex)

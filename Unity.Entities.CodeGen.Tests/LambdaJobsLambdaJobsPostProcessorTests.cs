@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using NUnit.Framework;
 using Unity.Entities.CodeGen.Tests.LambdaJobs.Infrastructure;
 using Unity.Collections;
@@ -759,6 +760,192 @@ namespace Unity.Entities.CodeGen.Tests
                 Entities
                     .ForEach((DynamicBuffer<MyBufferFloat> f) => { })
                     .Schedule(default);
+            }
+        }
+
+
+        [Test]
+        public void ParameterNamesHaveStablePath()
+        {
+            // We expect that the fields for the parameters of a generated job have this path:
+            //  {jobName}.Data._lambdaParameterValueProviders.forParameter_{parameterName}._type
+            // which we rewrite to
+            //  {jobName}.Data.{parameterName}
+            // when we retrieve the job data in native code.
+            // The important part here is everything following {jobName}.Data.
+            var methodToAnalyze = MethodDefinitionForOnlyMethodOf(typeof(ParameterNamesPath));
+            var forEachDescriptionConstructions = LambdaJobDescriptionConstruction.FindIn(methodToAnalyze);
+            JobStructForLambdaJob jobStructForLambdaJob = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstructions.First(), null);
+
+            const string valueProviderFieldName = "_lambdaParameterValueProviders";
+            var valueProvidersField = jobStructForLambdaJob.TypeDefinition.Fields.FirstOrDefault(f => f.Name == valueProviderFieldName);
+            Assert.IsNotNull(valueProvidersField, $"Could not find field {valueProviderFieldName} in generated lambda job!");
+
+            const string parameterFieldName = "forParameter_floatBuffer";
+            var parameterField = valueProvidersField.FieldType.Resolve().Fields.FirstOrDefault(f => f.Name == parameterFieldName);
+            Assert.IsNotNull(parameterField, $"Could not find field {valueProviderFieldName}.{parameterFieldName} in generated lambda job!");
+
+            const string typeFieldName = "_type";
+            var typeField = parameterField.FieldType.Resolve().Fields.FirstOrDefault(f => f.Name == typeFieldName);
+            Assert.IsNotNull(typeField, $"Could not find field {valueProviderFieldName}.{parameterFieldName}.{typeFieldName} in generated lambda job!");
+        }
+
+        class ParameterNamesPath : TestJobComponentSystem
+        {
+            void Test()
+            {
+                Entities
+                    .WithName("ParameterNamesTest")
+                    .ForEach((DynamicBuffer<MyBufferFloat> floatBuffer) => { })
+                    .Schedule(default);
+            }
+        }
+
+        [Test]
+        public void ReadOnlyWarnsAboutArgumentType()
+        {
+            AssertProducesNoError(typeof(CorrectReadOnlyUsage));
+            AssertProducesError(typeof(IncorrectReadOnlyUsage), nameof(UserError.DC0034), "myVar");
+        }
+
+        class CorrectReadOnlyUsage : TestJobComponentSystem
+        {
+            void Test()
+            {
+                NativeArray<int> array = default;
+                Entities
+                    .WithReadOnly(array)
+                    .ForEach((ref Translation t) => { t.Value += array[0]; })
+                    .Schedule(default);
+            }
+        }
+
+        class IncorrectReadOnlyUsage : TestJobComponentSystem
+        {
+            void Test()
+            {
+                int myVar = 0;
+                Entities
+                    .WithReadOnly(myVar)
+                    .ForEach((ref Translation t) => { t.Value += myVar; })
+                    .Schedule(default);
+            }
+        }
+
+        [Test]
+        public void DeallocateOnJobCompletionWarnsAboutArgumentType()
+        {
+            AssertProducesNoError(typeof(CorrectDeallocateOnJobCompletionUsage));
+            AssertProducesError(typeof(IncorrectDeallocateOnJobCompletionUsage), nameof(UserError.DC0035), "myVar");
+        }
+
+        class CorrectDeallocateOnJobCompletionUsage : TestJobComponentSystem
+        {
+            void Test()
+            {
+                NativeArray<int> array = default;
+                Entities
+                    .WithReadOnly(array)
+                    .WithDeallocateOnJobCompletion(array)
+                    .ForEach((ref Translation t) => { t.Value += array[0]; })
+                    .Schedule(default);
+            }
+        }
+
+        class IncorrectDeallocateOnJobCompletionUsage : TestJobComponentSystem
+        {
+            void Test()
+            {
+                int myVar = 0;
+                Entities
+                    .WithDeallocateOnJobCompletion(myVar)
+                    .ForEach((ref Translation t) => { t.Value += myVar; })
+                    .Schedule(default);
+            }
+        }
+
+        [Test]
+        public void DisableContainerSafetyRestrictionWarnsAboutArgumentType()
+        {
+            AssertProducesNoError(typeof(CorrectDisableContainerSafetyRestrictionUsage));
+            AssertProducesError(typeof(IncorrectDisableContainerSafetyRestrictionUsage), nameof(UserError.DC0036), "myVar");
+        }
+
+        class CorrectDisableContainerSafetyRestrictionUsage : TestJobComponentSystem
+        {
+            void Test()
+            {
+                NativeArray<int> array = default;
+                Entities
+                    .WithReadOnly(array)
+                    .WithNativeDisableContainerSafetyRestriction(array)
+                    .ForEach((ref Translation t) => { t.Value += array[0]; })
+                    .Schedule(default);
+            }
+        }
+
+        class IncorrectDisableContainerSafetyRestrictionUsage : TestJobComponentSystem
+        {
+            void Test()
+            {
+                int myVar = 0;
+                Entities
+                    .WithNativeDisableContainerSafetyRestriction(myVar)
+                    .ForEach((ref Translation t) => { t.Value += myVar; })
+                    .Schedule(default);
+            }
+        }
+
+        [Test]
+        public void DisableParallelForRestrictionWarnsAboutArgumentType()
+        {
+            AssertProducesNoError(typeof(CorrectDisableParallelForRestrictionUsage));
+            AssertProducesError(typeof(IncorrectDisableParallelForRestrictionUsage), nameof(UserError.DC0037), "myVar");
+        }
+
+        class CorrectDisableParallelForRestrictionUsage : TestJobComponentSystem
+        {
+            unsafe void Test()
+            {
+                NativeArray<int> array = default;
+                Entities
+                    .WithNativeDisableParallelForRestriction(array)
+                    .ForEach((ref Translation t) => { t.Value += array[0]; })
+                    .Schedule(default);
+            }
+        }
+
+        class IncorrectDisableParallelForRestrictionUsage : TestJobComponentSystem
+        {
+            void Test()
+            {
+                int myVar = 0;
+                Entities
+                    .WithNativeDisableParallelForRestriction(myVar)
+                    .ForEach((ref Translation t) => { t.Value += myVar; })
+                    .Schedule(default);
+            }
+        }
+
+        [Test]
+        public void AttributesErrorWhenUsedOnUserTypeFields()
+        {
+            AssertProducesError(typeof(CaptureFieldInUserStructLambda), nameof(UserError.DC0038), "UserStruct.Array");
+        }
+
+        class CaptureFieldInUserStructLambda : TestJobComponentSystem
+        {
+            void Test()
+            {
+                var localStruct = new UserStruct() { Array = default };
+                Entities
+                    .WithReadOnly(localStruct.Array)
+                    .ForEach((ref Translation t) => { t.Value += localStruct.Array[0]; })
+                    .Schedule(default);
+            }
+            struct UserStruct
+            {
+                public NativeArray<int> Array;
             }
         }
     }

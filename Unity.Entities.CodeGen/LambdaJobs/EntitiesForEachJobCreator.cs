@@ -3,13 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Collections.Generic;
 using Unity.Burst;
-using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Entities.UniversalDelegates;
 using Unity.Jobs;
@@ -17,6 +16,7 @@ using CustomAttributeNamedArgument = Mono.Cecil.CustomAttributeNamedArgument;
 using FieldAttributes = Mono.Cecil.FieldAttributes;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
 using MethodBody = Mono.Cecil.Cil.MethodBody;
+using MethodImplAttributes = System.Reflection.MethodImplAttributes;
 using ParameterAttributes = Mono.Cecil.ParameterAttributes;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
 
@@ -283,22 +283,26 @@ namespace Unity.Entities.CodeGen
             //.Run mode doesn't go through the jobsystem, so there's no point in making all these attributes to explain the job system what everything means.
             if (LambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Run)
                 return;
-            
-            foreach (var (methodName, attributeType) in ConstructionMethodsThatCorrespondToFieldAttributes)
+
+            var containingMethod = LambdaJobDescriptionConstruction.ContainingMethod;
+            foreach (var attribute in EntitiesForEachAttributes.Attributes)
             {
-                foreach (var constructionMethod in LambdaJobDescriptionConstruction.InvokedConstructionMethods.Where(m => m.MethodName == methodName))
+                foreach (var constructionMethod in LambdaJobDescriptionConstruction.InvokedConstructionMethods.Where(m => m.MethodName == attribute.MethodName))
                 {
                     if (constructionMethod.Arguments.Single() is FieldDefinition fieldDefinition)
                     {
-                        CapturedVariableDescription capturedVariable;
-                        if (!CapturedVariables.TryGetValue(fieldDefinition, out capturedVariable))
-                            InternalCompilerError.DCICE007(LambdaJobDescriptionConstruction.ContainingMethod, constructionMethod).Throw();
+                        if (!fieldDefinition.DeclaringType.IsDisplayClass())
+                            UserError.DC0038(containingMethod, fieldDefinition, constructionMethod).Throw();
+                        attribute.CheckAttributeApplicable?.Invoke(containingMethod, constructionMethod, fieldDefinition)?.Throw();
+                        
+                        if (!CapturedVariables.TryGetValue(fieldDefinition, out var capturedVariable))
+                            InternalCompilerError.DCICE007(containingMethod, constructionMethod).Throw();
                         var correspondingJobField = capturedVariable.NewField.Resolve();
-                        correspondingJobField.CustomAttributes.Add(new CustomAttribute(TypeDefinition.Module.ImportReference(attributeType.GetConstructor(Array.Empty<Type>()))));
+                        correspondingJobField.CustomAttributes.Add(new CustomAttribute(TypeDefinition.Module.ImportReference(attribute.AttributeType.GetConstructor(Array.Empty<Type>()))));
                         continue;
                     }
 
-                    UserError.DC0012(LambdaJobDescriptionConstruction.ContainingMethod, constructionMethod).Throw();
+                    UserError.DC0012(containingMethod, constructionMethod).Throw();
                 }
             }
         }
@@ -418,7 +422,7 @@ namespace Unity.Entities.CodeGen
                 if (typeDefinition.IsDelegate())
                     continue;
 
-                if (!typeDefinition.IsValueType)
+                if (!typeDefinition.IsValueType())
                 {
                     foreach (var clonedMethod in ClonedMethods)
                     {
@@ -462,10 +466,10 @@ namespace Unity.Entities.CodeGen
                 {
                     TypeDefinition displayClass = displayClassVariable.VariableType.Resolve();
                     bool allDelegatesAreGuaranteedNotToOutliveMethod =
-                        displayClass.IsValueType ||
+                        displayClass.IsValueType() ||
                         CecilHelpers.AllDelegatesAreGuaranteedNotToOutliveMethodFor(methodUsedByLambdaJob);
 
-                    if (!displayClass.IsValueType && allDelegatesAreGuaranteedNotToOutliveMethod)
+                    if (!displayClass.IsValueType() && allDelegatesAreGuaranteedNotToOutliveMethod)
                     {
                         CecilHelpers.PatchMethodThatUsedDisplayClassToTreatItAsAStruct(methodBody, displayClassVariable);
                         CecilHelpers.PatchDisplayClassToBeAStruct(displayClass);
@@ -679,6 +683,16 @@ namespace Unity.Entities.CodeGen
                     new ParameterDefinition("runtimes", ParameterAttributes.None, new ByReferenceType(lambdaParameterValueInformations.RuntimesType)),
                 }
             };
+            if (LambdaJobDescriptionConstruction.UsesBurst && LambdaJobDescriptionConstruction.UsesNoAlias)
+            {
+                // Needed as there is an issue with LLVM version < 10.0 not applying optimizations correctly if the method is inlined.
+                // This should be fixed in LLVM 10+ and this can be removed once Burst relies on that version.
+                iterateEntitiesMethod.NoInlining = true;
+                
+                var burstNoAliasAttributeConstructor = TypeDefinition.Module.ImportReference(
+                    typeof(NoAliasAttribute).GetConstructors().Single(c=>!c.GetParameters().Any()));
+                iterateEntitiesMethod.Parameters[1].CustomAttributes.Add(new CustomAttribute(burstNoAliasAttributeConstructor));
+            }
 
             TypeDefinition.Methods.Add(iterateEntitiesMethod);
 
@@ -805,19 +819,27 @@ namespace Unity.Entities.CodeGen
                     new CustomAttributeArgument(module.ImportReference(type), value));
             }
 
-            var item = new CustomAttribute(burstCompileAttributeConstructor);
+            var burstCompileAttribute = new CustomAttribute(burstCompileAttributeConstructor);
 
             var useBurstMethod = LambdaJobDescriptionConstruction.InvokedConstructionMethods.FirstOrDefault(m=>m.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithBurst));
 
             if (useBurstMethod != null && useBurstMethod.Arguments.Length == 3)
             {
-                item.Properties.Add(CustomAttributeNamedArgumentFor(nameof(BurstCompileAttribute.FloatMode),typeof(FloatMode), useBurstMethod.Arguments[0]));
-                item.Properties.Add(CustomAttributeNamedArgumentFor(nameof(BurstCompileAttribute.FloatPrecision),typeof(FloatPrecision), useBurstMethod.Arguments[1]));
-                item.Properties.Add(CustomAttributeNamedArgumentFor(nameof(BurstCompileAttribute.CompileSynchronously),typeof(bool), useBurstMethod.Arguments[2]));
+                burstCompileAttribute.Properties.Add(CustomAttributeNamedArgumentFor(nameof(BurstCompileAttribute.FloatMode),typeof(FloatMode), useBurstMethod.Arguments[0]));
+                burstCompileAttribute.Properties.Add(CustomAttributeNamedArgumentFor(nameof(BurstCompileAttribute.FloatPrecision),typeof(FloatPrecision), useBurstMethod.Arguments[1]));
+                burstCompileAttribute.Properties.Add(CustomAttributeNamedArgumentFor(nameof(BurstCompileAttribute.CompileSynchronously),typeof(bool), useBurstMethod.Arguments[2]));
             }
 
-            TypeDefinition.CustomAttributes.Add(item);
-            RunWithoutJobSystemMethod?.CustomAttributes.Add(item);
+            TypeDefinition.CustomAttributes.Add(burstCompileAttribute);
+            RunWithoutJobSystemMethod?.CustomAttributes.Add(burstCompileAttribute);
+            
+            // Need to make sure Burst knows the jobs struct doesn't alias with any pointer fields.
+            if (LambdaJobDescriptionConstruction.UsesNoAlias)
+            {
+                var burstNoAliasAttribute = new CustomAttribute(TypeDefinition.Module.ImportReference(
+                    typeof(NoAliasAttribute).GetConstructors().Single(c=>!c.GetParameters().Any())));
+                TypeDefinition.CustomAttributes.Add(burstNoAliasAttribute);
+            }
         }
 
 
@@ -826,7 +848,7 @@ namespace Unity.Entities.CodeGen
             var method =new MethodDefinition(methodName, MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot, TypeDefinition.Module.TypeSystem.Void);
 
             var displayClassTypeReference = LambdaJobDescriptionConstruction.DisplayClass;
-            var parameterType = displayClassTypeReference.IsValueType
+            var parameterType = displayClassTypeReference.IsValueType()
                 ? new ByReferenceType(displayClassTypeReference)
                 : (TypeReference)displayClassTypeReference;
             method.Parameters.Add(new ParameterDefinition("displayClass", ParameterAttributes.None,parameterType));
@@ -847,7 +869,7 @@ namespace Unity.Entities.CodeGen
                     ilProcessor.Emit(OpCodes.Ldarg_1);
                     for (var iOldField = 0; iOldField < capturedVariable.ChainOfFieldsToOldField.Length - 1; ++iOldField)
                     {
-                        ilProcessor.Emit(capturedVariable.ChainOfFieldsToOldField[iOldField].FieldType.IsValueType ? OpCodes.Ldflda : OpCodes.Ldfld,
+                        ilProcessor.Emit(capturedVariable.ChainOfFieldsToOldField[iOldField].FieldType.IsValueType() ? OpCodes.Ldflda : OpCodes.Ldfld,
                             capturedVariable.ChainOfFieldsToOldField[iOldField]); //load field from displayClassVariable
                     }
                     ilProcessor.Emit(OpCodes.Ldarg_0);
@@ -878,15 +900,6 @@ namespace Unity.Entities.CodeGen
             InternalCompilerError.DCICE002(body.Method, callInstruction).Throw();
             return (null,null);
         }
-
-        private static readonly List<(string methodName, Type attributeType)> ConstructionMethodsThatCorrespondToFieldAttributes = new List<(string, Type)>
-        {
-            (nameof(LambdaJobDescriptionConstructionMethods.WithReadOnly), typeof(ReadOnlyAttribute)),
-            (nameof(LambdaJobDescriptionConstructionMethods.WithDeallocateOnJobCompletion), typeof(DeallocateOnJobCompletionAttribute)),
-            (nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableContainerSafetyRestriction), typeof(NativeDisableContainerSafetyRestrictionAttribute)),
-            (nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableUnsafePtrRestriction), typeof(NativeDisableUnsafePtrRestrictionAttribute)),
-            (nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableParallelForRestriction), typeof(NativeDisableParallelForRestrictionAttribute)),
-        };
 
         private enum TransferDirection
         {

@@ -226,7 +226,7 @@ namespace Unity.Entities
         /// <code source="../../DocCodeSamples.Tests/DynamicBufferExamples.cs" language="csharp" region="dynamicbuffer.reserve"/>
         /// </example>
         /// <param name="length">The new buffer capacity.</param>
-        [Obsolete("Reserve has been deprecated in favor of setting the Capacity property. This method will be (RemovedAfter 2020-03-5)")]
+        [Obsolete("Reserve has been deprecated in favor of setting the Capacity property. This method will be (RemovedAfter 2020-03-05)")]
         public void Reserve(int length)
         {
             CheckWriteAccessAndInvalidateArrayAliases();

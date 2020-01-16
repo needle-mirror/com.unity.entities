@@ -304,7 +304,7 @@ namespace Unity.Entities.CodeGen
             var propertyBagTypes = new HashSet<TypeReference>(new TypeReferenceComparer());
 
             var types = AssemblyDefinition.MainModule.GetAllTypes().Where(t => 
-                !t.IsInterface && ((t.IsValueType && t.TypeImplements(typeof(ISharedComponentData))) || (!t.IsValueType && t.TypeImplements(typeof(IComponentData)))));
+                !t.IsInterface && ((t.IsValueType() && t.TypeImplements(typeof(ISharedComponentData))) || (!t.IsValueType() && t.TypeImplements(typeof(IComponentData)))));
             foreach (var type in types)
                 GatherTypes(type, propertyBagTypes);
 
@@ -624,7 +624,7 @@ namespace Unity.Entities.CodeGen
                     // }
                     var getterIL = getter.Body.GetILProcessor();
                     getterIL.Emit(OpCodes.Ldarg_0);
-                    if (!ReferenceType.IsValueType)
+                    if (!ReferenceType.IsValueType())
                         getterIL.Emit(OpCodes.Ldind_Ref);
                     getterIL.Emit(OpCodes.Ldfld, fieldRef);
                     getterIL.Emit(OpCodes.Ret);
@@ -651,7 +651,7 @@ namespace Unity.Entities.CodeGen
                     // }
                     var setterIL = setter.Body.GetILProcessor();
                     setterIL.Emit(OpCodes.Ldarg_0);
-                    if (!ReferenceType.IsValueType)
+                    if (!ReferenceType.IsValueType())
                         setterIL.Emit(OpCodes.Ldind_Ref);
                     setterIL.Emit(OpCodes.Ldarg_1);
                     if(collectionFieldType != null)
@@ -1003,7 +1003,7 @@ namespace Unity.Entities.CodeGen
             var openInvokeFn = resolvedCallbackImplType.GetMethods().First(m => m.HasGenericParameters && m.Name == "Invoke");
 
             // Initialize our callback implementing type
-            if (callbackImplType.IsValueType)
+            if (callbackImplType.IsValueType())
             {
                 il.Emit(OpCodes.Ldloca, local);
                 il.Emit(OpCodes.Initobj, callbackImplType);

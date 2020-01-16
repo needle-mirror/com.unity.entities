@@ -146,7 +146,7 @@ namespace Unity.Entities
             SetChunkCountKeepMetaChunk(chunk, newCount);
         }
 
-        public void CreateChunks(Archetype* archetype, ArchetypeChunk* chunks, int entityCount)
+        public void CreateChunks(Archetype* archetype, ArchetypeChunk* chunks, int chunksCount, int entityCount)
         {
             fixed(EntityComponentStore* entityComponentStore = &this)
             {
@@ -155,6 +155,11 @@ namespace Unity.Entities
                 int chunkIndex = 0;
                 while (entityCount != 0)
                 {
+                    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    if (chunkIndex >= chunksCount)
+                        throw new System.ArgumentException($"CreateChunks chunks array is not large enough to hold the array of chunks {chunksCount}.");
+                    #endif
+                    
                     var chunk = GetCleanChunk(archetype, sharedComponentValues);
                     int allocatedIndex;
 
@@ -246,8 +251,7 @@ namespace Unity.Entities
         {
             var entityCount = chunk->Count;
             DeallocateDataEntitiesInChunk((Entity*)chunk->Buffer, chunk, 0, chunk->Count);
-            ManagedChangesTracker.IncrementComponentOrderVersion(chunk->Archetype,
-                chunk->SharedComponentValues);
+            ManagedChangesTracker.IncrementComponentOrderVersion(chunk->Archetype, chunk->SharedComponentValues);
             IncrementComponentTypeOrderVersion(chunk->Archetype);
             chunk->Archetype->EntityCount -= entityCount;
             SetChunkCount(chunk, 0);
@@ -313,8 +317,7 @@ namespace Unity.Entities
             if (!archetype->SystemStateCleanupNeeded)
             {
                 DeallocateDataEntitiesInChunk(entities, chunk, indexInChunk, batchCount);
-                ManagedChangesTracker.IncrementComponentOrderVersion(archetype,
-                    chunk->SharedComponentValues);
+                ManagedChangesTracker.IncrementComponentOrderVersion(archetype, chunk->SharedComponentValues);
                 IncrementComponentTypeOrderVersion(archetype);
 
                 if (chunk->ManagedArrayIndex >= 0)
@@ -460,8 +463,7 @@ namespace Unity.Entities
 
             if (chunk != null)
             {
-                ManagedChangesTracker.IncrementComponentOrderVersion(dstArchetype,
-                    chunk->SharedComponentValues);
+                ManagedChangesTracker.IncrementComponentOrderVersion(dstArchetype, chunk->SharedComponentValues);
                 IncrementComponentTypeOrderVersion(dstArchetype);
             }
 

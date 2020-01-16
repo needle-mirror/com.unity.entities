@@ -6,5 +6,5 @@
         "Unity.Scenes.Editor.BuildStepSubSceneBundles, Unity.Scenes.Editor",
         "Unity.Build.Common.BuildStepBuildClassicPlayer, Unity.Build.Common"
     ],
-    "RunStep": "Unity.Build.Common.RunStepDesktop, Unity.Build.Common"
+    "RunStep": "Unity.Build.Common.RunStepNotImplemented, Unity.Build.Common"
 }

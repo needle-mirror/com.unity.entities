@@ -1,4 +1,5 @@
-﻿using Unity.Entities.Tests;
+﻿using System;
+using Unity.Entities.Tests;
 using Unity.PerformanceTesting;
 using Unity.Collections;
 using NUnit.Framework;
@@ -18,79 +19,99 @@ namespace Unity.Entities.PerformanceTests
 
             public void OneDataLambda()
             {
-                Entities.ForEach((Entity entity, ref EcsTestData d1) =>
+                Entities.ForEach((Entity entity, ref EcsTestFloatData d1) =>
                 {
-                    d1.value++;
+                    d1.Value++;
                 }).Run();
             }
             
             public void TwoDataLambda()
             {
-                Entities.ForEach((Entity entity, ref EcsTestData d1, ref EcsTestData2 d2) => 
+                Entities.ForEach((Entity entity, ref EcsTestFloatData d1, ref EcsTestFloatData2 d2) => 
                 { 
-                    d1.value++;
-                    d2.value0++;
+                    d1.Value++;
+                    d2.Value0++;
                 }).Run();
             }
             
             public void ThreeDataLambda()
             {
-                Entities.ForEach((Entity entity, ref EcsTestData d1, ref EcsTestData2 d2, ref EcsTestData3 d3) =>
+                Entities.ForEach((Entity entity, ref EcsTestFloatData d1, ref EcsTestFloatData2 d2, ref EcsTestFloatData3 d3) =>
                 {
-                    d1.value++;
-                    d2.value0++;
-                    d3.value0++;
+                    d1.Value++;
+                    d2.Value0++;
+                    d3.Value0++;
                 }).Run();
             }
             
-            [BurstCompile]
-            public struct OneDataJob : IJobForEachWithEntity<EcsTestData>
+            public void SimpleLambda()
             {
-                public void Execute(Entity entity, int index, ref EcsTestData d1)
+                Entities.ForEach((Entity entity, ref EcsTestFloatData d1, ref EcsTestFloatData2 d2, ref EcsTestFloatData3 d3) =>
                 {
-                    d1.value++;
+                    d1.Value = d2.Value0 + d3.Value0;
+                }).Run();
+            }
+            
+            public unsafe void SimpleLambdaWithPointerCapture()
+            {
+                byte* innerRawPtr = (byte*)IntPtr.Zero;
+                Entities
+                    .WithNativeDisableUnsafePtrRestriction(innerRawPtr)
+                    .ForEach((Entity entity, ref EcsTestFloatData d1, ref EcsTestFloatData2 d2, ref EcsTestFloatData3 d3) =>
+                {
+                    if (innerRawPtr == null) 
+                        d1.Value = d2.Value0 + d3.Value0;
+                }).Run();
+            }
+
+            [BurstCompile]
+            public struct OneDataJob : IJobForEachWithEntity<EcsTestFloatData>
+            {
+                public void Execute(Entity entity, int index, ref EcsTestFloatData d1)
+                {
+                    d1.Value++;
                 }
             }
         
             [BurstCompile]
-            public struct TwoDataJob : IJobForEachWithEntity<EcsTestData, EcsTestData2>
+            public struct TwoDataJob : IJobForEachWithEntity<EcsTestFloatData, EcsTestFloatData2>
             {
-                public void Execute(Entity entity, int index, ref EcsTestData d1, ref EcsTestData2 d2)
+                public void Execute(Entity entity, int index, ref EcsTestFloatData d1, ref EcsTestFloatData2 d2)
                 {
-                    d1.value++;
-                    d2.value0++;
+                    d1.Value++;
+                    d2.Value0++;
                 }
             }
         
             [BurstCompile]
-            public struct ThreeDataJob : IJobForEachWithEntity<EcsTestData, EcsTestData2, EcsTestData3>
+            public struct ThreeDataJob : IJobForEachWithEntity<EcsTestFloatData, EcsTestFloatData2, EcsTestFloatData3>
             {
                 public int count;
-                public void Execute(Entity entity, int index, ref EcsTestData d1, ref EcsTestData2 d2, ref EcsTestData3 d3)
+                public void Execute(Entity entity, int index, ref EcsTestFloatData d1, ref EcsTestFloatData2 d2, ref EcsTestFloatData3 d3)
                 {
-                    d1.value++;
-                    d2.value0++;
-                    d3.value0++;
+                    d1.Value++;
+                    d2.Value0++;
+                    d3.Value0++;
                 }
             }
             
             public void StructuralChangesWithECB(EntityManager manager)
             {
                 {
-                    var ecb = new EntityCommandBuffer(Allocator.Temp, -1);
+                    var ecb = new EntityCommandBuffer(Allocator.Temp, -1, PlaybackPolicy.SinglePlayback);
                     Entities
                         .ForEach((Entity entity) =>
                         {
-                            ecb.AddComponent<EcsTestData>(entity);
+                            ecb.AddComponent<EcsTestFloatData>(entity);
                         }).Run();
                     ecb.Playback(manager);
                 }
                 {
-                    var ecb = new EntityCommandBuffer(Allocator.Temp, -1);
+                    var ecb = new EntityCommandBuffer(Allocator.Temp, -1, PlaybackPolicy.SinglePlayback);
                     Entities
                         .ForEach((Entity entity) =>
                         {
-                            ecb.RemoveComponent<EcsTestData>(entity);
+                            ecb.RemoveComponent<EcsTestFloatData>(entity);
                         }).Run();
                     ecb.Playback(manager);
                 }
@@ -102,13 +123,13 @@ namespace Unity.Entities.PerformanceTests
                     .WithStructuralChanges()
                     .ForEach((Entity entity) =>
                     {
-                        manager.AddComponent<EcsTestData>(entity);
+                        manager.AddComponent<EcsTestFloatData>(entity);
                     }).Run();
                 Entities
                     .WithStructuralChanges()
                     .ForEach((Entity entity) =>
                     {
-                        manager.RemoveComponent<EcsTestData>(entity);
+                        manager.RemoveComponent<EcsTestFloatData>(entity);
                     }).Run();
             }
         }
@@ -123,14 +144,14 @@ namespace Unity.Entities.PerformanceTests
         // No structural change expected
         [Test, Performance]
         [Category("Performance")]  
-        public void LambdaJobsForEach_Performance([Values(1, 1000, 100000)] int entityCount, [Range(1, 3)] int componentCount)
+        public void LambdaJobsForEach_Performance_LJ_vs_IJFE([Values(1, 1000, 100000)] int entityCount, [Range(1, 3)] int componentCount)
         {
             EntityArchetype archetype = new EntityArchetype();
             switch (componentCount)
             {
-                case 1: archetype = m_Manager.CreateArchetype(typeof(EcsTestData)); break;
-                case 2: archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2)); break;
-                case 3: archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3)); break;
+                case 1: archetype = m_Manager.CreateArchetype(typeof(EcsTestFloatData)); break;
+                case 2: archetype = m_Manager.CreateArchetype(typeof(EcsTestFloatData), typeof(EcsTestFloatData2)); break;
+                case 3: archetype = m_Manager.CreateArchetype(typeof(EcsTestFloatData), typeof(EcsTestFloatData2), typeof(EcsTestFloatData3)); break;
             }
             using (var entities = new NativeArray<Entity>(entityCount, Allocator.TempJob))
             {
@@ -142,6 +163,8 @@ namespace Unity.Entities.PerformanceTests
                             {
                                 TestSystem.OneDataLambda();
                             })
+                            .WarmupCount(5)
+                            .MeasurementCount(100)
                             .Definition("LambdaJobForEach")
                             .Run();
                         Measure.Method(() =>
@@ -149,6 +172,8 @@ namespace Unity.Entities.PerformanceTests
                                 var job = new TestComponentSystem.OneDataJob();
                                 job.Run(TestSystem);
                             })
+                            .WarmupCount(5)
+                            .MeasurementCount(100)
                             .Definition("IJobForEachWithEntity")
                             .Run();
                         break;
@@ -157,6 +182,8 @@ namespace Unity.Entities.PerformanceTests
                             {
                                 TestSystem.TwoDataLambda();
                             })
+                            .WarmupCount(5)
+                            .MeasurementCount(100)
                             .Definition("LambdaJobForEach")
                             .Run();
                         Measure.Method(() =>
@@ -164,6 +191,8 @@ namespace Unity.Entities.PerformanceTests
                                 var job = new TestComponentSystem.TwoDataJob();
                                 job.Run(TestSystem);
                             })
+                            .WarmupCount(5)
+                            .MeasurementCount(100)
                             .Definition("IJobForEachWithEntity")
                             .Run();
                         break;
@@ -172,6 +201,8 @@ namespace Unity.Entities.PerformanceTests
                             {
                                 TestSystem.ThreeDataLambda();
                             })
+                            .WarmupCount(5)
+                            .MeasurementCount(100)
                             .Definition("LambdaJobForEach")
                             .Run();
                         Measure.Method(() =>
@@ -179,6 +210,8 @@ namespace Unity.Entities.PerformanceTests
                                 var job = new TestComponentSystem.ThreeDataJob();
                                 job.Run(TestSystem);
                             })
+                            .WarmupCount(5)
+                            .MeasurementCount(100)
                             .Definition("IJobForEachWithEntity")
                             .Run();
                         break;
@@ -186,6 +219,38 @@ namespace Unity.Entities.PerformanceTests
             }
         }
         
+        // Tests the performance of the LambdaJobs ForEach & ForEach on ReadOnly components
+        // Also tests capturing a pointer (could affect bursted performance if NoAlias not applied correctly)
+        [Test, Performance]
+        [Category("Performance")]
+        public void LambdaJobsForEach_Performance_Simple([Values(true, false)] bool withPointerCapture)
+        {
+            EntityArchetype archetype = m_Manager.CreateArchetype(typeof(EcsTestFloatData), typeof(EcsTestFloatData2), typeof(EcsTestFloatData3));
+
+            var entityCount = 1000000;
+            using (var entities = new NativeArray<Entity>(entityCount, Allocator.TempJob))
+            {
+                m_Manager.CreateEntity(archetype, entities);
+
+                if (withPointerCapture)
+                {
+                    Measure.Method(() => { TestSystem.SimpleLambdaWithPointerCapture(); })
+                        .WarmupCount(5)
+                        .MeasurementCount(100)
+                        .Definition("LambdaJobsForEach_Performance_WithPointerCapture")
+                        .Run();
+                }
+                else
+                {
+                    Measure.Method(() => { TestSystem.SimpleLambda(); })
+                        .WarmupCount(5)
+                        .MeasurementCount(100)
+                        .Definition("LambdaJobsForEach_Performance_Simple")
+                        .Run();
+                }
+            }
+        }
+
         [Test, Performance]
         [Category("Performance")]  
         public void LambdaJobsForEachStructuralChanges_Performance_InLambda_vs_WithECB([Values(1, 1000, 10000)] int entityCount, [Values(true, false)] bool withECB)

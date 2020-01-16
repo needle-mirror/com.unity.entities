@@ -98,8 +98,11 @@ unsafe struct EntityDataAccess : IDisposable
 
         // Lookup existing archetype (cheap)
         EntityArchetype entityArchetype;
-        entityArchetype.Archetype =
-            EntityComponentStore->GetExistingArchetype(typesInArchetype, cachedComponentCount);
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+        entityArchetype._DebugComponentStore = EntityComponentStore;
+        #endif
+        
+        entityArchetype.Archetype = EntityComponentStore->GetExistingArchetype(typesInArchetype, cachedComponentCount);
         if (entityArchetype.Archetype != null)
             return entityArchetype;
 
@@ -112,8 +115,7 @@ unsafe struct EntityDataAccess : IDisposable
             archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
         }
 
-        entityArchetype.Archetype = EntityComponentStore->GetOrCreateArchetype(typesInArchetype,
-            cachedComponentCount);
+        entityArchetype.Archetype = EntityComponentStore->GetOrCreateArchetype(typesInArchetype, cachedComponentCount);
 
         if (m_IsMainThread)
         {
@@ -139,6 +141,8 @@ unsafe struct EntityDataAccess : IDisposable
 
     public Entity CreateEntity(EntityArchetype archetype)
     {
+        Unity.Entities.EntityComponentStore.AssertValidArchetype(EntityComponentStore, archetype);
+        
         Entity entity;
         if (m_IsMainThread)
             EntityManager.BeforeStructuralChange();
@@ -149,6 +153,8 @@ unsafe struct EntityDataAccess : IDisposable
 
     internal void CreateEntity(EntityArchetype archetype, Entity* outEntities, int count)
     {
+        Unity.Entities.EntityComponentStore.AssertValidArchetype(EntityComponentStore, archetype);
+        
         if (m_IsMainThread)
             EntityManager.BeforeStructuralChange();
         StructuralChange.CreateEntity(EntityComponentStore, archetype.Archetype, outEntities, count);
@@ -512,14 +518,7 @@ unsafe struct EntityDataAccess : IDisposable
     public EntityArchetype GetEntityOnlyArchetype()
     {
         if (!m_EntityOnlyArchetype.Valid)
-        {
-            var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
-            ComponentTypeInArchetype entityType = new ComponentTypeInArchetype(ComponentType.ReadWrite<Entity>());
-            var archetype = EntityComponentStore->GetOrCreateArchetype(&entityType, 1);
-            m_EntityOnlyArchetype = new EntityArchetype {Archetype = archetype};
-            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-            EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
-        }
+            m_EntityOnlyArchetype = CreateArchetype(null, 0);
 
         return m_EntityOnlyArchetype;
     }

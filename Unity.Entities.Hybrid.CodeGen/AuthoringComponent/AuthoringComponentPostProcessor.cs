@@ -221,7 +221,7 @@ namespace Unity.Entities.Hybrid.CodeGen
             var ilProcessor = convertMethod.Body.GetILProcessor();
 
             // Initialize the local variable.  (we might not need this, but all c# compilers emit it, so let's play it safe for now)
-            if (componentDataType.IsValueType)
+            if (componentDataType.IsValueType())
             {
                 ilProcessor.Emit(OpCodes.Ldloca, variableDefinition);
                 ilProcessor.Emit(OpCodes.Initobj, componentDataType);
@@ -262,7 +262,7 @@ namespace Unity.Entities.Hybrid.CodeGen
                 else
                 {
                     // Load the local iComponentData we are populating, so we can later write to it
-                    ilProcessor.Emit(componentDataType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, variableDefinition);
+                    ilProcessor.Emit(componentDataType.IsValueType() ? OpCodes.Ldloca : OpCodes.Ldloc, variableDefinition);
 
                     // Special case when destination is an entity and we our converting from a GameObject
                     if (destinationField.FieldType.TypeReferenceEquals(entityTypeReference))
@@ -299,7 +299,7 @@ namespace Unity.Entities.Hybrid.CodeGen
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             // For managed components this is void EntityManagerManagedComponentExtensions.AddComponentData<T>(this EntityMananger mananger, Entity target, T payload);
             var entityManagerManagedComponentExtensionsTypeReference = moduleDefinition.ImportReference(typeof(Unity.Entities.EntityManagerManagedComponentExtensions));
-            if (!componentDataType.IsValueType)
+            if (!componentDataType.IsValueType())
             {
                 addComponentDataMethodReference =
                     new MethodReference("AddComponentData", moduleDefinition.TypeSystem.Void, entityManagerManagedComponentExtensionsTypeReference)
@@ -314,7 +314,7 @@ namespace Unity.Entities.Hybrid.CodeGen
             }
 #endif
             // For non-managed components this is EntityManager.AddComponentData<T>(Entity target, T payload);
-            if (componentDataType.IsValueType)
+            if (componentDataType.IsValueType())
             {
                 addComponentDataMethodReference =
                 new MethodReference("AddComponentData", moduleDefinition.TypeSystem.Void, entityManagerTypeReference)
@@ -343,7 +343,7 @@ namespace Unity.Entities.Hybrid.CodeGen
             ilProcessor.Emit(OpCodes.Callvirt, genericInstanceMethod);
             
             // Pop off return value since AddComponentData returns a bool (managed AddComponentData strangely does not however)
-            if (componentDataType.IsValueType)
+            if (componentDataType.IsValueType())
             ilProcessor.Emit(OpCodes.Pop);
 
             // We're done already!  Easy peasy.

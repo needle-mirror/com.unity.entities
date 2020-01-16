@@ -9,17 +9,6 @@ namespace Unity.Entities.Editor
     {
         const string k_LiveLinkEditorMenu = "DOTS/Live Link Mode/";
 
-        public static void ResetPlayer()
-        {
-            EditorSceneLiveLinkToPlayerSendSystem.instance.ResetAllPlayers();
-        }
-
-        public static void ClearLiveLinkCache()
-        {
-            FileUtil.DeleteFileOrDirectory("Builds");
-            FileUtil.DeleteFileOrDirectory(LiveLinkAssetBundleBuildSystem.LiveLinkAssetBundleCache);
-        }
-
         const string kEnableInEditMode = k_LiveLinkEditorMenu  + "Live Conversion in Edit Mode";
         const string kAuthoring = k_LiveLinkEditorMenu   + "SceneView: Editing State";
         const string kGameState = k_LiveLinkEditorMenu + "SceneView: Live Game State";

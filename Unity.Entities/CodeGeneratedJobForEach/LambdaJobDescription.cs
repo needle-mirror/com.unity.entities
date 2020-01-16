@@ -67,7 +67,7 @@ namespace Unity.Entities
 
         public static TDescription WithoutBurst<TDescription>(this TDescription description) where TDescription : ILambdaJobDescription => description;
         
-        [Obsolete("To turn off burst, please use .WithoutBurst() instead of .WithBurst(false)")]
+        [Obsolete("To turn off burst, please use .WithoutBurst() instead of .WithBurst(false). (RemovedAfter 2020-04-09)")]
         public static TDescription WithBurst<TDescription>(this TDescription description, bool enabled) where TDescription : ILambdaJobDescription => description;
         
         public static TDescription WithBurst<TDescription>(this TDescription description, FloatMode floatMode = FloatMode.Default, FloatPrecision floatPrecision = FloatPrecision.Standard, bool synchronousCompilation = false) where TDescription : ILambdaJobDescription => description;
@@ -82,14 +82,14 @@ namespace Unity.Entities
         public static TDescription WithNativeDisableContainerSafetyRestriction<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType capturedVariable) where TDescription : ILambdaJobDescription => description;
         [AllowMultipleInvocations]
         public static unsafe TDescription WithNativeDisableUnsafePtrRestriction<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType* capturedVariable) where TDescription : ILambdaJobDescription where TCapturedVariableType : unmanaged => description;
-        [Obsolete("Use WithNativeDisableUnsafePtrRestriction instead", true)] //<-- remove soon, never shipped, only used in a2-dots-shooter
+        [Obsolete("Use WithNativeDisableUnsafePtrRestriction instead. (RemovedAfter 2020-04-09)", true)] //<-- remove soon, never shipped, only used in a2-dots-shooter
         public static TDescription WithNativeDisableUnsafePtrRestrictionAttribute<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType capturedVariable) where TDescription : ILambdaJobDescription => description;
         [AllowMultipleInvocations]
         public static TDescription WithNativeDisableParallelForRestriction<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType capturedVariable) where TDescription : ILambdaJobDescription => description;
 
         //do not remove this obsolete method. It is not really obsolete, it never existed, but it is created to give a better error message for when you try to use .Schedule() without argument.  Without this method signature,
         //c#'s overload resolution will try to match a completely different Schedule extension method, and explain why that one doesn't work, which results in an error message that sends the user in a wrong direction.
-        [Obsolete("You must provide a JobHandle argument to .Schedule()", true)]
+        [Obsolete("You must provide a JobHandle argument to .Schedule(). (DoNotRemove)", true)]
         public static JobHandle Schedule<TDescription>(this TDescription description) where TDescription : ILambdaJobDescription => ThrowCodeGenException();
         
         public static JobHandle Schedule<TDescription>(this TDescription description, [AllowDynamicValue] JobHandle dependency) where TDescription : ILambdaJobDescription => ThrowCodeGenException();

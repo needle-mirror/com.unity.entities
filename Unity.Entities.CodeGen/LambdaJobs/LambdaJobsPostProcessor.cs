@@ -306,7 +306,7 @@ namespace Unity.Entities.CodeGen
             VariableDefinition displayClassVariable = null;
             if (lambdaJobDescriptionConstruction.DelegateProducingSequence.CapturesLocals)
             {
-                bool allDelegatesAreGuaranteedNotToOutliveMethod = lambdaJobDescriptionConstruction.DisplayClass.IsValueType || CecilHelpers.AllDelegatesAreGuaranteedNotToOutliveMethodFor(methodContainingLambdaJob);
+                bool allDelegatesAreGuaranteedNotToOutliveMethod = lambdaJobDescriptionConstruction.DisplayClass.IsValueType() || CecilHelpers.AllDelegatesAreGuaranteedNotToOutliveMethodFor(methodContainingLambdaJob);
 
 
                 displayClassVariable = body.Variables.Single(v => v.VariableType.TypeReferenceEquals(lambdaJobDescriptionConstruction.DisplayClass));
@@ -389,7 +389,7 @@ namespace Unity.Entities.CodeGen
                 if (lambdaJobDescriptionConstruction.DelegateProducingSequence.CapturesLocals)
                 {
                     //only when the lambda is capturing, did we emit the ScheduleTimeInitialize method to take a displayclass argument
-                    var opcode = methodLambdaWasEmittedAs.DeclaringType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc;
+                    var opcode = methodLambdaWasEmittedAs.DeclaringType.IsValueType() ? OpCodes.Ldloca : OpCodes.Ldloc;
                     yield return Instruction.Create(opcode, displayClassVariable);
                 }
 
@@ -480,7 +480,7 @@ namespace Unity.Entities.CodeGen
                 {
                     yield return Instruction.Create(OpCodes.Ldloca, newJobStructVariable);
                     
-                    var opcode = methodLambdaWasEmittedAs.DeclaringType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc;
+                    var opcode = methodLambdaWasEmittedAs.DeclaringType.IsValueType() ? OpCodes.Ldloca : OpCodes.Ldloc;
                     yield return Instruction.Create(opcode, displayClassVariable);
                     yield return Instruction.Create(OpCodes.Call, generatedJobStruct.WriteToDisplayClassMethod);
                 }
@@ -539,7 +539,7 @@ namespace Unity.Entities.CodeGen
             
             foreach (var (typeDefinition, variableDefinition) in result)
             {
-                if (!typeDefinition.IsValueType)
+                if (!typeDefinition.IsValueType())
                 {
                     CecilHelpers.PatchMethodThatUsedDisplayClassToTreatItAsAStruct(methodContainingLambdaJob.Body, variableDefinition);
                     CecilHelpers.PatchDisplayClassToBeAStruct(typeDefinition);

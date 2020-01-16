@@ -1,10 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes.Editor
@@ -16,25 +18,95 @@ namespace Unity.Scenes.Editor
         Dictionary<Hash128, bool> m_ConversionLogLoaded = new Dictionary<Hash128, bool>();
         string m_ConversionLog = "";
 
+        SceneAsset[] m_PreviousSceneAssets;
+
+        private void OnEnable()
+        {
+            Undo.undoRedoPerformed += OnUndoRedoPerformed;
+        }
+
+        private void OnDisable()
+        {
+            Undo.undoRedoPerformed -= OnUndoRedoPerformed;
+        }
+
+        void OnUndoRedoPerformed()
+        {
+            // The referenced Scene Asset can have changed when undo/redo happens so we ensure to 
+            // reload the Hierarchy which depends on the current SubScene state. 
+            SceneHierarchyHooks.ReloadAllSceneHierarchies();
+        }
+
+        void CachePreviousSceneAssetReferences()
+        {
+            var numTargets = targets.Length;
+            if (m_PreviousSceneAssets == null || m_PreviousSceneAssets.Length != numTargets)
+            {
+                m_PreviousSceneAssets = new SceneAsset[numTargets];
+            }
+            for (int i = 0; i < numTargets; ++i)
+            {
+                var subScene = (SubScene)targets[i];
+                m_PreviousSceneAssets[i] = subScene.SceneAsset;
+            }
+        }
+
+        void HandleChangedSceneAssetReferences()
+        {
+            bool needsHierarchyReload = false;
+            var numTargets = targets.Length;
+            for (int i = 0; i < numTargets; ++i)
+            {
+                var subScene = (SubScene)targets[i];
+                var prevSceneAsset = m_PreviousSceneAssets[i];
+                if (prevSceneAsset != subScene.SceneAsset)
+                {
+                    needsHierarchyReload = true;
+                    if (prevSceneAsset != null)
+                    {
+                        Scene prevScene = SceneManager.GetSceneByPath(AssetDatabase.GetAssetPath(prevSceneAsset));
+                        if (prevScene.isLoaded && prevScene.isSubScene)
+                        {
+                            if (prevScene.isDirty)
+                                EditorSceneManager.SaveModifiedScenesIfUserWantsTo(new[] { prevScene });
+
+                            // We need to close the Scene if it is loaded to prevent having scenes loaded
+                            // that are not visualized in the Hierarhcy.
+                            EditorSceneManager.CloseScene(prevScene, true);
+                        }
+                    }
+                }
+            }
+            if (needsHierarchyReload)
+                SceneHierarchyHooks.ReloadAllSceneHierarchies();
+        }
+
         public override void OnInspectorGUI()
         {
             var subScene = target as SubScene;
-    
-            var prevSceneAsset = subScene.SceneAsset;
+            
+            var isNestedSubScene = subScene.gameObject.scene.isSubScene;
+            if (isNestedSubScene)
+            {
+                EditorGUILayout.HelpBox($"Nesting SubScenes are not supported yet.", MessageType.Warning, true);
+                EditorGUILayout.Space();
+                return;
+            }
+
             var prevColor = subScene.HierarchyColor;
-    
+            CachePreviousSceneAssetReferences();
+
             base.OnInspectorGUI();
 
-            if (subScene.SceneAsset != prevSceneAsset || subScene.HierarchyColor != prevColor)
+            HandleChangedSceneAssetReferences();
+
+            if (subScene.HierarchyColor != prevColor)
                 SceneHierarchyHooks.ReloadAllSceneHierarchies();
-    
+
             var targetsArray = targets;
             var subscenes = new SubScene[targetsArray.Length];
             targetsArray.CopyTo(subscenes, 0);
-           
 
-            EditorGUILayout.TextArea("",GUI.skin.horizontalSlider);
-            
             GUILayout.BeginHorizontal();
             if (!SubSceneInspectorUtility.IsEditingAll(subscenes))
             {
@@ -53,7 +125,6 @@ namespace Unity.Scenes.Editor
                 }
             }
     
-    
             GUI.enabled = SubSceneInspectorUtility.IsDirty(subscenes);
             if (GUILayout.Button("Save"))
             {
@@ -65,8 +136,6 @@ namespace Unity.Scenes.Editor
             
             var scenes = SubSceneInspectorUtility.GetLoadableScenes(subscenes);
 
-            EditorGUILayout.TextArea("",GUI.skin.horizontalSlider);
-    
             GUILayout.Space(10);
             
             if (World.DefaultGameObjectInjectionWorld != null)
@@ -113,7 +182,19 @@ namespace Unity.Scenes.Editor
                 EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
             }
     #endif
-            
+
+            bool hasDuplicates = subScene.SceneAsset != null && (SubScene.AllSubScenes.Count(s => s.SceneAsset == subScene.SceneAsset) > 1);
+            if (hasDuplicates)
+            {
+                EditorGUILayout.HelpBox($"The Scene Asset '{subScene.EditableScenePath}' is used mutiple times and this is not supported. Clear the reference.", MessageType.Warning, true);
+                if (GUILayout.Button("Clear"))
+                {
+                    subScene.SceneAsset = null;
+                    SceneHierarchyHooks.ReloadAllSceneHierarchies();
+                }
+                EditorGUILayout.Space();
+            }
+
             var uncleanHierarchyObject = SubSceneInspectorUtility.GetUncleanHierarchyObject(subscenes);
             if (uncleanHierarchyObject != null)
             {
@@ -127,6 +208,7 @@ namespace Unity.Scenes.Editor
                         scene.transform.localScale = Vector3.one;
                     }
                 }
+                EditorGUILayout.Space();
             }
             if (SubSceneInspectorUtility.HasChildren(subscenes))
             {

@@ -26,7 +26,7 @@ namespace Unity.Entities
         public Action<World>            ConversionWorldCreated;        // get a callback right after the conversion world is created and systems have been added to it (good for tests that want to inject something)
         public Action<World>            ConversionWorldPreDispose;     // get a callback right before the conversion world gets disposed (good for tests that want to validate world contents)
 
-        public BlobAssetStore BlobAssetStore { get; internal set; }
+        public BlobAssetStore BlobAssetStore { get; protected internal set; }
         
         public GameObjectConversionSettings() { }
 
@@ -53,10 +53,14 @@ namespace Unity.Entities
 
         // ** CONFIGURATION **
 
-        public GameObjectConversionSettings(World destinationWorld, ConversionFlags conversionFlags)
+        public GameObjectConversionSettings(World destinationWorld, ConversionFlags conversionFlags, BlobAssetStore blobAssetStore=null)
         {
             DestinationWorld = destinationWorld;
             ConversionFlags = conversionFlags;
+            if (blobAssetStore != null)
+            {
+                BlobAssetStore = blobAssetStore;
+            }
         }
 
         public static GameObjectConversionSettings FromWorld(World destinationWorld, BlobAssetStore blobAssetStore) => new GameObjectConversionSettings { DestinationWorld = destinationWorld, BlobAssetStore = blobAssetStore};

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.CompilationPipeline.Common.Diagnostics;
 
 namespace Unity.Entities.CodeGen
@@ -177,7 +178,7 @@ namespace Unity.Entities.CodeGen
         
         public static DiagnosticMessage DC0026(string allTypeName, MethodDefinition method, Instruction instruction)
         {
-            return MakeError(nameof(DC0026), $"Entities.ForEach lists has WithAll<{allTypeName}>() and a WithSharedComponentFilter method with a parameter of that type.  Remove the redundant WithAll method.", method, instruction);
+            return MakeError(nameof(DC0026), $"Entities.ForEach lists has WithAll<{allTypeName}>() and a {nameof(LambdaJobQueryConstructionMethods.WithSharedComponentFilter)} method with a parameter of that type.  Remove the redundant WithAll method.", method, instruction);
         }
 
         //not allowed to implement OnCreateForCompiler
@@ -218,7 +219,32 @@ namespace Unity.Entities.CodeGen
         
         public static DiagnosticMessage DC0033(MethodDefinition containingMethod, string parameterName, TypeReference unsupportedType,Instruction instruction)
         {
-            return MakeError(nameof(DC0021),$"{unsupportedType.Name} implements {nameof(IBufferElementData)} and must be used as DynamicBuffer<{unsupportedType.Name}>. Parameter '{parameterName}' is not a IComponentData / ISharedComponentData and is therefore not a supported parameter type for Entities.ForEach.",containingMethod, instruction);
+            return MakeError(nameof(DC0033),$"{unsupportedType.Name} implements {nameof(IBufferElementData)} and must be used as DynamicBuffer<{unsupportedType.Name}>. Parameter '{parameterName}' is not a {nameof(IComponentData)} / {nameof(ISharedComponentData)} and is therefore not a supported parameter type for Entities.ForEach.", containingMethod, instruction);
+        }
+
+        public static DiagnosticMessage DC0034(MethodDefinition containingMethod, string argumentName, TypeReference unsupportedType, Instruction instruction)
+        {
+            return MakeError(nameof(DC0034),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithReadOnly)} is called with an argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerAttribute)}].", containingMethod, instruction);
+        }
+
+        public static DiagnosticMessage DC0035(MethodDefinition containingMethod, string argumentName, TypeReference unsupportedType, Instruction instruction)
+        {
+            return MakeError(nameof(DC0035),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithDeallocateOnJobCompletion)} is called with an invalid argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerSupportsDeallocateOnJobCompletionAttribute)}].", containingMethod, instruction);
+        }
+
+        public static DiagnosticMessage DC0036(MethodDefinition containingMethod, string argumentName, TypeReference unsupportedType, Instruction instruction)
+        {
+            return MakeError(nameof(DC0036),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableContainerSafetyRestriction)} is called with an invalid argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerAttribute)}].", containingMethod, instruction);
+        }
+
+        public static DiagnosticMessage DC0037(MethodDefinition containingMethod, string argumentName, TypeReference unsupportedType, Instruction instruction)
+        {
+            return MakeError(nameof(DC0037),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableParallelForRestriction)} is called with an invalid argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerAttribute)}].", containingMethod, instruction);
+        }
+
+        public static DiagnosticMessage DC0038(MethodDefinition containingMethod, FieldDefinition field, LambdaJobDescriptionConstruction.InvokedConstructionMethod constructionMethod)
+        {
+            return MakeError(nameof(DC0038),$"Entities.{constructionMethod.MethodName} is called with an invalid argument {field.DeclaringType.Name}.{field.Name}. You cannot use Entities.{constructionMethod.MethodName} with fields of user-defined types as the argument. Please assign the field to a local variable and use that instead.", containingMethod, constructionMethod.InstructionInvokingMethod);
         }
 
         static DiagnosticMessage MakeInternal(DiagnosticType type, string errorCode, string messageData, MethodDefinition method, Instruction instruction)

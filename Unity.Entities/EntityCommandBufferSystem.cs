@@ -75,7 +75,7 @@ namespace Unity.Entities
         /// <returns>A command buffer that will be executed by this system.</returns>
         public EntityCommandBuffer CreateCommandBuffer()
         {
-            var cmds = new EntityCommandBuffer(Allocator.TempJob, -1);
+            var cmds = new EntityCommandBuffer(Allocator.TempJob, -1, PlaybackPolicy.SinglePlayback);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             cmds.SystemID = ms_ExecutingSystem != null ? ms_ExecutingSystem.m_SystemID : 0;
 #endif

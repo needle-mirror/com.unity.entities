@@ -13,6 +13,9 @@ namespace Unity.Entities.Editor
         public static VisualElementTemplate LoadClonableTemplate(string basePath, string uxmlFileName, string ussFileName = null, string uxmlSubDirectoryName = "uxml", string ussSubDirectoryName = "uss", string lightSkinUssSuffix = "light", string darkSkinUssSuffix = "dark")
             => new VisualElementTemplate(basePath, uxmlFileName, ussFileName, uxmlSubDirectoryName, ussSubDirectoryName, lightSkinUssSuffix, darkSkinUssSuffix);
 
+        public static void Show(this VisualElement v) => v.style.display = DisplayStyle.Flex;
+        public static void Hide(this VisualElement v) => v.style.display = DisplayStyle.None;
+
         public struct VisualElementTemplate
         {
             readonly VisualTreeAsset m_Template;

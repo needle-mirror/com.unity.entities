@@ -108,6 +108,10 @@ namespace Unity.Entities.Tests
                 AssertOnThread(input.m_Safety.IsAllowedToRead());
                 AssertOnThread(result.m_Safety.IsAllowedToWrite());
                 AssertOnThread(!result.m_Safety.IsAllowedToRead());
+
+#if UNITY_SINGLETHREADED_JOBS
+                AssertOnThread(JobsUtility.InJob);
+#endif
 #endif
                 for (int i = 0; i < N; ++i)
                     result[i] = a + input[i];
@@ -131,11 +135,19 @@ namespace Unity.Entities.Tests
             SimpleAddSerial job2 = new SimpleAddSerial() {a = 2, input = jobResult1, result = jobResult2};
             SimpleAddSerial job3 = new SimpleAddSerial() {a = 3, input = jobResult2, result = jobResult3};
 
+#if UNITY_SINGLETHREADED_JOBS && UNITY_DOTSPLAYER
+            Assert.IsFalse(JobsUtility.InJob);
+#endif
+
             JobHandle handle1 = job1.Schedule();
             JobHandle handle2 = job2.Schedule(handle1);
             JobHandle handle3 = job3.Schedule(handle2);
 
             handle3.Complete();
+
+#if UNITY_SINGLETHREADED_JOBS && UNITY_DOTSPLAYER
+            Assert.IsFalse(JobsUtility.InJob);
+#endif
 
             for (int i = 0; i < SimpleAddSerial.N; ++i)
             {

@@ -463,11 +463,21 @@ namespace Unity.Scenes.Editor
                 {
                     foreach (var (objectInstanceId, eventData) in journalData)
                     {
-                        var unityObject = EditorUtility.InstanceIDToObject(objectInstanceId);
                         if (eventData.Type != LogType.Exception)
-                            writer.WriteLine($"{eventData.Type}: {eventData.Message} from {unityObject.name}");
+                            writer.Write($"{eventData.Type}: {eventData.Message}");
                         else
-                            writer.WriteLine($"{eventData.Message} from {unityObject.name}");
+                            writer.Write($"{eventData.Message}");
+
+                        if (objectInstanceId != 0)
+                        {
+                            var unityObject = EditorUtility.InstanceIDToObject(objectInstanceId);
+                            if (unityObject != null)
+                                writer.WriteLine($" from {unityObject.name}");
+                            else
+                                writer.WriteLine($" from unknown object with instance Id {objectInstanceId}");
+                        }
+                        else
+                            writer.WriteLine();
                     }
                 }
             }

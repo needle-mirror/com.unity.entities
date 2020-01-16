@@ -345,6 +345,8 @@ namespace Unity.Entities
         internal unsafe class EntityRemappingAdapter : IPropertyVisitorAdapter
             , IVisitAdapter<Entity>
             , IVisitAdapter
+            , IVisitCollectionAdapter
+            , IVisitContainerAdapter
         {
             protected EntityRemapUtility.EntityRemapInfo* RemapInfo { get; }
 
@@ -364,11 +366,35 @@ namespace Unity.Entities
             {
                 return VisitStatus.Unhandled;
             }
+
+            public VisitStatus BeginCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
+            {
+                if (value == null)
+                    return VisitStatus.Override;
+                return VisitStatus.Unhandled;
+            }
+
+            public void EndCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
+            {
+            }
+
+            public VisitStatus BeginContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
+            {
+                if (value == null)
+                    return VisitStatus.Override;
+                return VisitStatus.Unhandled;
+            }
+
+            public void EndContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
+            {
+            }
         }
 
         internal unsafe class EntityRemappingForPrefabAdapter : IPropertyVisitorAdapter
             , IVisitAdapter<Entity>
             , IVisitAdapter
+            , IVisitCollectionAdapter
+            , IVisitContainerAdapter
         {
             protected EntityRemapUtility.SparseEntityRemapInfo* RemapInfo { get; }
             protected int RemapInfoCount { get; }
@@ -389,6 +415,28 @@ namespace Unity.Entities
             public VisitStatus Visit<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
             {
                 return VisitStatus.Unhandled;
+            }
+            
+            public VisitStatus BeginCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
+            {
+                if (value == null)
+                    return VisitStatus.Override;
+                return VisitStatus.Unhandled;
+            }
+
+            public void EndCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
+            {
+            }
+            
+            public VisitStatus BeginContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
+            {
+                if (value == null)
+                    return VisitStatus.Override;
+                return VisitStatus.Unhandled;
+            }
+
+            public void EndContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
+            {
             }
         }
 #endif

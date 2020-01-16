@@ -84,7 +84,7 @@ The following example selects entities grouped by a Cohort ISharedComponentData.
 
 [!code-cs[with-shared-component](../package/DocCodeSamples.Tests/LambdaJobExamples.cs#with-shared-component)]
 
-The example uses the EntityManager to get all the unique cohort values. It then schedules a lambda job for each cohort, passing the new color to the lambda function as a captured variable. Since all the jobs run on distinct chunks, they can run in parallel (they are all scheduled with the inputDeps object passed to the OnUpDate() function of the system). And, since the system schedules multiple, independent jobs, it also combine the independent job handles into one handle, which it uses as the return value for OnUpdate().
+The example uses the EntityManager to get all the unique cohort values. It then schedules a lambda job for each cohort, passing the new color to the lambda function as a captured variable. 
 
 <a name="lambda-parameters"></a>
 ## Lambda parameters

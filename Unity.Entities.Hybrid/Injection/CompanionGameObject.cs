@@ -35,13 +35,14 @@ namespace Unity.Entities
         /// <param name="dstChunkCapacity">Chunk capacity</param>
         /// <param name="srcEntity">Entity to instantiate</param>
         /// <param name="dstEntities">Array containing all the entities instantiated</param>
+        /// <param name="entityCount">Length of the instantiated entities array</param>
         /// <param name="dstTypeIndex">Destination type index</param>
         /// <param name="dstBaseIndex">Destination base index</param>
         /// <param name="gameObjectInstances">An array that will contain all the cloned Game Object companion. This method will fill this array at the first call for a Hybrid Component to clone and will be used for subsequent ones</param>
         /// <returns><c>true</c> if the <paramref name="obj"/> was meant to be cloned, <c>false</c> if it is meant to be referenced</returns>
         static bool InstantiateHybridComponentDelegate(object obj, ManagedComponentStore srcStore,
             Archetype* dstArch, ManagedComponentStore dstStore, int dstManagedArrayIndex, int dstChunkCapacity,
-            Entity srcEntity, NativeArray<Entity> dstEntities, int dstTypeIndex, int dstBaseIndex, ref object[] gameObjectInstances)
+            Entity srcEntity, Entity* dstEntities, int entityCount, int dstTypeIndex, int dstBaseIndex, ref object[] gameObjectInstances)
         {
             // For now, it only makes sense to support a conversion that happens in the same world
             // If whenever that changes, this assert will warn us it's not supported
@@ -68,9 +69,9 @@ namespace Unity.Entities
             //      if the user adds Components to the Game Object that are not used by the entity: so be it, the user will still have these components in the instantiated Game Objects
             if (gameObjectInstances == null)
             {
-                gameObjectInstances = new object[dstEntities.Length];
+                gameObjectInstances = new object[entityCount];
 
-                for (int i = 0; i < dstEntities.Length; ++i)
+                for (int i = 0; i < entityCount; ++i)
                 {
                     var instance = GameObject.Instantiate(unityComponent.gameObject);
                     instance.name = CompanionLink.GenerateCompanionName(dstEntities[i]);
@@ -81,7 +82,7 @@ namespace Unity.Entities
             }
 
             // For each instance we create, we add the cloned Hybrid Component to the entity
-            for (int i = 0; i < dstEntities.Length; i++)
+            for (int i = 0; i < entityCount; i++)
             {
                 var componentInInstance = ((GameObject)gameObjectInstances[i]).GetComponent(obj.GetType());
                 dstStore.SetManagedObject(dstArch, dstManagedArrayIndex, dstChunkCapacity, dstTypeIndex, dstBaseIndex + i, componentInInstance);

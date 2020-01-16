@@ -1053,6 +1053,8 @@ namespace Unity.Entities
             internal unsafe class EntityDiffAdapter : IPropertyVisitorAdapter
                 , IVisitAdapter<Entity>
                 , IVisitAdapter
+                , IVisitCollectionAdapter
+                , IVisitContainerAdapter
             {
                 protected PackedComponent Component;
                 protected NativeList<EntityReferenceChange> Patches { get; }
@@ -1091,6 +1093,28 @@ namespace Unity.Entities
                     return VisitStatus.Unhandled;
                 }
 
+                public VisitStatus BeginCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
+                {
+                    if (value == null)
+                        return VisitStatus.Override;
+                    return VisitStatus.Unhandled;
+                }
+
+                public void EndCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
+                {
+                }
+
+                public VisitStatus BeginContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
+                {
+                    if (value == null)
+                        return VisitStatus.Override;
+                    return VisitStatus.Unhandled;
+                }
+
+                public void EndContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
+                {
+                }
+                
                 private bool TryGetEntityGuid(Entity e, out EntityGuid guid)
                 {
                     guid = default;

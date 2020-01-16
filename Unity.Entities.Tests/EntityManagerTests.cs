@@ -195,9 +195,15 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [Ignore("NOT IMPLEMENTED")]
-        public void UsingComponentGroupOrArchetypeorEntityFromDifferentEntityManagerGivesExceptions()
+        public void EntityArchetypeFromDifferentEntityManagerThrows()
         {
+            using (var world = new World("Temp"))
+            {
+                var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+                var nullArchetype = default(EntityArchetype);
+                Assert.Throws<ArgumentException>(() => world.EntityManager.CreateEntity(archetype));
+                Assert.Throws<ArgumentException>(() => world.EntityManager.CreateEntity(nullArchetype));
+            }
         }
 
         [Test]

@@ -63,7 +63,7 @@ namespace Unity.Entities.CodeGen
 
                 var td = tr.CheckedResolve();
 
-                if (td.IsValueType)
+                if (td.IsValueType())
                 {
                     if (HasMayOnlyLiveInBlobStorageAttribute(td))
                         return true;

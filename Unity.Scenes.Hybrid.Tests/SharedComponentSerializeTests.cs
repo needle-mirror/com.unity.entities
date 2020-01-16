@@ -134,4 +134,52 @@ public class SharedComponentSerializeTests
         
         buffer.Dispose();
     }
+    
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+    public class ComponentWithStringArray : IComponentData
+    {
+        public string[] StringArray;
+        
+        public static void AreEqual(ComponentWithStringArray expected, ComponentWithStringArray value)
+        {
+            Assert.AreEqual(expected.StringArray.Length, value.StringArray.Length);
+            for(int i = 0; i < expected.StringArray.Length; ++i)
+                Assert.AreEqual(expected.StringArray[i], value.StringArray[i]);
+        }
+    }
+    
+    /// <summary>
+    /// Regression test for an issue where arrays of strings were not constructed properly when
+    /// deserializing. Arrays have a special deserialization path, and strings also have a special code
+    /// path since the type is immutable. This test exercises both special paths.
+    /// </summary>
+    [Test]
+    unsafe public void ReadWriteBoxedWithStringArrayWithOneElement()
+    {
+        var srcData = new ComponentWithStringArray()
+        {
+            StringArray = new string[] { "One" }
+        };
+
+        // Write to stream
+        var buffer = new UnsafeAppendBuffer(0, 16, Allocator.Persistent);
+        var writer = new PropertiesBinaryWriter(&buffer);
+
+        var boxedSrcData = (object)srcData;
+        BoxedProperties.WriteBoxedType(boxedSrcData, writer);
+
+        var objectTable = writer.GetObjectTable();    
+        
+        // Read from stream
+        var readStream = writer.Buffer.AsReader();
+        var reader = new PropertiesBinaryReader(&readStream, objectTable);
+        
+        var boxedRead = BoxedProperties.ReadBoxedClass(typeof(ComponentWithStringArray), reader);
+
+        // Check same
+        ComponentWithStringArray.AreEqual(srcData, (ComponentWithStringArray)boxedRead);
+        
+        buffer.Dispose();
+    }
+#endif
 }

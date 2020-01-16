@@ -61,22 +61,22 @@ namespace Unity.Entities
             EntityComponentStore->UnlockChunks((ArchetypeChunk*)chunks.GetUnsafePtr(), chunks.Length, ChunkFlags.Locked);
         }
 
-        [Obsolete("LockChunkOrder has been deprecated, and its usage is a no-op.")]
+        [Obsolete("LockChunkOrder has been deprecated, and its usage is a no-op. (RemovedAfter 2020-04-09)")]
         public void LockChunkOrder(EntityQuery query)
         {
         }
 
-        [Obsolete("LockChunkOrder has been deprecated, and its usage is a no-op.")]
+        [Obsolete("LockChunkOrder has been deprecated, and its usage is a no-op. (RemovedAfter 2020-04-09)")]
         public void LockChunkOrder(ArchetypeChunk chunk)
         {
         }
 
-        [Obsolete("UnlockChunkOrder has been deprecated, and its usage is a no-op.")]
+        [Obsolete("UnlockChunkOrder has been deprecated, and its usage is a no-op. (RemovedAfter 2020-04-09)")]
         public void UnlockChunkOrder(EntityQuery query)
         {
         }
 
-        [Obsolete("UnlockChunkOrder has been deprecated, and its usage is a no-op.")]
+        [Obsolete("UnlockChunkOrder has been deprecated, and its usage is a no-op. (RemovedAfter 2020-04-09)")]
         public void UnlockChunkOrder(ArchetypeChunk chunk)
         {
         }

@@ -68,7 +68,7 @@ namespace Unity.Entities.CodeGen
         {
             if (compiledAssembly.Name == "Unity.Entities")
                 return true;
-            return compiledAssembly.References.Any(f => f.EndsWith("Unity.Entities.dll")) && 
+            return compiledAssembly.References.Any(f => Path.GetFileName(f) == "Unity.Entities.dll") && 
                    !compiledAssembly.Name.Contains("CodeGen.Tests");
         }
 
@@ -129,12 +129,12 @@ namespace Unity.Entities.CodeGen
 
             private string FindFile(AssemblyNameReference name)
             {
-                var fileName = _references.FirstOrDefault(r => r.EndsWith(name.Name + ".dll"));
+                var fileName = _references.FirstOrDefault(r => Path.GetFileName(r) == name.Name + ".dll");
                 if (fileName != null) 
                     return fileName;
                 
                 // perhaps the type comes from an exe instead
-                fileName = _references.FirstOrDefault(r => r.EndsWith(name.Name + ".exe"));
+                fileName = _references.FirstOrDefault(r => Path.GetFileName(r) == name.Name + ".exe");
                 if (fileName != null)
                     return fileName;
 

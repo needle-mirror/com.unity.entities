@@ -28,12 +28,13 @@ namespace Unity.Entities.CodeGen
             return false;
         }
 
-        public static bool IsIComponentDataStruct(this TypeDefinition typeDefinition) => typeDefinition.TypeImplements(typeof(IComponentData)) && typeDefinition.IsValueType;
-        public static bool IsIBufferElementData(this TypeDefinition typeDefinition) => typeDefinition.TypeImplements(typeof(IBufferElementData)) && typeDefinition.IsValueType;
+        public static bool IsIComponentDataStruct(this TypeDefinition typeDefinition) => typeDefinition.TypeImplements(typeof(IComponentData)) && typeDefinition.IsValueType();
+        public static bool IsTagComponentDataStruct(this TypeDefinition typeDefinition) => typeDefinition.IsIComponentDataStruct() && typeDefinition.Fields.All(fd => fd.IsStatic);
+        public static bool IsIBufferElementData(this TypeDefinition typeDefinition) => typeDefinition.TypeImplements(typeof(IBufferElementData)) && typeDefinition.IsValueType();
         
         public static bool IsIComponentDataClass(this TypeDefinition typeDefinition)
         {
-            if (typeDefinition.IsValueType)
+            if (typeDefinition.IsValueType())
                 return false;
 
             if (typeDefinition.TypeImplements(typeof(IComponentData)))
@@ -72,6 +73,42 @@ namespace Unity.Entities.CodeGen
         
         public static bool IsDisplayClass(this TypeReference tr) =>
             tr.Name.Contains("<>c__DisplayClass");
+        
+        // Safer version of TypeReference.IsValueType property as extension method since property is broken
+        // (Cecil doesn't have enough information without resolving references so it just guesses)
+        public static bool IsValueType(this TypeReference typeReference)
+        {
+            if (typeReference is ArrayType)
+                return false;
+
+            if (typeReference is PointerType)
+                return false;
+
+            if (typeReference is ByReferenceType)
+                return false;
+
+            if (typeReference is GenericParameter)
+                return false;
+
+            var pinnedType = typeReference as PinnedType;
+            if (pinnedType != null)
+                return pinnedType.ElementType.IsValueType();
+
+            var requiredModifierType = typeReference as RequiredModifierType;
+            if (requiredModifierType != null)
+                return requiredModifierType.ElementType.IsValueType();
+
+            var optionalModifierType = typeReference as OptionalModifierType;
+            if (optionalModifierType != null)
+                return optionalModifierType.ElementType.IsValueType();
+
+            var typeDefinition = typeReference.Resolve();
+
+            if (typeDefinition == null)
+                throw new InvalidOperationException($"Unable to locate the definition for {typeReference.FullName}. Is this assembly compiled against an older version of one of its dependencies?");
+
+            return typeDefinition.IsValueType;
+        }
     }
 
     static class FieldReferenceExtensions
@@ -172,7 +209,7 @@ namespace Unity.Entities.CodeGen
 
         public static bool IsUnityEngineObject(this TypeDefinition typeDefinition)
         {
-            if (typeDefinition.IsValueType)
+            if (typeDefinition.IsValueType())
                 return false;
             if (typeDefinition.Name == "Object" && typeDefinition.Namespace == "UnityEngine")
                 return true;

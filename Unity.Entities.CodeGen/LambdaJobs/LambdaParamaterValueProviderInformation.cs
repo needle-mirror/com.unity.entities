@@ -21,11 +21,13 @@ namespace Unity.Entities.CodeGen
         public readonly MethodReference ProviderFinishExecuteOnEntities;
         public readonly bool IsReadOnly;
         public readonly bool WithStructuralChanges;
+        public readonly string Name;
 
-        LambdaParamaterValueProviderInformation(TypeReference provider, TypeReference providerRuntime, bool readOnly, 
-            TypeReference runtimeForMethodReturnType = null, bool withStructuralChanges = false)
+        LambdaParamaterValueProviderInformation(TypeReference provider, TypeReference providerRuntime, bool readOnly,
+            string name, TypeReference runtimeForMethodReturnType = null, bool withStructuralChanges = false)
         {
             Provider = provider;
+            Name = name;
 
             ProviderRuntime = providerRuntime;
             (RuntimeForMethod, RuntimeForMethodReturnType) = MethodReferenceFor("For", ProviderRuntime);
@@ -57,7 +59,9 @@ namespace Unity.Entities.CodeGen
             {
                 ((GenericInstanceType)specializedReturnType).GenericArguments[0] =  ((GenericInstanceType) typeReference).GenericArguments.Single();
             }
-            else if (methodName == "For" && typeReference.DeclaringType.Name == typeof(LambdaParameterValueProvider_IComponentData<>).Name)
+            else if (methodName == "For" && 
+                     (typeReference.DeclaringType.Name == typeof(LambdaParameterValueProvider_IComponentData<>).Name ||
+                      typeReference.DeclaringType.Name == typeof(LambdaParameterValueProvider_IComponentData_Tag<>).Name))
             {
                 specializedReturnType = ((GenericInstanceType) typeReference).GenericArguments.Single();
             }
@@ -109,13 +113,26 @@ namespace Unity.Entities.CodeGen
             if (resolvedParameterType.IsIComponentDataStruct())
             {
                 var readOnly = !parameter.ParameterType.IsByReference || HasCompilerServicesIsReadOnlyAttribute(parameter);
-                var (provider, providerRuntime) = 
+                
+                if (resolvedParameterType.IsTagComponentDataStruct())
+                {
+                    var (provider, providerRuntime) =
+                        ImportReferencesFor(
+                            typeof(LambdaParameterValueProvider_IComponentData_Tag<>), 
+                            typeof(LambdaParameterValueProvider_IComponentData_Tag<>.Runtime), parameter.ParameterType.GetElementType());
+                    return new LambdaParamaterValueProviderInformation(provider, providerRuntime, readOnly, parameter.Name, null, false);
+                }
+                else
+                {
+                    
+                    var (provider, providerRuntime) =
                     ImportReferencesFor(
                         typeof(LambdaParameterValueProvider_IComponentData<>),
-                        withStructuralChanges 
-                            ? typeof(LambdaParameterValueProvider_IComponentData<>.StructuralChangeRuntime) 
+                            withStructuralChanges
+                                ? typeof(LambdaParameterValueProvider_IComponentData<>.StructuralChangeRuntime)
                             : typeof(LambdaParameterValueProvider_IComponentData<>.Runtime), parameter.ParameterType.GetElementType());
-                return new LambdaParamaterValueProviderInformation(provider, providerRuntime, readOnly, null, withStructuralChanges);
+                return new LambdaParamaterValueProviderInformation(provider, providerRuntime, readOnly, parameter.Name, null, withStructuralChanges);
+            }
             }
 
             // class IComponentData / UnityEngine.Object
@@ -137,7 +154,7 @@ namespace Unity.Entities.CodeGen
                     withStructuralChanges 
                         ? typeof(LambdaParameterValueProvider_ManagedComponentData<>.StructuralChangeRuntime)
                         : typeof(LambdaParameterValueProvider_ManagedComponentData<>.Runtime), parameter.ParameterType.GetElementType());
-                return new LambdaParamaterValueProviderInformation(provider, providerRuntime, readOnly, parameter.ParameterType.GetElementType());
+                return new LambdaParamaterValueProviderInformation(provider, providerRuntime, readOnly, parameter.Name, parameter.ParameterType.GetElementType());
             }
             
             // DynamicBuffer<T>
@@ -153,7 +170,7 @@ namespace Unity.Entities.CodeGen
                     withStructuralChanges
                         ? typeof(LambdaParameterValueProvider_DynamicBuffer<>.StructuralChangeRuntime)
                         : typeof(LambdaParameterValueProvider_DynamicBuffer<>.Runtime), bufferElementType);
-                return new LambdaParamaterValueProviderInformation(provider, providerRuntime, false);
+                return new LambdaParamaterValueProviderInformation(provider, providerRuntime, false, parameter.Name);
             }
 
             // ISharedComponent
@@ -171,7 +188,7 @@ namespace Unity.Entities.CodeGen
                     withStructuralChanges 
                         ? typeof(LambdaParameterValueProvider_ISharedComponentData<>.StructuralChangeRuntime)
                         : typeof(LambdaParameterValueProvider_ISharedComponentData<>.Runtime), parameter.ParameterType.GetElementType());
-                var newProvider = new LambdaParamaterValueProviderInformation(provider, providerRuntime, false, parameter.ParameterType.GetElementType(), withStructuralChanges);
+                var newProvider = new LambdaParamaterValueProviderInformation(provider, providerRuntime, false, parameter.Name, parameter.ParameterType.GetElementType(), withStructuralChanges);
             
                 return newProvider;
             }
@@ -183,7 +200,7 @@ namespace Unity.Entities.CodeGen
                     ? moduleDefinition.ImportReference(typeof(LambdaParameterValueProvider_Entity.StructuralChangeRuntime))
                     : moduleDefinition.ImportReference(typeof(LambdaParameterValueProvider_Entity.Runtime));
                 
-                return new LambdaParamaterValueProviderInformation(provider, runtime, true, null, withStructuralChanges);
+                return new LambdaParamaterValueProviderInformation(provider, runtime, true, parameter.Name, null, withStructuralChanges);
             }
             
             if (resolvedParameterType.FullName == moduleDefinition.TypeSystem.Int32.FullName)
@@ -198,14 +215,22 @@ namespace Unity.Entities.CodeGen
                     var runtime = withStructuralChanges
                         ? moduleDefinition.ImportReference(typeof(LambdaParameterValueProvider_EntityInQueryIndex.StructuralChangeRuntime))
                         : moduleDefinition.ImportReference(typeof(LambdaParameterValueProvider_EntityInQueryIndex.Runtime));
-                    return new LambdaParamaterValueProviderInformation(provider, runtime, true);
+                    return new LambdaParamaterValueProviderInformation(provider, runtime, true, parameter.Name);
                 }
 
                 if (parameter.Name == nativeThreadIndexName)
                 {
                     var provider = moduleDefinition.ImportReference(typeof(LambdaParameterValueProvider_NativeThreadIndex));
                     var runtime = moduleDefinition.ImportReference(typeof(LambdaParameterValueProvider_NativeThreadIndex.Runtime));
-                    return new LambdaParamaterValueProviderInformation(provider, runtime, true);
+#if !UNITY_DOTSPLAYER
+                    var isReadonly = true;
+#else
+                    // Tiny's Job System currently will set the NativeThreadIndex at the beginning of the function to be Bursted.
+                    // This will make Burst Compilation fail due to the NativeThreadIndex being marked as Readonly here. So for now
+                    // until we workaround this issue in the Tiny Job System, we disable marking NativeThreadIndex as Readonly.
+                    var isReadonly = false;
+#endif
+                    return new LambdaParamaterValueProviderInformation(provider, runtime, isReadonly, parameter.Name);
                 }
 
                 UserError.DC0014(lambdaJobDescriptionConstruction.ContainingMethod, lambdaJobDescriptionConstruction.WithCodeInvocationInstruction, parameter, allNames).Throw();
@@ -214,7 +239,7 @@ namespace Unity.Entities.CodeGen
             if (resolvedParameterType.IsIBufferElementData())
                 UserError.DC0033(lambdaJobDescriptionConstruction.ContainingMethod, parameter.Name, parameter.ParameterType.GetElementType(), lambdaJobDescriptionConstruction.WithCodeInvocationInstruction).Throw();
             
-            if (!resolvedParameterType.GetElementType().IsPrimitive && resolvedParameterType.GetElementType().IsValueType)
+            if (!resolvedParameterType.GetElementType().IsPrimitive && resolvedParameterType.GetElementType().IsValueType())
                 UserError.DC0021(lambdaJobDescriptionConstruction.ContainingMethod, parameter.Name, parameter.ParameterType.GetElementType(), lambdaJobDescriptionConstruction.WithCodeInvocationInstruction).Throw();
 
             UserError.DC0005(lambdaJobDescriptionConstruction.ContainingMethod, lambdaJobDescriptionConstruction.WithCodeInvocationInstruction, parameter).Throw();

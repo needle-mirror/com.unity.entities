@@ -30,6 +30,9 @@ namespace Unity.Entities
     public unsafe struct EntityArchetype : IEquatable<EntityArchetype>
     {
         [NativeDisableUnsafePtrRestriction] internal Archetype* Archetype;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS        
+        [NativeDisableUnsafePtrRestriction] internal EntityComponentStore* _DebugComponentStore;
+#endif
 
         /// <summary>
         /// Reports whether this EntityArchetype instance references a non-null archetype.

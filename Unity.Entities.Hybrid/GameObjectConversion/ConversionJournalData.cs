@@ -166,18 +166,14 @@ namespace Unity.Entities.Conversion
         bool RecordEvent<T>(UnityObject context, ref MultiList<T> eventStore, in T eventData)
             where T : IConversionEventData
         {
-            // ignore if no context was given
-            if (context == null)
-                return false;
-
-            context.CheckObjectIsNotComponent();
-
-            //@TODO(scobi): record unknowns to scene object
-
-            // ignore if conversion system does not know about this
-            var instanceId = context.GetInstanceID();
-            if (!HasHead(instanceId, ref m_Entities))
-                return false;
+            var instanceId = 0;
+            if (context != null)
+            {
+                // ignore if conversion system does not know about this context
+                instanceId = context.GetInstanceID();
+                if (!HasHead(instanceId, ref m_Entities))
+                    return false;
+            }
 
             Add(instanceId, ref eventStore, eventData);
             return true;

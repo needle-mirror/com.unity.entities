@@ -444,8 +444,7 @@ namespace Unity.Entities
             EntityChangeSet changeSet,
             NativeMultiHashMap<int, Entity> packedEntities)
         {
-            var types = stackalloc ComponentType[0];
-            var entityGuidArchetype = entityManager.CreateArchetype(types, 0);
+            var entityGuidArchetype = entityManager.CreateArchetype(null, 0);
             using (var entities = new NativeArray<Entity>(changeSet.CreatedEntityCount, Allocator.Temp))
             {
                 entityManager.CreateEntity(entityGuidArchetype, entities);
@@ -1114,6 +1113,8 @@ namespace Unity.Entities
             internal unsafe class EntityPatchAdapter : IPropertyVisitorAdapter
                 , IVisitAdapter<Entity>
                 , IVisitAdapter
+                , IVisitCollectionAdapter
+                , IVisitContainerAdapter
             {
                 NativeMultiHashMap<EntityComponentPair, OffsetEntityPair>.Enumerator Patches;
 
@@ -1142,6 +1143,28 @@ namespace Unity.Entities
                 public VisitStatus Visit<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
                 {
                     return VisitStatus.Unhandled;
+                }
+                
+                public VisitStatus BeginCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
+                {
+                    if (value == null)
+                        return VisitStatus.Override;
+                    return VisitStatus.Unhandled;
+                }
+
+                public void EndCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
+                {
+                }
+
+                public VisitStatus BeginContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
+                {
+                    if (value == null)
+                        return VisitStatus.Override;
+                    return VisitStatus.Unhandled;
+                }
+
+                public void EndContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
+                {
                 }
             }
         }

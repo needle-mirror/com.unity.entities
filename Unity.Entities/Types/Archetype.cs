@@ -93,7 +93,7 @@ namespace Unity.Entities
                     Chunks.Grow(newCapacity);
             }
 
-            Chunks.Add(chunk, sharedComponentIndices);
+            Chunks.Add(chunk, sharedComponentIndices, changeVersion);
         }
 
         public void RemoveFromChunkList(Chunk *chunk)

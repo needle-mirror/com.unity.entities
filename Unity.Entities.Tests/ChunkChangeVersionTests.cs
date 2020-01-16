@@ -21,43 +21,6 @@ namespace Unity.Entities.Tests
             m_Manager.Debug.SetGlobalSystemVersion(NewVersion);
         }
 
-        void AssertSameChunk(Entity e0, Entity e1)
-        {
-            Assert.AreEqual(m_Manager.GetChunk(e0), m_Manager.GetChunk(e1));
-        }
-
-        public void AssertHasVersion<T>(Entity e, uint version) where T :
-#if UNITY_DISABLE_MANAGED_COMPONENTS
-            struct, 
-#endif
-            IComponentData
-        {
-            var type = m_Manager.GetArchetypeChunkComponentType<T>(true);
-            var chunk = m_Manager.GetChunk(e);
-            Assert.AreEqual(version, chunk.GetComponentVersion(type));
-            Assert.IsFalse(chunk.DidChange(type, version));
-            Assert.IsTrue(chunk.DidChange(type, version-1));
-        }
-        
-        void AssertHasBufferVersion<T>(Entity e, uint version) where T : struct, IBufferElementData
-        {
-            var type = m_Manager.GetArchetypeChunkBufferType<T>(true);
-            var chunk = m_Manager.GetChunk(e);
-            Assert.AreEqual(version, chunk.GetComponentVersion(type));
-            Assert.IsFalse(chunk.DidChange(type, version));
-            Assert.IsTrue(chunk.DidChange(type, version-1));
-        }
-
-        void AssertHasSharedVersion<T>(Entity e, uint version) where T : struct, ISharedComponentData
-        {
-            var type = m_Manager.GetArchetypeChunkSharedComponentType<T>();
-            var chunk = m_Manager.GetChunk(e);
-            Assert.AreEqual(version, chunk.GetComponentVersion(type));
-            Assert.IsFalse(chunk.DidChange(type, version));
-            Assert.IsTrue(chunk.DidChange(type, version-1));
-        }
-
-        
         [Test]
         public void VersionWrapAround()
         {
@@ -134,7 +97,31 @@ namespace Unity.Entities.Tests
             AssertHasVersion<EcsTestData2>(e1, NewVersion);
             AssertHasVersion<EcsTestTag>(e1, NewVersion);
         }
+        
+        [Test]
+        public void AddTagWithQueryKeepsVersion()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData));
+            
+            BumpGlobalSystemVersion();
+            m_Manager.AddComponent(m_Manager.UniversalQuery, typeof(EcsTestTag));
+            
+            AssertHasVersion<EcsTestData>(e0, OldVersion);
+            AssertHasVersion<EcsTestTag>(e0, NewVersion);
+        }
 
+        [Test]
+        public void AddSharedWithQueryKeepsVersion()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData));
+            
+            BumpGlobalSystemVersion();
+            m_Manager.AddSharedComponentData(m_Manager.UniversalQuery, new SharedData1(5));
+            
+            AssertHasVersion<EcsTestData>(e0, OldVersion);
+            AssertHasSharedVersion<SharedData1>(e0, NewVersion);
+        }
+        
         [Test]
         public void AddComponentWithDefaultValueMarksSrcAndDestChunkAsChanged()
         {

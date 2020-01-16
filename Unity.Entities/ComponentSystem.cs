@@ -54,7 +54,7 @@ namespace Unity.Entities
             BeforeUpdateVersioning();
             CompleteDependencyInternal();
 
-            m_DeferredEntities = new EntityCommandBuffer(Allocator.TempJob, -1);
+            m_DeferredEntities = new EntityCommandBuffer(Allocator.TempJob, -1, PlaybackPolicy.SinglePlayback);
         }
 
         void AfterOnUpdate()

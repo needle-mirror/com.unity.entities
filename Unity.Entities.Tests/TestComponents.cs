@@ -94,6 +94,19 @@ namespace Unity.Entities.Tests
     {
         public float Value;
     }
+    
+    public struct EcsTestFloatData2 : IComponentData
+    {
+        public float Value0;
+        public float Value1;
+    }
+    
+    public struct EcsTestFloatData3 : IComponentData
+    {
+        public float Value0;
+        public float Value1;
+        public float Value2;
+    }
 
     public struct EcsTestSharedComp : ISharedComponentData
     {
@@ -311,10 +324,21 @@ namespace Unity.Entities.Tests
     }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
+
+    public class ClassWithString
+    {
+        public string String;
+    }
+    public class ClassWithClassFields
+    {
+        public ClassWithString ClassWithString;
+    }
+    
     public class EcsTestManagedDataEntity : IComponentData
     {
         public string value0;
         public Entity value1;
+        public ClassWithClassFields nullField;
 
         public EcsTestManagedDataEntity()
         {
@@ -324,6 +348,7 @@ namespace Unity.Entities.Tests
         {
             value0 = inValue0;
             value1 = inValue1;
+            nullField = null;
         }
     }
 
@@ -331,6 +356,7 @@ namespace Unity.Entities.Tests
     {
         public List<string> value0;
         public List<Entity> value1;
+        public List<ClassWithClassFields> nullField;
 
         public EcsTestManagedDataEntityCollection()
         {
@@ -340,12 +366,14 @@ namespace Unity.Entities.Tests
         {
             value0 = new List<string>(inValue0);
             value1 = new List<Entity>(inValue1);
+            nullField = null;
         }
     }
 
     public class EcsTestManagedComponent : IComponentData
     {
         public string value;
+        public ClassWithClassFields nullField;
 
         public override int GetHashCode()
         {

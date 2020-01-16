@@ -46,7 +46,7 @@ namespace Unity.Entities
 
         ManagedArrayStorage[] m_ManagedArrays = new ManagedArrayStorage[0];
 
-        internal delegate bool InstantiateHybridComponentDelegate(object obj, ManagedComponentStore srcStore, Archetype* dstArch, ManagedComponentStore dstStore, int dstManagedArrayIndex, int dstChunkCapacity, Entity srcEntity, NativeArray<Entity> dstEntities, int dstTypeIndex, int dstBaseIndex, ref object[] gameObjectInstances);
+        internal delegate bool InstantiateHybridComponentDelegate(object obj, ManagedComponentStore srcStore, Archetype* dstArch, ManagedComponentStore dstStore, int dstManagedArrayIndex, int dstChunkCapacity, Entity srcEntity, Entity* dstEntities, int entityCount, int dstTypeIndex, int dstBaseIndex, ref object[] gameObjectInstances);
         internal static InstantiateHybridComponentDelegate InstantiateHybridComponent;
 
         public ManagedComponentStore()
@@ -458,6 +458,7 @@ namespace Unity.Entities
                 var dstIndex = InsertSharedComponentAssumeNonDefaultMove(typeIndex, hashCode, srcData);
 
                 SharedComponentInfoPtr[dstIndex].RefCount += srcInfos[srcIndex].RefCount - 1;
+                SharedComponentInfoPtr[dstIndex].Version++;
 
                 remap[srcIndex] = dstIndex;
             }
@@ -503,6 +504,7 @@ namespace Unity.Entities
                 int srcRefCount = remapPtr[srcIndex];
                 SharedComponentInfoPtr[dstIndex].RefCount += srcRefCount - 1; 
                 srcManagedComponents.RemoveReference(srcIndex, srcRefCount);
+                SharedComponentInfoPtr[dstIndex].Version++;
 
                 remapPtr[srcIndex] = dstIndex;
             }
@@ -656,7 +658,8 @@ namespace Unity.Entities
 
         public static void ReplicateManagedObjects(
             ManagedComponentStore srcStore, Archetype* srcArch, int srcManagedArrayIndex, int srcChunkCapacity, int srcIndex,
-            ManagedComponentStore dstStore, Archetype* dstArch, int dstManagedArrayIndex, int dstChunkCapacity, int dstBaseIndex, int count, Entity srcEntity, NativeArray<Entity> dstEntities)
+            ManagedComponentStore dstStore, Archetype* dstArch, int dstManagedArrayIndex, int dstChunkCapacity, int dstBaseIndex,
+            int count, Entity srcEntity, Entity* dstEntities, int entityCount)
         {
             object[] companionGameObjectInstances = null;
 
@@ -686,7 +689,7 @@ namespace Unity.Entities
                             // - Determine if the object should be cloned (true is returned) or referenced (false is returned)
                             // - Clone the GameObject and its components (as many times as we have in 'count'), and make it a Companion Game Object by adding a CompanionLink component to it
                             // - Add the Cloned Hybrid Component to the instantiated entities (again 'count' times)
-                            if (InstantiateHybridComponent == null || !InstantiateHybridComponent(obj, srcStore, dstArch, dstStore, dstManagedArrayIndex, dstChunkCapacity, srcEntity, dstEntities, dstI, dstBaseIndex, ref companionGameObjectInstances))
+                            if (InstantiateHybridComponent == null || !InstantiateHybridComponent(obj, srcStore, dstArch, dstStore, dstManagedArrayIndex, dstChunkCapacity, srcEntity, dstEntities, entityCount, dstI, dstBaseIndex, ref companionGameObjectInstances))
                             {
                                 // We end up here if we have to reference the object and not cloning it
                                 for (var i = 0; i < count; ++i)
@@ -842,10 +845,10 @@ namespace Unity.Entities
                         var count = reader.ReadNext<int>();
 
                         var srcEntity = reader.ReadNext<Entity>();
-                        reader.ReadNext<Entity>(out var dstEntities, Allocator.Temp);
+                        var dstEntities = (Entity*)reader.ReadNextArray<Entity>(out var entityCount);
 
                         ReplicateManagedObjects(this, srcArchetype, srcManagedArrayIndex, srcChunkCapacity, srcIndex,
-                            this, dstArchetype, dstManagedArrayIndex, dstChunkCapacity, dstBaseStartIndex, count, srcEntity, dstEntities);
+                            this, dstArchetype, dstManagedArrayIndex, dstChunkCapacity, dstBaseStartIndex, count, srcEntity, dstEntities, entityCount);
                     }
                     break;
 

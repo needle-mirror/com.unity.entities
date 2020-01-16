@@ -89,6 +89,13 @@ namespace Unity.Entities.BuildUtils
             return true;
         }
 
+        public static bool IsStructWithInterface(this TypeDefinition type, string fullName)
+        {
+            return type.IsStructValueType()
+                && type.HasInterfaces
+                && type.Interfaces.FirstOrDefault(i => i.InterfaceType.FullName == fullName) != null;
+        }
+
         public static bool IsEntityType(this TypeReference typeRef)
         {
             return (typeRef.FullName == "Unity.Entities.Entity");

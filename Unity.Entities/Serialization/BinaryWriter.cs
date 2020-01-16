@@ -507,8 +507,10 @@ namespace Unity.Entities.Serialization
                     {
                         // Strings are immutable so we need to give a value when creating them
                         if (typeof(string) == tValue)
-                            array.SetValue(Activator.CreateInstance(tValue, "".ToCharArray()), 1);
-                        if (typeof(UnityEngine.Object).IsAssignableFrom(tValue))
+                        {
+                            array.SetValue(Activator.CreateInstance(tValue, "".ToCharArray()), i);
+                        }
+                        else if (typeof(UnityEngine.Object).IsAssignableFrom(tValue))
                         {
                             // do nothing
                         }

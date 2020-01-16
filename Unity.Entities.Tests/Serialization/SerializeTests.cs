@@ -605,9 +605,9 @@ namespace Unity.Entities.Tests
 
             m_Manager.DestroyEntity(m_Manager.UniversalQuery);
 
-            arrayComponent.array.Release();
+            arrayComponent.array.Dispose();
             for (int i = 0; i < intComponents.Length; ++i)
-                intComponents[i].value.Release();
+                intComponents[i].value.Dispose();
 
             var reader = new TestBinaryReader(writer);
 
@@ -794,9 +794,9 @@ namespace Unity.Entities.Tests
 
             m_Manager.DestroyEntity(m_Manager.UniversalQuery);
 
-            arrayComponent.array.Release();
+            arrayComponent.array.Dispose();
             for (int i = 0; i < intComponents.Length; ++i)
-                intComponents[i].value.Release();
+                intComponents[i].value.Dispose();
 
             var reader = new TestBinaryReader(writer);
 

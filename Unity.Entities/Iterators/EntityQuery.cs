@@ -1163,47 +1163,6 @@ namespace Unity.Entities
         {
             return _Filter.RequiresMatchesFilter;
         }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("CalculateLength has been renamed to CalculateEntityCount. (RemovedAfter 2020-01-08) (UnityUpgradable) -> CalculateEntityCount()")]
-        public int CalculateLength() => throw new NotSupportedException();
-
-       [EditorBrowsable(EditorBrowsableState.Never)]
-       [Obsolete("SetFilter has been renamed to SetSharedComponentFilter. (RemovedAfter 2020-01-08) (UnityUpgradable) -> SetSharedComponentFilter(*)")]
-       public void SetFilter<SharedComponent1>(SharedComponent1 sharedComponent1) where SharedComponent1 : struct, ISharedComponentData => throw new NotSupportedException();
-
-       [EditorBrowsable(EditorBrowsableState.Never)]
-       [Obsolete("SetFilter has been renamed to SetSharedComponentFilter. (RemovedAfter 2020-01-08) (UnityUpgradable) -> SetSharedComponentFilter(*)")]
-       public void SetFilter<SharedComponent1, SharedComponent2>(SharedComponent1 sharedComponent1,
-           SharedComponent2 sharedComponent2)
-           where SharedComponent1 : struct, ISharedComponentData
-           where SharedComponent2 : struct, ISharedComponentData
-           => throw new NotSupportedException();
-
-
-       // TODO: remove UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE block when package test generation is fixed
-
-       #if UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE
-
-       [EditorBrowsable(EditorBrowsableState.Never)]
-       [Obsolete("SetFilterChanged has been renamed to SetChangedVersionFilter. (RemovedAfter 2020-01-08). If you see this in a user project, please remove UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE from the Unity.Entities assembly definition file.")]
-       public void SetFilterChanged(ComponentType componentType) => throw new NotSupportedException();
-
-       [EditorBrowsable(EditorBrowsableState.Never)]
-       [Obsolete("SetFilterChanged has been renamed to SetChangedVersionFilter. (RemovedAfter 2020-01-08). If you see this in a user project, please remove UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE from the Unity.Entities assembly definition file.")]
-       public void SetFilterChanged(ComponentType[] componentType) => throw new NotSupportedException();
-
-       #else
-
-       [EditorBrowsable(EditorBrowsableState.Never)]
-       [Obsolete("SetFilterChanged has been renamed to SetChangedVersionFilter. (RemovedAfter 2020-01-08) (UnityUpgradable) -> SetChangedVersionFilter()")]
-       public void SetFilterChanged(ComponentType componentType) => throw new NotSupportedException();
-
-       [EditorBrowsable(EditorBrowsableState.Never)]
-       [Obsolete("SetFilterChanged has been renamed to SetChangedVersionFilter. (RemovedAfter 2020-01-08) (UnityUpgradable) -> SetChangedVersionFilter()")]
-       public void SetFilterChanged(ComponentType[] componentType) => throw new NotSupportedException();
-
-       #endif
     }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS

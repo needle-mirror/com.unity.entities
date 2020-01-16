@@ -67,7 +67,13 @@ namespace Unity.Entities
             for (var i = 0; i < EntityComponentStore->m_Archetypes.Length; ++i)
             {
                 var archetype = EntityComponentStore->m_Archetypes.Ptr[i];
-                var entityArchetype = new EntityArchetype() {Archetype = archetype};
+                var entityArchetype = new EntityArchetype()
+                {
+                    Archetype = archetype,
+                    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    _DebugComponentStore = EntityComponentStore
+                    #endif
+                };
                 allArchetypes.Add(entityArchetype);
             }
         }

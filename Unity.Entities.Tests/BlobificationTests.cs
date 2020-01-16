@@ -128,7 +128,7 @@ public class BlobTests : ECSTestsFixture
         var blob = ConstructBlobData();
         ValidateBlobData(ref blob.Value);
 
-        blob.Release();
+        blob.Dispose();
     }
 
     [Test]
@@ -136,7 +136,7 @@ public class BlobTests : ECSTestsFixture
     {
         var blob = ConstructBlobData();
         var blobCopy = blob;
-        blob.Release();
+        blob.Dispose();
         
         Assert.Throws<InvalidOperationException>(() => { blobCopy.GetUnsafePtr(); });
         Assert.IsTrue(blob.GetUnsafePtr() == null);
@@ -144,8 +144,8 @@ public class BlobTests : ECSTestsFixture
         Assert.Throws<InvalidOperationException>(() => { var p = blobCopy.Value.embeddedFloat; });
         Assert.Throws<InvalidOperationException>(() => { var p = blobCopy.Value.embeddedFloat; });
 
-        Assert.Throws<InvalidOperationException>(() => { blobCopy.Release(); });
-        Assert.Throws<InvalidOperationException>(() => { blob.Release(); });
+        Assert.Throws<InvalidOperationException>(() => { blobCopy.Dispose(); });
+        Assert.Throws<InvalidOperationException>(() => { blob.Dispose(); });
     }
 
     struct ComponentWithBlobData : IComponentData
@@ -162,7 +162,7 @@ public class BlobTests : ECSTestsFixture
         {
             var blobData = ConstructBlobData();
             ValidateBlobData(ref blobData.Value);
-            blobData.Release();            
+            blobData.Dispose();            
         }
     }
 
@@ -179,7 +179,7 @@ public class BlobTests : ECSTestsFixture
         public void Execute(ref ComponentWithBlobData data)
         {
             ValidateBlobData(ref data.blobAsset.Value);
-            data.blobAsset.Release();
+            data.blobAsset.Dispose();
             data.DidSucceed = true;
         }
     }
@@ -232,7 +232,7 @@ public class BlobTests : ECSTestsFixture
 
         jobHandle.Complete();
 
-        blob.Release();
+        blob.Dispose();
     }
 
     [Test]
@@ -240,7 +240,7 @@ public class BlobTests : ECSTestsFixture
     {
         var blob = CreateSharedBlob();
 
-        blob.Release();
+        blob.Dispose();
 
         var jobData = new ValidateBlobInComponentJob();
         jobData.ExpectException = true;
@@ -262,8 +262,8 @@ public class BlobTests : ECSTestsFixture
         Assert.IsTrue(blob1 == temp1);
         Assert.IsTrue(blob2 != temp1);
 
-        blob1.Release();
-        blob2.Release();
+        blob1.Dispose();
+        blob2.Dispose();
     }
 
     [Test]
@@ -293,7 +293,7 @@ public class BlobTests : ECSTestsFixture
         var floatArray = root.floatArray.ToArray();
         Assert.AreEqual(new float[]{ 0, 1, 2 }, floatArray);
 
-        blob.Release();
+        blob.Dispose();
     }
 
     [Test]
@@ -355,7 +355,7 @@ public class BlobTests : ECSTestsFixture
             AssertAlignment(blob.Value[x].intArray.GetUnsafePtr(), 4);
         }
 
-        blob.Release();
+        blob.Dispose();
     }
 
     [Test]
@@ -395,7 +395,7 @@ public class BlobTests : ECSTestsFixture
         for (int i = 0; i < count; i++)
             Assert.AreEqual(i, blob.Value[i]);
 
-        blob.Release();
+        blob.Dispose();
     }
 
     [Test]
@@ -441,7 +441,7 @@ public class BlobTests : ECSTestsFixture
             }
         }
 
-        blob.Release();
+        blob.Dispose();
     }
 
 
@@ -477,7 +477,7 @@ public class BlobTests : ECSTestsFixture
                 Assert.AreEqual(i, blob.Value.intArray[i]);
         }
 
-        blob.Release();
+        blob.Dispose();
     }
 
     BlobAssetReference<MyData> CreateSharedBlob()

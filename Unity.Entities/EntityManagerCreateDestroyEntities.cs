@@ -253,10 +253,10 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void CreateChunk(EntityArchetype archetype, NativeArray<ArchetypeChunk> chunks, int entityCount)
         {
+            Unity.Entities.EntityComponentStore.AssertValidArchetype(EntityComponentStore, archetype);
             BeforeStructuralChange();
 
-            EntityComponentStore->CreateChunks(archetype.Archetype, (ArchetypeChunk*) chunks.GetUnsafePtr(),
-                entityCount);
+            EntityComponentStore->CreateChunks(archetype.Archetype, (ArchetypeChunk*) chunks.GetUnsafePtr(), chunks.Length, entityCount);
             ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
         }
 

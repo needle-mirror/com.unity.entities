@@ -29,6 +29,32 @@ namespace Unity.Build.Common
             typeof(InternalSourceBuildConfiguration)
         };
 
+        /// <summary>
+        /// Returns true if we need to use BuildOptions.AutoRunPlayer. 
+        /// For ex., when platform doesn't have RunStep implemented yet.
+        /// This function should be removed when we'll have run steps implemented for all platforms
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        private static bool UseAutoRunPlayer(BuildContext context)
+        {
+            var settings = BuildContextInternals.GetBuildSettings(context);
+            var pipeline = settings.GetComponent<IBuildPipelineComponent>().Pipeline;
+            var runStep = pipeline.RunStep;
+
+            // RunStep is provided no need to use AutoRunPlayer
+            if (runStep != null && runStep.GetType() != typeof(RunStepNotImplemented))
+                return false;
+
+            // See dots\Samples\Library\PackageCache\com.unity.build@0.1.0-preview.1\Editor\Unity.Build\BuildSettingsScriptedImporterEditor.cs
+            const string k_CurrentActionKey = "BuildAction-CurrentAction";
+            if (!EditorPrefs.HasKey(k_CurrentActionKey))
+                return false;
+
+            var value = EditorPrefs.GetInt(k_CurrentActionKey);
+            return value == 1;
+        }
+
         public static bool Prepare(BuildContext context, BuildStep step, bool liveLink, TemporaryFileTracker tracker, out BuildStepResult failure, out BuildPlayerOptions buildPlayerOptions)
         {
             buildPlayerOptions = default;
@@ -85,6 +111,12 @@ namespace Unity.Build.Common
             if (sourceBuild.Enabled)
             {
                 buildPlayerOptions.options |= BuildOptions.InstallInBuildFolder;
+            }
+
+            if (UseAutoRunPlayer(context))
+            {
+                UnityEngine.Debug.Log($"Using BuildOptions.AutoRunPlayer, since RunStep is not provided for {profile.Target}");
+                buildPlayerOptions.options |= BuildOptions.AutoRunPlayer;
             }
 
             if (liveLink)

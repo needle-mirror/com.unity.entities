@@ -149,6 +149,20 @@ namespace Unity.Entities.CodeGeneratedJobForEach
         }
     }
     
+    public struct LambdaParameterValueProvider_IComponentData_Tag<T>
+        where T : struct, IComponentData
+    {
+        public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly) { }
+
+        public struct Runtime
+        {
+            public T For(int i) => default;
+        }
+        
+        public unsafe Runtime PrepareToExecuteOnEntitiesIn(ref ArchetypeChunk chunk) { return new Runtime() { }; }
+        public Runtime PrepareToExecuteWithStructuralChanges(ComponentSystemBase componentSystem, EntityQuery query) { return new Runtime() { }; }
+    }
+
     public struct LambdaParameterValueProvider_ManagedComponentData<T> where T : class
     {
         private EntityManager _entityManager;

@@ -512,6 +512,20 @@ namespace Unity.Entities
             }
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public static void AssertValidArchetype(EntityComponentStore* queryStore, EntityArchetype archetype)
+        {
+            #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (archetype._DebugComponentStore != queryStore)
+            {
+                if (archetype.Archetype == null)
+                    throw new System.ArgumentException("The EntityArchetype has not been allocated");
+                else
+                    throw new System.ArgumentException("The EntityArchetype was not created by this EntityManager");
+            }
+                
+            #endif
+        }
         
         // ----------------------------------------------------------------------------------------------------------
         // INTERNAL

@@ -14,6 +14,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
+using System;
 using System.Diagnostics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -30,7 +31,7 @@ namespace Unity.Entities
 #>
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(Unsafe<#=typeName#>ListDebugView))]
-    internal unsafe struct Unsafe<#=typeName#>List
+    internal unsafe struct Unsafe<#=typeName#>List : IDisposable
     {
         [NativeDisableUnsafePtrRestriction]
         public readonly <#=type#>* Ptr;
@@ -124,7 +125,7 @@ namespace Unity.Entities
 #>
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(Unsafe<#=typeName#>PtrListDebugView))]
-    internal unsafe struct Unsafe<#=typeName#>PtrList
+    internal unsafe struct Unsafe<#=typeName#>PtrList : IDisposable
     {
         [NativeDisableUnsafePtrRestriction]
         public readonly <#=type#>** Ptr;

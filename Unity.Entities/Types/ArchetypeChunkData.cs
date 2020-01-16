@@ -96,7 +96,7 @@ namespace Unity.Entities
             return data + (EntityCountIndex)*Capacity;
         }
 
-        public void Add(Chunk* chunk, SharedComponentValues sharedComponentIndices)
+        public void Add(Chunk* chunk, SharedComponentValues sharedComponentIndices, uint changeVersion)
         {
             var chunkIndex = Count++;
 
@@ -112,7 +112,7 @@ namespace Unity.Entities
 
             for (; i < EntityCountIndex; ++i)
             {
-                *dst = 0;
+                *(uint*)dst = changeVersion;
                 dst += Capacity;
             }
 

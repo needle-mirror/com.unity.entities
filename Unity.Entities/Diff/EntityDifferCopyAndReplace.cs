@@ -73,8 +73,18 @@ namespace Unity.Entities
             for (var i = 0; i < chunks.Length; i++)
             {
                 Assert.IsTrue(chunks[i].entityComponentStore == entityManager.EntityComponentStore);
-                entityManager.DestroyChunkForDiffing(chunks[i].m_Chunk);
+                DestroyChunkForDiffing(entityManager, chunks[i].m_Chunk);
             }
+        }
+        
+        static void DestroyChunkForDiffing(EntityManager entityManager, Chunk* chunk)
+        {
+            chunk->Archetype->EntityCount -= chunk->Count;
+            entityManager.EntityComponentStore->FreeEntities(chunk);
+
+            entityManager.EntityComponentStore->SetChunkCountKeepMetaChunk(chunk, 0);
+
+            entityManager.ManagedComponentStore.Playback(ref entityManager.EntityComponentStore->ManagedChangesTracker);
         }
         
         static void CloneAndAddChunks(EntityManager srcEntityManager, EntityManager dstEntityManager, NativeList<ArchetypeChunk> chunks)

@@ -2,6 +2,7 @@ using System;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityObject = UnityEngine.Object;
 
 namespace Unity.Entities
 {
@@ -12,7 +13,7 @@ namespace Unity.Entities
     /// Right now the lifetime scope of this cache is bound to the LiveLinkDiffGenerator's one and it is scoped by SubScene.
     /// In other words the cache is created when we enter edit mode for a given SubScene and it is released when we close edit mode.
     /// And instance of this cache is exposed in <see cref="Unity.Entities.GameObjectConversionSettings"/> to allow users to query and avoid rebuilding assets.
-    /// During conversion process the user must rely on the <see cref="BlobAssetComputationContext{TS,TB}"/> to associate the BlobAsset with their corresponding Authoring GameObject and to determine which ones are to compute.
+    /// During conversion process the user must rely on the <see cref="BlobAssetComputationContext{TS,TB}"/> to associate the BlobAsset with their corresponding Authoring UnityObject and to determine which ones are to compute.
     /// Thread-safety: nothing is thread-safe, we assume this class is consumed through the main-thread only.
     /// Calling Dispose on an instance will reset the content and dispose all BlobAssetReference object stored.
     /// </remarks>
@@ -171,7 +172,13 @@ namespace Unity.Entities
         int m_CacheHit;
         int m_CacheMiss;
 
+        [Obsolete("BlobAssetStore.UpdateBlobAssetForGameObject<TB>(int, NativeArray<Hash128>) is deprecated, use BlobAssetStore.UpdateBlobAssetForUnityObject<TB>(int, NativeArray<Hash128>) instead. (RemovedAfter 2020-04-08)")]
         internal void UpdateBlobAssetForGameObject<TB>(int ownerId, NativeArray<Hash128> newBlobHashes) where TB : struct
+        {
+            UpdateBlobAssetForUnityObject<TB>(ownerId, newBlobHashes);
+        }
+
+        internal void UpdateBlobAssetForUnityObject<TB>(int ownerId, NativeArray<Hash128> newBlobHashes) where TB : struct
         {
             var leftLength = newBlobHashes.Length;
             var toInc = new NativeArray<Hash128>(leftLength, Allocator.Temp);
@@ -273,7 +280,12 @@ namespace Unity.Entities
 
         internal bool GetBlobAssetsOfGameObject(GameObject gameObject, Allocator allocator, out NativeArray<Hash128> result)
         {
-            var key = gameObject.GetInstanceID();
+            return GetBlobAssetsOfUnityObject(gameObject, allocator, out result);
+        }
+        
+        internal bool GetBlobAssetsOfUnityObject(UnityObject unityObject, Allocator allocator, out NativeArray<Hash128> result)
+        {
+            var key = unityObject.GetInstanceID();
             if (!m_HashByOwner.ContainsKey(key))
             {
                 result = default;

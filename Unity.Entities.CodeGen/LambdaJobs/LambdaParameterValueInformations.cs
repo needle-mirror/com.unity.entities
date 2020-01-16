@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.CodeGeneratedJobForEach;
@@ -43,7 +44,10 @@ namespace Unity.Entities.CodeGen
             _elementsField = new FieldDefinition("_lambdaParameterValueProviders", FieldAttributes.Private, _lambdaParameterValueProvidersType);
             _jobChunkType.Fields.Add(_elementsField);
                 
+            var burstNoAliasAttributeConstructor = _jobChunkType.Module.ImportReference(typeof(NoAliasAttribute).GetConstructors().Single(c=>!c.GetParameters().Any()));
             RuntimesType = new TypeDefinition("", "Runtimes", TypeAttributes.NestedPublic | TypeAttributes.SequentialLayout, _jobChunkType.Module.ImportReference(typeof(ValueType))) { DeclaringType = _lambdaParameterValueProvidersType};
+            if (_lambdaJobDescriptionConstruction.UsesBurst && LambdaJobDescriptionConstruction.UsesNoAlias)
+                RuntimesType.CustomAttributes.Add(new CustomAttribute(burstNoAliasAttributeConstructor));
             _lambdaParameterValueProvidersType.NestedTypes.Add(RuntimesType);
 
             _runtimesField = new FieldDefinition("_runtimes", FieldAttributes.Private,
@@ -66,15 +70,19 @@ namespace Unity.Entities.CodeGen
             int counter = 0;
             foreach (var provider in _providers)
             {
-                var parameterFieldDefinition = new FieldDefinition($"forParameter{counter}", FieldAttributes.Private, provider.Provider);
+                var parameterFieldDefinition = new FieldDefinition($"forParameter_{provider.Name}", FieldAttributes.Private, provider.Provider);
                 if (provider.IsReadOnly)
                 {
                     var readOnlyAttributeConstructor = JobStructForLambdaJob.AttributeConstructorReferenceFor(typeof(ReadOnlyAttribute), _jobChunkType.Module);
                     parameterFieldDefinition.CustomAttributes.Add(new CustomAttribute(readOnlyAttributeConstructor));
                 }
+
+                bool applyBurstAliasAttribute = _lambdaJobDescriptionConstruction.UsesBurst && LambdaJobDescriptionConstruction.UsesNoAlias;
+                if (applyBurstAliasAttribute)
+                    parameterFieldDefinition.CustomAttributes.Add(new CustomAttribute(burstNoAliasAttributeConstructor));
                 _lambdaParameterValueProvidersType.Fields.Add(parameterFieldDefinition);
                     
-                var runtimeFieldDefinition = new FieldDefinition($"runtime{counter}", FieldAttributes.Public, provider.ProviderRuntime);
+                var runtimeFieldDefinition = new FieldDefinition($"runtime_{provider.Name}", FieldAttributes.Public, provider.ProviderRuntime);
                 RuntimesType.Fields.Add(runtimeFieldDefinition);
                     
                 _elementProviderToFields.Add(provider, (parameterFieldDefinition, runtimeFieldDefinition));
