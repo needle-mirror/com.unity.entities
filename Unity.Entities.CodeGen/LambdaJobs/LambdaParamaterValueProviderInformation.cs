@@ -164,13 +164,14 @@ namespace Unity.Entities.CodeGen
                 if (parameterType is ByReferenceType referenceType)
                     typeRef = referenceType.ElementType;
                 
+                var readOnly = HasCompilerServicesIsReadOnlyAttribute(parameter);
                 GenericInstanceType bufferOfT = (GenericInstanceType)typeRef;
                 TypeReference bufferElementType = bufferOfT.GenericArguments[0];
                 var (provider, providerRuntime) = ImportReferencesFor(typeof(LambdaParameterValueProvider_DynamicBuffer<>),
                     withStructuralChanges
                         ? typeof(LambdaParameterValueProvider_DynamicBuffer<>.StructuralChangeRuntime)
                         : typeof(LambdaParameterValueProvider_DynamicBuffer<>.Runtime), bufferElementType);
-                return new LambdaParamaterValueProviderInformation(provider, providerRuntime, false, parameter.Name);
+                return new LambdaParamaterValueProviderInformation(provider, providerRuntime, readOnly, parameter.Name);
             }
 
             // ISharedComponent

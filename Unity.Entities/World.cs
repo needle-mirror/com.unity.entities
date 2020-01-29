@@ -274,13 +274,13 @@ namespace Unity.Entities
             {
                 system = Activator.CreateInstance(type, constructorArguments) as ComponentSystemBase;
             }
-            catch (MissingMethodException)
+            catch (MissingMethodException mme)
             {
                 throw new MissingMethodException($"Constructing {type} failed because CreateSystem " +
                                 $"parameters did not match its constructor.  [Job]ComponentSystem {type} must " +
                                 "be mentioned in a link.xml file, or annotated with a [Preserve] attribute to " +
                                 "prevent its constructor from being stripped.  See " +
-                                "https://docs.unity3d.com/Manual/ManagedCodeStripping.html for more information.");
+                                "https://docs.unity3d.com/Manual/ManagedCodeStripping.html for more information.", mme);
             }
             finally
             {

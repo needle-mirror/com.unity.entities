@@ -313,6 +313,7 @@ namespace Unity.Entities
             header->Hash = math.hash(buffer + sizeof(BlobAssetHeader), dataSize);
 
             BlobAssetReference<T> blobAssetReference;
+            blobAssetReference.m_data.m_Align8Union = 0;
             header->ValidationPtr = blobAssetReference.m_data.m_Ptr = buffer + sizeof(BlobAssetHeader);
 
             return blobAssetReference;

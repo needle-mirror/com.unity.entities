@@ -20,7 +20,7 @@ namespace Unity.Scenes.Editor
         static unsafe EntityScenesPaths.SceneWithBuildSettingsGUIDs ReadSceneWithBuildSettings(string path)
         {
             EntityScenesPaths.SceneWithBuildSettingsGUIDs sceneWithBuildSettings = default;
-            using (var reader = new StreamBinaryReader(path))
+            using (var reader = new StreamBinaryReader(path, sizeof(EntityScenesPaths.SceneWithBuildSettingsGUIDs)))
             {
                 reader.ReadBytes(&sceneWithBuildSettings, sizeof(EntityScenesPaths.SceneWithBuildSettingsGUIDs));
             }

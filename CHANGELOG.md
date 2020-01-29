@@ -1,5 +1,23 @@
 # Change log
 
+
+## [0.5.1] - 2020-01-28
+
+### Fixed
+
+* Constructor-related exceptions thrown during `World.CreateSystem` will now included the inner exception details.
+* Fixed an issue where `BlobAssetReference` types was not guaranteed to be 8-byte aligned on all platforms which could result in failing to read Blob data in components correctly on 32-bit platforms.
+* Fixed issue in MinMaxAABB Equals() comparing Min to itself rather than other.
+* `Entities.ForEach` now properly treats `in` parameters of `DynamicBuffer` type as read-only
+* Fixed potential crash caused by a leaked job after an exception is thrown during a call to `IJobChunk.Schedule`.
+* `DefaultWorldInitialization.GetAllSystems` now returns `IReadOnlyList<Type>` instead of `List<Type>`
+* `DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups` now takes `IEnumerable<Type>` instead of `List<Type>`
+
+### Changed
+
+* Updated dependencies for this package.
+
+
 ## [0.5.0] - 2020-01-16
 
 ### Added
@@ -20,7 +38,7 @@
 ### Removed
 
 * `EntityQuery.cs`: Removed expired API `CalculateLength()`, `SetFilter()` and `SetFilterChanged()`.
- 
+
 ### Fixed
 
 * Fixed an issue where trying to perform EntityRemapping on Managed Components could throw if a component field was null.

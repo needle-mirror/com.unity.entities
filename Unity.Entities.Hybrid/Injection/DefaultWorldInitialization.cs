@@ -136,10 +136,10 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Adds the list of systems to the world by injecting them into the root level system groups
+        /// Adds the collection of systems to the world by injecting them into the root level system groups
         /// (InitializationSystemGroup, SimulationSystemGroup and PresentationSystemGroup)
         /// </summary>
-        public static void AddSystemsToRootLevelSystemGroups(World world, List<Type> systems)
+        public static void AddSystemsToRootLevelSystemGroups(World world, IEnumerable<Type> systems)
         {
             // create presentation system and simulation system
             var initializationSystemGroup = world.GetOrCreateSystem<InitializationSystemGroup>();
@@ -237,6 +237,12 @@ namespace Unity.Entities
 #endif
         }
 
+        struct SystemLookupParameters
+        {
+            public WorldSystemFilterFlags Flags;
+            public bool RequireExecuteAlways;
+        }
+        static Dictionary<SystemLookupParameters, List<Type>> s_SystemTypeCache;
 
         /// <summary>
         /// Calculates a list of all systems filtered with WorldSystemFilterFlags, [DisableAutoCreation] etc.
@@ -244,10 +250,19 @@ namespace Unity.Entities
         /// <param name="filterFlags"></param>
         /// <param name="requireExecuteAlways">Optionally require that [ExecuteAlways] is present on the system. This is used when creating edit mode worlds.</param>
         /// <returns>The list of filtered systems</returns>
-        public static List<Type> GetAllSystems(WorldSystemFilterFlags filterFlags, bool requireExecuteAlways = false)
+        public static IReadOnlyList<Type> GetAllSystems(WorldSystemFilterFlags filterFlags, bool requireExecuteAlways = false)
         {
-            var filteredSystemTypes = new List<Type>();
+            if (s_SystemTypeCache == null)
+                s_SystemTypeCache = new Dictionary<SystemLookupParameters, List<Type>>();
+            var lookupParameters = new SystemLookupParameters
+            {
+                Flags = filterFlags,
+                RequireExecuteAlways = requireExecuteAlways
+            };
+            if (s_SystemTypeCache.TryGetValue(lookupParameters, out var systemTypes))
+                return systemTypes;
 
+            var filteredSystemTypes = new List<Type>();
             var allSystemTypes = GetTypesDerivedFrom(typeof(ComponentSystemBase));
             foreach (var systemType in allSystemTypes)
             {
@@ -255,6 +270,7 @@ namespace Unity.Entities
                     filteredSystemTypes.Add(systemType);
             }
 
+            s_SystemTypeCache[lookupParameters] = filteredSystemTypes;
             return filteredSystemTypes;
         }
 
@@ -263,8 +279,8 @@ namespace Unity.Entities
             // IMPORTANT: keep this logic in sync with SystemTypeGen.cs for DOTS Runtime
 
             // the entire assembly can be marked for no-auto-creation (test assemblies are good candidates for this)
-            var disableAllAutoCreation = type.Assembly.GetCustomAttribute<DisableAutoCreationAttribute>() != null;
-            var disableTypeAutoCreation = type.GetCustomAttribute<DisableAutoCreationAttribute>(false) != null;
+            var disableAllAutoCreation = Attribute.IsDefined(type.Assembly, typeof(DisableAutoCreationAttribute));
+            var disableTypeAutoCreation = Attribute.IsDefined(type, typeof(DisableAutoCreationAttribute), false);
 
             // these types obviously cannot be instantiated
             if (type.IsAbstract || type.ContainsGenericParameters)
@@ -288,7 +304,7 @@ namespace Unity.Entities
             }
 
             // the auto-creation system instantiates using the default ctor, so if we can't find one, exclude from list
-            if (type.GetConstructors().All(c => c.GetParameters().Length != 0))
+            if (type.GetConstructor(System.Type.EmptyTypes) == null)
             {
                 // we want users to be explicit
                 if (!disableTypeAutoCreation && !disableAllAutoCreation)
@@ -306,9 +322,8 @@ namespace Unity.Entities
             }
 
             var systemFlags = WorldSystemFilterFlags.Default;
-            var attrib = type.GetCustomAttribute<WorldSystemFilterAttribute>(true);
-            if (attrib != null)
-                systemFlags = attrib.FilterFlags;
+            if (Attribute.IsDefined(type, typeof(WorldSystemFilterAttribute), true))
+                systemFlags = type.GetCustomAttribute<WorldSystemFilterAttribute>(true).FilterFlags;
 
             return (filterFlags & systemFlags) != 0;
         }

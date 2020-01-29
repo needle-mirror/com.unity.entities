@@ -455,7 +455,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public JobHandle IterateExistingDynamicBuffer_NoModifier()
             {
                 return Entities
-                    .ForEach((ref EcsTestData e1, in DynamicBuffer<TestBufferElement> buf) =>
+                    .ForEach((DynamicBuffer<TestBufferElement> buf, ref EcsTestData e1) =>
                     {
                         buf.Add(20);
                         e1.value = SumOfBufferElements(buf);

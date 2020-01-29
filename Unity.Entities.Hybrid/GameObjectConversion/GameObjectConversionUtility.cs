@@ -43,7 +43,13 @@ namespace Unity.Entities
                 gameObjectWorld.CreateSystem<GameObjectConversionMappingSystem>(settings);
 
                 var systemTypes = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.GameObjectConversion);
-                systemTypes.AddRange(settings.ExtraSystems);
+                if (settings.ExtraSystems.Length > 0)
+                {
+                    var systems = new List<Type>(systemTypes.Count + settings.ExtraSystems.Length);
+                    systems.AddRange(systemTypes);
+                    systems.AddRange(settings.ExtraSystems);
+                    systemTypes = systems;
+                }
 
                 var includeExport = settings.GetType() != typeof(GameObjectConversionSettings);
                 AddConversionSystems(gameObjectWorld, systemTypes, includeExport);
@@ -270,13 +276,13 @@ namespace Unity.Entities
 
             foreach (var systemType in systemTypes)
             {
-                var updateInGroupAttrs = systemType.GetCustomAttributes(typeof(UpdateInGroupAttribute), true);
-                if (updateInGroupAttrs.Length == 0)
+                if (!Attribute.IsDefined(systemType, typeof(UpdateInGroupAttribute), true))
                 {
                     AddSystemAndLogException(gameObjectWorld, convert, systemType);
                 }
                 else
                 {
+                    var updateInGroupAttrs = systemType.GetCustomAttributes(typeof(UpdateInGroupAttribute), true);
                     foreach (var attribute in updateInGroupAttrs)
                     {
                         var groupType = (attribute as UpdateInGroupAttribute)?.GroupType;

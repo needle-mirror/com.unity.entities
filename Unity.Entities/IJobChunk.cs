@@ -166,6 +166,7 @@ namespace Unity.Entities
             }
             catch (InvalidOperationException e)
             {
+                prefilterHandle.Complete();
                 prefilterData.Dispose();
                 throw e;
             }

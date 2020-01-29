@@ -44,7 +44,7 @@ namespace Unity.Mathematics
 
         public bool Equals(MinMaxAABB other)
         {
-            return Min.Equals(Min) && Max.Equals(other.Max);
+            return Min.Equals(other.Min) && Max.Equals(other.Max);
         }
     }
 }

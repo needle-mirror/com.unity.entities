@@ -180,6 +180,15 @@ namespace Unity.Entities
         [NativeDisableUnsafePtrRestriction]
         [FieldOffset(0)]
         public byte* m_Ptr;
+
+
+        /// <summary>
+        /// This field overlaps m_Ptr similar to a C union.
+        /// It is an internal (so we can initialize the struct) field which
+        /// is here to force the alignment of BlobAssetReferenceData to be 8-bytes.
+        /// </summary>
+        [FieldOffset(0)]
+        internal long m_Align8Union;
     
         internal BlobAssetHeader* Header
         {
@@ -334,6 +343,7 @@ namespace Unity.Entities
             header->Hash = math.hash(ptr, length);
 
             BlobAssetReference<T> blobAssetReference;
+            blobAssetReference.m_data.m_Align8Union = 0;
             header->ValidationPtr = blobAssetReference.m_data.m_Ptr = buffer + sizeof(BlobAssetHeader);
             return blobAssetReference;
         }
@@ -389,7 +399,7 @@ namespace Unity.Entities
         /// <returns>A bool if the read was successful or not.</returns>
         public static bool TryRead(string path, int version, out BlobAssetReference<T> result)
         {
-            using (var binaryReader = new StreamBinaryReader(path))
+            using (var binaryReader = new StreamBinaryReader(path, UnsafeUtility.SizeOf<T>() + sizeof(int)))
             {
                 var storedVersion = binaryReader.ReadInt();
                 if (storedVersion != version)
@@ -742,6 +752,7 @@ namespace Unity.Entities
             bufferHeader->Hash = header.Hash;
             
             BlobAssetReference<T> blobAssetReference;
+            blobAssetReference.m_data.m_Align8Union = 0;
             blobAssetReference.m_data.m_Ptr = buffer + sizeof(BlobAssetHeader);
 
             return blobAssetReference;

@@ -131,6 +131,28 @@ namespace Unity.Entities.Tests
             world.Dispose();
         }
 
+#if !NET_DOTS
+        class SystemWithNonDefaultConstructor : ComponentSystem
+        {
+            public int data;
+
+            public SystemWithNonDefaultConstructor(int param)
+            {
+                data = param;
+            }
+
+            protected override void OnUpdate() { }
+        }
+        [Test]
+        public void SystemWithNonDefaultConstructorThrows()
+        {
+            var world = new World("WorldX");
+            Assert.That(() => { world.CreateSystem<SystemWithNonDefaultConstructor>(); },
+                Throws.TypeOf<MissingMethodException>().With.InnerException.TypeOf<MissingMethodException>());
+            world.Dispose();
+        }
+#endif
+
         class SystemIsAccessibleDuringOnCreateManagerSystem : ComponentSystem
         {
             protected override void OnCreate()

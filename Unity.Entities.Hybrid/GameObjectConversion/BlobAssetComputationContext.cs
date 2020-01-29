@@ -64,7 +64,11 @@ namespace Unity.Entities {
             m_BlobPerUnityObject.Dispose();
         }
 
+    #if UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE
         [Obsolete("BlobAssetComputationContext<TS, TB>.AssociateBlobAssetWithGameObject(Hash128, GameObject) is deprecated, use BlobAssetComputationContext<TS, TB>.AssociateBlobAssetWithUnityObject(Hash128, UnityObject) instead. (RemovedAfter 2020-04-08)")]
+    #else
+        [Obsolete("BlobAssetComputationContext<TS, TB>.AssociateBlobAssetWithGameObject(Hash128, GameObject) is deprecated, use BlobAssetComputationContext<TS, TB>.AssociateBlobAssetWithUnityObject(Hash128, UnityObject) instead. (RemovedAfter 2020-04-08) (UnityUpgradable) -> AssociateBlobAssetWithUnityObject(*)")]
+    #endif
         public void AssociateBlobAssetWithGameObject(Hash128 hash, GameObject gameObject)
         {
             AssociateBlobAssetWithUnityObject(hash, gameObject);

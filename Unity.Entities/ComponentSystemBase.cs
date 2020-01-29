@@ -392,7 +392,7 @@ namespace Unity.Entities
 
             m_EntityQueries = new EntityQuery[0];
 #if !NET_DOTS
-            m_AlwaysUpdateSystem = GetType().GetCustomAttributes(typeof(AlwaysUpdateSystemAttribute), true).Length != 0;
+            m_AlwaysUpdateSystem = Attribute.IsDefined(GetType(), typeof(AlwaysUpdateSystemAttribute), true);
 #else
             m_AlwaysUpdateSystem = false;
             var attrs = TypeManager.GetSystemAttributes(GetType());
@@ -671,7 +671,7 @@ namespace Unity.Entities
                 if (2 != queryData->RequiredComponentsCount)
                     continue;
 
-                if (queryData->RequiredComponents[i + 1] != type)
+                if (queryData->RequiredComponents[1] != type)
                     continue;
                 
                 return m_EntityQueries[i];
