@@ -182,7 +182,7 @@ namespace Unity.Entities
 
                 OnCreateForCompiler();
                 OnCreate();
-                
+
 #if ENABLE_PROFILER
                 m_ProfilerMarker = new Profiling.ProfilerMarker($"{world.Name} {TypeManager.SystemName(GetType())}");
 #endif
@@ -298,6 +298,8 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         internal int                        m_SystemID;
         internal static ComponentSystemBase ms_ExecutingSystem;
+
+        public static Type ExecutingSystemType => ms_ExecutingSystem?.GetType();
 
         internal ComponentSystemBase GetSystemFromSystemID(World world, int systemID)
         {
@@ -422,7 +424,7 @@ namespace Unity.Entities
             m_JobDependencyForReadingSystems.Dispose();
             m_JobDependencyForWritingSystems.Dispose();
         }
-        
+
         internal virtual void OnBeforeDestroyInternal()
         {
             if (m_PreviouslyEnabled)
@@ -443,7 +445,7 @@ namespace Unity.Entities
         {
             m_LastSystemVersion = EntityManager.EntityComponentStore->GlobalSystemVersion;
         }
-        
+
         internal void CompleteDependencyInternal()
         {
             m_DependencyManager->CompleteDependenciesNoChecks(m_JobDependencyForReadingSystems.Ptr,
@@ -556,7 +558,7 @@ namespace Unity.Entities
             AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
             return EntityManager.GetBufferFromEntity<T>(isReadOnly);
         }
-                
+
         /// <summary>
         /// Adds a query that must return entities for the system to run. You can add multiple required queries to a
         /// system; all of them must match at least one entity for the system to run.
@@ -770,7 +772,7 @@ namespace Unity.Entities
             return GetEntityQueryInternal(queryDesc);
         }
     }
-    
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
     public static unsafe class ComponentSystemBaseManagedComponentExtensions
     {

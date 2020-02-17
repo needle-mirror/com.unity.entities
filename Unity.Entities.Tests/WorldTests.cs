@@ -2,7 +2,9 @@ using System;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using Unity.Collections;
 using Unity.Core;
+using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
@@ -308,6 +310,68 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(4.5, uc.lastUpdateTime, 0.001f);
             Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
             Assert.AreEqual(2, uc.updateCount);
+            
+            world.Dispose();
+        }
+
+#if UNITY_EDITOR
+        [Test]
+        public void WorldTimeSingletonHasAnEntityName()
+        {
+            using (var world = new World("w"))
+            using (var timeSingletonQuery = world.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<WorldTime>(), ComponentType.ReadWrite<WorldTimeQueue>()))
+            {
+                Assert.That(timeSingletonQuery.IsEmptyIgnoreFilter, Is.True);
+
+                world.SetTime(new TimeData(10, 0.1f));
+                Assert.That(timeSingletonQuery.IsEmptyIgnoreFilter, Is.False);
+                var timeSingleton = timeSingletonQuery.GetSingletonEntity();
+                Assert.That(world.EntityManager.GetName(timeSingleton), Is.EqualTo("WorldTime"));
+            }
+        }
+#endif
+
+        public class ContainerOwnerSystem : JobComponentSystem
+        {
+            public NativeArray<int> Container;
+            protected override void OnCreate()
+            {
+                Container = new NativeArray<int>(1, Allocator.Persistent);
+            }
+            protected override void OnDestroy()
+            {
+                Container.Dispose();
+            }
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                return inputDeps;
+            }
+        }
+        public class ContainerUsingSystem : JobComponentSystem
+        {
+            public struct ContainerJob : IJob
+            {
+                public NativeArray<int> Container;
+                public void Execute()
+                {}
+            }
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                var job = new ContainerJob{Container = World.GetExistingSystem<ContainerOwnerSystem>().Container};
+                return job.Schedule(inputDeps);
+            }
+        }
+        [Test]
+        public void World_DisposeWithRunningJobs_Succeeds()
+        {
+            var w = new World("Test");
+            // Ordering is important, the owner system needs to be destroyed before the user system
+            var user = w.GetOrCreateSystem<ContainerUsingSystem>();
+            var owner = w.GetOrCreateSystem<ContainerOwnerSystem>();
+
+            owner.Update();
+            user.Update();
+            w.Dispose();
         }
     }
 }

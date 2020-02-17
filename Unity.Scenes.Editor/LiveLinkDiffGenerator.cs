@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Unity.Build;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Build;
 using Unity.Profiling;
 using UnityEditor;
 using UnityEngine;
@@ -110,7 +110,7 @@ namespace Unity.Scenes.Editor
 
         static ProfilerMarker m_ConvertMarker = new ProfilerMarker("LiveLink.Convert");
 
-        public void Convert(Scene scene, Hash128 sceneGUID, GameObjectConversionUtility.ConversionFlags flags, BuildSettings buildSettings)
+        public void Convert(Scene scene, Hash128 sceneGUID, GameObjectConversionUtility.ConversionFlags flags, BuildConfiguration config)
         {
             using (m_ConvertMarker.Auto())
             {
@@ -139,7 +139,7 @@ namespace Unity.Scenes.Editor
                     // Debug.Log("Clean convert");
                     _ConvertedWorld.EntityManager.DestroyEntity(_ConvertedWorld.EntityManager.UniversalQuery);
                     var conversionSettings = new GameObjectConversionSettings(_ConvertedWorld, flags);
-                    conversionSettings.BuildSettings = buildSettings;
+                    conversionSettings.BuildConfiguration = config;
                     conversionSettings.SceneGUID = sceneGUID;
                     conversionSettings.DebugConversionName = _SceneName;
                     conversionSettings.BlobAssetStore = m_BlobAssetStore;
@@ -157,11 +157,11 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        public static LiveLinkChangeSet UpdateLiveLink(Scene scene, Hash128 sceneGUID, ref LiveLinkDiffGenerator liveLinkData, int sceneDirtyID, LiveLinkMode mode, BuildSettings buildSettings)
+        public static LiveLinkChangeSet UpdateLiveLink(Scene scene, Hash128 sceneGUID, ref LiveLinkDiffGenerator liveLinkData, int sceneDirtyID, LiveLinkMode mode, BuildConfiguration config)
         {
             //Debug.Log("ApplyLiveLink: " + scene.SceneName);
 
-            int framesToRetainBlobAssets = RetainBlobAssetsSetting.GetFramesToRetainBlobAssets(buildSettings);
+            int framesToRetainBlobAssets = RetainBlobAssetsSetting.GetFramesToRetainBlobAssets(config);
 
             var liveLinkEnabled = mode != LiveLinkMode.Disabled;
             if (liveLinkData != null && liveLinkData._LiveLinkEnabled != liveLinkEnabled)
@@ -189,7 +189,7 @@ namespace Unity.Scenes.Editor
             if (mode == LiveLinkMode.LiveConvertSceneView)
                 flags |= GameObjectConversionUtility.ConversionFlags.SceneViewLiveLink;
 
-            liveLinkData.Convert(scene, sceneGUID, flags, buildSettings);
+            liveLinkData.Convert(scene, sceneGUID, flags, config);
 
             var convertedEntityManager = liveLinkData._ConvertedWorld.EntityManager;
 

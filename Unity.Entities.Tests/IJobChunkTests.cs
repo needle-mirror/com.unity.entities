@@ -156,7 +156,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void IJobChunkProcessChunkIndex()
+        public void IJobChunkProcessChunkIndexWithFilter()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
@@ -183,6 +183,37 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(0,  m_Manager.GetComponentData<EcsTestData>(entity1).value);
             Assert.AreEqual(0,  m_Manager.GetComponentData<EcsTestData>(entity2).value);
+
+            group.Dispose();
+        }
+
+        [Test]
+        public void IJobChunkProcessChunkIndex()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
+
+            var entity1 = m_Manager.CreateEntity(archetype);
+            var entity2 = m_Manager.CreateEntity(archetype);
+
+            m_Manager.SetSharedComponentData<SharedData1>(entity1, new SharedData1 { value = 10 });
+            m_Manager.SetComponentData<EcsTestData>(entity1, new EcsTestData { value = 10 });
+
+            m_Manager.SetSharedComponentData<SharedData1>(entity2, new SharedData1 { value = 20 });
+            m_Manager.SetComponentData<EcsTestData>(entity2, new EcsTestData { value = 20 });
+
+            var job = new ProcessChunkIndex
+            {
+                ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
+            };
+            // ScheduleSingle forces all chunks to run on a single thread, so the for loop in IJobChunk.ExecuteInternal() has >1 iteration.
+            job.ScheduleSingle(group).Complete();
+
+            int[] values = {
+                m_Manager.GetComponentData<EcsTestData>(entity1).value,
+                m_Manager.GetComponentData<EcsTestData>(entity2).value,
+            };
+            CollectionAssert.AreEquivalent(values, new int[] {0,1});
 
             group.Dispose();
         }
@@ -319,6 +350,19 @@ namespace Unity.Entities.Tests
             componentArrayA.Dispose();
             componentArrayB.Dispose();
             group.Dispose();
+        }
+
+        struct InitializedAsSingleAndParallelJob : IJobChunk
+        {
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset) {}
+        }
+        [Test]
+        public void IJobChunkInitializedAsSingleAndParallel_CreatesDifferentScheduleData()
+        {
+            var jobReflectionDataParallel = JobChunkExtensions.JobChunk_Process<InitializedAsSingleAndParallelJob>.InitializeParallel();
+            var jobReflectionDataSingle = JobChunkExtensions.JobChunk_Process<InitializedAsSingleAndParallelJob>.InitializeSingle();
+            
+            Assert.AreNotEqual(jobReflectionDataParallel, jobReflectionDataSingle);
         }
     }
 }

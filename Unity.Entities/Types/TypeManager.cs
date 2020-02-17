@@ -94,9 +94,9 @@ namespace Unity.Entities
         public const int SystemStateTypeFlag = 1 << 25;
         public const int BufferComponentTypeFlag = 1 << 26;
         public const int SharedComponentTypeFlag = 1 << 27;
-        public const int ChunkComponentTypeFlag = 1 << 28;
-        public const int ZeroSizeInChunkTypeFlag = 1 << 29;
-        public const int ManagedComponentTypeFlag = 1 << 30; // TODO: If we can ensure TypeIndex is unsigned we can use the top bit for this
+        public const int ManagedComponentTypeFlag = 1 << 28;
+        public const int ChunkComponentTypeFlag = 1 << 29;
+        public const int ZeroSizeInChunkTypeFlag = 1 << 30; // TODO: If we can ensure TypeIndex is unsigned we can use the top bit for this
 
         public const int ClearFlagsMask = 0x00FFFFFF;
         public const int SystemStateSharedComponentTypeFlag = SystemStateTypeFlag | SharedComponentTypeFlag;
@@ -477,7 +477,7 @@ namespace Unity.Entities
         public static bool IsSystemStateComponent(int typeIndex) => (typeIndex & SystemStateTypeFlag) != 0;
         public static bool IsSystemStateSharedComponent(int typeIndex) => (typeIndex & SystemStateSharedComponentTypeFlag) == SystemStateSharedComponentTypeFlag;
         public static bool IsSharedComponent(int typeIndex) => (typeIndex & SharedComponentTypeFlag) != 0;
-        public static bool IsManagedComponent(int typeIndex) => (typeIndex & ManagedComponentTypeFlag) != 0;
+        public static bool IsManagedComponent(int typeIndex) => (typeIndex & (ManagedComponentTypeFlag | ChunkComponentTypeFlag)) == ManagedComponentTypeFlag;
         public static bool IsZeroSized(int typeIndex) => (typeIndex & ZeroSizeInChunkTypeFlag) != 0;
         public static bool IsChunkComponent(int typeIndex) => (typeIndex & ChunkComponentTypeFlag) != 0;
         public static bool HasEntityReferences(int typeIndex) => (typeIndex & HasNoEntityReferencesFlag) == 0;
@@ -485,6 +485,7 @@ namespace Unity.Entities
         public static int MakeChunkComponentTypeIndex(int typeIndex) => (typeIndex | ChunkComponentTypeFlag | ZeroSizeInChunkTypeFlag);
         public static int ChunkComponentToNormalTypeIndex(int typeIndex) => s_TypeInfos[typeIndex & ClearFlagsMask].TypeIndex;
 
+#if !NET_DOTS
         // TODO: this creates a dependency on UnityEngine, but makes splitting code in separate assemblies easier. We need to remove it during the biggere refactor.
         private struct ObjectOffsetType
         {
@@ -492,7 +493,6 @@ namespace Unity.Entities
             private void* v1;
         }
 
-#if !NET_DOTS
         private static void AddTypeInfoToTables(Type type, TypeInfo typeInfo)
         {
             GetTypeInfoPointer()[typeInfo.TypeIndex & ClearFlagsMask] = typeInfo;
@@ -533,9 +533,9 @@ namespace Unity.Entities
                 };
                 s_AppDomainUnloadRegistered = true;
             }
-            #endif
 
             ObjectOffset = UnsafeUtility.SizeOf<ObjectOffsetType>();
+            #endif
 
             #if !NET_DOTS
             s_ManagedTypeToIndex = new Dictionary<Type, int>(1000);
@@ -1472,6 +1472,7 @@ namespace Unity.Entities
                 CheckIsAllowedAsManagedComponentData(type, nameof(IComponentData));
 
                 category = TypeCategory.ComponentData;
+                componentSize = sizeof(int);
                 typeInfo = FastEquality.CreateTypeInfo(type);
                 entityOffsets = EntityRemapUtility.CalculateEntityOffsets(type);
                 blobAssetRefOffsets = CalculatBlobAssetRefOffsets(type);
@@ -1513,6 +1514,8 @@ namespace Unity.Entities
             else if (type.IsClass)
             {
                 category = TypeCategory.Class;
+                componentSize = sizeof(int);
+                alignmentInBytes = sizeof(int);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (type.FullName == "Unity.Entities.GameObjectEntity")
                     throw new ArgumentException(

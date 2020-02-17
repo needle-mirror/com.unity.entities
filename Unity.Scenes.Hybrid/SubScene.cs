@@ -19,20 +19,19 @@ using System.Linq;
 namespace Unity.Scenes
 {
     [ExecuteAlways]
+    [DisallowMultipleComponent]
     public class SubScene : MonoBehaviour
     {
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
         [FormerlySerializedAs("sceneAsset")]
         [SerializeField] SceneAsset _SceneAsset;
         [SerializeField] Color _HierarchyColor = Color.gray;
     
         static List<SubScene> m_AllSubScenes = new List<SubScene>();
         public static IReadOnlyCollection<SubScene> AllSubScenes { get { return m_AllSubScenes; } }
-
-    #endif
+#endif
 
         public bool AutoLoadScene = true;
-
 
         [SerializeField]
         [HideInInspector]
@@ -41,10 +40,10 @@ namespace Unity.Scenes
         [NonSerialized]
         Hash128 _AddedSceneGUID;
 
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
 
         [NonSerialized]
-        bool _IsEnabled;
+        bool _IsAddedToListOfAllSubScenes;
         
         public SceneAsset SceneAsset
         {
@@ -78,8 +77,7 @@ namespace Unity.Scenes
             get { return _HierarchyColor; }
             set { _HierarchyColor = value; }
         }
-    
-    
+   
         public string EditableScenePath
         {
             get 
@@ -103,17 +101,22 @@ namespace Unity.Scenes
         {
             get { return EditingScene.isLoaded; }
         }
-        
-        
-        void WarnDuplicate()
+
+        void WarnIfNeeded()
         {
+            if (!IsInMainStage())
+                return;
+
             if (SceneAsset != null)
             {
                 foreach (var subscene in m_AllSubScenes)
                 {
+                    if (!subscene.IsInMainStage())
+                        continue;
+
                     if (subscene.SceneAsset == SceneAsset)
                     {
-                        UnityEngine.Debug.LogWarning($"A sub-scene can not include the same scene ('{EditableScenePath}') multiple times.", this);
+                        UnityEngine.Debug.LogWarning($"Sub Scenes can not reference the same scene ('{EditableScenePath}') multiple times.", this);
                         return;
                     }
                 }
@@ -124,7 +127,7 @@ namespace Unity.Scenes
         {
             _SceneGUID = new GUID(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(_SceneAsset)));
             
-            if (_IsEnabled)
+            if (_IsAddedToListOfAllSubScenes && IsInMainStage())
             {
                 if (_SceneGUID != _AddedSceneGUID)
                 {
@@ -133,24 +136,55 @@ namespace Unity.Scenes
                         AddSceneEntities();
                 }
             }
+            
+            // Validate SubScene build configuration exists
+            foreach (var world in World.AllWorlds)
+            {
+                var sceneSystem = world.GetExistingSystem<SceneSystem>();
+                if (sceneSystem is null)
+                    continue;
+                
+                EntityScenesPaths.CreateBuildConfigurationSceneFile(_SceneGUID,sceneSystem.BuildConfigurationGUID);
+            }
         }
-    
-    #endif
-        
+
+        internal bool CanBeLoaded()
+        {
+            if (SceneAsset == null)
+                return false;
+
+            if (!_IsAddedToListOfAllSubScenes)
+                return false;
+
+            if (!IsInMainStage())
+                return false;
+
+            if (!isActiveAndEnabled)
+                return false;
+
+            return true;
+        }
+
+        internal bool IsInMainStage()
+        {
+            return !EditorUtility.IsPersistent(gameObject) && StageUtility.GetStageHandle(gameObject) == StageUtility.GetMainStageHandle();
+        }
+#endif
+
         public Hash128 SceneGUID => _SceneGUID;
-      
+
         void OnEnable()
         {
 #if UNITY_EDITOR
-            WarnDuplicate();
+            WarnIfNeeded();
             
-            _IsEnabled = true;
+            _IsAddedToListOfAllSubScenes = true;
             m_AllSubScenes.Add(this);
 
             if (_SceneGUID == default(Hash128))
                 return;
-            
-            if (UnityEditor.Experimental.SceneManagement.PrefabStageUtility.GetPrefabStage(gameObject) != null)
+
+            if (!IsInMainStage())
                 return;
 #endif
 
@@ -160,10 +194,10 @@ namespace Unity.Scenes
         
         void OnDisable()
         {
-    #if UNITY_EDITOR
-            _IsEnabled = false;
+#if UNITY_EDITOR
+            _IsAddedToListOfAllSubScenes = false;
             m_AllSubScenes.Remove(this);
-    #endif
+#endif
             
             RemoveSceneEntities();
         }
@@ -215,7 +249,7 @@ namespace Unity.Scenes
         void UnloadScene()
         {
         //@TODO: ask to save scene first???
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
             var scene = EditingScene;
             if (scene.IsValid())
             {
@@ -229,36 +263,12 @@ namespace Unity.Scenes
     
                 EditorSceneManager.UnloadSceneAsync(scene);    
             }
-    #endif
+#endif
         }
-    
-    
+      
         private void OnDestroy()
         {
             UnloadScene();
-        }
-
-        [Obsolete("_SceneEntities has been deprecated, please use World.GetExistingSystem<SceneSystem>().LoadAsync / Unload using SceneGUID instead. (RemovedAfter 2020-01-22)")]
-        public List<Entity> _SceneEntities
-        {
-            get
-            {
-                var entities = new List<Entity>();
-
-                var sceneSystem = World.DefaultGameObjectInjectionWorld?.GetExistingSystem<SceneSystem>();
-                
-                if (sceneSystem != null)
-                {
-                    var sceneEntity = sceneSystem.GetSceneEntity(SceneGUID);
-                    if (sceneEntity != Entity.Null && sceneSystem.EntityManager.HasComponent<ResolvedSectionEntity>(sceneEntity))
-                    {
-                        foreach(var section in sceneSystem.EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity))
-                            entities.Add(section.SectionEntity);    
-                    }
-                }
-
-                return entities;
-            }
         }
 
         /* @TODO: Add conversion. How do we prevent duplicate from OnEnable / OnDisable

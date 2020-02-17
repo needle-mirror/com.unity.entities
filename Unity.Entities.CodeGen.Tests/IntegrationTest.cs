@@ -6,6 +6,8 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Mono.Cecil;
 using NUnit.Framework;
+using Unity.Entities.Editor;
+using Unity.Entities.Hybrid;
 
 namespace Unity.Entities.CodeGen.Tests
 {
@@ -14,19 +16,14 @@ namespace Unity.Entities.CodeGen.Tests
     {
         // Make sure to not check this in with true or your tests will always pass!
         public static bool overwriteExpectationWithReality = false;
-
+        
         protected abstract string ExpectedPath { get; }
-        protected virtual string AdditionalIL { get { return string.Empty; } }
+        protected virtual string AdditionalIL => string.Empty;
 
         static bool IsAssemblyBuiltAsDebug()
         {
             var debuggableAttributes = typeof(IntegrationTest).Assembly.GetCustomAttributes(typeof(DebuggableAttribute), false);
-            foreach (var debuggableAttribute in debuggableAttributes)
-            {
-                if (((System.Diagnostics.DebuggableAttribute) debuggableAttribute).IsJITTrackingEnabled)
-                    return true;
-            }
-            return false;
+            return debuggableAttributes.Any(debuggableAttribute => ((DebuggableAttribute) debuggableAttribute).IsJITTrackingEnabled);
         }
        
         protected void RunTest(TypeReference type)
@@ -37,8 +34,7 @@ namespace Unity.Entities.CodeGen.Tests
                 UnityEngine.Debug.LogWarning("Integration tests should only be run with release code optimizations turned on for consistent codegen.  Switch your settings in Preferences->External Tools->Editor Attaching (in 2019.3) or Preferences->General->Code Optimization On Startup (in 2020.1+) to be able to run these tests.");
 
             var expectationFile = Path.GetFullPath($"{ExpectedPath}/{GetType().Name}.expectation.txt");
-
-            var jobCSharp = Decompiler.DecompileIntoString(type);
+            var jobCSharp = Decompiler.DecompileIntoCSharpAndIL(type, DecompiledLanguage.CSharpOnly).CSharpCode;
             var actualLines = jobCSharp.Split('\n').Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
 
             var shouldOverWrite = overwriteExpectationWithReality || !File.Exists(expectationFile);

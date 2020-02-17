@@ -19,12 +19,12 @@ namespace Unity.Scenes
     struct SubSceneGUID : IComponentData, IEquatable<SubSceneGUID>
     {
         public Hash128 Guid;
-        public Hash128 BuildSettingsGuid;
+        public Hash128 BuildConfigurationGuid;
 
-        public SubSceneGUID(Hash128 Guid, Hash128 BuildSettingsGuid)
+        public SubSceneGUID(Hash128 Guid, Hash128 buildConfigurationGuid)
         {
             this.Guid = Guid;
-            this.BuildSettingsGuid = BuildSettingsGuid;
+            this.BuildConfigurationGuid = buildConfigurationGuid;
         }
 
         public override bool Equals(object o)
@@ -34,7 +34,7 @@ namespace Unity.Scenes
 
         public bool Equals(SubSceneGUID other)
         {
-            return Guid.Equals(other.Guid) && BuildSettingsGuid.Equals(other.BuildSettingsGuid);
+            return Guid.Equals(other.Guid) && BuildConfigurationGuid.Equals(other.BuildConfigurationGuid);
         }
 
         public override unsafe int GetHashCode()
@@ -45,7 +45,7 @@ namespace Unity.Scenes
 
         public override string ToString()
         {
-            return $"{Guid} | {BuildSettingsGuid}";
+            return $"{Guid} | {BuildConfigurationGuid}";
         }
 
         public static bool operator ==(SubSceneGUID lhs, SubSceneGUID rhs) => lhs.Equals(rhs);
@@ -77,6 +77,7 @@ namespace Unity.Scenes
             PlayerConnection.instance.Register(LiveLinkMsg.UnloadScenes, ReceiveUnloadScenes);
             PlayerConnection.instance.Register(LiveLinkMsg.LoadScenes, ReceiveLoadScenes);
             PlayerConnection.instance.Register(LiveLinkMsg.ResetGame, ReceiveResetGame);
+            PlayerConnection.instance.Register(LiveLinkMsg.ResponseConnectLiveLink, ReceiveInitialScenes);
 
             m_ResourcePacketQueue = new Queue<EntityChangeSetSerialization.ResourcePacket>();
             m_Resources = GetEntityQuery( new EntityQueryDesc
@@ -92,6 +93,7 @@ namespace Unity.Scenes
         protected override void OnStopRunning()
         {
             m_LiveLinkSceneChange.Dispose();
+            PlayerConnection.instance.Unregister(LiveLinkMsg.ResponseConnectLiveLink, ReceiveInitialScenes);
             PlayerConnection.instance.Unregister(LiveLinkMsg.ReceiveEntityChangeSet, ReceiveEntityChangeSet);
             PlayerConnection.instance.Unregister(LiveLinkMsg.UnloadScenes, ReceiveUnloadScenes);
             PlayerConnection.instance.Unregister(LiveLinkMsg.LoadScenes, ReceiveLoadScenes);
@@ -150,26 +152,34 @@ namespace Unity.Scenes
 
         void ResetGame()
         {
+            var sceneSystem = World.GetExistingSystem<SceneSystem>();
+            sceneSystem.UnloadAllScenes();
+
             while (m_ResourcePacketQueue.Count != 0)
                 m_ResourcePacketQueue.Dequeue().Dispose();
 
             EntityManager.DestroyEntity(EntityManager.UniversalQuery);
-            
-            //@TODO: Once we have build settings & loading of game object scenes we can remove this hack.
-            var scenes = Object.FindObjectsOfType<SubScene>();
-            foreach (var scene in scenes)
-            {
-                scene.enabled = false;
-                scene.enabled = true;
-            }
-            
             LiveLinkPlayerAssetRefreshSystem.Reset();
             
             LiveLinkMsg.LogSend("ConnectLiveLink");
-            PlayerConnection.instance.Send(LiveLinkMsg.ConnectLiveLink, World.GetExistingSystem<SceneSystem>().BuildSettingsGUID);
-            
+            PlayerConnection.instance.Send(LiveLinkMsg.RequestConnectLiveLink, sceneSystem.BuildConfigurationGUID);
+
             m_LiveLinkSceneChange.Reset();
             SendSetLoadedScenes();
+        }
+
+        unsafe void ReceiveInitialScenes(MessageEventArgs args)
+        {
+            using (var scenes = args.ReceiveArray<Hash128>())
+            {
+                if (scenes.Length > 0)
+                {
+                    LiveLinkMsg.LogReceived($"ReceiveInitialScenes {scenes.ToString()}");
+                    var sceneSystem = World.GetOrCreateSystem<SceneSystem>();
+                    for (int i = 0; i < scenes.Length; i++)
+                        sceneSystem.LoadSceneAsync(scenes[i], new SceneSystem.LoadParameters() { Flags = SceneLoadFlags.LoadAdditive | SceneLoadFlags.LoadAsGOScene });
+                }
+            }
         }
 
         [BurstCompile]
@@ -230,13 +240,13 @@ namespace Unity.Scenes
         {
             var sceneSystem = World.GetExistingSystem<SceneSystem>();
 
-            // BuildSettingsGUID isn't known in OnCreate since it could be configured from OnCreate of other systems,
+            // BuildConfigurationGUID isn't known in OnCreate since it could be configured from OnCreate of other systems,
             // So we delay connecting live link until first OnUpdate
             if (!m_DidRequestConnection)
             {
                 m_DidRequestConnection = true;
                 LiveLinkMsg.LogSend("ConnectLiveLink");
-                PlayerConnection.instance.Send(LiveLinkMsg.ConnectLiveLink, World.GetExistingSystem<SceneSystem>().BuildSettingsGUID);
+                PlayerConnection.instance.Send(LiveLinkMsg.RequestConnectLiveLink, World.GetExistingSystem<SceneSystem>().BuildConfigurationGUID);
             }
 
             SendSetLoadedScenes();

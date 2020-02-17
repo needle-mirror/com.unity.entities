@@ -13,7 +13,8 @@ namespace Unity.Entities
     {
         [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
         [NativeDisableUnsafePtrRestriction] public MatchingArchetype** MatchingArchetypes;
-        [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<int> Offsets;
+        [DeallocateOnJobCompletion]
+        [ReadOnly] public NativeArray<int> Offsets;
         [NativeDisableParallelForRestriction] public NativeArray<ArchetypeChunk> Chunks;
 
         public void Execute(int index)
@@ -90,7 +91,7 @@ namespace Unity.Entities
             int chunkCount = archetype->Chunks.Count;
             var writeIndex = Offsets[index];
             var archetypeChunks = archetype->Chunks.p;
-            
+
             for (var i = 0; i < chunkCount; ++i)
             {
                 if (match->ChunkMatchesFilter(i, ref Filter))
@@ -116,7 +117,7 @@ namespace Unity.Entities
         {
             var chunks = (ArchetypeChunk*) PrefilterData;
             var entityIndices = (int*) (chunks + UnfilteredChunkCount);
-            
+
             var filteredChunkCount = 0;
             var filteredEntityOffset = 0;
 
@@ -149,12 +150,12 @@ namespace Unity.Entities
         }
     }
 
-    unsafe struct JoinChunksJob : IJobParallelFor
+    struct JoinChunksJob : IJobParallelFor
     {
-        [DeallocateOnJobCompletion] [NativeDisableParallelForRestriction] public NativeArray<int> DestinationOffsets;
-        [DeallocateOnJobCompletion] [NativeDisableParallelForRestriction] public NativeArray<ArchetypeChunk> SparseChunks;
+        [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<int> DestinationOffsets;
+        [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<ArchetypeChunk> SparseChunks;
         [DeallocateOnJobCompletion] [ReadOnly] public NativeArray<int> Offsets;
-        [NativeDisableParallelForRestriction] public NativeArray<ArchetypeChunk> JoinedChunks;
+        [NativeDisableParallelForRestriction]  public NativeArray<ArchetypeChunk> JoinedChunks;
 
         public void Execute(int index)
         {
@@ -213,36 +214,6 @@ namespace Unity.Entities
             var copySizeInBytes = UnsafeUtility.SizeOf<T>() * chunk.Count;
 
             UnsafeUtility.MemCpy(destinationPtr, srcPtr, copySizeInBytes);
-        }
-    }
-    
-    [BurstCompile]
-    unsafe struct CalculateEntityCountJob : IJob
-    {
-        public UnsafeMatchingArchetypePtrList MatchingArchetypes;
-        public EntityQueryFilter Filter;
-
-        [NativeDisableUnsafePtrRestriction] 
-        public int* OutEntityCount;
-
-        public void Execute()
-        {
-            *OutEntityCount = ChunkIterationUtility.CalculateEntityCount(MatchingArchetypes, ref Filter);
-        }
-    }
-
-    [BurstCompile]
-    unsafe struct CalculateChunkCountJob : IJob
-    {
-        public UnsafeMatchingArchetypePtrList MatchingArchetypes;
-        public EntityQueryFilter Filter;
-
-        [NativeDisableUnsafePtrRestriction] 
-        public int* OutChunkCount;
-
-        public void Execute()
-        {
-            *OutChunkCount = ChunkIterationUtility.CalculateChunkCount(MatchingArchetypes, ref Filter);
         }
     }
 }

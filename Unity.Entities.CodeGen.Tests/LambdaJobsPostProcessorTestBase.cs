@@ -14,13 +14,24 @@ using Unity.Entities.CodeGen;
 
 namespace Unity.Entities.CodeGen.Tests
 {
-    public class PostProcessorTestBase
+    public abstract class PostProcessorTestBase
     {
-        protected AssemblyDefinition AssemblyDefinitionFor(Type type)
+        class FailResolver : IAssemblyResolver
+        {
+            public void Dispose() { }
+            public AssemblyDefinition Resolve(AssemblyNameReference name) { return null; }
+            public AssemblyDefinition Resolve(AssemblyNameReference name, ReaderParameters parameters) { return null; }
+        }
+        
+        protected AssemblyDefinition AssemblyDefinitionFor(Type type, bool useFailResolver = false)
         {
             var assemblyLocation = type.Assembly.Location;
 
-            var resolver = new LambdaJobsPostProcessorTestBase.OnDemandResolver();
+            IAssemblyResolver resolver;
+            if (useFailResolver)
+                resolver = new FailResolver();
+            else
+                resolver = new LambdaJobsPostProcessorTestBase.OnDemandResolver();
             
             var ad = AssemblyDefinition.ReadAssembly(new MemoryStream(File.ReadAllBytes(assemblyLocation)), 
                 new ReaderParameters(ReadingMode.Immediate)
@@ -38,24 +49,24 @@ namespace Unity.Entities.CodeGen.Tests
             return ad;
         }
 
-        protected TypeDefinition TypeDefinitionFor(Type type)
+        protected TypeDefinition TypeDefinitionFor(Type type, bool useFailResolver = false)
         {
-            var ad = AssemblyDefinitionFor(type);
+            var ad = AssemblyDefinitionFor(type, useFailResolver);
             var fullName = type.FullName.Replace("+", "/");
             return ad.MainModule.GetType(fullName).Resolve();
         }
 
-        protected TypeDefinition TypeDefinitionFor(string typeName, Type nextToType)
+        protected TypeDefinition TypeDefinitionFor(string typeName, Type nextToType, bool useFailResolver = false)
         {
-            var ad = AssemblyDefinitionFor(nextToType);
+            var ad = AssemblyDefinitionFor(nextToType, useFailResolver);
             var fullName = nextToType.FullName.Replace("+", "/");
             fullName = fullName.Replace(nextToType.Name, typeName);
             return ad.MainModule.GetType(fullName).Resolve();
         }
 
-        protected MethodDefinition MethodDefinitionForOnlyMethodOf(Type type)
+        protected MethodDefinition MethodDefinitionForOnlyMethodOf(Type type, bool useFailResolver = false)
         {
-            return MethodDefinitionForOnlyMethodOfDefinition(TypeDefinitionFor(type));
+            return MethodDefinitionForOnlyMethodOfDefinition(TypeDefinitionFor(type, useFailResolver));
         }
 
         protected MethodDefinition MethodDefinitionForOnlyMethodOfDefinition(TypeDefinition typeDefinition)
@@ -97,6 +108,18 @@ namespace Unity.Entities.CodeGen.Tests
             }
         }
 
+        protected abstract void AssertProducesInternal(Type systemType, DiagnosticType type, string[] shouldContains, bool useFailResolver = false);
+        
+        protected void AssertProducesWarning(Type systemType, params string[] shouldContainErrors)
+        {
+            AssertProducesInternal(systemType, DiagnosticType.Warning, shouldContainErrors);
+        }
+
+        protected void AssertProducesError(Type systemType, params string[] shouldContainErrors)
+        {
+            AssertProducesInternal(systemType, DiagnosticType.Error, shouldContainErrors);
+        }
+
         protected static void AssertDiagnosticHasSufficientFileAndLineInfo(List<DiagnosticMessage> errors)
         {
             string diagnostic = errors.Select(dm=>dm.MessageData).SeparateByComma();
@@ -108,7 +131,7 @@ namespace Unity.Entities.CodeGen.Tests
                 Assert.Fail("Diagnostic message had no line info: " + diagnostic);
 
             var line = int.Parse(match.Groups["line"].Value);
-            if (line > 1000)
+            if (line > 2000)
                 Assert.Fail("Unreasonable line number in errormessage: " + diagnostic);
         }
     }
@@ -129,7 +152,9 @@ namespace Unity.Entities.CodeGen.Tests
                 {
                     foreach (var forEachDescriptionConstruction in LambdaJobDescriptionConstruction.FindIn(methodToAnalyze))
                     {
-                        LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction, null);
+                        var (jobStructForLambdaJob, diagnosticMessages) = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction);
+                        foreach (var diagnosticMessage in diagnosticMessages)
+                            Assert.AreNotEqual(DiagnosticType.Error, diagnosticMessage.DiagnosticType);
                     }
                 }
 
@@ -145,37 +170,35 @@ namespace Unity.Entities.CodeGen.Tests
             });
         }
 
-        void AssertProducesInternal(Type systemType, DiagnosticType type, string[] shouldContains)
+        protected override void AssertProducesInternal(
+            Type systemType, 
+            DiagnosticType type, 
+            string[] shouldContains,
+            bool useFailResolver = false)
         {
             var methodToAnalyze = MethodDefinitionForOnlyMethodOf(systemType);
-            var errors = new List<DiagnosticMessage>();
+            var diagnosticMessages = new List<DiagnosticMessage>();
 
             try
             {
                 foreach (var forEachDescriptionConstruction in LambdaJobDescriptionConstruction.FindIn(methodToAnalyze))
                 {
-                    LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction, errors);
+                    var (_, rewriteMessages) = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction);
+                    diagnosticMessages.AddRange(rewriteMessages);
                 }
             }
             catch (FoundErrorInUserCodeException exc)
             {
-                errors.AddRange(exc.DiagnosticMessages);
+                diagnosticMessages.AddRange(exc.DiagnosticMessages);
             }
 
-            Assert.AreEqual(type, errors[0].DiagnosticType);
-            
+            Assert.AreEqual(1, diagnosticMessages.Count);
+            Assert.AreEqual(type, diagnosticMessages[0].DiagnosticType);
 
-            AssertDiagnosticHasSufficientFileAndLineInfo(errors);
-        }
+            foreach (var str in shouldContains)
+                Assert.That(diagnosticMessages[0].MessageData.Contains(str), $"Error message \"{diagnosticMessages[0].MessageData}\" does not contain \"{str}\".");
 
-        protected void AssertProducesWarning(Type systemType, params string[] shouldContainErrors)
-        {
-            AssertProducesInternal(systemType, DiagnosticType.Warning, shouldContainErrors);
-        }
-
-        protected void AssertProducesError(Type systemType, params string[] shouldContainErrors)
-        {
-            AssertProducesInternal(systemType, DiagnosticType.Error, shouldContainErrors);
+            AssertDiagnosticHasSufficientFileAndLineInfo(diagnosticMessages);
         }
     }
 }

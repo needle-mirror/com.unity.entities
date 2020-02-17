@@ -41,7 +41,8 @@ namespace Unity.Entities
             if (AddComponentEntitiesBatch != null)
                 return;
 
-#if NET_DOTS
+// todo: remove iOS define when fix (101035) landed in trunk:
+#if NET_DOTS || (UNITY_2020_1_OR_NEWER && UNITY_IOS)
             AddComponentEntitiesBatch = AddComponentEntitiesBatchExecute;
             AddComponentEntity = AddComponentEntityExecute;
             AddComponentChunks = AddComponentChunksExecute;
@@ -337,8 +338,7 @@ namespace Unity.Entities
                 }
             }
             
-            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-            EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
+            EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, EntityQueryManager);
             ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
         }
 
@@ -398,8 +398,7 @@ namespace Unity.Entities
                     entityBatchList.Dispose();
                 }
             }
-            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-            EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
+            EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, EntityQueryManager);
             ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
         }
 
@@ -457,8 +456,7 @@ namespace Unity.Entities
             
             EntityComponentStore->AddComponents(entity, types);
             
-            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-            EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
+            EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, EntityQueryManager);
             ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
         }
 
@@ -718,8 +716,7 @@ namespace Unity.Entities
                 StructuralChange.AddComponentChunks(EntityComponentStore, chunkPtr, chunks.Length, componentTypeIndexForAdd);
                 StructuralChange.SetChunkComponent(EntityComponentStore, chunkPtr, chunks.Length, &componentData, componentTypeIndex);
 
-                var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-                EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
+                EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, EntityQueryManager);
                 ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
             }
         }
@@ -827,7 +824,7 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public bool AddSharedComponentData<T>(Entity entity, T componentData) where T : struct, ISharedComponentData
         {
-            return m_EntityDataAccess.AddSharedComponentData(entity, componentData);
+            return m_EntityDataAccess.AddSharedComponentData(entity, componentData, m_ManagedComponentStore);
         }
 
         /// <summary>
@@ -884,8 +881,7 @@ namespace Unity.Entities
             
             StructuralChange.MoveEntityArchetype(EntityComponentStore, &entity, archetype.Archetype);
 
-            var changedArchetypes = EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-            EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
+            EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, EntityQueryManager);
             ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
         }
 
@@ -1032,8 +1028,7 @@ namespace Unity.Entities
                 
                 StructuralChange.AddComponentChunks(manager.EntityComponentStore, (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, chunkType.TypeIndex);
 
-                var changedArchetypes = manager.EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-                manager.EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
+                manager.EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, manager.EntityQueryManager);
                 manager.ManagedComponentStore.Playback(ref manager.EntityComponentStore->ManagedChangesTracker);
                 
                 manager.SetChunkComponent(chunks, componentData);
@@ -1042,15 +1037,11 @@ namespace Unity.Entities
 
         static void SetChunkComponent<T>(this EntityManager manager, NativeArray<ArchetypeChunk> chunks, T componentData) where T : class, IComponentData
         {
-            var type = TypeManager.MakeChunkComponentTypeIndex(TypeManager.GetTypeIndex<T>());
-
+            var type = TypeManager.GetTypeIndex<T>();
             for (int i = 0; i < chunks.Length; i++)
             {
                 var srcChunk = chunks[i].m_Chunk;
-                var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(srcChunk->Archetype, type);
-
-                var entityInChunk = manager.EntityComponentStore->GetEntityInChunk(srcChunk->metaChunkEntity);
-                manager.ManagedComponentStore.SetManagedObject(entityInChunk.Chunk, indexInTypeArray, entityInChunk.IndexInChunk, componentData);
+                manager.SetComponentData<T>(srcChunk->metaChunkEntity, componentData);
             }
         }
     }

@@ -198,7 +198,7 @@ namespace Unity.Entities
                 {
                     if (TypeManager.IsManagedComponent(typeInfo.TypeIndex))
                     {
-                        return m_Manager.GetManagedComponentDataAsObject(entity, type);
+                        return m_Manager.GetComponentObject<object>(entity, type);
                     }
 
                     var obj = Activator.CreateInstance(TypeManager.GetType(type.TypeIndex));

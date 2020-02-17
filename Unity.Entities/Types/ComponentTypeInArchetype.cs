@@ -11,7 +11,7 @@ namespace Unity.Entities
         public bool IsZeroSized => (TypeIndex & TypeManager.ZeroSizeInChunkTypeFlag) != 0;
         public bool IsChunkComponent => (TypeIndex & TypeManager.ChunkComponentTypeFlag) != 0;
         public bool HasEntityReferences => (TypeIndex & TypeManager.HasNoEntityReferencesFlag) == 0;
-        public bool IsManagedComponent => (TypeIndex & TypeManager.ManagedComponentTypeFlag) != 0;
+        public bool IsManagedComponent => TypeManager.IsManagedComponent(TypeIndex);
 
         public ComponentTypeInArchetype(ComponentType type)
         {

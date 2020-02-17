@@ -24,12 +24,8 @@ namespace Unity.Entities
         {
             public EntityGuid EntityGuid;
             public int TypeIndex;
-            public int AfterTypeIndex;
-            public Chunk* AfterChunk;
-            public int AfterEntityIndex;
-            public int BeforeTypeIndex;
-            public Chunk* BeforeChunk;
-            public int BeforeEntityIndex;
+            public int AfterManagedComponentIndex;
+            public int BeforeManagedComponentIndex;
         }
 
         readonly struct ComponentChanges : IDisposable
@@ -278,7 +274,8 @@ namespace Unity.Entities
 
                 if (afterTypeInArchetype.IsManagedComponent)
                 {
-                    AppendManagedComponentData(entityGuid, afterTypeInArchetype.TypeIndex, afterIndexInTypeArray, afterChunk, afterEntityIndexInChunk);
+                    var afterManagedComponentIndex  = ((int*)(GetChunkBuffer(afterChunk) + afterArchetype->Offsets[afterIndexInTypeArray]))[afterEntityIndexInChunk];
+                    AppendManagedComponentData(entityGuid, afterTypeInArchetype.TypeIndex, afterManagedComponentIndex);
                     return;
                 }
 
@@ -366,8 +363,10 @@ namespace Unity.Entities
 
                 if (afterTypeInArchetype.IsManagedComponent)
                 {
-                    AppendManagedComponentData(entityGuid, afterTypeInArchetype.TypeIndex, afterIndexInTypeArray,
-                        afterChunk, afterEntityIndexInChunk, beforeIndexInTypeArray, beforeChunk, beforeEntityIndexInChunk);
+                    var afterManagedComponentIndex  = ((int*)(GetChunkBuffer(afterChunk) + afterArchetype->Offsets[afterIndexInTypeArray]))[afterEntityIndexInChunk];
+                    var beforeManagedComponentIndex  = ((int*)(GetChunkBuffer(beforeChunk) + beforeArchetype->Offsets[beforeIndexInTypeArray]))[beforeEntityIndexInChunk];
+
+                    AppendManagedComponentData(entityGuid, afterTypeInArchetype.TypeIndex, afterManagedComponentIndex, beforeManagedComponentIndex);
                     return;
                 }
 
@@ -667,18 +666,14 @@ namespace Unity.Entities
                 });
             }
 
-            void AppendManagedComponentData(EntityGuid entityGuid, int typeIndex, int afterTypeIndex, Chunk* afterChunk, int afterEntityIndex, int beforeTypeIndex = -1, Chunk* beforeChunk = null, int beforeEntityIndex = -1)
+            void AppendManagedComponentData(EntityGuid entityGuid, int typeIndex, int afterManagedComponentIndex, int beforeManagedComponentIndex = -1)
             {
                 ManagedComponentChanges.Add(new DeferredManagedComponentChange
                 {
                     EntityGuid = entityGuid,
                     TypeIndex = typeIndex,
-                    AfterTypeIndex = afterTypeIndex,
-                    AfterChunk = afterChunk,
-                    AfterEntityIndex = afterEntityIndex,
-                    BeforeTypeIndex = beforeTypeIndex,
-                    BeforeChunk = beforeChunk,
-                    BeforeEntityIndex = beforeEntityIndex,
+                    AfterManagedComponentIndex = afterManagedComponentIndex,
+                    BeforeManagedComponentIndex = beforeManagedComponentIndex
                 });
             }
 
@@ -911,11 +906,11 @@ namespace Unity.Entities
             {
                 var change = changes[i];
 
-                var afterValue = afterManagedComponentStore.GetManagedObject(change.AfterChunk, change.AfterTypeIndex, change.AfterEntityIndex);
+                var afterValue = afterManagedComponentStore.GetManagedComponent(change.AfterManagedComponentIndex);
 
-                if (change.BeforeEntityIndex > -1)
+                if (change.BeforeManagedComponentIndex > -1)
                 {
-                    var beforeValue = beforeManagedComponentStore.GetManagedObject(change.BeforeChunk, change.BeforeTypeIndex, change.BeforeEntityIndex);
+                    var beforeValue = beforeManagedComponentStore.GetManagedComponent(change.BeforeManagedComponentIndex);
 
                     if (TypeManager.Equals(beforeValue, afterValue, change.TypeIndex))
                     {

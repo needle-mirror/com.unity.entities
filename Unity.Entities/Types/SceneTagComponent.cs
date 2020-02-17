@@ -11,13 +11,6 @@ namespace Unity.Entities
         public int              FileSize;
         public int              ObjectReferenceCount;
         public MinMaxAABB       BoundingVolume;
-
-        [Obsolete("SharedComponentCount from the deprecated SceneData API is obsolete and will be (RemovedAfter 2020-01-22)", false)]
-        public int SharedComponentCount
-        {
-            get => throw new NotImplementedException();
-            set => throw new NotImplementedException();
-        }
     }
 
     public struct SceneReference : IComponentData, IEquatable<SceneReference>
@@ -55,7 +48,7 @@ namespace Unity.Entities
     public enum SceneLoadFlags
     {
         /// <summary>
-        /// Prevents adding a RequestSceneLoaded to the SubScene section entities when it gets created
+        /// Prevents adding a RequestSceneLoaded to the SubScene section entities when it gets created. If loading a GameObject scene, setting this flag is equivalent to setting activateOnlLoad to false.
         /// </summary>
         DisableAutoLoad = 1,
         /// <summary>
@@ -66,8 +59,16 @@ namespace Unity.Entities
         /// Disable asynchronous streaming, SubScene section will be fully loaded during the next update of the streaming system
         /// </summary>
         BlockOnStreamIn = 4,
+        /// <summary>
+        /// Set whether to load additive or not. This only applies to GameObject based scenes, not subscenes.
+        /// </summary>
+        LoadAdditive = 8,
+        /// <summary>
+        /// Temporary flag to indicate that the scene is a GameObject based scene.  Once addressables are in place, this information will be stored there.
+        /// </summary>
+        LoadAsGOScene = 512,
     }
-    
+
     public struct RequestSceneLoaded : IComponentData
     {
         public SceneLoadFlags LoadFlags;

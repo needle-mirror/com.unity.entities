@@ -291,6 +291,35 @@ namespace Unity.Entities.Tests
             AssertHasVersion<EcsTestManagedComponent2>(e1, NewVersion);
             AssertHasSharedVersion<EcsTestSharedComp>(e1, NewVersion);
         }
+
+        [Test]
+        public void SetComponentDataMarksOnlySetTypeAsChanged_ManagedComponents()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
+            BumpGlobalSystemVersion();
+            m_Manager.SetComponentData(e1, new EcsTestManagedComponent {value = "SomeString"});
+            AssertSameChunk(e0, e1);
+            AssertHasVersion<EcsTestManagedComponent>(e0, NewVersion);
+            AssertHasVersion<EcsTestManagedComponent2>(e0, OldVersion);
+        }
+
+        [Test]
+        public void GetComponentDataMarksOnlySetTypeAsChanged_ManagedComponents()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
+            m_Manager.SetComponentData(e0, new EcsTestManagedComponent{value = "e0"});
+            m_Manager.SetComponentData(e1, new EcsTestManagedComponent{value = "e1"});
+            m_Manager.SetComponentData(e0, new EcsTestManagedComponent2{value = "e0"});
+            m_Manager.SetComponentData(e1, new EcsTestManagedComponent2{value = "e1"});
+            BumpGlobalSystemVersion();
+            m_Manager.GetComponentData<EcsTestManagedComponent>(e1).value = "SomeString";
+            AssertSameChunk(e0, e1);
+            AssertHasVersion<EcsTestManagedComponent>(e0, NewVersion);
+            AssertHasVersion<EcsTestManagedComponent2>(e0, OldVersion);
+        }
+
 #endif
     }
 }

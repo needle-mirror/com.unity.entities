@@ -86,9 +86,8 @@ namespace Unity.Scenes
                 EntityManager.AddComponentData(sectionEntity, new SceneBoundingVolume { Value = sceneMetaData.Sections[i].BoundingVolume });
                 
                 var sectionPath = new ResolvedSectionPath();
-                var hybridPath = EntityScenesPaths.GetLiveLinkCachePath(artifactHash, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex);
+                var hybridPath = EntityScenesPaths.GetLiveLinkCachePath(artifactHash, EntityScenesPaths.PathType.EntitiesUnitObjectReferencesBundle, sectionIndex);
                 var scenePath = EntityScenesPaths.GetLiveLinkCachePath(artifactHash, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
-                sectionPath.UseLiveLinkObjectResolver = true;
 
                 sectionPath.ScenePath.SetString(scenePath);
                 if (hybridPath != null)
@@ -109,14 +108,13 @@ namespace Unity.Scenes
             if (!Enabled)
                 return;
 
-            var buildSettingGUID = World.GetExistingSystem<SceneSystem>().BuildSettingsGUID;
+            var buildConfigurationGUID = World.GetExistingSystem<SceneSystem>().BuildConfigurationGUID;
             var liveLinkPlayerAssetRefreshSystem = World.GetExistingSystem<LiveLinkPlayerAssetRefreshSystem>();
             var sceneSystem = World.GetExistingSystem<SceneSystem>();
 
-
             Entities.With(m_ResolvedScenes).ForEach((Entity sceneEntity, ref SceneReference scene, ref ResolvedSceneHash resolvedScene) =>
             {
-                var subSceneGUID = new SubSceneGUID(scene.SceneGUID, buildSettingGUID);
+                var subSceneGUID = new SubSceneGUID(scene.SceneGUID, buildConfigurationGUID);
                 if (liveLinkPlayerAssetRefreshSystem._TrackedSubScenes[subSceneGUID] != resolvedScene.ArtifactHash)
                 {
                     if (sceneEntity != Entity.Null && !EntityManager.HasComponent<DisableSceneResolveAndLoad>(sceneEntity))
@@ -127,10 +125,9 @@ namespace Unity.Scenes
                 }
             });
             
-            // We are seeing this scene for the first time, so we need to schedule a request.
             Entities.With(m_WaitingForEditorScenes).ForEach((Entity sceneEntity, ref SceneReference scene, ref RequestSceneLoaded requestSceneLoaded) =>
             {
-                var subSceneGUID = new SubSceneGUID(scene.SceneGUID, buildSettingGUID);
+                var subSceneGUID = new SubSceneGUID(scene.SceneGUID, buildConfigurationGUID);
                 // Check if Scene is ready?
                 if (liveLinkPlayerAssetRefreshSystem.IsSubSceneReady(subSceneGUID))
                 {
@@ -143,7 +140,7 @@ namespace Unity.Scenes
             // We are seeing this scene for the first time, so we need to schedule a request.
             Entities.With(m_NotYetRequestedScenes).ForEach((Entity sceneEntity, ref SceneReference scene, ref RequestSceneLoaded requestSceneLoaded) =>
             {
-                var subSceneGUID = new SubSceneGUID(scene.SceneGUID, buildSettingGUID);
+                var subSceneGUID = new SubSceneGUID(scene.SceneGUID, buildConfigurationGUID);
 
                 liveLinkPlayerAssetRefreshSystem._TrackedSubScenes[subSceneGUID] = new Hash128();
                 var archetype = EntityManager.CreateArchetype(typeof(SubSceneGUID));
@@ -151,7 +148,7 @@ namespace Unity.Scenes
                 EntityManager.SetComponentData(entity, new SubSceneGUID
                 {
                     Guid = scene.SceneGUID,
-                    BuildSettingsGuid = buildSettingGUID
+                    BuildConfigurationGuid = buildConfigurationGUID
                 });
                 EntityManager.AddComponentData(sceneEntity, new WaitingForEditor());
             });

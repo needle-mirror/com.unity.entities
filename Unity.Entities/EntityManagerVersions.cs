@@ -55,6 +55,9 @@ namespace Unity.Entities
    
         internal uint GetChunkVersionHash(Entity entity)
         {
+            if (!EntityComponentStore->Exists(entity))
+                return 0;
+            
             var chunk = EntityComponentStore->GetChunk(entity);
             var typeCount = chunk->Archetype->TypesCount;
 

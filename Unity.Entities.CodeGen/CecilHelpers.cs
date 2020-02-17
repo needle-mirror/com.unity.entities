@@ -250,6 +250,14 @@ namespace Unity.Entities.CodeGen
                 var newDebugInfo = methodDefinition.DebugInformation;
                 foreach (var seq in oldDebugInfo.SequencePoints)
                     newDebugInfo.SequencePoints.Add(seq);
+                
+                // Need to clear variables and sequence points in old method or VS debugger gets confused.
+                // It is also only safe to clear the execute method and not other called methods (fortunately issue only seems to occur in lambda).
+                if (methodToClone == executeMethod)
+                {
+                    oldDebugInfo.Scope = null;
+                    oldDebugInfo.SequencePoints.Clear();
+                }
 
                 // For all instructions that point to another instruction (like branches), make sure we patch those instructions to the new ones too.
                 foreach (var newInstruction in oldToNewInstructions.Values)
@@ -648,7 +656,7 @@ namespace Unity.Entities.CodeGen
                 if (mr.DeclaringType.Name == typeof(LambdaJobChunkDescriptionConstructionMethods.JobChunkDelegate).Name && mr.DeclaringType.DeclaringType?.Name == nameof(LambdaJobChunkDescriptionConstructionMethods))
                     continue;
                 
-                if (mr.DeclaringType.Name == typeof(LambdaSimpleJobDescriptionConstructionMethods.WithCodeAction).Name && mr.DeclaringType.DeclaringType?.Name == nameof(LambdaSimpleJobDescriptionConstructionMethods))
+                if (mr.DeclaringType.Name == typeof(LambdaSingleJobDescriptionConstructionMethods.WithCodeAction).Name && mr.DeclaringType.DeclaringType?.Name == nameof(LambdaSingleJobDescriptionConstructionMethods))
                     continue;
 
                 //ok, it walks like a delegate constructor invocation, let's see if it talks like one:

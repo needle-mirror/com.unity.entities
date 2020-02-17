@@ -83,6 +83,8 @@ namespace Unity.Entities.CodeGen
                 _lambdaParameterValueProvidersType.Fields.Add(parameterFieldDefinition);
                     
                 var runtimeFieldDefinition = new FieldDefinition($"runtime_{provider.Name}", FieldAttributes.Public, provider.ProviderRuntime);
+                if (_lambdaJobDescriptionConstruction.UsesBurst && LambdaJobDescriptionConstruction.UsesNoAlias)
+                    runtimeFieldDefinition.CustomAttributes.Add(new CustomAttribute(burstNoAliasAttributeConstructor));
                 RuntimesType.Fields.Add(runtimeFieldDefinition);
                     
                 _elementProviderToFields.Add(provider, (parameterFieldDefinition, runtimeFieldDefinition));

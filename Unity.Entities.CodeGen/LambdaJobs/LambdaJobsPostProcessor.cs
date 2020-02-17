@@ -193,7 +193,8 @@ namespace Unity.Entities.CodeGen
                     foreach (var description in lambdaJobDescriptionConstructions)
                     {
                         madeChange = true;
-                        Rewrite(m, description, _diagnosticMessages);
+                        var (jobStructForLambdaJob, rewriteDiagnosticMessages) = Rewrite(m, description);
+                        _diagnosticMessages.AddRange(rewriteDiagnosticMessages);
                     }
                 }
                 catch (PostProcessException ppe)
@@ -238,19 +239,17 @@ namespace Unity.Entities.CodeGen
             if (typeDefinition.Name == nameof(ComponentSystemBase) && typeDefinition.Namespace == "Unity.Entities")
                 return null;
             
-            var name = OnCreateForCompilerName;
-
-            var pre_existing_method = typeDefinition.Methods.FirstOrDefault(m => m.Name == name);
-            if (pre_existing_method != null)
-                UserError.DC0026($"It's not allowed to implement {OnCreateForCompilerName}'", pre_existing_method).Throw();
+            var preExistingMethod = typeDefinition.Methods.FirstOrDefault(m => m.Name == OnCreateForCompilerName);
+            if (preExistingMethod != null)
+                UserError.DC0026($"It's not allowed to implement {OnCreateForCompilerName}'", preExistingMethod).Throw();
 
             var typeSystemVoid = typeDefinition.Module.TypeSystem.Void;
-            var newMethod = new MethodDefinition(name,MethodAttributes.FamORAssem | MethodAttributes.Virtual | MethodAttributes.HideBySig, typeSystemVoid);
+            var newMethod = new MethodDefinition(OnCreateForCompilerName,MethodAttributes.FamORAssem | MethodAttributes.Virtual | MethodAttributes.HideBySig, typeSystemVoid);
             typeDefinition.Methods.Add(newMethod);
 
             var ilProcessor = newMethod.Body.GetILProcessor();
             ilProcessor.Emit(OpCodes.Ldarg_0);
-            ilProcessor.Emit(OpCodes.Call, new MethodReference(name, typeSystemVoid, typeDefinition.BaseType) { HasThis = true});
+            ilProcessor.Emit(OpCodes.Call, new MethodReference(OnCreateForCompilerName, typeSystemVoid, typeDefinition.BaseType) { HasThis = true});
             ilProcessor.Emit(OpCodes.Ret);
             return newMethod;
         }
@@ -262,10 +261,12 @@ namespace Unity.Entities.CodeGen
 
         private static bool keepUnmodifiedVersionAroundForDebugging = false;
 
-        public static JobStructForLambdaJob Rewrite(MethodDefinition methodContainingLambdaJob, LambdaJobDescriptionConstruction lambdaJobDescriptionConstruction, List<DiagnosticMessage> warnings)
+        public static (JobStructForLambdaJob, List<DiagnosticMessage>) Rewrite(MethodDefinition methodContainingLambdaJob, LambdaJobDescriptionConstruction lambdaJobDescriptionConstruction)
         {
+            var diagnosticMessages = new List<DiagnosticMessage>();
+            
             if (methodContainingLambdaJob.DeclaringType.CustomAttributes.Any(c => (c.AttributeType.Name == "ExecuteAlways" && c.AttributeType.Namespace == "UnityEngine")))
-                warnings.Add(UserError.DC0032(methodContainingLambdaJob.DeclaringType, methodContainingLambdaJob, lambdaJobDescriptionConstruction.ScheduleOrRunInvocationInstruction));
+                diagnosticMessages.Add(UserError.DC0032(methodContainingLambdaJob.DeclaringType, methodContainingLambdaJob, lambdaJobDescriptionConstruction.ScheduleOrRunInvocationInstruction));
             
             if (keepUnmodifiedVersionAroundForDebugging) CecilHelpers.CloneMethodForDiagnosingProblems(methodContainingLambdaJob);
 
@@ -281,23 +282,58 @@ namespace Unity.Entities.CodeGen
             
             if (methodLambdaWasEmittedAs.DeclaringType.TypeReferenceEquals(methodContainingLambdaJob.DeclaringType) && !lambdaJobDescriptionConstruction.AllowReferenceTypes)
             {
-                //sometimes roslyn emits the lambda as an instance method in the same type of the method that contains the lambda expression.
-                //it does this only in the situation where the lambda captures a field _and_ does not capture any locals.  in this case
-                //there's no displayclass being created.  We should figure out exactly what instruction caused this behaviour, and tell the user
-                //she can't read a field like that.
+                // Sometimes roslyn emits the lambda as an instance method in the same type of the method that contains the lambda expression.
+                // it does this only in the situation where the lambda captures a field _and_ does not capture any locals. In this case
+                // there's no displayclass being created. We should figure out exactly what instruction caused this behaviour, and tell the user
+                // she can't read a field like that.
 
-                var illegalFieldRead = methodLambdaWasEmittedAs.Body.Instructions.FirstOrDefault(i => i.OpCode == OpCodes.Ldfld && i.Previous?.OpCode == OpCodes.Ldarg_0);
+                // Here is an example: https://sharplab.io/#v2:D4AQTAjAsAUCDMACciDCiDetE8QMwBsB7AQwBd8BLAUwIBNEBeReAOgAY8BubXXnBMgAsiACoALSgGcA4tQB21AE7lqUgLLUAtgCNlIAKxlKReVIAUASiwwAkLYD0DsZKmICJXXRKIA7pQICRABzBWVVRB8tbT0lfABXeQBjY1NENLJxamQwNFYXbKVqEik06QAuWHsnHABaAvdPHW90+QIAT0QkkgAHMniitx88Gnp8gEkzMmKGIjwu3v6lSnlgxEzpRGoADx6CSiTKMg6AGirHZ1xfbO75ELCVacjEaMyiWbv0MiJEPS3t6hJeLTBgrKTTEh0fi4HAAESIIAgYHMViYAD4bDCsThUKZSgRqKwAOrLabmEa0OiWLiIaEwgC+1LpfBg2JwNQkmw8Xh8/kC90Uj2yURiygSyVSdwyWRyeQaRRKZSklVZbJqiHqEmy3OaPlMHUQRQAjvFKINEAByDZSC2ReQMHolKRqRBHdY/YaJFImeSsZlwhFIlGWdGYtm4eGc1YWa1M1XYxk8eOIelVaGCEAiTmyB6qKQAQVQHikFhDNmqzi1zvWvh+Ou8biyRQF4SePnA+S1huKpTumxK+CIgSIvmV53V9Uy2WdSVMDHrPm6fQGLp8xG6QRI9vW4nIg6USRdU66RC0PQCYu+Wy0R3Hlxw7dyV5IKXiJECnXEQ4Yx/BETmO7akQG53nUgFUEo4KNDyrQGkuSyrlQlJ2j+MqzmeF5xLW8T0Ig8RSG+H6IAAVvhZCgbg2huiKuhingXqSpEbgrOBIyQRQ3TOicvzAogUgrIegHNu+Cp0J00gUQ+sp4EQcQLkM8jtL4JDtNxbp8kE/FngaRT4dkmR7qYhLnPCiLIqijAYucti4mYQ6EiSRzUOSoxUjS/opnG4YeSsFDbEwiDsEm4amUGFlWXY9i2fiDmks5FL0NStKRTZeL2cScXmNsXlsom0Kpsm6YiKFyJmZEKRlgVMLphAABswiIJGkjRuY6BJJVsD0kAA=
+
+                var illegalFieldRead = methodLambdaWasEmittedAs.Body.Instructions.FirstOrDefault(IsIllegalFieldRead);
                 if (illegalFieldRead != null)
                     UserError.DC0001(methodContainingLambdaJob, illegalFieldRead, (FieldReference) illegalFieldRead.Operand).Throw();
 
-                var illegalInvocation = methodLambdaWasEmittedAs.Body.Instructions.FirstOrDefault(i => i.IsInvocation() && methodContainingLambdaJob.DeclaringType.TypeReferenceEqualsOrInheritsFrom(((MethodReference)i.Operand).DeclaringType));
+                // Similarly, we could end up here because the lambda captured neither a field nor a local but simply
+                // uses the this-reference. This could be the case if the user calls a function that takes this as a
+                // parameter, either explicitly (static) or implicitly (extension or member method).
+                var illegalInvocation = methodLambdaWasEmittedAs.Body.Instructions.FirstOrDefault(IsIllegalInvocation);
                 if (illegalInvocation != null)
-                    UserError.DC0002(methodContainingLambdaJob, illegalInvocation, (MethodReference)illegalInvocation.Operand).Throw();
+                    UserError.DC0002(methodContainingLambdaJob, illegalInvocation, (MethodReference)illegalInvocation.Operand, methodLambdaWasEmittedAs.DeclaringType).Throw();
 
-                //this should never hit, but is here to make sure that in case we have a bug in detecting why roslyn emitted it like this, we can at least report an error, instead of silently generating invalid code.
+                // This should never hit, but is here to make sure that in case we have a bug in detecting
+                // why roslyn emitted it like this, we can at least report an error, instead of silently generating invalid code.
                 InternalCompilerError.DCICE001(methodContainingLambdaJob).Throw();
+
+                bool IsIllegalFieldRead(Instruction i)
+                {
+                    if (i.Previous == null)
+                        return false;
+                    if (i.OpCode != OpCodes.Ldfld && i.OpCode != OpCodes.Ldflda)
+                        return false;
+                    return i.Previous.OpCode == OpCodes.Ldarg_0;
+                }
+
+                bool IsIllegalInvocation(Instruction i)
+                {
+                    if (!i.IsInvocation())
+                        return false;
+                    var declaringType = methodContainingLambdaJob.DeclaringType;
+                    var method = (MethodReference)i.Operand;
+                    // is it an instance method?
+                    var resolvedMethod = method.Resolve();
+                    if (declaringType.TypeReferenceEqualsOrInheritsFrom(method.DeclaringType) && !resolvedMethod.IsStatic)
+                        return true;
+
+                    // is it a method that potentially takes this as a parameter?
+                    foreach (var param in method.Parameters)
+                    {
+                        if (declaringType.TypeReferenceEqualsOrInheritsFrom(param.ParameterType) || declaringType.TypeImplements(param.ParameterType))
+                            return true;
+                    }
+                    return false;
+                }
             }
-            
+
             var moduleDefinition = methodContainingLambdaJob.Module;
 
             var body = methodContainingLambdaJob.Body;
@@ -307,8 +343,7 @@ namespace Unity.Entities.CodeGen
             if (lambdaJobDescriptionConstruction.DelegateProducingSequence.CapturesLocals)
             {
                 bool allDelegatesAreGuaranteedNotToOutliveMethod = lambdaJobDescriptionConstruction.DisplayClass.IsValueType() || CecilHelpers.AllDelegatesAreGuaranteedNotToOutliveMethodFor(methodContainingLambdaJob);
-
-
+                
                 displayClassVariable = body.Variables.Single(v => v.VariableType.TypeReferenceEquals(lambdaJobDescriptionConstruction.DisplayClass));
 
                 //in this step we want to get rid of the heap allocation for the delegate. In order to make the rest of the code easier to reason about and write,
@@ -366,14 +401,25 @@ namespace Unity.Entities.CodeGen
                 var newJobStructVariable = new VariableDefinition(generatedJobStruct.TypeDefinition);
                 body.Variables.Add(newJobStructVariable);
 
+                bool storeJobHandleInVariable = (lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Schedule ||
+                                                 lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.ScheduleParallel);
                 VariableDefinition tempStorageForJobHandle = null;
-                if (lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Schedule)
+                
+                if (storeJobHandleInVariable)
                 {
                     tempStorageForJobHandle = new VariableDefinition(moduleDefinition.ImportReference(typeof(JobHandle)));
                     body.Variables.Add(tempStorageForJobHandle);
 
-                    //since we're replacing the .Schedule() function on the description, the lambdajobdescription and the jobhandle argument to that function will be on the stack.
-                    //we're going to need the jobhandle later when we call JobChunkExtensions.Schedule(), so lets stuff it in a variable.
+                    // If we aren't using an implicit system dependency and we're replacing the .Schedule() function on the description,
+                    // the lambdajobdescription and the jobhandle argument to that function will be on the stack.
+                    // we're going to need the jobhandle later when we call JobChunkExtensions.Schedule(), so lets stuff it in a variable.
+                    
+                    // If we are using implicit system dependency, lets put that in our temp instead.
+                    if (lambdaJobDescriptionConstruction.UseImplicitSystemDependency)
+                    {
+                        yield return Instruction.Create(OpCodes.Ldarg_0);
+                        yield return Instruction.Create(OpCodes.Call, moduleDefinition.ImportReference(typeof(SystemBase).GetMethod("get_Dependency", BindingFlags.Instance | BindingFlags.NonPublic)));
+                    }
                     yield return Instruction.Create(OpCodes.Stloc, tempStorageForJobHandle);
                 }
 
@@ -401,18 +447,58 @@ namespace Unity.Entities.CodeGen
                     {
                         case LambdaJobDescriptionKind.Entities:
                         case LambdaJobDescriptionKind.Chunk:
-                            if (lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Schedule)
-                                return typeof(JobChunkExtensions).GetMethod(nameof(JobChunkExtensions.Schedule));
-                            return typeof(InternalCompilerInterface).GetMethod(nameof(InternalCompilerInterface.RunJobChunk));
+                            if (lambdaJobDescriptionConstruction.IsInSystemBase)
+                            {
+                                switch (lambdaJobDescriptionConstruction.ExecutionMode)
+                                {
+                                    case ExecutionMode.Run:
+                                        return typeof(InternalCompilerInterface).GetMethod(nameof(InternalCompilerInterface.RunJobChunk));
+                                    case ExecutionMode.Schedule:
+                                        return typeof(JobChunkExtensions).GetMethod(nameof(JobChunkExtensions.ScheduleSingle));
+                                    case ExecutionMode.ScheduleParallel:
+                                        return typeof(JobChunkExtensions).GetMethod(nameof(JobChunkExtensions.ScheduleParallel));
+                                    default:
+                                        throw new ArgumentOutOfRangeException();
+                                }
+                            }
+                            else
+                            {
+                                // Keep legacy behaviour in JobComponentSystems intact (aka "Schedule" equals "ScheduleParallel")
+                                if (lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Schedule)
+                                    return typeof(JobChunkExtensions).GetMethod(nameof(JobChunkExtensions.ScheduleParallel));
+                                return typeof(InternalCompilerInterface).GetMethod(nameof(InternalCompilerInterface.RunJobChunk));
+                            }
                         case LambdaJobDescriptionKind.Job:
-                            if (lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Schedule)
-                                return typeof(IJobExtensions).GetMethod(nameof(IJobExtensions.Schedule));
-                            return typeof(InternalCompilerInterface).GetMethod(nameof(InternalCompilerInterface.RunIJob));
+                            if (lambdaJobDescriptionConstruction.IsInSystemBase)
+                            {
+                                switch (lambdaJobDescriptionConstruction.ExecutionMode)
+                                {
+                                    case ExecutionMode.Run:
+                                        return typeof(InternalCompilerInterface).GetMethod(nameof(InternalCompilerInterface.RunIJob));
+                                    case ExecutionMode.Schedule:
+                                        return typeof(IJobExtensions).GetMethod(nameof(IJobExtensions.Schedule));
+                                    default:
+                                        throw new ArgumentOutOfRangeException();
+                                }
+                            }
+                            else
+                            {
+                                if (lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Schedule)
+                                    return typeof(IJobExtensions).GetMethod(nameof(IJobExtensions.Schedule));
+                                return typeof(InternalCompilerInterface).GetMethod(nameof(InternalCompilerInterface.RunIJob)); 
+                            }
                         default:
                             throw new ArgumentOutOfRangeException();
                     }
                 }
 
+                // Call CompleteDependency method to complete previous dependencies if we are running in SystemBase
+                if (lambdaJobDescriptionConstruction.IsInSystemBase && lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Run)
+                {
+                    yield return Instruction.Create(OpCodes.Ldarg_0);
+                    yield return Instruction.Create(OpCodes.Call, 
+                        moduleDefinition.ImportReference(typeof(SystemBase).GetMethod("CompleteDependency", BindingFlags.Instance | BindingFlags.NonPublic)));
+                }
 
                 MethodReference runOrScheduleMethod;
                 if (lambdaJobDescriptionConstruction.WithStructuralChanges)
@@ -451,8 +537,15 @@ namespace Unity.Entities.CodeGen
                         break;
                 }
                 
-                if (lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Schedule)
+                // Store returned JobHandle in temp varaible or back in SystemBase.depenedency
+                if (storeJobHandleInVariable)
                     yield return Instruction.Create(OpCodes.Ldloc, tempStorageForJobHandle);
+                else if (lambdaJobDescriptionConstruction.UseImplicitSystemDependency)
+                {
+                    yield return Instruction.Create(OpCodes.Ldarg_0);
+                    yield return Instruction.Create(OpCodes.Call,
+                        moduleDefinition.ImportReference(typeof(SystemBase).GetMethod("get_Dependency", BindingFlags.Instance | BindingFlags.NonPublic)));
+                }
 
                 if (lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Run &&
                     !lambdaJobDescriptionConstruction.WithStructuralChanges)
@@ -472,9 +565,18 @@ namespace Unity.Entities.CodeGen
                         yield return finalBranchDestination;
                     }
                 }
-
+                
                 yield return Instruction.Create(OpCodes.Call, runOrScheduleMethod);
                 
+                if (lambdaJobDescriptionConstruction.UseImplicitSystemDependency)
+                {
+                    yield return Instruction.Create(OpCodes.Stloc, tempStorageForJobHandle);
+                    yield return Instruction.Create(OpCodes.Ldarg_0);
+                    yield return Instruction.Create(OpCodes.Ldloc, tempStorageForJobHandle);
+                    yield return Instruction.Create(OpCodes.Call,
+                        moduleDefinition.ImportReference(typeof(SystemBase).GetMethod("set_Dependency", BindingFlags.Instance | BindingFlags.NonPublic)));
+                }
+
                 if (lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Run &&
                     generatedJobStruct.WriteToDisplayClassMethod != null && lambdaJobDescriptionConstruction.DelegateProducingSequence.CapturesLocals)
                 {
@@ -501,14 +603,16 @@ namespace Unity.Entities.CodeGen
                     if (invokedMethod.MethodName ==
                         nameof(LambdaJobQueryConstructionMethods.WithSharedComponentFilter))
                     {
-
                         var setSharedComponentFilterOnQueryMethod
                             = moduleDefinition.ImportReference(
                                 (lambdaJobDescriptionConstruction.Kind == LambdaJobDescriptionKind.Entities ? typeof(ForEachLambdaJobDescription_SetSharedComponent) : typeof(LambdaJobChunkDescription_SetSharedComponent)).GetMethod(
-                                    nameof(LambdaJobChunkDescription_SetSharedComponent
-                                        .SetSharedComponentFilterOnQuery)));
+                                    nameof(LambdaJobChunkDescription_SetSharedComponent.SetSharedComponentFilterOnQuery)));
+                        var callingTypeReference = lambdaJobDescriptionConstruction.IsInSystemBase
+                            ? moduleDefinition.ImportReference(typeof(ForEachLambdaJobDescription))
+                            : moduleDefinition.ImportReference(typeof(ForEachLambdaJobDescriptionJCS));
                         MethodReference genericSetSharedComponentFilterOnQueryMethod
-                            = setSharedComponentFilterOnQueryMethod.MakeGenericInstanceMethod(invokedMethod.TypeArguments);
+                            = setSharedComponentFilterOnQueryMethod.MakeGenericInstanceMethod(
+                                new TypeReference[] { callingTypeReference }.Concat(invokedMethod.TypeArguments).ToArray());
 
                         // Change invocation to invocation of helper method and add EntityQuery parameter to be modified
                         var setSharedComponentFilterOnQueryInstructions = new List<Instruction>
@@ -518,8 +622,7 @@ namespace Unity.Entities.CodeGen
                             Instruction.Create(OpCodes.Call, genericSetSharedComponentFilterOnQueryMethod)
                         };
 
-                        ilProcessor.Replace(invokedMethod.InstructionInvokingMethod,
-                            setSharedComponentFilterOnQueryInstructions);
+                        ilProcessor.Replace(invokedMethod.InstructionInvokingMethod, setSharedComponentFilterOnQueryInstructions);
 					}
             	}
             }
@@ -530,7 +633,7 @@ namespace Unity.Entities.CodeGen
 
             var codegenInitializeMethod = GetOrMakeOnCreateForCompilerMethod(lambdaJobDescriptionConstruction.ContainingMethod.DeclaringType);
 
-            return generatedJobStruct;
+            return (generatedJobStruct, diagnosticMessages);
         }
 
         static void ChangeAllDisplayClassesToStructs(MethodDefinition methodContainingLambdaJob)

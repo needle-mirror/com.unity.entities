@@ -10,9 +10,6 @@ namespace Unity.Entities.Tests
         [SetUp]
         public void Setup()
         {
-            // Redirect Log messages in NUnit which get swallowed (from GC invoking destructor in some cases)
-           // System.Console.SetOut(NUnit.Framework.TestContext.Out);
-
             m_Remapping = new NativeArray<EntityRemapUtility.EntityRemapInfo>(100, Allocator.Persistent);
         }
 
@@ -20,11 +17,6 @@ namespace Unity.Entities.Tests
         public void TearDown()
         {
             m_Remapping.Dispose();
-
-            // Restore output
-           // var standardOutput = new System.IO.StreamWriter(System.Console.OpenStandardOutput());
-          //  standardOutput.AutoFlush = true;
-           // System.Console.SetOut(standardOutput);
         }
 
         [Test]

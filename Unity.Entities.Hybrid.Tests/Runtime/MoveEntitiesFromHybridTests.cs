@@ -108,6 +108,13 @@ namespace Unity.Entities.Tests
                 CreateHybrid(sourceWorld.EntityManager, 1230, 2340, 3450);
                 m_Manager.MoveEntitiesFrom(sourceWorld.EntityManager);
             }
+        }
+
+        [Test]
+        public void MoveEntitiesWithComponentObjectsFiltered()
+        {
+            var entityAC = CreateHybrid(m_Manager, 123, 0, 345);
+            var entityABC = CreateHybrid(m_Manager, 1230, 2340, 3450);
 
             CollectionAssert.AreEquivalent(new[] {123, 1230}, GetValueArray<TestClassComponentA>(World));
             CollectionAssert.AreEquivalent(new[] {2340}, GetValueArray<TestClassComponentB>(World));

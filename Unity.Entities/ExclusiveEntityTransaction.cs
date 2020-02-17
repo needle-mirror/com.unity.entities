@@ -17,7 +17,6 @@ namespace Unity.Entities
         internal EntityDataAccess EntityDataAccess => m_EntityDataAccess;
         internal EntityComponentStore* EntityComponentStore => m_EntityDataAccess.EntityComponentStore;
         internal ManagedComponentStore ManagedComponentStore => m_EntityDataAccess.ManagedComponentStore;
-        internal EntityQueryManager EntityQueryManager => m_EntityDataAccess.EntityQueryManager;
 
         EntityDataAccess m_EntityDataAccess;
 
@@ -119,12 +118,6 @@ namespace Unity.Entities
             m_EntityDataAccess.DestroyEntityInternal(entities, count);
         }
 
-        void SetComponentDataRaw(Entity entity, int typeIndex, void* data, int size)
-        {
-            CheckAccess();
-            m_EntityDataAccess.SetComponentDataRaw(entity, typeIndex, data, size);
-        }
-
         public void AddComponent(Entity entity, ComponentType componentType)
         {
             CheckAccess();
@@ -150,30 +143,6 @@ namespace Unity.Entities
             return m_EntityDataAccess.Exists(entity);
         }
 
-        void SetSharedComponentDataBoxedDefaultMustBeNull(Entity entity, int typeIndex, int hashCode, object componentData)
-        {
-            CheckAccess();
-            m_EntityDataAccess.SetSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData);
-        }
-
-        void AddSharedComponentDataBoxedDefaultMustBeNull(Entity entity, int typeIndex, int hashCode, object componentData)
-        {
-            CheckAccess();
-            m_EntityDataAccess.AddSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData);
-        }
-
-        void SetComponentObject(Entity entity, ComponentType componentType, object componentObject)
-        {
-            CheckAccess();
-            m_EntityDataAccess.SetComponentObject(entity, componentType, componentObject);
-        }
-
-        void SetBufferRaw(Entity entity, int componentTypeIndex, BufferHeader* tempBuffer, int sizeInChunk)
-        {
-            CheckAccess();
-            m_EntityDataAccess.SetBufferRaw(entity, componentTypeIndex, tempBuffer, sizeInChunk);
-        }
-
         public bool HasComponent(Entity entity, ComponentType type)
         {
             CheckAccess();
@@ -185,13 +154,7 @@ namespace Unity.Entities
             CheckAccess();
             return m_EntityDataAccess.GetComponentData<T>(entity);
         }
-
-        void* GetComponentDataRawRW(Entity entity, int typeIndex)
-        {
-            CheckAccess();
-            return m_EntityDataAccess.GetComponentDataRawRW(entity, typeIndex);
-        }
-
+        
         public void SetComponentData<T>(Entity entity, T componentData) where T : struct, IComponentData
         {
             CheckAccess();
@@ -201,23 +164,13 @@ namespace Unity.Entities
         public T GetSharedComponentData<T>(Entity entity) where T : struct, ISharedComponentData
         {
             CheckAccess();
-            return m_EntityDataAccess.GetSharedComponentData<T>(entity);
-        }
-
-        internal object GetSharedComponentData(Entity entity, int typeIndex)
-        {
-            CheckAccess();
-
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-            var sharedComponentIndex = EntityComponentStore->GetSharedComponentDataIndex(entity, typeIndex);
-            return ManagedComponentStore.GetSharedComponentDataBoxed(sharedComponentIndex, typeIndex);
+            return m_EntityDataAccess.GetSharedComponentData<T>(entity, ManagedComponentStore);
         }
 
         public void SetSharedComponentData<T>(Entity entity, T componentData) where T : struct, ISharedComponentData
         {
             CheckAccess();
-            m_EntityDataAccess.SetSharedComponentData(entity, componentData);
+            m_EntityDataAccess.SetSharedComponentData(entity, componentData, ManagedComponentStore);
         }
 
         internal void AddSharedComponent<T>(NativeArray<ArchetypeChunk> chunks, T componentData)

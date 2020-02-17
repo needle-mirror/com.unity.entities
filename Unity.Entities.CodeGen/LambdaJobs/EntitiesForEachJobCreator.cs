@@ -1,22 +1,17 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
-using Mono.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.CodeGeneratedJobForEach;
-using Unity.Entities.UniversalDelegates;
 using Unity.Jobs;
 using CustomAttributeNamedArgument = Mono.Cecil.CustomAttributeNamedArgument;
 using FieldAttributes = Mono.Cecil.FieldAttributes;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
 using MethodBody = Mono.Cecil.Cil.MethodBody;
-using MethodImplAttributes = System.Reflection.MethodImplAttributes;
 using ParameterAttributes = Mono.Cecil.ParameterAttributes;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
 
@@ -112,6 +107,10 @@ namespace Unity.Entities.CodeGen
             {
                 DeclaringType = containingMethod.DeclaringType
             };
+            
+            TypeDefinition.CustomAttributes.Add(
+                new CustomAttribute(AttributeConstructorReferenceFor(typeof(DOTSCompilerGeneratedAttribute), TypeDefinition.Module)));
+            
             var structInterfaceType = InterfaceTypeFor(LambdaJobDescriptionConstruction);
             if (structInterfaceType != null)
                 TypeDefinition.Interfaces.Add(new InterfaceImplementation(moduleDefinition.ImportReference(structInterfaceType)));
@@ -433,7 +432,10 @@ namespace Unity.Entities.CodeGen
                             if (pushThisInstruction == null)
                                 continue;
                             if (pushThisInstruction.Operand is FieldReference fr && fr.FieldType.TypeReferenceEquals(typeDefinition))
-                                UserError.DC0002(clonedMethod, methodInvocation, (MethodReference) methodInvocation.Operand).Throw();
+                            {
+                                var method = (MethodReference)methodInvocation.Operand;
+                                UserError.DC0002(clonedMethod, methodInvocation, method, method.DeclaringType).Throw();
+                            }
                         }
                     }
 
@@ -712,10 +714,19 @@ namespace Unity.Entities.CodeGen
             var beginLoopInstruction = Instruction.Create(OpCodes.Ldloc, loopCounter);
             ilProcessor.Append(beginLoopInstruction);
             ilProcessor.Emit(OpCodes.Ldloc, loopTerminator);
-            ilProcessor.Emit(OpCodes.Ceq);
+
+            // We use compare less than here so that the loop check is:
+            // for (int i = 0; i < count; i++) { /* ... */ }
+            // This is important because in C# integers have a defined wrapping behaviour on integer overflow - EG. if the integer
+            // is int.MaxValue and you add one to it, it becomes int.MinValue. This means that if you used i != count for the loop
+            // end condition, the compiler has to assume that count could have been negative and you are intending to increment
+            // the entire integer range and wrap around to negative before doing the check. By using i < count you have
+            // effectively told the compiler that within the for loop i can only ever be a positive integer [0..count), and this
+            // allows the compiler to output less instructions for the loops counts as a result.
+            ilProcessor.Emit(OpCodes.Clt);
 
             var exitDestination = Instruction.Create(OpCodes.Nop);
-            ilProcessor.Emit(OpCodes.Brtrue, exitDestination);
+            ilProcessor.Emit(OpCodes.Brfalse, exitDestination);
 
             ilProcessor.Emit(OpCodes.Ldarg_0);
             foreach (var parameterDefinition in ClonedLambdaBody.Parameters)

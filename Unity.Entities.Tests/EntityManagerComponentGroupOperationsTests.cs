@@ -49,7 +49,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
         public void AddRemoveSharedComponentWithGroupWorks()
         {
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -80,7 +79,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void AddRemoveAnyComponentWithGroupWorksWithVariousTypes()
         {
             var componentTypes = new ComponentType[] { typeof(EcsTestTag), typeof(EcsTestData4), ComponentType.ChunkComponent<EcsTestData4>(), typeof(EcsTestSharedComp) };
@@ -129,7 +127,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void RemoveAnyComponentWithGroupIgnoresChunksThatDontHaveTheComponent()
         {
             var componentTypes = new ComponentType[] {
@@ -187,7 +184,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // Don't know why fails?
         public void AddRemoveComponentWithGroupPreservesChangeVersions()
         {
             m_ManagerDebug.SetGlobalSystemVersion(10);
@@ -246,7 +242,9 @@ namespace Unity.Entities.Tests
 
             var group1 = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
 
+            m_ManagerDebug.CheckInternalConsistency();
             m_Manager.AddChunkComponentData(group1, new EcsTestManagedComponent() { value = "SomeString" });
+            m_ManagerDebug.CheckInternalConsistency();
 
             Assert.IsTrue(m_Manager.HasComponent(entity1, ComponentType.ChunkComponent<EcsTestManagedComponent>()));
             var val1 = m_Manager.GetChunkComponentData<EcsTestManagedComponent>(entity1).value;
@@ -279,7 +277,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void AddRemoveAnyComponentWithGroupWorksWithVariousTypes_ManagedComponents()
         {
             var componentTypes = new ComponentType[] {
@@ -329,7 +326,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
         public void RemoveAnyComponentWithGroupIgnoresChunksThatDontHaveTheComponent_ManagedComponents()
         {
             var componentTypes = new ComponentType[] {
@@ -374,7 +370,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // Don't know why fails?
+        [StandaloneFixme] // ISharedComponentData
         public void AddRemoveComponentWithGroupPreservesChangeVersions_ManagedComponents()
         {
             m_ManagerDebug.SetGlobalSystemVersion(10);

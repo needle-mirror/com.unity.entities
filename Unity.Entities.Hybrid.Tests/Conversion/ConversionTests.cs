@@ -40,6 +40,21 @@ namespace Unity.Entities.Tests.Conversion
         }
 
         [Test]
+        public void ConversionOfInactiveStaticGameObject()
+        {
+            var gameObject = CreateGameObject("", typeof(StaticOptimizeEntity));
+            var child = CreateGameObject("");
+            child.transform.parent = gameObject.transform;
+            
+            gameObject.SetActive(false);
+            var entity = ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings());
+
+            EntitiesAssert.ContainsOnly(m_Manager, 
+                EntityMatch.Exact<Disabled, Static, LocalToWorld, LinkedEntityGroup>(entity),
+                EntityMatch.Exact<Disabled, Static, LocalToWorld>());
+        }
+        
+        [Test]
         public void ConversionOfComponentDataProxy()
         {
             var gameObject = CreateGameObject();

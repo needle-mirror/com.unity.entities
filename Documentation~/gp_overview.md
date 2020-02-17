@@ -13,11 +13,11 @@ The systems include:
 
 ## Authoring Overview
 
-You can use the Unity Editor (with the required DOTS packages) to create DOTS-based games. In the Editor, you author a scene using GameObjects as normal and the ECS code converts the scene GameObjects to entities. The biggest difference when using DOTS is that instead of writing your own MonoBehaviours to store instance data and implement custom game logic, you would typically define ECS components to store the data at runtime and write systems for the custom logic. 
+You can use the Unity Editor (with the required DOTS packages) to create DOTS-based games. In the Editor, you author a scene using GameObjects as normal and the ECS code converts the scene GameObjects to entities. The biggest difference when using DOTS is that instead of writing your own MonoBehaviours to store instance data and implement custom game logic, you would typically define ECS components to store the data at runtime and write systems for the custom logic.
 
 ### GameObject conversion
 
-During GameObject conversion, various conversion systems handle the MonoBehaviour components that they recognize and convert them into ECS-based components. For example, one of the the Unity.Transforms conversion systems examines the UnityEngine.Transform component and adds ECS components, such as [LocalToWorld](xref:Unity.Transforms.LocalToWorld), to replace it. You can implement an [IConvertGameObjectToEntity](xref:Unity.Entities.IConvertGameObjectToEntity) MonoBehaviour component to specify custom conversion steps. There often will not be a one-to-one relationship between the number of GameObjects converted and the number of entities created; nor between the number of MonoBehaviours on a GameObject and the number of ECS components added to an entity. 
+During GameObject conversion, various conversion systems handle the MonoBehaviour components that they recognize and convert them into ECS-based components. For example, one of the the Unity.Transforms conversion systems examines the UnityEngine.Transform component and adds ECS components, such as [LocalToWorld](xref:Unity.Transforms.LocalToWorld), to replace it. You can implement an [IConvertGameObjectToEntity](xref:Unity.Entities.IConvertGameObjectToEntity) MonoBehaviour component to specify custom conversion steps. There often will not be a one-to-one relationship between the number of GameObjects converted and the number of entities created; nor between the number of MonoBehaviours on a GameObject and the number of ECS components added to an entity.
 
 ![](images/CreatingGameplay.png)
 
@@ -29,7 +29,8 @@ Unity recommends using standard MonoBehaviours for authoring and using IConvertG
 
 ## Generated Authoring Components
 
-Unity can automatically generate authoring components for simple [IComponentData](xref:Unity.Entities.IComponentData) components. Generating an autjoring component allows you to add an IComponentData directly to a GameObject in a scene within the Unity Editor. You can then set the initial values for the component using the Inspector window.
+### With IComponentData
+Unity can automatically generate authoring components for simple [IComponentData](xref:Unity.Entities.IComponentData) components. Generating an authoring component allows you to add an IComponentData directly to a GameObject in a scene within the Unity Editor. You can then set the initial values for the component using the Inspector window.
 
  To do this, add the `[GenerateAuthoringComponent]` attribute to your component definition.  Unity automatically generates a MonoBehaviour for you that contains the public fields of your component and provides a Conversion method that converts those fields over into runtime component data.
 
@@ -45,4 +46,22 @@ Note that the following restrictions:
 
 - Only one component in a single C# file can have a generated authoring component, and the C# file must not have another MonoBehaviour in it.
 - Only public fields are reflected and they will have the same name as that specified in the component.
-- Fields of an Entity type in the IComponentData are reflected as fields of GameObject types in the generated MonoBehaviour. GameObjects or Prefabs you assign to these fields are converted as referenced prefabs. 
+- Fields of an Entity type in the IComponentData are reflected as fields of GameObject types in the generated MonoBehaviour. GameObjects or Prefabs you assign to these fields are converted as referenced prefabs.
+
+### With IBufferElementData
+Authoring components can also be automatically generated for types that implement `IBufferElementData` by adding the `[GenerateAuthoringComponent]` attribute. E.g., if you declare the following type:
+
+```
+[GenerateAuthoringComponent]
+public struct IntBufferElement: IBufferElementData
+{
+    public int Value;
+}
+```
+
+A class named `IntBufferElementAuthoring` (which inherits from `MonoBehaviour`) will be generated, exposing a public field of `List<int>` type. During conversion, this list will be converted into `DynamicBuffer<IntBufferElement>`, and then added to the converted entity.
+
+Note the following restrictions:
+- Only one component in a single C# file can have a generated authoring component, and the C# file must not have another MonoBehaviour in it.
+- `IBufferElementData` authoring components cannot be automatically generated for types that contain 2 or more fields.
+- `IBufferElementData` authoring components cannot be automatically generated for types that have an explicit layout.

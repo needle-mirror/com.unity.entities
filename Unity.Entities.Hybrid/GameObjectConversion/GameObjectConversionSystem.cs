@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.IO;
 using Unity.Entities;
 using Unity.Entities.Conversion;
@@ -62,7 +63,7 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
 
     /// <summary>
     /// ShouldRunConversionSystem gives a GameObjectConversionSystem an early chance to decide whether it should run given
-    /// the specified build settings.  The base implementation will check whether the assembly that the system is in
+    /// the specified build configuration.  The base implementation will check whether the assembly that the system is in
     /// has been explicitly filtered out.  Overriding methods should return false if the base implementation returns false.
     /// </summary>
     public virtual bool ShouldRunConversionSystem()
@@ -137,24 +138,26 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
 
 #if UNITY_EDITOR
     /// <summary>
-    /// Get an IBuildSettingsComponent of the given type from the current build settings.  If there are
-    /// no current build settings, the default value is returned.  Otherwise, the component must exist
-    /// in the build settings or an exception is raised.
+    /// Get an <see cref="Unity.Build.IBuildComponent"/> of the given type from the current build configuration. If there are
+    /// no current build configuration, the default value is returned. Otherwise, the component must exist
+    /// in the build configuration or an exception is raised.
     /// </summary>
-    public T GetBuildSettingsComponent<T>() where T : Unity.Build.IBuildSettingsComponent
-    {
-        return m_MappingSystem.GetBuildSettingsComponent<T>();
-    }
+    public T GetBuildConfigurationComponent<T>() where T : Unity.Build.IBuildComponent => m_MappingSystem.GetBuildConfigurationComponent<T>();
 
     /// <summary>
-    /// Try to get an IBuildSettingsComponent of the given type from the current build settings.  If there are
-    /// no current build settings, false and the default value for component are returned.  Otherwise,
-    /// the return value indicates whether the component type was found in the current build settings.
+    /// Try to get an <see cref="Unity.Build.IBuildComponent"/> of the given type from the current build configuration. If there are
+    /// no current build configuration, false and the default value for component are returned. Otherwise,
+    /// the return value indicates whether the component type was found in the current build configuration.
     /// </summary>
-    public bool TryGetBuildSettingsComponent<T>(out T component) where T : Unity.Build.IBuildSettingsComponent
-    {
-        return m_MappingSystem.TryGetBuildSettingsComponent<T>(out component);
-    }
+    public bool TryGetBuildConfigurationComponent<T>(out T component) where T : Unity.Build.IBuildComponent => m_MappingSystem.TryGetBuildConfigurationComponent(out component);
+
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Obsolete("GetBuildSettingsComponent has been renamed to GetBuildConfigurationComponent. (RemovedAfter 2020-04-15) (UnityUpgradable) -> GetBuildConfigurationComponent(*)")]
+    public T GetBuildSettingsComponent<T>() where T : Unity.Build.IBuildComponent => m_MappingSystem.GetBuildConfigurationComponent<T>();
+
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Obsolete("TryGetBuildSettingsComponent has been renamed to TryGetBuildConfigurationComponent. (RemovedAfter 2020-04-15) (UnityUpgradable) -> TryGetBuildConfigurationComponent(*)")]
+    public bool TryGetBuildSettingsComponent<T>(out T component) where T : Unity.Build.IBuildComponent => m_MappingSystem.TryGetBuildConfigurationComponent(out component);
 
     /// <summary>
     /// Returns whether a GameObjectConversionSystem of the given type, or a IConvertGameObjectToEntity
@@ -167,7 +170,7 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     }
 
     /// <summary>
-    /// Returns whether the current build settings configuration includes the given types at runtime.
+    /// Returns whether the current build configuration includes the given types at runtime.
     /// Typically used in an implementation of GameObjectConversionSystem.ShouldRunConversionSystem,
     /// but can also be used to make more detailed decisions.
     /// </summary>
@@ -177,7 +180,7 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     }
 
     /// <summary>
-    /// Returns whether the current build settings configuration includes the given types at runtime.
+    /// Returns whether the current build configuration includes the given types at runtime.
     /// Typically used in an implementation of GameObjectConversionSystem.ShouldRunConversionSystem,
     /// but can also be used to make more detailed decisions.
     /// </summary>

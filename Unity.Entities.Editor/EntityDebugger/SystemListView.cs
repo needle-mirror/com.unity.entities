@@ -152,11 +152,12 @@ namespace Unity.Entities.Editor
         HideNode CreateNodeForSystem(int id, ComponentSystemBase system)
         {
             var active = true;
+            var type = system.GetType();
             if (!(system is ComponentSystemGroup))
             {
                 systemsById.Add(id, system);
                 worldsById.Add(id, system.World);
-                var recorder = Recorder.Get($"{system.World?.Name ?? "none"} {system.GetType().FullName}");
+                var recorder = Recorder.Get($"{system.World?.Name ?? "none"} {type.FullName}");
                 if (!recordersBySystem.ContainsKey(system))
                     recordersBySystem.Add(system, new AverageRecorder(recorder));
                 else
@@ -166,7 +167,13 @@ namespace Unity.Entities.Editor
                 recorder.enabled = true;
                 active = false;
             }
-            var name = getWorldSelection() == null ? $"{system.GetType().Name} ({system.World?.Name ?? "none"})" : system.GetType().Name;
+            string typeName;
+            if (type.IsNested)
+                typeName = type.DeclaringType.Name + "." + type.Name;
+            else
+                typeName = type.Name;
+
+            var name = getWorldSelection() == null ? $"{typeName} ({system.World?.Name ?? "none"})" : typeName;
             var item = new TreeViewItem { id = id, displayName = name };
 
             var hideNode = new HideNode(item) { Active = active };

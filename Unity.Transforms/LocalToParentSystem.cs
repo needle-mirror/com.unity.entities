@@ -22,18 +22,21 @@ namespace Unity.Transforms
             [ReadOnly] public BufferFromEntity<Child> ChildFromEntity;
             [ReadOnly] public ComponentDataFromEntity<LocalToParent> LocalToParentFromEntity;
             [ReadOnly] public EntityQueryMask LocalToWorldWriteGroupMask;
+            public uint LastSystemVersion;
 
             [NativeDisableContainerSafetyRestriction]
             public ComponentDataFromEntity<LocalToWorld> LocalToWorldFromEntity;
 
-            void ChildLocalToWorld(float4x4 parentLocalToWorld, Entity entity)
+            void ChildLocalToWorld(float4x4 parentLocalToWorld, Entity entity, bool updateChildrenTransform)
             {
-                var localToParent = LocalToParentFromEntity[entity];
+                bool transformChanged = LocalToParentFromEntity.DidChange(entity, LastSystemVersion);
+                updateChildrenTransform = updateChildrenTransform || transformChanged;
                 
                 float4x4 localToWorldMatrix;
 
-                if (LocalToWorldWriteGroupMask.Matches(entity))
+                if (updateChildrenTransform && LocalToWorldWriteGroupMask.Matches(entity))
                 {
+                    var localToParent = LocalToParentFromEntity[entity];
                     localToWorldMatrix = math.mul(parentLocalToWorld, localToParent.Value);
                     LocalToWorldFromEntity[entity] = new LocalToWorld {Value = localToWorldMatrix};
                 }
@@ -47,13 +50,17 @@ namespace Unity.Transforms
                     var children = ChildFromEntity[entity];
                     for (int i = 0; i < children.Length; i++)
                     {
-                        ChildLocalToWorld(localToWorldMatrix, children[i].Value);
+                        ChildLocalToWorld(localToWorldMatrix, children[i].Value, updateChildrenTransform);
                     }
                 }
             }
 
             public void Execute(ArchetypeChunk chunk, int index, int entityOffset)
             {
+                bool updateChildrenTransform = 
+                    chunk.DidChange<LocalToWorld>(LocalToWorldType, LastSystemVersion) || 
+                    chunk.DidChange<Child>(ChildType, LastSystemVersion);
+
                 var chunkLocalToWorld = chunk.GetNativeArray(LocalToWorldType);
                 var chunkChildren = chunk.GetBufferAccessor(ChildType);
                 for (int i = 0; i < chunk.Count; i++)
@@ -62,7 +69,7 @@ namespace Unity.Transforms
                     var children = chunkChildren[i];
                     for (int j = 0; j < children.Length; j++)
                     {
-                        ChildLocalToWorld(localToWorldMatrix, children[j].Value);
+                        ChildLocalToWorld(localToWorldMatrix, children[j].Value, updateChildrenTransform);
                     }
                 }
             }
@@ -111,7 +118,8 @@ namespace Unity.Transforms
                 ChildFromEntity = childFromEntity,
                 LocalToParentFromEntity = localToParentFromEntity,
                 LocalToWorldFromEntity = localToWorldFromEntity,
-                LocalToWorldWriteGroupMask = m_LocalToWorldWriteGroupMask
+                LocalToWorldWriteGroupMask = m_LocalToWorldWriteGroupMask,
+                LastSystemVersion = LastSystemVersion
             };
             var updateHierarchyJobHandle = updateHierarchyJob.Schedule(m_RootsGroup, inputDeps);
             return updateHierarchyJobHandle;

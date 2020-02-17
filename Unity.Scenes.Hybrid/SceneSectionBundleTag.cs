@@ -4,41 +4,35 @@ using Unity.Entities;
 namespace Unity.Scenes
 {
     [Serializable]
-    public struct SceneSectionBundle : ISharedComponentData, IEquatable<SceneSectionBundle>, IRefCounted
+    internal struct SceneSectionBundle : ISharedComponentData, IEquatable<SceneSectionBundle>, IRefCounted
     {
-        private int RefCount;
-        public UnityEngine.AssetBundle Bundle;
+        private SceneBundleHandle _sceneBundleHandle;
 
-        public SceneSectionBundle(UnityEngine.AssetBundle bundle)
+        public SceneSectionBundle(SceneBundleHandle bundle)
         {
-            Bundle = bundle;
-            RefCount = 0;
+            _sceneBundleHandle = bundle;
         }
 
         public void Release()
         {
-            RefCount--;
-            if (RefCount <= 0 && Bundle)
-            {
-                Bundle.Unload(true);
-                Bundle = null;
-            }
+            _sceneBundleHandle?.Release();
+            _sceneBundleHandle = null;
         }
 
         public void Retain()
         {
-            RefCount++;
+            _sceneBundleHandle?.Retain();
         }
 
         public bool Equals(SceneSectionBundle other)
         {
-            return Bundle == other.Bundle;
+            return _sceneBundleHandle == other._sceneBundleHandle;
         }
 
         public override int GetHashCode()
         {
             int hash = 0;
-            if (!ReferenceEquals(Bundle, null)) hash ^= Bundle.GetHashCode();
+            if (!ReferenceEquals(_sceneBundleHandle, null)) hash ^= _sceneBundleHandle.GetHashCode();
             return hash;
         }
     }

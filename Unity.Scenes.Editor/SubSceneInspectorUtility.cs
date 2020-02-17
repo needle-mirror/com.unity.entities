@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -88,7 +89,7 @@ namespace Unity.Scenes.Editor
             {
                 foreach (var section in GetActiveWorldSections(World.DefaultGameObjectInjectionWorld, scene.SceneGUID))
                 {
-                    var name = scene.SceneAsset.name;
+                    var name = scene.SceneAsset != null ? scene.SceneAsset.name : "Missing Scene Asset";
                     if (World.DefaultGameObjectInjectionWorld.EntityManager.HasComponent<SceneSectionData>(section))
                     {
                         var sectionIndex = World.DefaultGameObjectInjectionWorld.EntityManager.GetComponentData<SceneSectionData>(section).SubSectionIndex;
@@ -118,17 +119,12 @@ namespace Unity.Scenes.Editor
             return true;
         }
 
-        public static bool CanEditScene(SubScene scene)
+        public static bool CanEditScene(SubScene subScene)
         {
-#if UNITY_EDITOR
-            // Disallow editing when in prefab edit mode
-            if (PrefabStageUtility.GetPrefabStage(scene.gameObject) != null)
+            if (!subScene.CanBeLoaded())
                 return false;
-            if (!scene.isActiveAndEnabled)
-                return false;
-#endif
 
-            return !scene.IsLoaded;
+            return !subScene.IsLoaded;
         }
 
         public static bool IsLoaded(SubScene[] scenes)

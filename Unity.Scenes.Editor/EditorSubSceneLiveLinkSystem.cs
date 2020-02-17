@@ -29,9 +29,9 @@ namespace Unity.Scenes.Editor
 
         protected override void OnUpdate()
         {
-            // We can't initialize live link in OnCreate because other systems might configure BuildSettingsGUID from OnCreate
+            // We can't initialize live link in OnCreate because other systems might configure BuildConfigurationGUID from OnCreate
             if (_EditorLiveLink == null)
-                _EditorLiveLink = new LiveLinkConnection(World.GetExistingSystem<SceneSystem>().BuildSettingsGUID);
+                _EditorLiveLink = new LiveLinkConnection(World.GetExistingSystem<SceneSystem>().BuildConfigurationGUID);
             
             try
             {

@@ -1,6 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.Text;
+﻿using System.Runtime.CompilerServices;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Unity.Collections.LowLevel.Unsafe;
@@ -53,9 +51,9 @@ namespace Unity.Entities.CodeGen
             return MakeError(nameof(DC0001),$"Entities.ForEach Lambda expression uses field '{fr.Name}'. Either assign the field to a local outside of the lambda expression and use that instead, or use .WithoutBurst() and .Run()", method, instruction);
         }
 
-        public static DiagnosticMessage DC0002(MethodDefinition method, Instruction instruction, MethodReference mr)
+        public static DiagnosticMessage DC0002(MethodDefinition method, Instruction instruction, MethodReference mr, TypeReference argument)
         {
-            return MakeError(nameof(DC0002),$"Entities.ForEach Lambda expression invokes '{mr.Name}' on a {mr.DeclaringType.Name} which is a reference type. This is only allowed with .WithoutBurst() and .Run().", method, instruction);
+            return MakeError(nameof(DC0002),$"Entities.ForEach Lambda expression invokes '{mr.Name}' on a {argument.Name} which is a reference type. This is only allowed with .WithoutBurst() and .Run().", method, instruction);
         }
         
         public static DiagnosticMessage DC0003(string name, MethodDefinition method, Instruction instruction)
@@ -80,7 +78,7 @@ namespace Unity.Entities.CodeGen
 
         public static DiagnosticMessage DC0017(MethodDefinition method, Instruction instruction)
         {
-            return MakeError(nameof(DC0006),$"Scheduling an Lambda job requires a .{nameof(LambdaSimpleJobDescriptionConstructionMethods.WithCode)} invocation", method, instruction);
+            return MakeError(nameof(DC0006),$"Scheduling an Lambda job requires a .{nameof(LambdaSingleJobDescriptionConstructionMethods.WithCode)} invocation", method, instruction);
         }
         
         public static DiagnosticMessage DC0018(MethodDefinition method, Instruction instruction)
@@ -90,7 +88,7 @@ namespace Unity.Entities.CodeGen
 
         public static DiagnosticMessage DC0007(MethodDefinition method, Instruction instruction)
         {
-            return MakeError(nameof(DC0007),$"Unexpected code structure in Entities/Job query. Make sure to immediately end each ForEach query with a .Schedule() or .Run() call", method, instruction);
+            return MakeError(nameof(DC0007),$"Unexpected code structure in Entities/Job query. Make sure to immediately end each ForEach query with a .Schedule(), .ScheduleParallel() or .Run() call.", method, instruction);
         }
 
         public static DiagnosticMessage DC0008(MethodDefinition method, Instruction instruction, MethodReference mr)
@@ -110,7 +108,7 @@ namespace Unity.Entities.CodeGen
 
         public static DiagnosticMessage DC0011(MethodDefinition method, Instruction instruction)
         {
-            return MakeError(nameof(DC0011),$"Every Entities.ForEach statement needs to end with a .Schedule() or .Run() invocation", method, instruction);
+            return MakeError(nameof(DC0011),$"Every Entities.ForEach statement needs to end with a .Schedule(), .ScheduleParallel() or .Run() invocation.", method, instruction);
         }
         
         public static DiagnosticMessage DC0012(MethodDefinition methodToAnalyze, LambdaJobDescriptionConstruction.InvokedConstructionMethod constructionMethod)
@@ -120,7 +118,7 @@ namespace Unity.Entities.CodeGen
         
         public static DiagnosticMessage DC0013(FieldReference fieldReference, MethodDefinition method, Instruction instruction)
         {
-            return MakeError(nameof(DC0013), $"Entities.ForEach Lambda expression writes to captured variable '{fieldReference.Name}'. This is only supported when you use .Run() instead of .Schedule()", method, instruction);
+            return MakeError(nameof(DC0013), $"Entities.ForEach Lambda expression writes to captured variable '{fieldReference.Name}'. This is only supported when you use .Run().", method, instruction);
         }
 
         public static DiagnosticMessage DC0014(MethodDefinition method, Instruction instruction, ParameterDefinition parameter, string[] supportedParameters)
@@ -169,8 +167,8 @@ namespace Unity.Entities.CodeGen
         {
             return MakeError(nameof(DC0024),$"Entities.ForEach uses managed IComponentData {componentType.Name} by ref. To get write access, receive it without the ref modifier." ,containingMethod, instruction);
         }
-
-        //$"Type {t.Name} cannot be used with {m.MethodName} as it is not a supported component type"
+        
+        // Invalid type used as LambdaJob parameter or in With method invocation.
         public static DiagnosticMessage DC0025(string message, MethodDefinition containingMethod, Instruction instruction)
         {
             return MakeError(nameof(DC0025), message, containingMethod, instruction);
@@ -194,7 +192,7 @@ namespace Unity.Entities.CodeGen
 
         public static DiagnosticMessage DC0028(MethodDefinition method, Instruction instruction)
         {
-            return MakeError(nameof(DC0028), $"Entities.ForEach Lambda expression makes a structural change with a .Schedule() call. Structural changes are only supported with .Run().", method, instruction);
+            return MakeError(nameof(DC0028), $"Entities.ForEach Lambda expression makes a structural change with a Schedule call. Structural changes are only supported with .Run().", method, instruction);
         }
 
         public static DiagnosticMessage DC0029(MethodDefinition method, Instruction instruction)
@@ -246,6 +244,52 @@ namespace Unity.Entities.CodeGen
         {
             return MakeError(nameof(DC0038),$"Entities.{constructionMethod.MethodName} is called with an invalid argument {field.DeclaringType.Name}.{field.Name}. You cannot use Entities.{constructionMethod.MethodName} with fields of user-defined types as the argument. Please assign the field to a local variable and use that instead.", containingMethod, constructionMethod.InstructionInvokingMethod);
         }
+        
+        public static DiagnosticMessage DC0039(TypeReference bufferElementDataType, int numFieldsFound)
+        {
+            return MakeError(
+                nameof(DC0039), 
+                messageData: $"Structs implementing IBufferElementData and marked with a {nameof(GenerateAuthoringComponentAttribute)} attribute should have exactly" +
+                             $" one field specifying its element type. However, '{bufferElementDataType.Name}' contains {numFieldsFound} fields." +
+                             "Please implement your own authoring component.", 
+                method: null, 
+                instruction: null);
+        }
+        
+        public static DiagnosticMessage DC0040(TypeReference bufferElementDataType)
+        {
+            return MakeError(
+                nameof(DC0040), 
+                messageData: "Structs implementing IBufferElementData may only contain fields of either primitive or blittable types. However," +
+                             $" '{bufferElementDataType.Name}' has an element type which is NOT a primitive or blittable type.",
+                method: null, 
+                instruction: null);
+        }
+
+        public static DiagnosticMessage DC0041(TypeDefinition bufferElementDataType)
+        {
+            return MakeError(
+                nameof(DC0041),
+                messageData: $"IBufferElementData can only be implemented by structs. '{bufferElementDataType.Name}' is a class." +
+                             $"Please change {bufferElementDataType} to a struct.",
+                method: null,
+                instruction: null);
+        }
+
+        public static DiagnosticMessage DC0042(TypeDefinition bufferElementDataType)
+        {
+            return MakeError(
+                nameof(DC0042),
+                messageData: $"Structs implementing IBufferElementData and marked with a {nameof(GenerateAuthoringComponentAttribute)} attribute cannot have an explicit layout." +
+                             $"{bufferElementDataType} has an explicit layout. Please implement your own authoring component.",
+                method: null,
+                instruction: null);
+        }
+
+        public static DiagnosticMessage DC0039(MethodDefinition containingMethod, string name, Instruction instruction)
+        {
+            return MakeError(nameof(DC0039),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithName)} cannot be used with name '{name}'. The given name must consist of letters, digits, and underscores only, and may not contain two consecutive underscores.", containingMethod, instruction);
+        }
 
         static DiagnosticMessage MakeInternal(DiagnosticType type, string errorCode, string messageData, MethodDefinition method, Instruction instruction)
         {
@@ -255,7 +299,7 @@ namespace Unity.Entities.CodeGen
 
             if (errorCode.Contains("ICE"))
             {
-                messageData = messageData + " Seeing this error indicates a bug in the dots compiler. We'd appreciate a bug report (About->Report a Problem). Thnx! <3";
+                messageData = messageData + " Seeing this error indicates a bug in the dots compiler. We'd appreciate a bug report (About->Report a Bug...). Thnx! <3";
             }
 
             messageData = $"error {errorCode}: {messageData}";
@@ -264,7 +308,11 @@ namespace Unity.Entities.CodeGen
                 result.File = seq.Document.Url;
                 result.Column = seq.StartColumn;
                 result.Line = seq.StartLine;
-                result.MessageData = $"{seq.Document.Url}:({seq.StartLine},{seq.StartColumn}) {messageData}";
+#if !UNITY_DOTSPLAYER
+                result.MessageData = $"{seq.Document.Url}({seq.StartLine},{seq.StartColumn}): {messageData}";
+#else
+                result.MessageData = messageData;
+#endif
             }
             else
             {
@@ -287,6 +335,5 @@ namespace Unity.Entities.CodeGen
         {
             throw new FoundErrorInUserCodeException(new[] { dm});
         }
-
     }
 }

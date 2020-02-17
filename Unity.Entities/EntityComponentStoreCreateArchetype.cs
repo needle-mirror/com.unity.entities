@@ -271,20 +271,18 @@ namespace Unity.Entities
             
             ComponentTypeInArchetype* dstTypes = stackalloc ComponentTypeInArchetype[dstTypesCount];
 
-            var indexOfNewTypeInNewArchetype = stackalloc int[componentTypes.Length];
-
             // zipper the two sorted arrays "type" and "componentTypeInArchetype" into "componentTypeInArchetype"
             // because this is done in-place, it must be done backwards so as not to disturb the existing contents.
 
             var unusedIndices = 0;
             {
-                var oldThings = srcArchetype->TypesCount;
-                var newThings = componentTypes.Length;
-                var mixedThings = oldThings + newThings;
-                while (oldThings > 0 && newThings > 0) // while both are still zippering,
+                var oldThings = srcArchetype->TypesCount-1;
+                var newThings = componentTypes.Length-1;
+                var mixedThings = dstTypesCount;
+                while (newThings >= 0) // oldThings[0] has typeIndex 0, newThings can't have anything lower than that
                 {
-                    var oldThing = srcTypes[oldThings - 1];
-                    var newThing = componentTypes.GetComponentType(newThings - 1);
+                    var oldThing = srcTypes[oldThings];
+                    var newThing = componentTypes.GetComponentType(newThings);
                     if (oldThing.TypeIndex > newThing.TypeIndex) // put whichever is bigger at the end of the array
                     {
                         dstTypes[--mixedThings] = oldThing;
@@ -298,21 +296,21 @@ namespace Unity.Entities
                         var componentTypeInArchetype = new ComponentTypeInArchetype(newThing);
                         dstTypes[--mixedThings] = componentTypeInArchetype;
                         --newThings;
-                        indexOfNewTypeInNewArchetype[newThings] = mixedThings; // "this new thing ended up HERE"
                     }
                 }
 
-                Assert.AreEqual(0, newThings); // must not be any new things to copy remaining, oldThings contain entity
-
-                while (oldThings > 0) // if there are remaining old things, copy them here
+                while (oldThings >= 0) // if there are remaining old things, copy them here
                 {
-                    dstTypes[--mixedThings] = srcTypes[--oldThings];
+                    dstTypes[--mixedThings] = srcTypes[oldThings--];
                 }
 
                 unusedIndices = mixedThings; // In case we ignored duplicated types, this will be > 0
             }
 
-            var dstArchetype = GetOrCreateArchetype(dstTypes + unusedIndices, dstTypesCount);
+            if (unusedIndices == componentTypes.Length)
+                return default;
+
+            var dstArchetype = GetOrCreateArchetype(dstTypes + unusedIndices, dstTypesCount - unusedIndices);
             var archetypeChunkFilter = new ArchetypeChunkFilter();
             archetypeChunkFilter.Archetype = dstArchetype;
             

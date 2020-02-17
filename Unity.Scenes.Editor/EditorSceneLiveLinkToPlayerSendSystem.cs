@@ -40,7 +40,7 @@ namespace Unity.Scenes.Editor
             LiveLinkMsg.LogReceived("ConnectLiveLink");
 
             int player = args.playerId;
-            var buildSettings = args.Receive<Hash128>();
+            var buildConfigurationGuid = args.Receive<Hash128>();
 
             //@TODO: Implement this properly
             //system.World.GetExistingSystem<EditorSubSceneLiveLinkSystem>().CleanupAllScenes();
@@ -50,13 +50,14 @@ namespace Unity.Scenes.Editor
             if (_Connections.TryGetValue(player, out var connection))
                 connection.Dispose();
 
-            var newConnection = new LiveLinkConnection(buildSettings);
+            var newConnection = new LiveLinkConnection(buildConfigurationGuid);
             _Connections[player] = newConnection;
+            newConnection.SendInitialScenes(player);
 
             TimeBasedCallbackInvoker.SetCallback(DetectSceneChanges);
             EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
 
-            LiveLinkPlayerConnected?.Invoke(player, newConnection._BuildSettingsGUID);
+            LiveLinkPlayerConnected?.Invoke(player, newConnection._BuildConfigurationGUID);
         }
 
         void OnPlayerConnected(int playerID)
@@ -108,8 +109,8 @@ namespace Unity.Scenes.Editor
             EditorConnection.instance.SendArray(LiveLinkMsg.LoadScenes, loadScenes, playerID);
         }
 
-        internal Hash128 GetBuildSettingsGUIDForLiveLinkConnection(int playerConnectionId)
-            => _Connections.TryGetValue(playerConnectionId, out var connection) ? connection._BuildSettingsGUID : default;
+        internal Hash128 GetBuildConfigurationGUIDForLiveLinkConnection(int playerConnectionId)
+            => _Connections.TryGetValue(playerConnectionId, out var connection) ? connection._BuildConfigurationGUID : default;
 
         void DetectSceneChanges()
         {
@@ -157,7 +158,7 @@ namespace Unity.Scenes.Editor
             _UnloadScenes = new NativeList<Hash128>(Allocator.Persistent);
             _LoadScenes = new NativeList<Hash128>(Allocator.Persistent);
 
-            EditorConnection.instance.Register(LiveLinkMsg.ConnectLiveLink, ConnectLiveLink);
+            EditorConnection.instance.Register(LiveLinkMsg.RequestConnectLiveLink, ConnectLiveLink);
             EditorConnection.instance.Register(LiveLinkMsg.SetLoadedScenes, SetLoadedScenes);
             EditorConnection.instance.RegisterConnection(OnPlayerConnected);
             EditorConnection.instance.RegisterDisconnection(OnPlayerDisconnected);
@@ -170,7 +171,7 @@ namespace Unity.Scenes.Editor
 
         void OnDisable()
         {
-            EditorConnection.instance.Unregister(LiveLinkMsg.ConnectLiveLink, ConnectLiveLink);
+            EditorConnection.instance.Unregister(LiveLinkMsg.RequestConnectLiveLink, ConnectLiveLink);
             EditorConnection.instance.Unregister(LiveLinkMsg.SetLoadedScenes, SetLoadedScenes);
             EditorConnection.instance.UnregisterConnection(OnPlayerConnected);
             EditorConnection.instance.UnregisterDisconnection(OnPlayerDisconnected);

@@ -338,16 +338,18 @@ namespace Unity.Entities.Tests
     {
         public string value0;
         public Entity value1;
+        public int value2;
         public ClassWithClassFields nullField;
 
         public EcsTestManagedDataEntity()
         {
         }
 
-        public EcsTestManagedDataEntity(string inValue0, Entity inValue1)
+        public EcsTestManagedDataEntity(string inValue0, Entity inValue1, int inValue2 = 0)
         {
             value0 = inValue0;
             value1 = inValue1;
+            value2 = inValue2;
             nullField = null;
         }
     }

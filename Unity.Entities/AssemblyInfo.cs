@@ -4,6 +4,7 @@
 [assembly: InternalsVisibleTo("Unity.Entities.Editor.Tests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid")]
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.CodeGen")]
+[assembly: InternalsVisibleTo("Unity.Entities.Hybrid.CodeGen.Tests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.Tests")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Editor")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid")]

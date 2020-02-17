@@ -363,19 +363,6 @@ namespace Unity.Entities
                 return result;
             }
         }
-
-        public unsafe int[] ManagedArrayOffset
-        {
-            get
-            {
-                var archetype = m_EntityArchetype.Archetype;
-                if (archetype == null || archetype->ManagedArrayOffset == null)
-                    return new int[0];
-                int[] result = new int[archetype->NumManagedArrays];
-                Marshal.Copy((IntPtr)archetype->ManagedArrayOffset, result, 0, archetype->NumManagedArrays);
-                return result;
-            }
-        }
     }
 #else
     sealed class EntityArchetypeDebugView

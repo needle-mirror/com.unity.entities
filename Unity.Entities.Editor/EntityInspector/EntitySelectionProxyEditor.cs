@@ -48,7 +48,10 @@ namespace Unity.Entities.Editor
         private uint GetVersion()
         {
             var container = target as EntitySelectionProxy;
-            return container.World.EntityManager.GetChunkVersionHash(container.Entity);
+            if (container != null && container.World != null && container.World.IsCreated)
+                return container.World.EntityManager.GetChunkVersionHash(container.Entity);
+            else
+                return 0;
         }
 
         void InitStyles()

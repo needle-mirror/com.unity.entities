@@ -19,7 +19,7 @@ namespace Unity.Entities
         /// <summary>
         /// Use Entities.ForEach((ref Translation translation, in Velocity velocity) => { translation.Value += velocity.Value * dt; }).Schedule(inputDependencies);
         /// </summary>
-        protected internal ForEachLambdaJobDescription Entities => new ForEachLambdaJobDescription();
+        protected internal ForEachLambdaJobDescriptionJCS Entities => new ForEachLambdaJobDescriptionJCS();
 
 #if ENABLE_DOTS_COMPILER_CHUNKS        
         /// <summary>
@@ -37,11 +37,11 @@ namespace Unity.Entities
         /// <summary>
         /// Use Job.WithCode(() => { YourCodeGoesHere(); }).Schedule(inputDependencies);
         /// </summary>
-        protected internal LambdaSingleJobDescription Job
+        protected internal LambdaSingleJobDescriptionJCS Job
         {
             get
             {
-                return new LambdaSingleJobDescription();
+                return new LambdaSingleJobDescriptionJCS();
             }
         }
 

@@ -46,7 +46,7 @@ namespace Unity.Entities
         EntityDataAccess            m_EntityDataAccess;
         EntityComponentStore*       m_EntityComponentStore;
         ManagedComponentStore       m_ManagedComponentStore;
-        EntityQueryManager          m_EntityQueryManager;
+        EntityQueryManager*         m_EntityQueryManager;
         ExclusiveEntityTransaction  m_ExclusiveEntityTransaction;
         World                       m_World;
         EntityQuery                 m_UniversalQuery; // matches all components
@@ -76,13 +76,13 @@ namespace Unity.Entities
         }
 #endif
 
-        internal EntityDataAccess EntityDataAccess => m_EntityDataAccess;
+        internal ref EntityDataAccess EntityDataAccess => ref m_EntityDataAccess;
         internal EntityComponentStore* EntityComponentStore => m_EntityComponentStore;
         internal ComponentDependencyManager* DependencyManager => m_DependencyManager;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS        
         internal ComponentSafetyHandles* SafetyHandles => &m_DependencyManager->Safety;
 #endif
-        internal EntityQueryManager EntityQueryManager => m_EntityQueryManager;
+        internal EntityQueryManager* EntityQueryManager => m_EntityQueryManager;
         internal ManagedComponentStore ManagedComponentStore => m_ManagedComponentStore;
         
         // Attribute to indicate an EntityManager method makes structural changes.
@@ -170,8 +170,9 @@ namespace Unity.Entities
             m_DependencyManager->OnCreate();
 
             m_EntityComponentStore = Entities.EntityComponentStore.Create(world.SequenceNumber << 32);
+            m_EntityQueryManager = Unity.Entities.EntityQueryManager.Create(m_DependencyManager);
             m_ManagedComponentStore = new ManagedComponentStore();
-            m_EntityQueryManager = new EntityQueryManager(m_DependencyManager);
+
             m_EntityDataAccess = new EntityDataAccess(this, true);
 
             m_ExclusiveEntityTransaction = new ExclusiveEntityTransaction(this);
@@ -201,11 +202,15 @@ namespace Unity.Entities
             #endif
         }
 
-        internal void DestroyInstance()
+        internal void PreDisposeCheck()
         {
             EndExclusiveEntityTransaction();
-
             m_DependencyManager->PreDisposeCheck();
+        }
+        
+        internal void DestroyInstance()
+        {
+            PreDisposeCheck();
 
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_UniversalQuery._DisallowDisposing = null;
@@ -221,9 +226,11 @@ namespace Unity.Entities
             m_DependencyManager = null;
 
             Entities.EntityComponentStore.Destroy(m_EntityComponentStore);
-
             m_EntityComponentStore = null;
-            m_EntityQueryManager.Dispose();
+            
+            Entities.EntityQueryManager.Destroy(m_EntityQueryManager);
+            m_EntityQueryManager = null;
+
             m_EntityQueryManager = null;
             m_ExclusiveEntityTransaction.OnDestroy();
 
@@ -244,3 +251,4 @@ namespace Unity.Entities
         }
     }
 }
+

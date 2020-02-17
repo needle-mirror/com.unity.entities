@@ -184,11 +184,12 @@ namespace Unity.Entities
             public static TypeInfo Null => new TypeInfo();
         }
 
+#if !NET_DOTS
         private unsafe struct PointerSize
         {
             private void* pter;
         }
-#if !NET_DOTS
+
         struct FieldData
         {
             public int Offset;

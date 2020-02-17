@@ -441,6 +441,21 @@ namespace Unity.Entities.Tests
         [Test]
         public void AddNewComponentTypes()
         {
+            var typeToAdd = typeof(UnregisteredComponent);
+            bool testAlreadyRan = false;
+            try
+            {
+                TypeManager.GetTypeIndex(typeToAdd);
+                testAlreadyRan = true;
+            }
+            catch (ArgumentException){ }
+
+            // If we haven't registered the component yet we should have thrown above before setting 
+            // however, since we cannot remove types from the TypeManager, subsequent test
+            // runs without a domain reload will already have our test type registered so simply abort
+            if (testAlreadyRan)
+                return;
+
             Dictionary<int, TypeManager.TypeInfo> typeInfoMap = new Dictionary<int, TypeManager.TypeInfo>();
             Dictionary<int, int[]> entityOffsetMap = new Dictionary<int, int[]>();
             Dictionary<int, int[]> blobOffsetMap = new Dictionary<int, int[]>();
@@ -530,7 +545,7 @@ namespace Unity.Entities.Tests
             foreach (var ti in TypeManager.AllTypes)
                 EnsureMatch(typeInfoMap[ti.TypeIndex], ti);
 
-            var typeToAdd = typeof(UnregisteredComponent);
+            
             Assert.Throws<ArgumentException>(() => TypeManager.GetTypeIndex(typeToAdd));
             TypeManager.AddNewComponentTypes(new Type[] { typeToAdd });
 

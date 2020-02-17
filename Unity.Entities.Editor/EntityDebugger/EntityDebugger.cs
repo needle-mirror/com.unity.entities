@@ -30,7 +30,7 @@ namespace Unity.Entities.Editor
             EntityDebugger.Instance.CreateSystemListView();
         }
         
-        private const float kSystemListWidth = 350f;
+        private const float kSystemListWidth = 400f;
         private const float kChunkInfoViewWidth = 250f;
 
         public bool ShowingChunkInfoView
@@ -48,9 +48,16 @@ namespace Unity.Entities.Editor
                 }
             }
         }
+
         private bool showingChunkInfoView = true;
 
-        
+        const string k_ShowChunkInfoPreferencePath = "Unity.Entities.Editor.EntityDebugger.ShowChunkInfo";
+        bool ShowingChunkInfoViewPersistent
+        {
+            get => EditorPrefs.GetBool(k_ShowChunkInfoPreferencePath, true);
+            set => EditorPrefs.SetBool(k_ShowChunkInfoPreferencePath, value);
+        }
+
         private float CurrentEntityViewWidth =>
             Mathf.Max(100f, position.width - kSystemListWidth - (showingChunkInfoView ? kChunkInfoViewWidth : 0f));
 
@@ -308,6 +315,7 @@ namespace Unity.Entities.Editor
             CreateChunkInfoListView();
             systemListView.TouchSelection();
 
+            showingChunkInfoView = ShowingChunkInfoViewPersistent;
             EditorApplication.playModeStateChanged += OnPlayModeStateChange;
         }
 
@@ -336,6 +344,7 @@ namespace Unity.Entities.Editor
             if (selectionProxy)
                 DestroyImmediate(selectionProxy);
 
+            ShowingChunkInfoViewPersistent = showingChunkInfoView;
             EditorApplication.playModeStateChanged -= OnPlayModeStateChange;
         }
 

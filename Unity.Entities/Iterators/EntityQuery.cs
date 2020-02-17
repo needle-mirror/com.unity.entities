@@ -382,6 +382,11 @@ namespace Unity.Entities
             _ManagedComponentStore = null;
         }
 
+        public bool IsCreated
+        {
+            get { return _EntityComponentStore != null;  }
+        }
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         /// <summary>
         ///     Gets safety handle to a ComponentType required by this EntityQuery.
@@ -424,20 +429,7 @@ namespace Unity.Entities
         public int CalculateEntityCount()
         {
             SyncFilterTypes();
-
-            // no filtering case does not benefit from Burst, so just do it normally on main thread
-            if(!_Filter.RequiresMatchesFilter)
-                return ChunkIterationUtility.CalculateEntityCount(_QueryData->MatchingArchetypes, ref _Filter);
-            
-            var entityCount = stackalloc int[1];
-            new CalculateEntityCountJob
-            {
-                MatchingArchetypes = _QueryData->MatchingArchetypes,
-                Filter = _Filter,
-                OutEntityCount = entityCount
-            }.Run();
-
-            return *entityCount;
+            return ChunkIterationUtility.CalculateEntityCount(in _QueryData->MatchingArchetypes, ref _Filter);
         }
 
         /// <summary>
@@ -449,9 +441,8 @@ namespace Unity.Entities
         /// <returns>The number of entities based on the current EntityQuery properties.</returns>
         public int CalculateEntityCountWithoutFiltering()
         {
-            // no filtering case does not benefit from Burst, so just do it normally on main thread
             var dummyFilter = default(EntityQueryFilter);
-            return ChunkIterationUtility.CalculateEntityCount(_QueryData->MatchingArchetypes, ref dummyFilter);
+            return ChunkIterationUtility.CalculateEntityCount(in _QueryData->MatchingArchetypes, ref dummyFilter);
         }
 
         /// <summary>
@@ -464,20 +455,7 @@ namespace Unity.Entities
         public int CalculateChunkCount()
         {
             SyncFilterTypes();
-
-            // no filtering case does not benefit from Burst, so just do it normally on main thread
-            if(!_Filter.RequiresMatchesFilter)
-                return ChunkIterationUtility.CalculateChunkCount(_QueryData->MatchingArchetypes, ref _Filter);
-            
-            var chunkCount = stackalloc int[1];
-            new CalculateChunkCountJob
-            {
-                MatchingArchetypes = _QueryData->MatchingArchetypes,
-                Filter = _Filter,
-                OutChunkCount = chunkCount
-            }.Run();
-
-            return *chunkCount;
+            return ChunkIterationUtility.CalculateChunkCount(in _QueryData->MatchingArchetypes, ref _Filter);
         }
 
         /// <summary>
@@ -489,7 +467,6 @@ namespace Unity.Entities
         /// <returns>The number of chunks based on the current EntityQuery properties.</returns>
         public int CalculateChunkCountWithoutFiltering()
         {
-            // no filtering case does not benefit from Burst, so just do it normally on main thread
             var dummyFilter = default(EntityQueryFilter);
             return ChunkIterationUtility.CalculateChunkCount(_QueryData->MatchingArchetypes, ref dummyFilter);
         }
@@ -542,7 +519,7 @@ namespace Unity.Entities
         /// that gathers the chunks matching this EntityQuery.
         /// </param>
         /// <returns>NativeArray of all the chunks containing entities matching this query.</returns>
-        public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator, out JobHandle jobhandle)
+        public NativeArray<ArchetypeChunk> CreateArchetypeChunkArrayAsync(Allocator allocator, out JobHandle jobhandle)
         {
             JobHandle dependency = default;
 
@@ -583,7 +560,7 @@ namespace Unity.Entities
         /// <param name="jobhandle">An `out` parameter assigned a handle that you can use as a dependency for a Job
         /// that uses the NativeArray.</param>
         /// <returns>An array containing all the entities selected by the EntityQuery.</returns>
-        public NativeArray<Entity> ToEntityArray(Allocator allocator, out JobHandle jobhandle)
+        public NativeArray<Entity> ToEntityArrayAsync(Allocator allocator, out JobHandle jobhandle)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var entityType = new ArchetypeChunkEntityType(SafetyHandles->GetEntityManagerSafetyHandle());
@@ -664,7 +641,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The component type.</typeparam>
         /// <returns>An array containing the specified component for all the entities selected
         /// by the EntityQuery.</returns>
-        public NativeArray<T> ToComponentDataArray<T>(Allocator allocator, out JobHandle jobhandle)
+        public NativeArray<T> ToComponentDataArrayAsync<T>(Allocator allocator, out JobHandle jobhandle)
             where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -734,18 +711,14 @@ namespace Unity.Entities
                 for (int ci = 0; ci < chunks.Count; ++ci)
                 {
                     var chunk = chunks.p[ci];
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    if (chunk->ManagedArrayIndex < 0)
-                        throw new ArgumentException($"Trying ToComponentDataArray of managed component '{TypeManager.GetType(typeIndex)}' but the found chunk from the query doesn't contain any managed components.");
-#endif
+
                     if (_Filter.RequiresMatchesFilter && !chunk->MatchesFilter(match, ref _Filter))
                         continue;
 
-                    var objs = _ManagedComponentStore.GetManagedObjectRange(chunk, indexInTypeArray, out var rangeStart, out var rangeLength);
-                    int rangeEnd = rangeStart + rangeLength;
-                    for (int oi = rangeStart; oi < rangeEnd; ++oi)
+                    var managedComponentArray = (int*)ChunkDataUtility.GetComponentDataRW(chunk,0, indexInTypeArray, _EntityComponentStore->GlobalSystemVersion);
+                    for (int entityIndex = 0; entityIndex < chunk->Count; ++entityIndex)
                     {
-                        res[i++] = (T)objs[oi];
+                        res[i++] = (T)_ManagedComponentStore.GetManagedComponent(managedComponentArray[entityIndex]);
                     }
                 }
             }
@@ -772,7 +745,7 @@ namespace Unity.Entities
             job.Complete();
         }
 
-        public void CopyFromComponentDataArray<T>(NativeArray<T> componentDataArray, out JobHandle jobhandle)
+        public void CopyFromComponentDataArrayAsync<T>(NativeArray<T> componentDataArray, out JobHandle jobhandle)
             where T : struct,IComponentData
         {
             // throw if non equal size
@@ -1163,10 +1136,22 @@ namespace Unity.Entities
         {
             return _Filter.RequiresMatchesFilter;
         }
+        
+        [Obsolete("CreateArchetypeChunkArray with out JobHandle parameter renamed to CreateArchetypeChunkArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> CreateArchetypeChunkArrayAsync(*)", false)]
+        public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator, out JobHandle jobhandle) => CreateArchetypeChunkArrayAsync(allocator, out jobhandle);
+        
+        [Obsolete("ToEntityArray with out JobHandle parameter renamed to ToEntityArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> ToEntityArrayAsync(*)", false)]
+        public NativeArray<Entity> ToEntityArray(Allocator allocator, out JobHandle jobhandle) => ToEntityArrayAsync(allocator, out jobhandle);
+        
+        [Obsolete("ToComponentDataArray with out JobHandle parameter renamed to ToComponentDataArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> ToComponentDataArrayAsync(*)", false)]
+        public NativeArray<T> ToComponentDataArray<T>(Allocator allocator, out JobHandle jobhandle) where T : struct, IComponentData => ToComponentDataArrayAsync<T>(allocator, out jobhandle);
+        
+        [Obsolete("CopyFromComponentDataArray with out JobHandle parameter renamed to CopyFromComponentDataArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> CopyFromComponentDataArrayAsync(*)", false)]
+        public void CopyFromComponentDataArray<T>(NativeArray<T> componentDataArray, out JobHandle jobhandle) where T : struct, IComponentData => CopyFromComponentDataArrayAsync(componentDataArray, out jobhandle);
     }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-    internal static unsafe class EntityQueryManagedComponentExtensions
+    public static unsafe class EntityQueryManagedComponentExtensions
     {
         /// <summary>
         /// Gets the value of a singleton component.
@@ -1192,9 +1177,8 @@ namespace Unity.Entities
             var iterator = query.GetArchetypeChunkIterator();
             iterator.MoveNext();
 
-            var archetypeChunk = iterator.CurrentArchetypeChunk;
-            var componentType = ComponentType.FromTypeIndex(TypeManager.GetTypeIndex<T>());
-            return (T) query._ManagedComponentStore.GetManagedObject(archetypeChunk.m_Chunk, componentType, 0);
+            var managedComponentIndex = *(int*)iterator.GetCurrentChunkComponentDataPtr(false, 1);
+            return (T) query._ManagedComponentStore.GetManagedComponent(managedComponentIndex);
         }
 
         /// <summary>
@@ -1243,9 +1227,8 @@ namespace Unity.Entities
             var iterator = query.GetArchetypeChunkIterator();
             iterator.MoveNext();
 
-            var archetypeChunk = iterator.CurrentArchetypeChunk;
-            var componentType = ComponentType.FromTypeIndex(TypeManager.GetTypeIndex<T>());
-            query._ManagedComponentStore.SetManagedObject(archetypeChunk.m_Chunk, componentType, 0, value);
+            var managedComponentIndex = (int*)iterator.GetCurrentChunkComponentDataPtr(false, 1);
+            query._ManagedComponentStore.UpdateManagedComponentValue(managedComponentIndex, value, ref *query._EntityComponentStore);
         }
     }
 #endif

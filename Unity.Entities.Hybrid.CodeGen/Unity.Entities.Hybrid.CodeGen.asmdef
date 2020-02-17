@@ -11,16 +11,17 @@
         "Editor"
     ],
     "excludePlatforms": [],
-    "allowUnsafeCode": false,
+    "allowUnsafeCode": true,
     "overrideReferences": true,
     "precompiledReferences": [
         "Mono.Cecil.dll",
         "Mono.Cecil.Rocks.dll",
         "Mono.Cecil.Pdb.dll"
     ],
+    "autoReferenced": false,
     "defineConstraints": [
         "!NET_DOTS"
     ],
-    "autoReferenced": false,
-    "versionDefines": []
+    "versionDefines": [],
+    "noEngineReferences": false
 }

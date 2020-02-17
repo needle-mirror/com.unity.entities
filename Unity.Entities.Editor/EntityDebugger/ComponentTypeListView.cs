@@ -9,16 +9,18 @@ namespace Unity.Entities.Editor
     internal class ComponentTypeListView : TreeView
     {
         private List<ComponentType> types;
-        private List<bool> typeSelections;
+        private HashSet<ComponentType> typeSelections;
         private List<GUIContent> typeNames;
+        List<ComponentType> previouslySelected;
 
         private CallbackAction callback;
 
-        public ComponentTypeListView(TreeViewState state, List<ComponentType> types, List<bool> typeSelections, CallbackAction callback) : base(state)
+        public ComponentTypeListView(TreeViewState state, List<ComponentType> types, HashSet<ComponentType> typeSelections, List<ComponentType> previouslySelected, CallbackAction callback) : base(state)
         {
             this.callback = callback;
             this.types = types;
             this.typeSelections = typeSelections;
+            this.previouslySelected = previouslySelected;
             typeNames = new List<GUIContent>(types.Count);
             for (var i = 0; i < types.Count; ++i)
                 typeNames.Add(new GUIContent(EntityQueryGUI.SpecifiedTypeName(types[i].GetManagedType())));
@@ -48,7 +50,21 @@ namespace Unity.Entities.Editor
         protected override void RowGUI(RowGUIArgs args)
         {
             EditorGUI.BeginChangeCheck();
-            typeSelections[args.item.id] = EditorGUI.Toggle(args.rowRect, typeSelections[args.item.id]);
+
+            var type = types[args.item.id];
+            var isSelected = typeSelections.Contains(type);
+            var willBeSelected = EditorGUI.Toggle(args.rowRect, isSelected);
+            if (!isSelected && willBeSelected)
+            {
+                typeSelections.Add(type);
+                previouslySelected.Remove(type);
+            }
+            else if (isSelected && !willBeSelected)
+            {
+                typeSelections.Remove(type);
+                previouslySelected.Add(type);
+            }
+
             var style = types[args.item.id].AccessModeType == ComponentType.AccessMode.Exclude
                 ? EntityDebuggerStyles.ComponentExclude
                 : EntityDebuggerStyles.ComponentRequired;

@@ -18,13 +18,8 @@ namespace Unity.Entities.Tests
         public override void Setup()
         {
             base.Setup();
-            
-#if !UNITY_DOTSPLAYER
-            m_World2 = new World("Test World 2");
-#else
-            m_World2 = new World("Test World 2");
-            DefaultTinyWorldInitialization.InitializeSystems(m_World2);
-#endif
+
+            m_World2 = new World("Test World 2");          
             m_Manager2 = m_World2.EntityManager;
             m_ManagerDebug2 = new EntityManager.EntityManagerDebug(m_Manager2);
         }

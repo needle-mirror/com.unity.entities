@@ -20,7 +20,7 @@ namespace Unity.Entities
         {
             fixed (ComponentType* requiredComponentsPtr = requiredComponents)
             {
-                return m_EntityQueryManager.CreateEntityQuery(EntityComponentStore,
+                return m_EntityQueryManager->CreateEntityQuery(EntityComponentStore,
                     ManagedComponentStore, requiredComponentsPtr,
                     requiredComponents.Length);
             }
@@ -33,7 +33,7 @@ namespace Unity.Entities
         /// <returns>The EntityQuery corresponding to the queryDesc.</returns>
         public EntityQuery CreateEntityQuery(params EntityQueryDesc[] queriesDesc)
         {
-            return m_EntityQueryManager.CreateEntityQuery(EntityComponentStore,
+            return m_EntityQueryManager->CreateEntityQuery(EntityComponentStore,
                 ManagedComponentStore, queriesDesc);
         }
 
@@ -94,15 +94,15 @@ namespace Unity.Entities
             if (query._QueryData->EntityQueryMask.IsCreated())
                 return query._QueryData->EntityQueryMask;
 
-            if (m_EntityQueryManager.m_EntityQueryMasksAllocated >= 1024)
+            if (m_EntityQueryManager->m_EntityQueryMasksAllocated >= 1024)
                 throw new Exception("You have reached the limit of 1024 unique EntityQueryMasks, and cannot generate any more.");
 
             var mask = new EntityQueryMask(
-                (byte) (m_EntityQueryManager.m_EntityQueryMasksAllocated / 8),
-                (byte) (1 << (m_EntityQueryManager.m_EntityQueryMasksAllocated % 8)),
+                (byte) (m_EntityQueryManager->m_EntityQueryMasksAllocated / 8),
+                (byte) (1 << (m_EntityQueryManager->m_EntityQueryMasksAllocated % 8)),
                 query._EntityComponentStore);
 
-            m_EntityQueryManager.m_EntityQueryMasksAllocated++;
+            m_EntityQueryManager->m_EntityQueryMasksAllocated++;
 
             for (var i = 0; i < query._QueryData->MatchingArchetypes.Length; ++i)
             {
@@ -120,8 +120,7 @@ namespace Unity.Entities
 
         internal EntityQuery CreateEntityQuery(ComponentType* requiredComponents, int count)
         {
-            return m_EntityQueryManager.CreateEntityQuery(EntityComponentStore,
-                ManagedComponentStore, requiredComponents, count);
+            return m_EntityQueryManager->CreateEntityQuery(EntityComponentStore, ManagedComponentStore, requiredComponents, count);
         }
 
         bool TestMatchingArchetypeAny(Archetype* archetype, ComponentType* anyTypes, int anyCount)

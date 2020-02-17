@@ -891,7 +891,7 @@ namespace Unity.Entities
             {
                 foreach(var ecPair in keys)
                 {
-                    var obj = entityManager.GetManagedComponentDataAsObject(ecPair.Entity, ecPair.Component);
+                    var obj = entityManager.GetComponentObject<object>(ecPair.Entity, ecPair.Component);
                     var patches = managedComponentPatchMap.GetValuesForKey(ecPair);
 
                     PatchEntitiesInObject(obj, patches);

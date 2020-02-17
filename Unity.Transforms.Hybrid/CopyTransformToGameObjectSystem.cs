@@ -39,7 +39,7 @@ namespace Unity.Transforms
             var transforms = m_TransformGroup.GetTransformAccessArray();
             var copyTransformsJob = new CopyTransforms
             {
-                LocalToWorlds = m_TransformGroup.ToComponentDataArray<LocalToWorld>(Allocator.TempJob, out inputDeps),
+                LocalToWorlds = m_TransformGroup.ToComponentDataArrayAsync<LocalToWorld>(Allocator.TempJob, out inputDeps),
             };
 
             return copyTransformsJob.Schedule(transforms, inputDeps);

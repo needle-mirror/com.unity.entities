@@ -172,8 +172,8 @@ namespace Unity.Entities
             var dstEntityQuery = dstEntityManager.CreateEntityQuery(entityQueryDesc);
 
             // Gather a set of a chunks to consider for diffing in both the src and dst worlds.
-            using (var srcChunks = srcEntityQuery.CreateArchetypeChunkArray(Allocator.TempJob, out var srcChunksJob))
-            using (var dstChunks = dstEntityQuery.CreateArchetypeChunkArray(Allocator.TempJob, out var dstChunksJob))
+            using (var srcChunks = srcEntityQuery.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var srcChunksJob))
+            using (var dstChunks = dstEntityQuery.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var dstChunksJob))
             {
                 JobHandle clearMissingReferencesJob = default;
                 

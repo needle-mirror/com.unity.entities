@@ -8,7 +8,10 @@
         "UnityEditor.TestRunner",
         "Unity.Burst",
         "Unity.Entities.CodeGen.Tests",
-        "Unity.Entities.Hybrid.CodeGen"
+        "Unity.Entities.Hybrid.CodeGen",
+        "Unity.Entities.Tests",
+        "Unity.Entities.Hybrid.Tests",
+        "Unity.Entities.Hybrid"
     ],
     "includePlatforms": [
         "Editor"
@@ -27,5 +30,6 @@
         "UNITY_INCLUDE_TESTS",
         "!NET_DOTS"
     ],
-    "versionDefines": []
+    "versionDefines": [],
+    "noEngineReferences": false
 }

@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.IO;
 #if UNITY_EDITOR
 using AssetImportContext = UnityEditor.Experimental.AssetImporters.AssetImportContext;
@@ -15,10 +16,14 @@ namespace Unity.Entities
         public Hash128                  SceneGUID;
         public string                   DebugConversionName = "";
         public ConversionFlags          ConversionFlags;
-        #if UNITY_EDITOR
-        public Build.BuildSettings      BuildSettings;
+#if UNITY_EDITOR
+        public Build.BuildConfiguration BuildConfiguration;
         public AssetImportContext       AssetImportContext;
-        #endif
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [Obsolete("BuildSettings has been renamed to BuildConfiguration. (RemovedAfter 2020-04-15) (UnityUpgradable) -> BuildConfiguration")]
+        public Build.BuildConfiguration BuildSettings;
+#endif
 
         // not carried forward into a fork
         public Type[]                   ExtraSystems = Array.Empty<Type>();
@@ -44,10 +49,10 @@ namespace Unity.Entities
                 ConversionFlags = ConversionFlags,
                 NamespaceID = entityGuidNamespaceID,
                 BlobAssetStore = BlobAssetStore,
-                #if UNITY_EDITOR
-                BuildSettings = BuildSettings,
+#if UNITY_EDITOR
+                BuildConfiguration = BuildConfiguration,
                 AssetImportContext = AssetImportContext,
-                #endif
+#endif
             };
         }
 

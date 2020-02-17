@@ -79,6 +79,42 @@ namespace Unity.Entities.Tests
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
+        class StackedTestSystem1 : TestSystem
+        {
+            public Type FoundTypeBefore;
+            public Type FoundTypeAfter;
+            public TestSystem System2;
+            protected override void OnUpdate()
+            {
+                FoundTypeBefore = ExecutingSystemType;
+                System2.Update();
+                FoundTypeAfter = ExecutingSystemType;
+            }
+        }
+
+        class StackedTestSystem2 : TestSystem
+        {
+            public Type FoundTypeDuring;
+            protected override void OnUpdate()
+            {
+                FoundTypeDuring = ExecutingSystemType;
+            }
+        }
+
+        [Test]
+        public void ComponentSystem_ExecutingSystemType()
+        {
+            var system1 = World.CreateSystem<StackedTestSystem1>();
+            var system2 = World.CreateSystem<StackedTestSystem2>();
+            system1.System2 = system2;
+            system1.Update();
+            Assert.AreEqual(typeof(StackedTestSystem1), system1.FoundTypeBefore);
+            Assert.AreEqual(typeof(StackedTestSystem2), system2.FoundTypeDuring);
+            Assert.AreEqual(typeof(StackedTestSystem1), system1.FoundTypeAfter);
+        }
+#endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void ComponentSystem_CheckExistsAfterDestroy_CorrectMessage()
         {
@@ -137,13 +173,13 @@ namespace Unity.Entities.Tests
         {
             Assert.Throws<ArgumentException>(() => { World.CreateSystem(typeof(Entity)); });
         }
-
+#endif
+        
         [Test]
         public void GetOrCreateNonSystemThrows()
         {
             Assert.Throws<ArgumentException>(() => { World.GetOrCreateSystem(typeof(Entity)); });
         }
-#endif
 
         [Test]
         public void OnCreateThrowRemovesSystem()
@@ -369,7 +405,7 @@ namespace Unity.Entities.Tests
                 hashMap.Dispose();
             }
         }
-        
+
 #if !UNITY_DOTSPLAYER
 
         public class NonPreservedTestSystem : ComponentSystem
@@ -413,12 +449,12 @@ namespace Unity.Entities.Tests
         public void CreateSystemValidParameters()
         {
             Assert.DoesNotThrow(() =>
-            { 
+            {
                 var system = World.CreateSystem<PreservedTestSystem>("test");
-                World.DestroySystem(system); 
+                World.DestroySystem(system);
             });
         }
 #endif
-        
+
     }
 }

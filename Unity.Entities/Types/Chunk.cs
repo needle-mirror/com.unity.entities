@@ -32,25 +32,17 @@ namespace Unity.Entities
         public int Count;
         [FieldOffset(20)]
         public int Capacity;
-
-        // Archetypes can contain non-ECS-type components which are managed objects.
-        // In order to access them without a lot of overhead we conceptually store an Object[] in each chunk which contains the managed components.
-        // The chunk does not really own the array though since we cannot store managed references in unmanaged memory,
-        // so instead the ManagedComponentStore has a list of Object[]s and the chunk just has an int to reference an Object[] by index in that list.
         [FieldOffset(24)]
-        public int ManagedArrayIndex;
-
-        [FieldOffset(28)]
         public int ListIndex;
-        [FieldOffset(32)]
+        [FieldOffset(28)]
         public int ListWithEmptySlotsIndex;
         
         // Special chunk behaviors
-        [FieldOffset(36)]
+        [FieldOffset(32)]
         public uint Flags;
 
         // Incrementing automatically for each chunk
-        [FieldOffset(40)]
+        [FieldOffset(36)]
         public ulong SequenceNumber;
 
         // Chunk header END

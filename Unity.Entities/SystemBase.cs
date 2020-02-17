@@ -1,10 +1,8 @@
-//#define ENABLE_SYSTEM_V2
 using System;
 using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 
-#if ENABLE_SYSTEM_V2
 namespace Unity.Entities
 {
     /// <summary>
@@ -186,4 +184,3 @@ namespace Unity.Entities
         protected abstract void OnUpdate();
     }
 }
-#endif

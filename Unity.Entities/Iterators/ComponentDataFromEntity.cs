@@ -107,6 +107,31 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Reports whether any of IComponentData components of the type T, in the chunk containing the
+        /// specified <see cref="Entity"/>, could have changed.
+        /// </summary>
+        /// <remarks>
+        /// Note that for efficiency, the change version applies to whole chunks not individual entities. The change
+        /// version is incremented even when another job or system that has declared write access to a component does
+        /// not actually change the component value.</remarks>
+        /// <param name="entity">The entity.</param>
+        /// <param name="version">The version to compare. In a system, this parameter should be set to the
+        /// current <see cref="Unity.Entities.ComponentSystemBase.LastSystemVersion"/> at the time the job is run or
+        /// scheduled.</param>
+        /// <returns>True, if the version number stored in the chunk for this component is more recent than the version
+        /// passed to the <paramref name="version"/> parameter.</returns>
+        public bool DidChange(Entity entity, uint version)
+        {
+            var chunk = m_EntityComponentStore->GetChunk(entity);
+
+            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, m_TypeIndex);
+            if (typeIndexInArchetype == -1) return false;
+            var chunkVersion = chunk->GetChangeVersion(typeIndexInArchetype);
+
+            return ChangeVersionUtility.DidChange(chunkVersion, version);
+        }
+
+        /// <summary>
         /// Gets the <see cref="IComponentData"/> instance of type T for the specified entity.
         /// </summary>
         /// <param name="entity">The entity.</param>

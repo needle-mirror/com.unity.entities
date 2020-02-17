@@ -121,6 +121,10 @@ namespace Unity.Entities.Tests
         [Test]
         public void Run3SimpleJobsInSerial()
         {
+#if UNITY_SINGLETHREADED_JOBS && UNITY_DOTSPLAYER
+            // Note the safety handles use Persistent, so only track TempJob
+            long heapMem = UnsafeUtility.GetHeapSize(Allocator.TempJob);
+#endif
             NativeArray<int> input = new NativeArray<int>(SimpleAddSerial.N, Allocator.TempJob);
             NativeArray<int> jobResult1 = new NativeArray<int>(SimpleAddSerial.N, Allocator.TempJob);
             NativeArray<int> jobResult2 = new NativeArray<int>(SimpleAddSerial.N, Allocator.TempJob);
@@ -155,6 +159,11 @@ namespace Unity.Entities.Tests
             }
 
             jobResult3.Dispose();
+
+#if UNITY_SINGLETHREADED_JOBS && UNITY_DOTSPLAYER
+            long postWork = UnsafeUtility.GetHeapSize(Allocator.TempJob);
+            Assert.IsTrue(heapMem == postWork);    // make sure cleanup happened, including DeallocateOnJobCompletion
+#endif
         }
 
         public struct SimpleAddParallel : IJob

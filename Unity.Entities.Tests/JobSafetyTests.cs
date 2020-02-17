@@ -117,10 +117,14 @@ namespace Unity.Entities.Tests
             var job = new TestIncrementJob();
             job.entities = group.ToEntityArray(Allocator.TempJob);
             job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
-            job.Schedule();
+            var jobHandle = job.Schedule();
 
+            // This call should detect the unregistered running job & emit the expected error message
             TearDown();
             
+            // Manually complete the job before cleaning up for real
+            jobHandle.Complete();
+            TearDown();
             job.entities.Dispose();
         }
 

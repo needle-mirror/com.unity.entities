@@ -38,6 +38,27 @@ To add a buffer to an entity, add the IBufferElementData struct that defines the
 
 [!code-cs[declare](../package/DocCodeSamples.Tests/DynamicBufferExamples.cs#add-with-archetype)]
 
+### Using the `[GenerateAuthoringComponent]` attribute
+
+You can use `[GenerateAuthoringComponent]`to generate authoring components for simple IBufferElementData implementations that contain only one field. Setting this attribute allows you add an ECS IBufferElementData component to a GameObject so that you can set the buffer elements in the Editor.  
+
+For example, if you declare the following type, you can add it directly to a GameObject in the Editor:
+
+```
+[GenerateAuthoringComponent]
+public struct IntBufferElement: IBufferElementData
+{
+    public int Value;
+}
+```
+
+In the background, Unity generates a class named `IntBufferElementAuthoring` (which inherits from `MonoBehaviour`), which exposes a public field of `List<int>` type. When the GameObject containing this generated authoring component is converted into an entity, the list is converted into `DynamicBuffer<IntBufferElement>`, and then added to the converted entity.
+
+Note the following restrictions:
+- Only one component in a single C# file can have a generated authoring component, and the C# file must not have another MonoBehaviour in it.
+- `IBufferElementData` authoring components cannot be automatically generated for types that contain more than one field.
+- `IBufferElementData` authoring components cannot be automatically generated for types that have an explicit layout.
+
 ### Using an [EntityCommandBuffer](xref:Unity.Entities.EntityCommandBuffer)
 
 You can add or set a buffer component when adding commands to an entity command buffer. Use [AddBuffer](xref:Unity.Entities.EntityCommandBuffer.AddBuffer``1(Unity.Entities.Entity)) to create a new buffer for the entity, changing the entity's archetype. Use [SetBuffer](xref:Unity.Entities.EntityCommandBuffer.SetBuffer``1(Unity.Entities.Entity)) to wipe out the existing buffer (which must exist) and create a new, empty buffer in its place. Both functions return a [DynamicBuffer](xref:Unity.Entities.DynamicBuffer`1) instance that you can use to populate the new buffer. You can add elements to the buffer immediately, but they are not otherwise accessible until the buffer is actually added to the entity when the command buffer is executed.
@@ -110,4 +131,7 @@ others.
 
 Note that the reinterpret function only enforces that the types involved have the same length; you could alias a `uint` and `float` buffer without raising an error since both types are 32-bits long. It is your responsibility to make sure that the reinterpretation makes sense logically.
 
+## Buffer Reference Invalidation
+Every [structural change](sync_points.md#structural-changes) invalidates all references to dynamic buffers. Structural changes generally cause entities to move from one chunk to another. Small dynamic buffers can reference memory within a chunk (as opposed to from main memory) and hence need to be reacquired after a structural change.
 
+[!code-cs[declare](../package/DocCodeSamples.Tests/DynamicBufferExamples.cs#invalidation)]

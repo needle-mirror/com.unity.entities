@@ -1073,6 +1073,87 @@ namespace Unity.Entities.Tests
 
         [Test]
         [StandaloneFixme] // DOTS Runtime Managed Component Serialization
+        public void SerializeEntities_HandlesNullManagedComponents()
+        {
+            var e = m_Manager.CreateEntity(typeof(ManagedComponent));
+            // disposed via reader
+            var writer = new TestBinaryWriter();
+            SerializeUtility.SerializeWorld(m_Manager, writer);
+            using (var reader = new TestBinaryReader(writer))
+            {
+                var deserializedWorld = new World("SerializeEntities_HandlesNullManagedComponents Test World");
+                var entityManager = deserializedWorld.EntityManager;
+
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader);
+                entityManager.EndExclusiveEntityTransaction();
+
+                Assert.IsNull(entityManager.CreateEntityQuery(typeof(ManagedComponent)).GetSingleton<ManagedComponent>());
+            }
+        }
+
+        
+        [Test]
+        [StandaloneFixme] // DOTS Runtime Managed Component Serialization
+        public void SerializeEntities_RemapsEntitiesInManagedComponents()
+        {
+            int numberOfEntitiesPerManager = 10000;
+
+            var targetArchetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var targetEntities = new NativeArray<Entity>(numberOfEntitiesPerManager, Allocator.Temp);
+            m_Manager.CreateEntity(targetArchetype, targetEntities);
+            for (int i = 0; i != targetEntities.Length; i++)
+                m_Manager.SetComponentData(targetEntities[i], new EcsTestData(i));
+            
+            var sourceArchetype = m_Manager.CreateArchetype(typeof(EcsTestManagedDataEntity));
+            var sourceEntities = new NativeArray<Entity>(numberOfEntitiesPerManager, Allocator.Temp);
+            m_Manager.CreateEntity(sourceArchetype, sourceEntities);
+            for (int i = 0; i != sourceEntities.Length; i++)
+            {
+                int index = i & ~1;
+                m_Manager.SetComponentData(sourceEntities[i],  new EcsTestManagedDataEntity("foo", targetEntities[index], index));
+            }
+
+            // Destroy ever 2nd target entity to ensure something changes when entity ids are compacted during serialization
+            for (int i = 0; i != targetEntities.Length/2; i++)
+                m_Manager.DestroyEntity(targetEntities[i*2+1]);
+
+            var deserializedWorld = new World("SerializeEntities_HandlesNullManagedComponents Test World");
+
+            var writer = new TestBinaryWriter();
+            SerializeUtility.SerializeWorld(m_Manager, writer);
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(deserializedWorld.EntityManager.BeginExclusiveEntityTransaction(), reader);
+                deserializedWorld.EntityManager.EndExclusiveEntityTransaction();
+            }
+
+            var entityManager = deserializedWorld.EntityManager;
+            
+            m_Manager.Debug.CheckInternalConsistency();
+            entityManager.Debug.CheckInternalConsistency();
+
+
+            var group = entityManager.CreateEntityQuery(typeof(EcsTestData));
+            Assert.AreEqual(numberOfEntitiesPerManager/2, group.CalculateEntityCount());
+
+            var managedGroup = entityManager.CreateEntityQuery(typeof(EcsTestManagedDataEntity));
+            Assert.AreEqual(numberOfEntitiesPerManager, managedGroup.CalculateEntityCount());
+
+            
+            var managedTestDataArray = managedGroup.ToComponentDataArray<EcsTestManagedDataEntity>();
+            for (int i = 0; i != managedTestDataArray.Length; i++)
+            {
+                Assert.AreEqual(managedTestDataArray[i].value2, m_Manager.GetComponentData<EcsTestData>(managedTestDataArray[i].value1).value);
+            }
+
+            targetEntities.Dispose();
+            sourceEntities.Dispose();
+            deserializedWorld.Dispose();        
+        }
+        
+
+        [Test]
+        [StandaloneFixme] // DOTS Runtime Managed Component Serialization
         public void SerializeEntities_ManagedComponents()
         {
             int expectedEntityCount = 1000;

@@ -257,7 +257,7 @@ namespace Unity.Transforms
             if (m_ExistingParentsGroup.IsEmptyIgnoreFilter)
                 return;
 
-            var count = m_ExistingParentsGroup.CalculateEntityCount();
+            var count = m_ExistingParentsGroup.CalculateEntityCount() * 2; // Potentially 2x changed: current and previous 
             if (count == 0)
                 return;
 

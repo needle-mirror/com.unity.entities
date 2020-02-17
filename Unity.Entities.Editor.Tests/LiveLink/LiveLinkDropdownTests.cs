@@ -3,10 +3,9 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using NUnit.Framework;
-using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Unity.Entities.Editor.Tests.LiveLink
+namespace Unity.Entities.Editor.Tests
 {
     [TestFixture]
     class LiveLinkDropdownTests
@@ -16,33 +15,33 @@ namespace Unity.Entities.Editor.Tests.LiveLink
         {
             var nameChanges = new List<LiveLinkConnectionsDropdown.LiveLinkConnection>();
             var statusChanges = new List<(LiveLinkConnectionsDropdown.LiveLinkConnection, LiveLinkConnectionsDropdown.LiveLinkConnectionStatus)>();
-            var buildSettingsChanges = new List<LiveLinkConnectionsDropdown.LiveLinkConnection>();
+            var buildConfigurationChanges = new List<LiveLinkConnectionsDropdown.LiveLinkConnection>();
             var c = new LiveLinkConnectionsDropdown.LiveLinkConnection(1, "name", LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected, new Hash128(Guid.NewGuid().ToString("N")));
             c.NameChanged += sender => nameChanges.Add(sender);
             c.StatusChanged += (sender, previousStatus) => statusChanges.Add((sender, previousStatus));
-            c.BuildSettingsGuidChanged += sender => buildSettingsChanges.Add(sender);
+            c.BuildConfigurationGuidChanged += sender => buildConfigurationChanges.Add(sender);
 
             c.Name = "another name";
             Assert.That(nameChanges, Is.EquivalentTo(new[] { c }));
             Assert.That(c.Name, Is.EqualTo("another name"));
             Assert.That(statusChanges, Is.Empty);
-            Assert.That(buildSettingsChanges, Is.Empty);
+            Assert.That(buildConfigurationChanges, Is.Empty);
             nameChanges.Clear();
 
             c.Status = LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Disabled;
             Assert.That(statusChanges, Is.EquivalentTo(new[] { (c, LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected) }));
             Assert.That(c.Status, Is.EqualTo(LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Disabled));
             Assert.That(nameChanges, Is.Empty);
-            Assert.That(buildSettingsChanges, Is.Empty);
+            Assert.That(buildConfigurationChanges, Is.Empty);
             statusChanges.Clear();
 
-            var otherBuildSettingsGuid = new Hash128(Guid.NewGuid().ToString("N"));
-            c.BuildSettingsGuid = otherBuildSettingsGuid;
-            Assert.That(buildSettingsChanges, Is.EquivalentTo(new[] { c }));
-            Assert.That(c.BuildSettingsGuid, Is.EqualTo(otherBuildSettingsGuid));
+            var otherBuildConfigurationGuid = new Hash128(Guid.NewGuid().ToString("N"));
+            c.BuildConfigurationGuid = otherBuildConfigurationGuid;
+            Assert.That(buildConfigurationChanges, Is.EquivalentTo(new[] { c }));
+            Assert.That(c.BuildConfigurationGuid, Is.EqualTo(otherBuildConfigurationGuid));
             Assert.That(statusChanges, Is.Empty);
             Assert.That(nameChanges, Is.Empty);
-            buildSettingsChanges.Clear();
+            buildConfigurationChanges.Clear();
         }
 
         [Test]
@@ -51,23 +50,23 @@ namespace Unity.Entities.Editor.Tests.LiveLink
             var c = new LiveLinkConnectionsDropdown.LiveLinkConnection(1, "name", LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected, new Hash128(Guid.NewGuid().ToString("N")));
             c.NameChanged += delegate { Assert.Fail($"{nameof(c.NameChanged)} event shouldn't be fired"); };
             c.StatusChanged += delegate { Assert.Fail($"{nameof(c.StatusChanged)} event shouldn't be fired"); };
-            c.BuildSettingsGuidChanged += delegate { Assert.Fail($"{nameof(c.BuildSettingsGuidChanged)} event shouldn't be fired"); };
+            c.BuildConfigurationGuidChanged += delegate { Assert.Fail($"{nameof(c.BuildConfigurationGuidChanged)} event shouldn't be fired"); };
 
             c.Name = c.Name;
             c.Status = c.Status;
-            c.BuildSettingsGuid = c.BuildSettingsGuid;
+            c.BuildConfigurationGuid = c.BuildConfigurationGuid;
         }
 
         [Test]
         public void LiveLinkConnectionsView_GenerateValidUI()
         {
-            var settingGuid1 = new Hash128(Guid.NewGuid().ToString("N"));
-            var settingGuid2 = new Hash128(Guid.NewGuid().ToString("N"));
+            var configurationGuid1 = new Hash128(Guid.NewGuid().ToString("N"));
+            var configurationGuid2 = new Hash128(Guid.NewGuid().ToString("N"));
             var connections = new ObservableCollection<LiveLinkConnectionsDropdown.LiveLinkConnection>
             {
-                new LiveLinkConnectionsDropdown.LiveLinkConnection(1, "player 1", LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected, settingGuid1),
-                new LiveLinkConnectionsDropdown.LiveLinkConnection(2, "player 2", LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected, settingGuid1),
-                new LiveLinkConnectionsDropdown.LiveLinkConnection(3, "player 3", LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected, settingGuid2),
+                new LiveLinkConnectionsDropdown.LiveLinkConnection(1, "player 1", LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected, configurationGuid1),
+                new LiveLinkConnectionsDropdown.LiveLinkConnection(2, "player 2", LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected, configurationGuid1),
+                new LiveLinkConnectionsDropdown.LiveLinkConnection(3, "player 3", LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected, configurationGuid2),
             };
 
             var view = new LiveLinkConnectionsDropdown.LiveLinkConnectionsView(connections, hash128 => hash128.ToString());
@@ -75,24 +74,24 @@ namespace Unity.Entities.Editor.Tests.LiveLink
             view.BuildFullUI(root);
 
             // Ensure groups are visible and empty message hidden
-            var groupsContainer = GetItem<VisualElement>(root, "live-link-connections-dropdown__Groups");
+            var groupsContainer = root.GetItem("live-link-connections-dropdown__Groups");
             Assert.That(groupsContainer.style.display.value, Is.EqualTo(DisplayStyle.Flex));
-            Assert.That(GetItem<VisualElement>(root, "live-link-connections-dropdown__EmptyMessage").style.display.value, Is.EqualTo(DisplayStyle.None));
+            Assert.That(root.GetItem("live-link-connections-dropdown__EmptyMessage").style.display.value, Is.EqualTo(DisplayStyle.None));
 
             // Ensure there are 2 groups and they have the correct names
-            var groups = GetItems<VisualElement>(groupsContainer, className: "live-link-connections-dropdown__groups__item");
+            var groups = groupsContainer.GetItems(className: "live-link-connections-dropdown__groups__item");
             Assert.That(groups.Count, Is.EqualTo(2));
             var groupsNames = groupsContainer.Query<VisualElement>(className: "live-link-connections-dropdown__groups__item__title").Children<Label>().ToList().Select(l => l.text).ToArray();
-            Assert.That(groupsNames, Is.EquivalentTo(new[] { settingGuid1.ToString(), settingGuid2.ToString() }));
+            Assert.That(groupsNames, Is.EquivalentTo(new[] { configurationGuid1.ToString(), configurationGuid2.ToString() }));
 
             // Ensure each group contains the correct player connections
             foreach (var g in groups)
             {
                 var names = g.Query<VisualElement>(className: "live-link-connections-dropdown__groups__item__device").Children<Label>().ToList().Select(l => l.text).ToArray();
                 var groupName = g.Q<Label>().text;
-                if (groupName == settingGuid1.ToString())
+                if (groupName == configurationGuid1.ToString())
                     Assert.That(names, Is.EquivalentTo(new[] { connections[0].Name, connections[1].Name }));
-                else if (groupName == settingGuid2.ToString())
+                else if (groupName == configurationGuid2.ToString())
                     Assert.That(names, Is.EquivalentTo(new[] { connections[2].Name }));
                 else
                     Assert.Fail("Unexpected group name");
@@ -152,16 +151,16 @@ namespace Unity.Entities.Editor.Tests.LiveLink
         }
 
         [Test]
-        public void LiveLinkConnectionsView_UpdateGroupingWhenBuildSettingsGuidChange()
+        public void LiveLinkConnectionsView_UpdateGroupingWhenBuildConfigurationGuidChange()
         {
-            var settingGuid1 = new Hash128(Guid.NewGuid().ToString("N"));
-            var settingGuid2 = new Hash128(Guid.NewGuid().ToString("N"));
-            var settingGuid3 = new Hash128(Guid.NewGuid().ToString("N"));
+            var configurationGuid1 = new Hash128(Guid.NewGuid().ToString("N"));
+            var configurationGuid2 = new Hash128(Guid.NewGuid().ToString("N"));
+            var configurationGuid3 = new Hash128(Guid.NewGuid().ToString("N"));
             var connections = new ObservableCollection<LiveLinkConnectionsDropdown.LiveLinkConnection>
             {
-                new LiveLinkConnectionsDropdown.LiveLinkConnection(1, "player 1", LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected, settingGuid1),
-                new LiveLinkConnectionsDropdown.LiveLinkConnection(2, "player 2", LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected, settingGuid1),
-                new LiveLinkConnectionsDropdown.LiveLinkConnection(3, "player 3", LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected, settingGuid2),
+                new LiveLinkConnectionsDropdown.LiveLinkConnection(1, "player 1", LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected, configurationGuid1),
+                new LiveLinkConnectionsDropdown.LiveLinkConnection(2, "player 2", LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected, configurationGuid1),
+                new LiveLinkConnectionsDropdown.LiveLinkConnection(3, "player 3", LiveLinkConnectionsDropdown.LiveLinkConnectionStatus.Connected, configurationGuid2),
             };
 
             var view = new LiveLinkConnectionsDropdown.LiveLinkConnectionsView(connections, hash128 => hash128.ToString());
@@ -173,25 +172,25 @@ namespace Unity.Entities.Editor.Tests.LiveLink
             {
                 var playerNames = g.Query<VisualElement>(className: "live-link-connections-dropdown__groups__item__device").Children<Label>().ToList().Select(l => l.text).ToArray();
                 var name = g.Q<Label>().text;
-                if (name == settingGuid1.ToString())
+                if (name == configurationGuid1.ToString())
                     Assert.That(playerNames, Is.EqualTo(new[] { connections[0].Name, connections[1].Name }));
-                else if(name == settingGuid2.ToString())
+                else if(name == configurationGuid2.ToString())
                     Assert.That(playerNames, Is.EqualTo(new[] { connections[2].Name }));
                 else
                     Assert.Fail("Unexpected group name");
             }
 
-            connections[0].BuildSettingsGuid = settingGuid3;
-            connections[1].BuildSettingsGuid = settingGuid2;
+            connections[0].BuildConfigurationGuid = configurationGuid3;
+            connections[1].BuildConfigurationGuid = configurationGuid2;
 
             groups = root.Query<VisualElement>(className: "live-link-connections-dropdown__groups__item").ToList();
             foreach (var g in groups)
             {
                 var playerNames = g.Query<VisualElement>(className: "live-link-connections-dropdown__groups__item__device").Children<Label>().ToList().Select(l => l.text).ToArray();
                 var name = g.Q<Label>().text;
-                if (name == settingGuid3.ToString())
+                if (name == configurationGuid3.ToString())
                     Assert.That(playerNames, Is.EqualTo(new[] { connections[0].Name }));
-                else if(name == settingGuid2.ToString())
+                else if(name == configurationGuid2.ToString())
                     Assert.That(playerNames, Is.EqualTo(new[] { connections[1].Name, connections[2].Name }));
                 else
                     Assert.Fail("Unexpected group name");
@@ -206,22 +205,8 @@ namespace Unity.Entities.Editor.Tests.LiveLink
             var root = new VisualElement();
             view.BuildFullUI(root);
 
-            Assert.That(GetItem<VisualElement>(root, "live-link-connections-dropdown__Groups").style.display.value, Is.EqualTo(DisplayStyle.None));
-            Assert.That(GetItem<VisualElement>(root, "live-link-connections-dropdown__EmptyMessage").style.display.value, Is.EqualTo(DisplayStyle.Flex));
-        }
-
-        static T GetItem<T>(VisualElement v, string name = null, string className = null) where T : VisualElement
-        {
-            var el = v.Q<T>(name: name, className: className);
-            Assert.That(el, Is.Not.Null);
-            return el;
-        }
-
-        static List<T> GetItems<T>(VisualElement v, string name = null, string className = null) where T : VisualElement
-        {
-            var el = v.Query<T>(name: name, className: className).ToList();
-            Assert.That(el, Is.Not.Empty);
-            return el;
+            Assert.That(root.GetItem("live-link-connections-dropdown__Groups").style.display.value, Is.EqualTo(DisplayStyle.None));
+            Assert.That(root.GetItem("live-link-connections-dropdown__EmptyMessage").style.display.value, Is.EqualTo(DisplayStyle.Flex));
         }
     }
 }

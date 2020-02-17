@@ -658,7 +658,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob
+        [StandaloneFixme] // IJob. Turned on, and seems to work locally, failed in CI.
         public void ReadOnlyDynamicBufferReadOnly()
         {
             ReadOnlyDynamicBufferImpl(true);

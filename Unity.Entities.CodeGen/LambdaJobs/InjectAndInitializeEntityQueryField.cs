@@ -145,18 +145,21 @@ namespace Unity.Entities.CodeGen
                 
                 foreach (var m in invokedConstructionMethods)
                 {
-                    foreach (var t in m.TypeArguments.Select(t=>t.Resolve()))
+                    foreach (var argumentType in m.TypeArguments)
                     {
-                        if (!LambdaParamaterValueProviderInformation.IsTypeValidForEntityQuery(t))
-                            UserError.DC0025($"Type {t.Name} cannot be used with {m.MethodName} as it is not a supported component type", descriptionConstruction.ContainingMethod, m.InstructionInvokingMethod).Throw();
+                        if (argumentType.IsGenericParameter || argumentType.IsGenericInstance)
+                            UserError.DC0025($"Type {argumentType.Name} cannot be used with {m.MethodName} as generic types and parameters are not allowed", descriptionConstruction.ContainingMethod, m.InstructionInvokingMethod).Throw();
+                        var argumentTypeDefinition = argumentType.Resolve();
+                        if (!LambdaParamaterValueProviderInformation.IsTypeValidForEntityQuery(argumentTypeDefinition))
+                            UserError.DC0025($"Type {argumentType.Name} cannot be used with {m.MethodName} as it is not a supported component type", descriptionConstruction.ContainingMethod, m.InstructionInvokingMethod).Throw();
                         
-                        result.Add(moduleDefinition.ImportReference(t));
+                        result.Add(moduleDefinition.ImportReference(argumentType));
                     }
                 }
 
                 return result;
             }
-
+            
             var withNoneTypes = AllTypeArgumentsOfMethod(nameof(LambdaJobQueryConstructionMethods.WithNone));
             var withAllTypes = AllTypeArgumentsOfMethod(nameof(LambdaJobQueryConstructionMethods.WithAll));
             var withSharedComponentFilterTypes = AllTypeArgumentsOfMethod(nameof(LambdaJobQueryConstructionMethods.WithSharedComponentFilter));
@@ -173,6 +176,17 @@ namespace Unity.Entities.CodeGen
             var arrayOfSingleEQDVariable = new VariableDefinition(moduleDefinition.ImportReference(typeof(EntityQueryDesc[])));
             var localVarOfEQD = new VariableDefinition(moduleDefinition.ImportReference(typeof(EntityQueryDesc)));
             var localVarOfResult = new VariableDefinition(moduleDefinition.ImportReference(typeof(EntityQuery)));
+
+            foreach (var closureParameter in closureParameters)
+            {
+                var parameterElementType = closureParameter.ParameterType.GetElementType();
+                if (parameterElementType.IsGenericInstance || parameterElementType.IsGenericParameter || 
+                    (parameterElementType.HasGenericParameters && !parameterElementType.IsDynamicBufferOfT()))
+                {
+                    UserError.DC0025($"Type {closureParameter.ParameterType.Name} cannot be used as an Entities.ForEach parameter as generic types and generic parameters are not supported in Entities.ForEach",
+                        descriptionConstruction.ContainingMethod, descriptionConstruction.InvokedConstructionMethods.First().InstructionInvokingMethod).Throw();
+                }
+            }
 
             body.Variables.Add(arrayOfSingleEQDVariable);
             body.Variables.Add(localVarOfEQD);

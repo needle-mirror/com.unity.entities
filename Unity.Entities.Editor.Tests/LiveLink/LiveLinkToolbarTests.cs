@@ -1,6 +1,6 @@
 using NUnit.Framework;
 
-namespace Unity.Entities.Editor.Tests.LiveLink
+namespace Unity.Entities.Editor.Tests
 {
     [TestFixture]
     class LiveLinkToolbarTests

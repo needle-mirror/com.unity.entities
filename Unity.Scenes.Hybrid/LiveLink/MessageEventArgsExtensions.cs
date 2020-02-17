@@ -21,12 +21,12 @@ namespace Unity.Scenes
             return bytes;
         }
         
-        unsafe static NativeArray<T> DeserializeUnmanagedArray<T>(byte[] buffer) where T : unmanaged
+        unsafe static NativeArray<T> DeserializeUnmanagedArray<T>(byte[] buffer, Allocator allocator = Allocator.Temp) where T : unmanaged
         {
             fixed (byte* ptr = buffer)
             {
                 var buf = new UnsafeAppendBuffer.Reader(ptr, buffer.Length);
-                buf.ReadNext<T>(out var array, Allocator.Temp);
+                buf.ReadNext<T>(out var array, allocator);
                 return array;
             }
         }
@@ -56,9 +56,9 @@ namespace Unity.Scenes
             return DeserializeUnmanaged<T>(args.data);
         }
         
-        static public NativeArray<T> ReceiveArray<T>(this MessageEventArgs args) where T : unmanaged
+        static public NativeArray<T> ReceiveArray<T>(this MessageEventArgs args, Allocator allocator = Allocator.Temp) where T : unmanaged
         {
-            return DeserializeUnmanagedArray<T>(args.data);
+            return DeserializeUnmanagedArray<T>(args.data, allocator);
         }
         
         static public void Send<T>(this PlayerConnection connection, Guid msgGuid, T data) where T : unmanaged

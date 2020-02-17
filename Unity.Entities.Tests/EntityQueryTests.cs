@@ -921,5 +921,34 @@ namespace Unity.Entities.Tests
             query.Dispose();
             Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(query, typeof(EcsTestData2)));
         }
+        
+        [Test]
+        public void ArchetypesCreatedInExclusiveEntityTransaction()
+        {
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            var transaction = m_Manager.BeginExclusiveEntityTransaction();
+            transaction.CreateEntity(typeof(EcsTestData));
+            m_Manager.EndExclusiveEntityTransaction();
+            
+            Assert.AreEqual(1, query.CalculateEntityCount());
+        }
+
+        [Test]
+        public unsafe void QueryDescAndEntityQueryHaveEqualAccessPermissions()
+        {
+            var queryA = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>());
+            var queryB = m_Manager.CreateEntityQuery(new EntityQueryDesc
+            {
+                All = new[]{ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>()}
+            });
+
+            var queryDataA = queryA._QueryData;
+            var queryDataB = queryB._QueryData;
+            Assert.AreEqual(queryDataA->RequiredComponentsCount, queryDataB->RequiredComponentsCount);
+            Assert.IsTrue(UnsafeUtility.MemCmp(queryDataA->RequiredComponents, queryDataB->RequiredComponents, sizeof(ComponentType) * queryDataA->RequiredComponentsCount) == 0);
+            
+            queryA.Dispose();
+            queryB.Dispose();
+        }
     }
 }

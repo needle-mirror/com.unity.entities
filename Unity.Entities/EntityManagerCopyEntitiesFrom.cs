@@ -27,8 +27,8 @@ namespace Unity.Entities
             srcEntityManager.CompleteAllJobs();
             CompleteAllJobs();
 
-            using (var srcChunks = srcEntityManager.m_UniversalQueryWithChunks.CreateArchetypeChunkArray(Allocator.TempJob, out var srcChunksJob))
-            using (var dstChunks = m_UniversalQueryWithChunks.CreateArchetypeChunkArray(Allocator.TempJob, out var dstChunksJob))
+            using (var srcChunks = srcEntityManager.m_UniversalQueryWithChunks.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var srcChunksJob))
+            using (var dstChunks = m_UniversalQueryWithChunks.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var dstChunksJob))
             {
                 using (var archetypeChunkChanges = EntityDiffer.GetArchetypeChunkChanges(
                     srcChunks, 

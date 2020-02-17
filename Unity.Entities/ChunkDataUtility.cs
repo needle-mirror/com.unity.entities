@@ -225,7 +225,89 @@ namespace Unity.Entities
             }
         }
 
-        public static void ReplicateComponents(Chunk* srcChunk, int srcIndex, Chunk* dstChunk, int dstBaseIndex, int count)
+        public static void ReplicateManagedComponents(Chunk* srcChunk, int srcIndex, Chunk* dstChunk, int dstBaseIndex, int count, ref EntityComponentStore entityComponentStore)
+        {
+            var dstArchetype = dstChunk->Archetype;
+            var srcArchetype = srcChunk->Archetype;
+            var srcTypes= srcArchetype->Types;
+            var dstTypes= dstArchetype->Types;
+            var srcOffsets          = srcArchetype->Offsets;
+            var dstOffsets          = dstArchetype->Offsets;
+            int componentCount = dstArchetype->NumManagedComponents;            
+
+            int nonNullManagedComponents = 0;
+            int nonNullHybridComponents = 0;
+            var componentIndices = stackalloc int[componentCount];
+            var componentDstArrayStart = stackalloc IntPtr[componentCount];
+
+            var firstDstManagedComponent = dstArchetype->FirstManagedComponent;
+            var dstTypeIndex = firstDstManagedComponent; 
+            var managedComponentsEnd = srcArchetype->ManagedComponentsEnd;
+            var srcBaseAddr = srcChunk->Buffer + sizeof(int) * srcIndex;
+            var dstBaseAddr = dstChunk->Buffer + sizeof(int) * dstBaseIndex;
+
+            bool hasHybridComponents = dstArchetype->HasHybridComponents;
+
+            for (var srcTypeIndex = srcArchetype->FirstManagedComponent; srcTypeIndex != managedComponentsEnd; srcTypeIndex++)
+            {
+                var srcType = srcTypes[srcTypeIndex];
+                var dstType = dstTypes[dstTypeIndex];
+                // Type does not exist in destination. Skip it.
+                if (srcType.TypeIndex != dstType.TypeIndex)
+                    continue;
+                int srcManagedComponentIndex = *(int*)(srcBaseAddr + srcOffsets[srcTypeIndex]);
+                var dstArrayStart = dstBaseAddr + dstOffsets[dstTypeIndex];
+                
+                if (srcManagedComponentIndex == 0)
+                {
+                    UnsafeUtility.MemClear(dstArrayStart, sizeof(int)*count);
+                }
+                else
+                {
+                    if (hasHybridComponents && TypeManager.GetTypeInfo(srcType.TypeIndex).Category == TypeManager.TypeCategory.Class)
+                    { 
+                        //Hybrid component, put at end of array
+                        var index = componentCount - nonNullHybridComponents - 1;
+                        componentIndices[index] = srcManagedComponentIndex;
+                        componentDstArrayStart[index] = (IntPtr)dstArrayStart;
+                        ++nonNullHybridComponents;
+                    }
+                    else
+                    {
+                        componentIndices[nonNullManagedComponents] = srcManagedComponentIndex;
+                        componentDstArrayStart[nonNullManagedComponents] = (IntPtr)dstArrayStart;
+                        ++nonNullManagedComponents;
+                    }
+                }
+
+                dstTypeIndex++;
+            }
+
+            entityComponentStore.ReserveManagedComponentIndices(count * (nonNullManagedComponents + nonNullHybridComponents));
+            entityComponentStore.ManagedChangesTracker.CloneManagedComponentBegin(componentIndices, nonNullManagedComponents, count);
+            for (int c=0; c<nonNullManagedComponents; ++c)
+            {
+                var dst = (int*)(componentDstArrayStart[c]);
+                entityComponentStore.AllocateManagedComponentIndices(dst, count);
+                entityComponentStore.ManagedChangesTracker.CloneManagedComponentAddDstIndices(dst, count);
+            }            
+                
+            if(hasHybridComponents)
+            {
+                var dstEntities = (Entity*) dstChunk->Buffer + dstBaseIndex;
+                entityComponentStore.ManagedChangesTracker.CloneHybridComponentBegin(
+                    componentIndices + componentCount - nonNullHybridComponents, nonNullHybridComponents, dstEntities, count);
+                for (int c = componentCount - nonNullHybridComponents; c < componentCount; ++c)
+                {
+                    var dst = (int*) (componentDstArrayStart[c]);
+                    entityComponentStore.AllocateManagedComponentIndices(dst, count);
+                    entityComponentStore.ManagedChangesTracker.CloneHybridComponentAddDstIndices(dst, count);
+                }
+            }        
+        }
+        
+
+        public static void ReplicateComponents(Chunk* srcChunk, int srcIndex, Chunk* dstChunk, int dstBaseIndex, int count, ref EntityComponentStore entityComponentStore)
         {
             var srcArchetype        = srcChunk->Archetype;
             var srcBuffer           = srcChunk->Buffer;
@@ -234,162 +316,160 @@ namespace Unity.Entities
             var srcOffsets          = srcArchetype->Offsets;
             var srcSizeOfs          = srcArchetype->SizeOfs;
             var srcBufferCapacities = srcArchetype->BufferCapacities;
-            var srcTypesCount       = srcArchetype->TypesCount;
             var srcTypes            = srcArchetype->Types;
             var dstTypes            = dstArchetype->Types;
             var dstOffsets          = dstArchetype->Offsets;
             var dstTypeIndex        = 1;
-            // type[0] is always Entity, and will be patched up later, so just skip
-            for (var srcTypeIndex = 1; srcTypeIndex != srcTypesCount; srcTypeIndex++)
-            {
-                var srcType   = srcTypes[srcTypeIndex];
-                var dstType   = dstTypes[dstTypeIndex];
 
+            var nativeComponentsEnd = srcArchetype->NativeComponentsEnd;
+            for (var srcTypeIndex = 1; srcTypeIndex != nativeComponentsEnd; srcTypeIndex++)
+            {
+                var srcType = srcTypes[srcTypeIndex];
+                var dstType = dstTypes[dstTypeIndex];
                 // Type does not exist in destination. Skip it.
                 if (srcType.TypeIndex != dstType.TypeIndex)
                     continue;
-
-                var srcOffset = srcOffsets[srcTypeIndex];
                 var srcSizeOf = srcSizeOfs[srcTypeIndex];
+                var src = srcBuffer + (srcOffsets[srcTypeIndex] + srcSizeOf * srcIndex);
+                var dst = dstBuffer + (dstOffsets[dstTypeIndex] + srcSizeOf * dstBaseIndex);
 
-                var dstOffset = dstOffsets[dstTypeIndex];
-
-                var src = srcBuffer + (srcOffset + srcSizeOf * srcIndex);
-                var dst = dstBuffer + (dstOffset + srcSizeOf * dstBaseIndex);
-
-                if (!srcType.IsBuffer)
-                {
-                    UnsafeUtility.MemCpyReplicate(dst, src, srcSizeOf, count);
-                }
-                else
-                {
-                    var srcBufferCapacity = srcBufferCapacities[srcTypeIndex];
-                    var alignment = 8; // TODO: Need a way to compute proper alignment for arbitrary non-generic types in TypeManager
-                    var elementSize = TypeManager.GetTypeInfo(srcType.TypeIndex).ElementSize;
-                    for (int i = 0; i < count; ++i)
-                    {
-                        BufferHeader* srcHdr = (BufferHeader*) src;
-                        BufferHeader* dstHdr = (BufferHeader*) dst;
-                        BufferHeader.Initialize(dstHdr, srcBufferCapacity);
-                        BufferHeader.Assign(dstHdr, BufferHeader.GetElementPointer(srcHdr), srcHdr->Length, elementSize, alignment, false, 0);
-
-                        dst += srcSizeOf;
-                    }
-                }
-
+                UnsafeUtility.MemCpyReplicate(dst, src, srcSizeOf, count);
                 dstTypeIndex++;
+            }
+
+            dstTypeIndex = dstArchetype->FirstBufferComponent;
+            var bufferComponentsEnd = srcArchetype->BufferComponentsEnd;
+            for (var srcTypeIndex = srcArchetype->FirstBufferComponent; srcTypeIndex != bufferComponentsEnd; srcTypeIndex++)
+            {
+                var srcType = srcTypes[srcTypeIndex];
+                var dstType = dstTypes[dstTypeIndex];
+                // Type does not exist in destination. Skip it.
+                if (srcType.TypeIndex != dstType.TypeIndex)
+                    continue;
+                var srcSizeOf = srcSizeOfs[srcTypeIndex];
+                var src = srcBuffer + (srcOffsets[srcTypeIndex] + srcSizeOf * srcIndex);
+                var dst = dstBuffer + (dstOffsets[dstTypeIndex] + srcSizeOf * dstBaseIndex);
+
+                var srcBufferCapacity = srcBufferCapacities[srcTypeIndex];
+                var alignment = 8; // TODO: Need a way to compute proper alignment for arbitrary non-generic types in TypeManager
+                var elementSize = TypeManager.GetTypeInfo(srcType.TypeIndex).ElementSize;
+                for (int i = 0; i < count; ++i)
+                {
+                    BufferHeader* srcHdr = (BufferHeader*) src;
+                    BufferHeader* dstHdr = (BufferHeader*) dst;
+                    BufferHeader.Initialize(dstHdr, srcBufferCapacity);
+                    BufferHeader.Assign(dstHdr, BufferHeader.GetElementPointer(srcHdr), srcHdr->Length, elementSize, alignment, false, 0);
+
+                    dst += srcSizeOf;
+                }
+                
+                dstTypeIndex++;
+            }
+
+            if (dstArchetype->NumManagedComponents > 0)
+            {
+                ReplicateManagedComponents(srcChunk, srcIndex, dstChunk, dstBaseIndex, count, ref entityComponentStore);
             }
         }
 
-        public static void Convert(Chunk* srcChunk, int srcIndex, Chunk* dstChunk, int dstIndex, int count)
+        public static void InitializeBuffersInChunk(byte* p, int count, int stride, int bufferCapacity)
         {
+            for (int i = 0; i < count; i++)
+            {
+                BufferHeader.Initialize((BufferHeader*)p, bufferCapacity);
+                p += stride;
+            }
+        }
+        
+        public static void Convert(Chunk* srcChunk, int srcIndex, Chunk* dstChunk, int dstIndex, int count, ref EntityComponentStore entityComponentStore)
+        {
+            Assert.IsFalse(srcChunk == dstChunk);
             var srcArch = srcChunk->Archetype;
             var dstArch = dstChunk->Archetype;
-
-            //Debug.Log($"Convert {EntityManager.EntityManagerDebug.GetArchetypeDebugString(srcArch)} to {EntityManager.EntityManagerDebug.GetArchetypeDebugString(dstArch)}");
-
-            var srcI = 0;
-            var dstI = 0;
-            while (srcI < srcArch->NonZeroSizedTypesCount && dstI < dstArch->NonZeroSizedTypesCount)
+            if (srcArch != dstArch)
             {
+                Assert.IsFalse(srcArch == null);
+            }
+
+            var srcI = srcArch->NonZeroSizedTypesCount - 1;
+            var dstI = dstArch->NonZeroSizedTypesCount - 1;
+
+            var sourceTypesToDealloc = stackalloc int[srcI+1];
+            int sourceTypesToDeallocCount = 0;
+
+            while (dstI >= 0)
+            {
+                var srcType = srcArch->Types[srcI];
+                var dstType = dstArch->Types[dstI];
+
+                if (srcType > dstType)
+                {
+                    //Type in source is not moved so deallocate it
+                    sourceTypesToDealloc[sourceTypesToDeallocCount++] = srcI;
+                    --srcI;
+                    continue;
+                }
+
                 var srcStride = srcArch->SizeOfs[srcI];
                 var dstStride = dstArch->SizeOfs[dstI];
                 var src = srcChunk->Buffer + srcArch->Offsets[srcI] + srcIndex * srcStride;
                 var dst = dstChunk->Buffer + dstArch->Offsets[dstI] + dstIndex * dstStride;
 
-                if (srcArch->Types[srcI] < dstArch->Types[dstI])
+                if (srcType == dstType)
                 {
-                    // Clear any buffers we're not going to keep.
-                    if (srcArch->Types[srcI].IsBuffer)
-                    {
-                        var srcPtr = src;
-                        for(int i = 0; i < count; i++)
-                        {
-                            BufferHeader.Destroy((BufferHeader*)srcPtr);
-                            srcPtr += srcStride;
-                        }
-                    }
-
-                    ++srcI;
-                }
-                else if (srcArch->Types[srcI] > dstArch->Types[dstI])
-                {
-                    // Clear components in the destination that aren't copied
-
-                    if (dstArch->Types[dstI].IsBuffer)
-                    {
-                        var bufferCapacity = dstArch->BufferCapacities[dstI];
-                        var dstPtr = dst;
-                        for(int i = 0; i < count; i++)
-                        {
-                            BufferHeader.Initialize((BufferHeader*)dstPtr, bufferCapacity);
-                            dstPtr += dstStride;
-                        }
-
-                    }
-                    else
-                    {
-                        UnsafeUtility.MemClear(dst, count * dstStride);
-                    }
-
-                    ++dstI;
+                    UnsafeUtility.MemCpy(dst, src, count * srcStride);
+                    --srcI;
+                    --dstI;
                 }
                 else
                 {
-                    UnsafeUtility.MemMove(dst, src, count * srcStride);
-
-                    // Poison source buffer to make sure there is no aliasing.
-                    if (srcArch->Types[srcI].IsBuffer)
-                    {
-                        var bufferCapacity = srcArch->BufferCapacities[srcI];
-                        var srcPtr = src;
-                        for(int i = 0; i < count; i++)
-                        {
-                            BufferHeader.Initialize((BufferHeader*)srcPtr, bufferCapacity);
-                            srcPtr += srcStride;
-                        }
-                    }
-
-                    ++srcI;
-                    ++dstI;
+                    if(dstType.IsBuffer)
+                        InitializeBuffersInChunk(dst, count, dstStride, dstArch->BufferCapacities[dstI]);
+                    else
+                        UnsafeUtility.MemClear(dst, count * dstStride);
+                    --dstI;
                 }
             }
 
-            // Handle remaining components in the source that aren't copied
-            for (; srcI < srcArch->NonZeroSizedTypesCount; ++srcI)
+            if (sourceTypesToDeallocCount == 0)
+                return;
+
+            sourceTypesToDealloc[sourceTypesToDeallocCount] = 0;
+
+            int iDealloc = 0;
+            if (sourceTypesToDealloc[iDealloc] >= srcArch->FirstManagedComponent)
             {
-                var srcStride = srcArch->SizeOfs[srcI];
-                var src = srcChunk->Buffer + srcArch->Offsets[srcI] + srcIndex * srcStride;
-                if (srcArch->Types[srcI].IsBuffer)
+                var freeCommandHandle = entityComponentStore.ManagedChangesTracker.BeginFreeManagedComponentCommand();
+                do
                 {
-                    var srcPtr = src;
+                    srcI = sourceTypesToDealloc[iDealloc];
+                    var srcStride = srcArch->SizeOfs[srcI];
+                    var src = srcChunk->Buffer + srcArch->Offsets[srcI] + srcIndex * srcStride;
+
+                    var a = (int*)src;
                     for(int i = 0; i < count; i++)
                     {
-                        BufferHeader.Destroy((BufferHeader*)srcPtr);
-                        srcPtr += srcStride;
+                        var managedComponentIndex = a[i];
+                        if(managedComponentIndex == 0)
+                            continue;
+                        entityComponentStore.FreeManagedComponentIndex(managedComponentIndex);
+                        entityComponentStore.ManagedChangesTracker.AddToFreeManagedComponentCommand(managedComponentIndex);
                     }
-                }
+                } while ((sourceTypesToDealloc[++iDealloc] >= srcArch->FirstManagedComponent));
+                entityComponentStore.ManagedChangesTracker.EndDeallocateManagedComponentCommand(freeCommandHandle);
             }
 
-            // Clear remaining components in the destination that aren't copied
-            for (; dstI < dstArch->NonZeroSizedTypesCount; ++dstI)
+            while(sourceTypesToDealloc[iDealloc] >= srcArch->FirstBufferComponent)
             {
-                var dstStride = dstArch->SizeOfs[dstI];
-                var dst = dstChunk->Buffer + dstArch->Offsets[dstI] + dstIndex * dstStride;
-                if (dstArch->Types[dstI].IsBuffer)
+                srcI = sourceTypesToDealloc[iDealloc];
+                var srcStride = srcArch->SizeOfs[srcI];
+                var srcPtr = srcChunk->Buffer + srcArch->Offsets[srcI] + srcIndex * srcStride;
+                for(int i = 0; i < count; i++)
                 {
-                    var bufferCapacity = dstArch->BufferCapacities[dstI];
-                    var dstPtr = dst;
-                    for (int i = 0; i < count; i++)
-                    {
-                        BufferHeader.Initialize((BufferHeader*)dstPtr, bufferCapacity);
-                        dstPtr += dstStride;
-                    }
+                    BufferHeader.Destroy((BufferHeader*)srcPtr);
+                    srcPtr += srcStride;
                 }
-                else
-                {
-                    UnsafeUtility.MemClear(dst, count * dstStride);
-                }
+                ++iDealloc;
             }
         }
 
@@ -480,13 +560,10 @@ namespace Unity.Entities
         {
             var archetype = chunk->Archetype;
 
-            for (var ti = 0; ti < archetype->TypesCount; ++ti)
+            var bufferComponentsEnd = archetype->BufferComponentsEnd;
+            for (var ti = archetype->FirstBufferComponent; ti < bufferComponentsEnd; ++ti)
             {
-                var type = archetype->Types[ti];
-
-                if (!type.IsBuffer)
-                    continue;
-
+                Assert.IsTrue(archetype->Types[ti].IsBuffer);
                 var basePtr = chunk->Buffer + archetype->Offsets[ti];
                 var stride = archetype->SizeOfs[ti];
 

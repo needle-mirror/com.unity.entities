@@ -193,7 +193,7 @@ namespace Unity.Scenes.Editor
                         // TODO: Once we switch to using GlobalObjectId for SBP, we will need a mapping for certain special cases of GUID <> FilePath for Builtin Resources
                         writeParams.referenceMap.AddMapping(obj.filePath, obj.localIdentifierInFile, obj);
                     }
-                    else if (collectDependencies || (collectDependencies && type == typeof(MonoScript)) || obj.guid == sceneGuid)
+                    else if (collectDependencies || obj.guid == sceneGuid)
                     {
                         writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj) });
                         writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName, generator.SerializationIndexFromObjectIdentifier(obj), obj);
@@ -223,6 +223,151 @@ namespace Unity.Scenes.Editor
                 Directory.Delete(k_TempBuildPath, true);
 
                 return crc != 0;
+            }
+        }
+
+        public static void BuildSubSceneBundle(string manifestPath, string bundleName, string bundlePath, BuildTarget target, HashSet<Entities.Hash128> dependencies)
+        {
+            using (new BuildInterfacesWrapper())
+            {
+                Directory.CreateDirectory(k_TempBuildPath);
+                
+                // Deterministic ID Generator
+                var generator = new Unity5PackedIdentifiers();
+
+                // Target platform settings & script information
+                var buildSettings = new BuildSettings
+                {
+                    buildFlags = ContentBuildFlags.None,
+                    target = target,
+                    group = BuildPipeline.GetBuildTargetGroup(target),
+                    typeDB = null
+                };
+
+#if UNITY_2020_1_OR_NEWER
+                // Collect all the objects we need for this asset & bundle (returned array order is deterministic)
+                var manifestObjects =
+ ContentBuildInterface.GetPlayerObjectIdentifiersInSerializedFile(manifestPath, buildSettings.target);
+#else
+                var method = typeof(ContentBuildInterface).GetMethod("GetPlayerObjectIdentifiersInSerializedFile",
+                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+                // Collect all the objects we need for this asset & bundle (returned array order is deterministic)
+                var manifestObjects =
+                    (ObjectIdentifier[]) method.Invoke(null, new object[] {manifestPath, buildSettings.target});
+#endif
+                // Collect all the objects we need to reference for this asset (returned array order is deterministic)
+                var manifestDependencies =
+                    ContentBuildInterface.GetPlayerDependenciesForObjects(manifestObjects, buildSettings.target,
+                        buildSettings.typeDB);
+
+                // Scene / Project lighting information
+                var globalUsage = ContentBuildInterface.GetGlobalUsageFromGraphicsSettings();
+                globalUsage = ForceKeepInstancingVariants(globalUsage);
+
+                // Inter-asset feature usage (shader features, used mesh channels)
+                var usageSet = new BuildUsageTagSet();
+                ContentBuildInterface.CalculateBuildUsageTags(manifestDependencies, manifestDependencies, globalUsage,
+                    usageSet); // TODO: Cache & Append to the assets that are influenced by this usageTagSet, ideally it would be a nice api to extract just the data for a given asset or object from the result
+
+                // Bundle all the needed write parameters
+                var writeParams = new WriteParameters
+                {
+                    // Target platform settings & script information
+                    settings = buildSettings,
+
+                    // Scene / Project lighting information
+                    globalUsage = globalUsage,
+
+                    // Inter-asset feature usage (shader features, used mesh channels)
+                    usageSet = usageSet,
+
+                    // Serialized File Layout
+                    writeCommand = new WriteCommand
+                    {
+                        fileName = generator.GenerateInternalFileName(bundleName),
+                        internalName = generator.GenerateAssetBundleInternalFileName(bundleName),
+                        serializeObjects = new List<SerializationInfo>() // Populated Below
+                    },
+
+                    // External object references
+                    referenceMap = new BuildReferenceMap(), // Populated Below
+
+                    // Asset Bundle object layout
+                    bundleInfo = new AssetBundleInfo
+                    {
+                        bundleName = bundleName,
+                        // What is loadable from this bundle
+                        bundleAssets = new List<AssetLoadInfo>
+                        {
+                            // The manifest object and it's dependencies
+                            new AssetLoadInfo
+                            {
+                                address = bundleName,
+                                asset = new GUID(), // TODO: Remove this as it is unused in C++
+                                includedObjects =
+                                    manifestObjects
+                                        .ToList(), // TODO: In our effort to modernize the public API design we over complicated it trying to take List or return ReadOnlyLists. Should have just stuck with Arrays[] in all places
+                                referencedObjects = manifestDependencies.ToList()
+                            }
+                        }
+                    }
+                };
+
+                // The requirement is that a single asset bundle only contains the ObjectManifest and the objects that are directly part of the asset, objects for external assets will be in their own bundles. IE: 1 asset per bundle layout
+                // So this means we need to take manifestObjects & manifestDependencies and filter storing them into writeCommand.serializeObjects and/or referenceMap based on if they are this asset or other assets
+                foreach (var obj in manifestObjects)
+                {
+                    writeParams.writeCommand.serializeObjects.Add(new SerializationInfo
+                    {
+                        serializationObject = obj,
+                        serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj)
+                    });
+                    writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName,
+                        generator.SerializationIndexFromObjectIdentifier(obj), obj);
+                }
+
+                foreach (var obj in manifestDependencies)
+                {
+                    // MonoScripts need to live beside the MonoBehavior (in this case ScriptableObject) and loaded first. We could move it to it's own bundle, but this is safer and it's a lightweight object
+                    var type = ContentBuildInterface.GetTypeForObject(obj);
+                    if (obj.guid == k_UnityBuiltinResources)
+                    {
+                        // For Builtin Resources, we can reference them directly
+                        // TODO: Once we switch to using GlobalObjectId for SBP, we will need a mapping for certain special cases of GUID <> FilePath for Builtin Resources
+                        writeParams.referenceMap.AddMapping(obj.filePath, obj.localIdentifierInFile, obj);
+                    }
+                    /*else if (obj.guid == k_UnityBuiltinExtraResources)
+                    {
+                        writeParams.referenceMap.AddMapping(obj.filePath, obj.localIdentifierInFile, obj);
+                    }*/
+                    else if (type == typeof(MonoScript))
+                    {
+                        writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj) });
+                        writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName, generator.SerializationIndexFromObjectIdentifier(obj), obj);
+                    }
+                    else if (!obj.guid.Empty())
+                        writeParams.referenceMap.AddMapping(
+                            generator.GenerateAssetBundleInternalFileName(obj.guid.ToString()),
+                            generator.SerializationIndexFromObjectIdentifier(obj), obj);
+                    
+                    // This will be solvable after we move SBP into the asset pipeline as importers.
+                    if (!obj.guid.Empty())
+                        dependencies?.Add(obj.guid);
+                }
+
+                // Write the serialized file
+                var result = ContentBuildInterface.WriteSerializedFile(k_TempBuildPath, writeParams);
+                // Archive and compress the serialized & resource files for the previous operation
+                var crc = ContentBuildInterface.ArchiveAndCompress(result.resourceFiles.ToArray(), bundlePath,
+                    UnityEngine.BuildCompression.Uncompressed);
+
+                // Because the shader compiler progress bar hooks are absolute shit
+                EditorUtility.ClearProgressBar();
+
+                //Debug.Log($"Wrote '{writeParams.writeCommand.fileName}' to '{k_TempBuildPath}/{writeParams.writeCommand.internalName}' resulting in {result.serializedObjects.Count} objects in the serialized file.");
+                //Debug.Log($"Archived '{k_TempBuildPath}/{writeParams.writeCommand.internalName}' to '{cacheFilePath}' resulting in {crc} CRC.");
+
+                Directory.Delete(k_TempBuildPath, true);
             }
         }
 
@@ -336,7 +481,7 @@ namespace Unity.Scenes.Editor
                         // TODO: Once we switch to using GlobalObjectId for SBP, we will need a mapping for certain special cases of GUID <> FilePath for Builtin Resources
                         writeParams.referenceMap.AddMapping(obj.filePath, obj.localIdentifierInFile, obj);
                     }
-                    else if (collectDependencies || (collectDependencies && type == typeof(MonoScript)) || obj.guid == assetGuid)
+                    else if (collectDependencies || obj.guid == assetGuid)
                     {
                         writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj) });
                         writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName, generator.SerializationIndexFromObjectIdentifier(obj), obj);
@@ -376,13 +521,25 @@ namespace Unity.Scenes.Editor
 
         public static void CalculateTargetDependencies(GUID guid, BuildTarget target, out ResolvedAssetID[] dependencies)
         {
-            var assets = LiveLinkBuildImporter.GetDependencies(guid.ToString(), target);
-            dependencies = new ResolvedAssetID[assets.Length];
-            for (int i = 0; i < assets.Length; i++)
+            List<Entities.Hash128> assets = new List<Entities.Hash128>(LiveLinkBuildImporter.GetDependencies(guid.ToString(), target));
+            List<ResolvedAssetID> resolvedDependencies = new List<ResolvedAssetID>();
+
+            HashSet<Entities.Hash128> visited = new HashSet<Entities.Hash128>();
+            for (int i = 0; i < assets.Count; i++)
             {
-                dependencies[i].GUID = assets[i];
-                dependencies[i].TargetHash = CalculateTargetHash(assets[i], target);
+                if (!visited.Add(assets[i]))
+                    continue;
+
+                resolvedDependencies.Add(new ResolvedAssetID
+                {
+                    GUID = assets[i],
+                    TargetHash = CalculateTargetHash(assets[i], target),
+                });
+
+                assets.AddRange(LiveLinkBuildImporter.GetDependencies(assets[i].ToString(), target));
             }
+
+            dependencies = resolvedDependencies.ToArray();
         }
     }
 }

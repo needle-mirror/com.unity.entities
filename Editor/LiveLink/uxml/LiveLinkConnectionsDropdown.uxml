@@ -6,9 +6,8 @@
             <ui:Button name="live-link-connections-dropdown__footer__reset" text="Reset all linked players" class="live-link-connections-dropdown__label-button" />
             <ui:Button name="live-link-connections-dropdown__footer__disable" text="Disable all links" class="live-link-connections-dropdown__label-button" />
         </ui:VisualElement>
-<!--        Temporarily disabled. Will be re-enabled when the "Start live link window" will be ready -->
-<!--        <ui:VisualElement class="live-link-connections-dropdown__start-section">-->
-<!--            <ui:Button name="live-link-connections-dropdown__footer__start" text="Start Live Link ..." class="live-link-connections-dropdown__label-button" />-->
-<!--        </ui:VisualElement>-->
+        <ui:VisualElement class="live-link-connections-dropdown__start-section">
+            <ui:Button name="live-link-connections-dropdown__footer__start" text="Start Live Link ..." class="live-link-connections-dropdown__label-button" />
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

@@ -1,8 +1,6 @@
 {
     "name": "Unity.Entities.Editor",
     "references": [
-        "Unity.Build",
-        "Unity.Build.Common",
         "Unity.Collections",
         "Unity.Entities",
         "Unity.Entities.Hybrid",
@@ -11,12 +9,23 @@
         "Unity.Properties",
         "Unity.Scenes.Editor",
         "Unity.Scenes.Hybrid",
-        "Unity.Serialization"
+        "Unity.Serialization",
+        "Unity.Build",
+        "Unity.Build.Common",
+        "Unity.Build.Classic",
+        "UnityEditor.UI"
     ],
-    "optionalUnityReferences": [],
     "includePlatforms": [
         "Editor"
     ],
     "excludePlatforms": [],
-    "allowUnsafeCode": false
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Mono.Cecil.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

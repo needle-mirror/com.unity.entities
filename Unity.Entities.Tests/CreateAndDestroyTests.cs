@@ -528,19 +528,23 @@ namespace Unity.Entities.Tests
             values.Dispose();
         }
 
-#if !UNITY_DOTSPLAYER //Alert, this test is red in dots-runtime 32bit.  looks like a legit scray bug.        
         [Test]
-        public void AddTagComponentTwiceByTypeArray()
+        public void AddComponentTwiceByTypeArray()
         {
             var entity = m_Manager.CreateEntity();
 
             m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestTag>()));
+            var archetypeBefore = m_Manager.GetChunk(entity).Archetype;
             m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestTag>()));
+            var archetypeAfter = m_Manager.GetChunk(entity).Archetype;
+            Assert.AreEqual(archetypeBefore, archetypeAfter);
 
             m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestData>()));
+            archetypeBefore = m_Manager.GetChunk(entity).Archetype;
             m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestData>()));
+            archetypeAfter = m_Manager.GetChunk(entity).Archetype;
+            Assert.AreEqual(archetypeBefore, archetypeAfter);
         }
-#endif
 		
         [Test]
         public void AddChunkComponentTwice()

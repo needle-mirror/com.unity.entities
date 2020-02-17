@@ -127,13 +127,90 @@ namespace Unity.Entities.CodeGen.Tests
                     .Schedule(default);
             }
         }
+        
+        [Test]
+        public void WithNoneWithInvalidGenericParameterTest()
+        {
+            AssertProducesError(typeof(WithNoneWithInvalidGenericParameter), nameof(UserError.DC0025), "TValue");
+        }
+        class WithNoneWithInvalidGenericParameter : TestJobComponentSystem
+        {
+            void Test<TValue>() where TValue : struct
+            {
+                Entities
+                    .WithNone<TValue>()
+                    .ForEach((in Boid translation) => { })
+                    .Schedule(default);
+            }
+        }
+        
+        [Test]
+        public void WithNoneWithInvalidGenericTypeTest()
+        {
+            AssertProducesError(typeof(WithNoneWithInvalidGenericType), nameof(UserError.DC0025), "GenericType`1");
+        }
+        class WithNoneWithInvalidGenericType : TestJobComponentSystem
+        {
+            struct GenericType<TValue> : IComponentData {}
+            void Test()
+            {
+                Entities
+                    .WithNone<GenericType<int>>()
+                    .ForEach((in Boid translation) => { })
+                    .Schedule(default);
+            }
+        }
+        
+        [Test]
+        public void ParameterWithInvalidGenericParameterTest()
+        {
+            AssertProducesError(typeof(ParameterWithInvalidGenericParameter), nameof(UserError.DC0025), "TValue");
+        }
+        class ParameterWithInvalidGenericParameter : TestJobComponentSystem
+        {
+            void Test<TValue>() where TValue : struct
+            {
+                Entities
+                    .ForEach((in TValue generic) => { })
+                    .Schedule(default);
+            }
+        }
+        
+        [Test]
+        public void ParameterWithInvalidGenericTypeTest()
+        {
+            AssertProducesError(typeof(ParameterWithInvalidGenericType), nameof(UserError.DC0025), "GenericType`1");
+        }
+        class ParameterWithInvalidGenericType : TestJobComponentSystem
+        {
+            struct GenericType<TValue> : IComponentData {}
+            void Test()
+            {
+                Entities
+                    .ForEach((in GenericType<int> generic) => { })
+                    .Schedule(default);
+            }
+        }
 
+        [Test]
+        public void InGenericSystemTypeTest()
+        {
+            AssertProducesError(typeof(InGenericSystemType<>), nameof(UserError.DC0025), "InGenericSystemType`1");
+        }
+        public class InGenericSystemType<T> : SystemBase
+            where T : struct, IComponentData
+        {
+            protected override void OnUpdate()
+            {
+                Entities.WithNone<T>().ForEach((Entity e, ref T n) => { }).Run();
+            }
+        }
+        
         [Test]
         public void WithReadOnly_IllegalArgument_Test()
         {
             AssertProducesError(typeof(WithReadOnly_IllegalArgument), nameof(UserError.DC0012));
         }
-
 
         class WithReadOnly_IllegalArgument : TestJobComponentSystem
         {
@@ -265,6 +342,76 @@ namespace Unity.Entities.CodeGen.Tests
         }
 
         [Test]
+        public void InvokeExtensionMethodOnRefTypeInBurstLambdaTest()
+        {
+            AssertProducesError(typeof(InvokeExtensionMethodOnRefTypeInBurstLambda), nameof(UserError.DC0002), nameof(TestJobComponentSystemExtensionMethods.MyTestExtension));
+        }
+
+        class InvokeExtensionMethodOnRefTypeInBurstLambda : TestJobComponentSystem
+        {
+            void Test()
+            {
+                Entities.ForEach((ref Translation t) => { this.MyTestExtension(); }).Run();
+            }
+        }
+
+        [Test]
+        public void InvokeInterfaceExtensionMethodOnRefTypeInBurstLambdaTest()
+        {
+            AssertProducesError(typeof(InvokeInterfaceExtensionMethodOnRefTypeInBurstLambda), nameof(UserError.DC0002), nameof(TestJobComponentSystemExtensionMethods.MyTestExtensionInterface));
+        }
+
+        class InvokeInterfaceExtensionMethodOnRefTypeInBurstLambda : TestJobComponentSystem, TestJobComponentSystemExtensionMethods.ITestInterface
+        {
+            void Test()
+            {
+                Entities.ForEach((ref Translation t) => { this.MyTestExtensionInterface(); }).Run();
+            }
+        }
+
+        [Test]
+        public void InvokeStaticFunctionOnRefTypeInBurstLambdaTest()
+        {
+            AssertProducesError(typeof(InvokeStaticFunctionOnRefTypeInBurstLambda), nameof(UserError.DC0002), nameof(InvokeStaticFunctionOnRefTypeInBurstLambda.ActualProblem));
+        }
+
+        class InvokeStaticFunctionOnRefTypeInBurstLambda : TestJobComponentSystem
+        {
+            void Test()
+            {
+                Entities.ForEach((ref Translation t) =>
+                {
+                    NotAProblem();
+                    ActualProblem(this);
+                }).Run();
+            }
+
+            static void NotAProblem() { }
+            internal static void ActualProblem(JobComponentSystem s) { }
+        }
+
+        [Test]
+        public void InvokeStaticFunctionOnValueTypeInBurstLambdaTest()
+        {
+            AssertProducesError(typeof(InvokeStaticFunctionOnValueTypeInBurstLambda), nameof(UserError.DC0002), nameof(InvokeStaticFunctionOnValueTypeInBurstLambda.ActualProblem));
+        }
+
+        class InvokeStaticFunctionOnValueTypeInBurstLambda : TestJobComponentSystem
+        {
+            void Test()
+            {
+                Entities.ForEach((ref Translation t) =>
+                {
+                    NotAProblem(t.Value);
+                    ActualProblem();
+                }).Run();
+            }
+
+            static void NotAProblem(float x) { }
+            internal void ActualProblem() {}
+        }
+
+        [Test]
         public void UseSharedComponentData_UsingSchedule_ProducesError()
         {
             AssertProducesError(typeof(SharedComponentDataUsingSchedule), nameof(UserError.DC0019), "MySharedComponentData");
@@ -308,7 +455,7 @@ namespace Unity.Entities.CodeGen.Tests
         [Test]
         public void CustomStructArgumentThatDoesntImplementSupportedInterfaceTest()
         {
-            AssertProducesError(typeof(CustomStructArgumentThatDoesntImplementSupportedInterface), nameof(UserError.DC0021), "parameter t has type ForgotToAddInterface. This type is not a");
+            AssertProducesError(typeof(CustomStructArgumentThatDoesntImplementSupportedInterface), nameof(UserError.DC0021), "parameter 't' has type ForgotToAddInterface. This type is not a");
         }
 
         class CustomStructArgumentThatDoesntImplementSupportedInterface : TestJobComponentSystem
@@ -368,7 +515,25 @@ namespace Unity.Entities.CodeGen.Tests
             }
         }
 
-        
+        [Test]
+        public void CaptureFieldByRefTest()
+        {
+            AssertProducesError(typeof(CaptureFieldByRef), nameof(UserError.DC0001), "m_MyField");
+        }
+
+        class CaptureFieldByRef : TestJobComponentSystem
+        {
+            int m_MyField = 123;
+
+            void Test()
+            {
+                Entities
+                    .ForEach((ref Translation t) => { NotAProblem(ref m_MyField); })
+                    .Schedule(default);
+            }
+
+            static void NotAProblem(ref int a) { }
+        }
 
         [Test]
         public void InvokeInstanceMethodInCapturingLambdaTest()
@@ -775,7 +940,9 @@ namespace Unity.Entities.CodeGen.Tests
             // The important part here is everything following {jobName}.Data.
             var methodToAnalyze = MethodDefinitionForOnlyMethodOf(typeof(ParameterNamesPath));
             var forEachDescriptionConstructions = LambdaJobDescriptionConstruction.FindIn(methodToAnalyze);
-            JobStructForLambdaJob jobStructForLambdaJob = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstructions.First(), null);
+            var (jobStructForLambdaJob, diagnosticMessages) = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstructions.First());
+            
+            Assert.IsEmpty(diagnosticMessages);
 
             const string valueProviderFieldName = "_lambdaParameterValueProviders";
             var valueProvidersField = jobStructForLambdaJob.TypeDefinition.Fields.FirstOrDefault(f => f.Name == valueProviderFieldName);
@@ -948,5 +1115,13 @@ namespace Unity.Entities.CodeGen.Tests
                 public NativeArray<int> Array;
             }
         }
+    }
+
+    public static class TestJobComponentSystemExtensionMethods
+    {
+        public interface ITestInterface { }
+
+        public static void MyTestExtension(this TestJobComponentSystem test) { }
+        public static void MyTestExtensionInterface(this ITestInterface test) { }
     }
 }

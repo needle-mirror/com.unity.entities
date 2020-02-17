@@ -1,27 +1,28 @@
 ﻿using System;
-using System.IO;
-using System.Linq;
-using System.Text;
 using Mono.Cecil;
 using NUnit.Framework;
 using Unity.Entities.CodeGen.Tests;
-using Unity.Entities.Hybrid.CodeGen;
-using UnityEngine;
 
 namespace Unity.Entities.Hybrid.CodeGen.Tests
 {
     [TestFixture]
     public abstract class AuthoringComponentIntegrationTest : IntegrationTest
     {
-        protected override string ExpectedPath
+        protected override string ExpectedPath => 
+            "Packages/com.unity.entities/Unity.Entities.Hybrid.CodeGen.Tests/AuthoringComponent/IntegrationTests";
+
+        protected void RunAuthoringComponentDataTest(Type type)
         {
-            get { return "Packages/com.unity.entities/Unity.Entities.Hybrid.CodeGen.Tests/AuthoringComponent/IntegrationTests"; }
+            TypeDefinition authoringType =
+                AuthoringComponentPostProcessor.CreateComponentDataAuthoringType(TypeDefinitionFor(type));
+            
+            RunTest(authoringType);
         }
 
-        protected void RunTest(Type type)
+        protected void RunAuthoringBufferElementDataTest(Type type)
         {
-            var componentTypeDefinition = TypeDefinitionFor(type);
-            var authoringType = AuthoringComponentPostProcessor.CreateAuthoringType(componentTypeDefinition);
+            TypeDefinition authoringType =
+                AuthoringComponentPostProcessor.CreateBufferElementDataAuthoringType(TypeDefinitionFor(type));
             
             RunTest(authoringType);
         }

@@ -299,26 +299,6 @@ namespace Unity.Entities.BuildUtils
             ValueTypeIsComplex[bits].Add(valuetype, isComplex);
         }
 
-        public static void IterateFieldsRecurse(Action<FieldReference, TypeReference> processFunc, TypeReference type)
-        {
-            var typeResolver = TypeResolver.For(type);
-            foreach (var f in type.Resolve().Fields)
-            {
-                var fieldReference = typeResolver.Resolve(f);
-                var fieldType = typeResolver.Resolve(f.FieldType);
-
-                processFunc(fieldReference, fieldType);
-
-                // Excluding statics for recursion covers:
-                // 1) enums which infinitely recurse because the values in the enum are of the same enum type
-                // 2) statics which infinitely recurse themselves (Such as vector3.zero.zero.zero.zero)
-                if (fieldType.IsValueType && !fieldType.IsPrimitive && !f.IsStatic)
-                {
-                    IterateFieldsRecurse(processFunc, fieldType);
-                }
-            }
-        }
-
         internal static void GetFieldOffsetsOfRecurse(Func<FieldReference, TypeReference, bool> match, int offset, TypeReference type, List<int> list, int bits)
         {
             int in_type_offset = 0;

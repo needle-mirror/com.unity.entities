@@ -458,6 +458,134 @@ namespace Unity.Entities.Tests
             }
         }
 
+
+        [Test]
+        public void SetComponentData_WithManagedComponent_IsDetectedBy_GetChanges()
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            {
+                var entityGuid = CreateEntityGuid();
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData), typeof(EcsTestManagedComponent));
+
+                SrcEntityManager.SetComponentData(entity, entityGuid);
+                SrcEntityManager.SetComponentData(entity, new EcsTestData { value = 9 });
+                SrcEntityManager.SetComponentData(entity, new EcsTestManagedComponent { value = "SomeString" });
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsTrue(changes.AnyChanges);
+                }
+
+                // Only mutate managed component.
+                SrcEntityManager.SetComponentData(entity, new EcsTestManagedComponent { value = "SomeOtherString" });
+
+                // The entityGuid value is the same so it should not be picked up during change tracking.
+                // We should only see the two data changes.
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    // The ForwardChangeSet will contain a set value 10 and set value "SomeString"
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.CreatedEntityCount);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.SetComponents.Length);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.SetManagedComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.AddComponents.Length);
+
+                    // The ReverseChangeSet will contain a set value 9 and set value "SomeOtherString"
+                    Assert.IsTrue(changes.HasReverseChangeSet);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.DestroyedEntityCount);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.CreatedEntityCount);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.SetComponents.Length);
+                    Assert.AreEqual(1, changes.ReverseChangeSet.SetManagedComponents.Length);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.AddComponents.Length);
+                }
+
+                SrcEntityManager.DestroyEntity(entity);
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.DestroyedEntityCount);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.CreatedEntityCount);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.SetComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.SetManagedComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.RemoveComponents.Length);
+
+                    // In this case the ReverseChangeSet should describe how to get this entity back in it's entirety
+                    Assert.IsTrue(changes.HasReverseChangeSet);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.DestroyedEntityCount);
+                    Assert.AreEqual(1, changes.ReverseChangeSet.CreatedEntityCount);
+                    Assert.AreEqual(3, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(2, changes.ReverseChangeSet.SetComponents.Length);
+                    Assert.AreEqual(1, changes.ReverseChangeSet.SetManagedComponents.Length);
+                }
+            }
+        }
+
+        [Test]
+        [StandaloneFixme] // Requires Unity.Properties support for cloning the managed components
+        public void GetComponentData_WithManagedComponent_IsDetectedBy_GetChanges()
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            {
+                var entityGuid = CreateEntityGuid();
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData), typeof(EcsTestManagedComponent));
+
+                SrcEntityManager.SetComponentData(entity, entityGuid);
+                SrcEntityManager.SetComponentData(entity, new EcsTestData { value = 9 });
+                SrcEntityManager.SetComponentData(entity, new EcsTestManagedComponent { value = "SomeString" });
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsTrue(changes.AnyChanges);
+                }
+
+                // Only mutate managed component.
+                SrcEntityManager.GetComponentData<EcsTestManagedComponent>(entity).value = "SomeOtherString";
+
+                // The entityGuid value is the same so it should not be picked up during change tracking.
+                // We should only see the two data changes.
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    // The ForwardChangeSet will contain a set value 10 and set value "SomeString"
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.CreatedEntityCount);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.SetComponents.Length);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.SetManagedComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.AddComponents.Length);
+
+                    // The ReverseChangeSet will contain a set value 9 and set value "SomeOtherString"
+                    Assert.IsTrue(changes.HasReverseChangeSet);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.DestroyedEntityCount);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.CreatedEntityCount);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.SetComponents.Length);
+                    Assert.AreEqual(1, changes.ReverseChangeSet.SetManagedComponents.Length);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.AddComponents.Length);
+                }
+
+                SrcEntityManager.DestroyEntity(entity);
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.DestroyedEntityCount);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.CreatedEntityCount);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.SetComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.SetManagedComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.RemoveComponents.Length);
+
+                    // In this case the ReverseChangeSet should describe how to get this entity back in it's entirety
+                    Assert.IsTrue(changes.HasReverseChangeSet);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.DestroyedEntityCount);
+                    Assert.AreEqual(1, changes.ReverseChangeSet.CreatedEntityCount);
+                    Assert.AreEqual(3, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(2, changes.ReverseChangeSet.SetComponents.Length);
+                    Assert.AreEqual(1, changes.ReverseChangeSet.SetManagedComponents.Length);
+                }
+            }
+        }
+
         [Test]
         public void EntityDiffer_GetChanges_CreateEntityAndSetSharedComponentData_IncrementalChanges_ManagedComponents()
         {

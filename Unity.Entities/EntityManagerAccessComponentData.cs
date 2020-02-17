@@ -116,16 +116,12 @@ namespace Unity.Entities
         /// <returns>The managed object, cast to type T.</returns>
         public T GetComponentObject<T>(Entity entity)
         {
-            var componentType = ComponentType.ReadWrite<T>();
-            return GetComponentObject<T>(entity, componentType);
+            return m_EntityDataAccess.GetComponentObject<T>(entity, ComponentType.ReadWrite<T>(), m_ManagedComponentStore);
         }
         
         public T GetComponentObject<T>(Entity entity, ComponentType componentType)
         {
-            EntityComponentStore->AssertEntityHasComponent(entity, componentType.TypeIndex);
-
-            var entityInChunk = EntityComponentStore->GetEntityInChunk(entity);
-            return (T) ManagedComponentStore.GetManagedObject(entityInChunk.Chunk, componentType, entityInChunk.IndexInChunk);
+            return m_EntityDataAccess.GetComponentObject<T>(entity, componentType, m_ManagedComponentStore);
         }
 
         /// <summary>
@@ -147,7 +143,7 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void SetSharedComponentData<T>(Entity entity, T componentData) where T : struct, ISharedComponentData
         {
-            m_EntityDataAccess.SetSharedComponentData(entity, componentData);
+            m_EntityDataAccess.SetSharedComponentData(entity, componentData, m_ManagedComponentStore);
         }
 
         /// <summary>
@@ -191,7 +187,7 @@ namespace Unity.Entities
         /// <returns>A copy of the shared component.</returns>
         public T GetSharedComponentData<T>(Entity entity) where T : struct, ISharedComponentData
         {
-            return m_EntityDataAccess.GetSharedComponentData<T>(entity);
+            return m_EntityDataAccess.GetSharedComponentData<T>(entity, m_ManagedComponentStore);
         }
 
         public int GetSharedComponentDataIndex<T>(Entity entity) where T : struct, ISharedComponentData
@@ -339,12 +335,12 @@ namespace Unity.Entities
 
         void SetSharedComponentDataBoxedDefaultMustBeNull(Entity entity, int typeIndex, int hashCode, object componentData)
         {
-            m_EntityDataAccess.SetSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData);
+            m_EntityDataAccess.SetSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData, m_ManagedComponentStore);
         }
 
         internal void SetComponentObject(Entity entity, ComponentType componentType, object componentObject)
         {
-            m_EntityDataAccess.SetComponentObject(entity, componentType, componentObject);
+            m_EntityDataAccess.SetComponentObject(entity, componentType, componentObject, m_ManagedComponentStore);
         }
 
         internal ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
@@ -457,14 +453,6 @@ namespace Unity.Entities
 
             return header->Length;
         }
-
-        internal object GetManagedComponentDataAsObject(Entity entity, ComponentType componentType)
-        {
-            EntityComponentStore->AssertEntityHasComponent(entity, componentType.TypeIndex);
-
-            var entityInChunk = EntityComponentStore->GetEntityInChunk(entity);
-            return ManagedComponentStore.GetManagedObject(entityInChunk.Chunk, componentType, entityInChunk.IndexInChunk);
-        }
     }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -479,9 +467,7 @@ namespace Unity.Entities
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         public static T GetComponentData<T>(this EntityManager manager, Entity entity) where T : class, IComponentData
         {
-            var componentType = ComponentType.ReadWrite<T>();
-
-            return (T) manager.GetManagedComponentDataAsObject(entity, componentType);
+            return manager.EntityDataAccess.GetComponentData<T>(entity, manager.ManagedComponentStore);
         }
 
         /// <summary>

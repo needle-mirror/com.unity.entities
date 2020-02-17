@@ -1,8 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
-using Unity.Build;
 using Unity.Collections;
+using Unity.Build;
+using Unity.Build.Common;
 using UnityEditor;
+using UnityEditor.Networking.PlayerConnection;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -11,9 +14,9 @@ using Object = UnityEngine.Object;
 
 namespace Unity.Scenes.Editor
 {
-    //@TODO: LiveLinkConnection is starting to be a relatively complex statemachine. Lets have unit tests for it in isolation... 
-    
-    // A connection to a Player with a specific build setting.
+    //@TODO: LiveLinkConnection is starting to be a relatively complex statemachine. Lets have unit tests for it in isolation...
+
+    // A connection to a Player with a specific build configuration.
     // Each destination world in each player/editor, has it's own LiveLinkConnection so we can generate different data for different worlds.
     // For example server world vs client world.
     class LiveLinkConnection
@@ -29,20 +32,20 @@ namespace Unity.Scenes.Editor
         int                                        _PreviousGlobalDirtyID;
         Dictionary<Hash128, Scene>                 _GUIDToEditScene = new Dictionary<Hash128, Scene>();
 
-        BuildSettings                              _BuildSettings;
-        UnityEngine.Hash128                        _BuildSettingsArtifactHash;
+        BuildConfiguration                         _BuildConfiguration;
+        UnityEngine.Hash128                        _BuildConfigurationArtifactHash;
 
         internal bool                              _IsEnabled = true;
-        internal readonly Hash128                  _BuildSettingsGUID;
+        internal readonly Hash128                  _BuildConfigurationGUID;
 
-        public LiveLinkConnection(Hash128 buildSettingsGuid)
+        public LiveLinkConnection(Hash128 buildConfigurationGuid)
         {
-            _BuildSettingsGUID = buildSettingsGuid;
-            if (buildSettingsGuid != default)
+            _BuildConfigurationGUID = buildConfigurationGuid;
+            if (buildConfigurationGuid != default)
             {
-                _BuildSettings = BuildSettings.LoadAsset(buildSettingsGuid);
-                if (_BuildSettings == null)
-                    Debug.LogError($"Unable to load build settings asset from guid {buildSettingsGuid}.");
+                _BuildConfiguration = BuildConfiguration.LoadAsset(buildConfigurationGuid);
+                if (_BuildConfiguration == null)
+                    Debug.LogError($"Unable to load build configuration asset from guid {buildConfigurationGuid}.");
             }
 
             Undo.postprocessModifications += PostprocessModifications;
@@ -62,7 +65,25 @@ namespace Unity.Scenes.Editor
             _SceneGUIDToLiveLink = null;
             _RemovedScenes.Dispose();
         }
-        
+
+        public void SendInitialScenes(int playerId)
+        {
+            var sceneList = _BuildConfiguration.GetComponent<SceneList>();
+            var nonEmbeddedStartupScenes = new List<string>();
+            foreach (var path in sceneList.GetScenePathsToLoad())
+                if (SceneImporterData.CanLiveLinkScene(path))
+                    nonEmbeddedStartupScenes.Add(path);
+
+            if (nonEmbeddedStartupScenes.Count > 0)
+            {
+                var sceneIds = new NativeArray<Hash128>(nonEmbeddedStartupScenes.Count, Allocator.Temp);
+                for (int i = 0; i < nonEmbeddedStartupScenes.Count; i++)
+                    sceneIds[i] = new Hash128(AssetDatabase.AssetPathToGUID(nonEmbeddedStartupScenes[i]));
+                EditorConnection.instance.SendArray(LiveLinkMsg.ResponseConnectLiveLink, sceneIds, playerId);
+                sceneIds.Dispose();
+            }
+        }
+
         class GameObjectPrefabLiveLinkSceneTracker : AssetPostprocessor
         {
             static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets,
@@ -171,13 +192,13 @@ namespace Unity.Scenes.Editor
         
         public void Update(List<LiveLinkChangeSet> changeSets, NativeList<Hash128> loadScenes, NativeList<Hash128> unloadScenes, LiveLinkMode mode)
         {
-            // If build settings have changed, we need to trigger a full conversion
-            if (_BuildSettingsGUID != default)
+            // If build configuration changed, we need to trigger a full conversion
+            if (_BuildConfigurationGUID != default)
             {
-                var buildSettingsDependencyHash = AssetDatabase.GetAssetDependencyHash(AssetDatabase.GUIDToAssetPath(_BuildSettingsGUID.ToString()));
-                if (_BuildSettingsArtifactHash != buildSettingsDependencyHash)
+                var buildConfigurationDependencyHash = AssetDatabase.GetAssetDependencyHash(AssetDatabase.GUIDToAssetPath(_BuildConfigurationGUID.ToString()));
+                if (_BuildConfigurationArtifactHash != buildConfigurationDependencyHash)
                 {
-                    _BuildSettingsArtifactHash = buildSettingsDependencyHash;
+                    _BuildConfigurationArtifactHash = buildConfigurationDependencyHash;
                     RequestCleanConversion();
                 }
             }
@@ -298,7 +319,7 @@ namespace Unity.Scenes.Editor
 
                 try
                 {
-                    changeSets.Add(LiveLinkDiffGenerator.UpdateLiveLink(editScene, sceneGUID, ref liveLink, sceneDirtyID, mode, _BuildSettings));
+                    changeSets.Add(LiveLinkDiffGenerator.UpdateLiveLink(editScene, sceneGUID, ref liveLink, sceneDirtyID, mode, _BuildConfiguration));
                 }
                 finally
                 {

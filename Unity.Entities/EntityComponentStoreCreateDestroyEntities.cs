@@ -39,7 +39,7 @@ namespace Unity.Entities
             for (int i = 0; i != chunkArray.Length; i++)
             {
                 var chunk = chunks[i].m_Chunk;
-                DestroyBatch((Entity*)chunk->Buffer, chunk, 0, chunk->Count);
+                DestroyBatch(chunk, 0, chunk->Count);
             }
         }
 
@@ -68,7 +68,7 @@ namespace Unity.Entities
                 AddToDestroyList(chunk, indexInChunk, batchCount, count, ref additionalDestroyList,
                     ref minDestroyStride, ref maxDestroyStride);
 
-                DestroyBatch(entities + entityIndex, chunk, indexInChunk, batchCount);
+                DestroyBatch(chunk, indexInChunk, batchCount);
 
                 entityIndex += batchCount;
             }
@@ -213,27 +213,6 @@ namespace Unity.Entities
             }
         }
 
-        public void ReserveManagedObjectArrays(NativeArray<int> indices)
-        {
-            int available = m_ManagedArrayFreeIndex.Size / UnsafeUtility.SizeOf<int>();
-
-            if (available > indices.Length)
-                available = indices.Length;
-
-            m_ManagedArrayFreeIndex.Pop(indices.GetUnsafePtr(), available * UnsafeUtility.SizeOf<int>());
-
-            int remainder = indices.Length - available;
-
-            if (remainder > 0)
-            {
-                for (int i = available; i < indices.Length; ++i)
-                    indices[i] = m_ManagedArrayIndex + i - available;
-
-                m_ManagedArrayIndex += remainder;
-                ManagedChangesTracker.ReserveManagedArrayStorage(remainder);
-            }
-        }
-
         // ----------------------------------------------------------------------------------------------------------
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------
@@ -250,7 +229,7 @@ namespace Unity.Entities
         void DeleteChunk(Chunk* chunk)
         {
             var entityCount = chunk->Count;
-            DeallocateDataEntitiesInChunk((Entity*)chunk->Buffer, chunk, 0, chunk->Count);
+            DeallocateDataEntitiesInChunk(chunk, 0, chunk->Count);
             ManagedChangesTracker.IncrementComponentOrderVersion(chunk->Archetype, chunk->SharedComponentValues);
             IncrementComponentTypeOrderVersion(chunk->Archetype);
             chunk->Archetype->EntityCount -= entityCount;
@@ -311,38 +290,33 @@ namespace Unity.Entities
             }
         }
 
-        void DestroyBatch(Entity* entities, Chunk* chunk, int indexInChunk, int batchCount)
+        void DestroyBatch(Chunk* chunk, int indexInChunk, int batchCount)
         {
             var archetype = chunk->Archetype;
             if (!archetype->SystemStateCleanupNeeded)
             {
-                DeallocateDataEntitiesInChunk(entities, chunk, indexInChunk, batchCount);
+                DeallocateDataEntitiesInChunk(chunk, indexInChunk, batchCount);
                 ManagedChangesTracker.IncrementComponentOrderVersion(archetype, chunk->SharedComponentValues);
                 IncrementComponentTypeOrderVersion(archetype);
-
-                if (chunk->ManagedArrayIndex >= 0)
-                {
-                    // We can just chop-off the end, no need to copy anything
-                    if (chunk->Count != indexInChunk + batchCount)
-                        ManagedChangesTracker.CopyManagedObjects(chunk, chunk->Count - batchCount,
-                            chunk,
-                            indexInChunk, batchCount);
-
-                    ManagedChangesTracker.ClearManagedObjects(chunk, chunk->Count - batchCount,
-                        batchCount);
-                }
-
                 chunk->Archetype->EntityCount -= batchCount;
                 SetChunkCount(chunk, chunk->Count - batchCount);
             }
             else
             {
+                var systemStateResidueArchetype = archetype->SystemStateResidueArchetype;
+                if (archetype == systemStateResidueArchetype)
+                    return;
+
                 var dstArchetypeChunkFilter = new ArchetypeChunkFilter();
-                dstArchetypeChunkFilter.Archetype = archetype->SystemStateResidueArchetype;
+                dstArchetypeChunkFilter.Archetype = systemStateResidueArchetype;
 
                 if (RequiresBuildingResidueSharedComponentIndices(archetype, dstArchetypeChunkFilter.Archetype))
                 {
                     BuildResidueSharedComponentIndices(archetype, dstArchetypeChunkFilter.Archetype, chunk->SharedComponentValues, dstArchetypeChunkFilter.SharedComponentValues);
+                }
+                else
+                {
+                    chunk->SharedComponentValues.CopyTo(dstArchetypeChunkFilter.SharedComponentValues, 0, archetype->NumSharedComponents);
                 }
 
                 if (batchCount == chunk->Count)
@@ -356,7 +330,7 @@ namespace Unity.Entities
             Archetype* dstArchetype)
         {
             return dstArchetype->NumSharedComponents > 0 &&
-                dstArchetype->NumSharedComponents != srcArchetype->NumSharedComponents;
+                   dstArchetype->NumSharedComponents != srcArchetype->NumSharedComponents;
         }
 
         void BuildResidueSharedComponentIndices(Archetype* srcArchetype, Archetype* dstArchetype,
@@ -386,13 +360,6 @@ namespace Unity.Entities
                     ManagedChangesTracker.RemoveReference(sharedComponentValueArray[i]);
             }
 
-            if (chunk->ManagedArrayIndex != -1)
-            {
-                ManagedChangesTracker.DeallocateManagedArrayStorage(chunk->ManagedArrayIndex);
-                m_ManagedArrayFreeIndex.Add(chunk->ManagedArrayIndex);
-                chunk->ManagedArrayIndex = -1;
-            }
-
             // this chunk is going away, so it shouldn't be in the empty slot list.
             if (chunk->Count < chunk->Capacity)
                 chunk->Archetype->EmptySlotTrackingRemoveChunk(chunk);
@@ -411,7 +378,7 @@ namespace Unity.Entities
 
             var archetypeChunkFilter = new ArchetypeChunkFilter();
             archetypeChunkFilter.Archetype = dstArchetype;
-            
+
             if (RequiresBuildingResidueSharedComponentIndices(srcArchetype, dstArchetype))
             {
                 BuildResidueSharedComponentIndices(srcArchetype, dstArchetype, src.Chunk->SharedComponentValues, archetypeChunkFilter.SharedComponentValues);
@@ -432,14 +399,8 @@ namespace Unity.Entities
                 int indexInChunk;
                 var allocatedCount = AllocateIntoChunk(chunk, instanceCount - instanceBeginIndex, out indexInChunk);
 
-                ChunkDataUtility.ReplicateComponents(src.Chunk, src.IndexInChunk, chunk, indexInChunk, allocatedCount);
-                AllocateEntities(dstArchetype, chunk, indexInChunk, allocatedCount,
-                    outputEntities + instanceBeginIndex);
-
-                if (srcArchetype->NumManagedArrays > 0)
-                {
-                    ManagedChangesTracker.ReplicateManagedObjects(src.Chunk, src.IndexInChunk, chunk, indexInChunk, allocatedCount, srcEntity, outputEntities + instanceBeginIndex);
-                }
+                AllocateEntities(dstArchetype, chunk, indexInChunk, allocatedCount, outputEntities + instanceBeginIndex);
+                ChunkDataUtility.ReplicateComponents(src.Chunk, src.IndexInChunk, chunk, indexInChunk, allocatedCount, ref this);
 
                 chunk->SetAllChangeVersions(GlobalSystemVersion);
 
@@ -475,7 +436,7 @@ namespace Unity.Entities
         {
             int totalCount = srcEntityCount * instanceCount;
 
-            var tempAllocSize = sizeof(EntityRemapUtility.SparseEntityRemapInfo) * totalCount +
+            var tempAllocSize = sizeof(Entity) * totalCount +
                 sizeof(InstantiateRemapChunk) * totalCount + sizeof(Entity) * instanceCount;
             byte* allocation;
             const int kMaxStackAllocSize = 16 * 1024;
@@ -491,7 +452,7 @@ namespace Unity.Entities
                 allocation = temp;
             }
 
-            var entityRemap = (EntityRemapUtility.SparseEntityRemapInfo*)allocation;
+            var entityRemap = (Entity*)allocation;
             var remapChunks = (InstantiateRemapChunk*)(entityRemap + totalCount);
             var outputEntities = (Entity*)(remapChunks + totalCount);
 
@@ -507,8 +468,7 @@ namespace Unity.Entities
                 for (int r = 0; r != instanceCount; r++)
                 {
                     var ptr = entityRemap + (r * srcEntityCount + i);
-                    ptr->Src = srcEntity;
-                    ptr->Target = outputEntities[r];
+                    *ptr = outputEntities[r];
                 }
 
                 if (i == 0)
@@ -531,9 +491,12 @@ namespace Unity.Entities
 
                 EntityRemapUtility.PatchEntitiesForPrefab(dstArchetype->ScalarEntityPatches + 1, dstArchetype->ScalarEntityPatchCount - 1,
                     dstArchetype->BufferEntityPatches, dstArchetype->BufferEntityPatchCount,
-                    chunk->Buffer, indexInChunk, allocatedCount, localRemap, srcEntityCount);
+                    chunk->Buffer, indexInChunk, allocatedCount, srcEntities, localRemap, srcEntityCount);
 
-                ManagedChangesTracker.PatchEntitiesForPrefab(dstArchetype, chunk, indexInChunk, allocatedCount, localRemap, srcEntityCount, Allocator.Temp);
+                if (dstArchetype->ManagedEntityPatchCount > 0)
+                {
+                    ManagedChangesTracker.PatchEntitiesForPrefab(dstArchetype, chunk, indexInChunk, allocatedCount, srcEntities, localRemap, srcEntityCount, Allocator.Temp);
+                }
             }
 
             if (tempAllocSize > kMaxStackAllocSize)
@@ -576,39 +539,20 @@ namespace Unity.Entities
                     archetype->NumSharedComponents) != null);
             }
 
-            if (archetype->NumManagedArrays > 0)
-            {
-                int managedArrayIndex;
-                if (!m_ManagedArrayFreeIndex.IsEmpty)
-                {
-                    managedArrayIndex = m_ManagedArrayFreeIndex.Pop<int>();
-                }
-                else
-                {
-                    managedArrayIndex = m_ManagedArrayIndex;
-                    m_ManagedArrayIndex++;
-                }
-
-                ManagedChangesTracker.AllocateManagedArrayStorage(managedArrayIndex,
-                    archetype->NumManagedArrays * chunk->Capacity);
-                chunk->ManagedArrayIndex = managedArrayIndex;
-            }
-            else
-            {
-                chunk->ManagedArrayIndex = -1;
-            }
-
             chunk->Flags = 0;
         }
 
-        void DeallocateDataEntitiesInChunk(Entity* entities, Chunk* chunk, int indexInChunk, int batchCount)
+        void DeallocateDataEntitiesInChunk(Chunk* chunk, int indexInChunk, int batchCount)
         {
-            DeallocateBuffers(entities, chunk, batchCount);
+            DeallocateBuffers(chunk, indexInChunk, batchCount);
+            DeallocateManagedComponents(chunk, indexInChunk, batchCount);
 
             var freeIndex = m_NextFreeEntityIndex;
+            var entities = (Entity*)chunk->Buffer + indexInChunk;
 
             for (var i = batchCount - 1; i >= 0; --i)
             {
+
                 var entityIndex = entities[i].Index;
 
                 m_EntityInChunkByEntity[entityIndex].Chunk = null;
@@ -638,7 +582,7 @@ namespace Unity.Entities
             ChunkDataUtility.Copy(chunk, chunk->Count - patchCount, chunk, indexInChunk, patchCount);
         }
 
-        void DeallocateBuffers(Entity* entities, Chunk* chunk, int batchCount)
+        void DeallocateBuffers(Chunk* chunk, int indexInChunk, int batchCount)
         {
             var archetype = chunk->Archetype;
 
@@ -654,9 +598,7 @@ namespace Unity.Entities
 
                 for (int i = 0; i < batchCount; ++i)
                 {
-                    Entity e = entities[i];
-                    int indexInChunk = m_EntityInChunkByEntity[e.Index].IndexInChunk;
-                    byte* bufferPtr = basePtr + stride * indexInChunk;
+                    byte* bufferPtr = basePtr + stride * (indexInChunk + i);
                     BufferHeader.Destroy((BufferHeader*)bufferPtr);
                 }
             }

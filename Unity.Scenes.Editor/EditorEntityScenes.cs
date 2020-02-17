@@ -74,9 +74,9 @@ namespace Unity.Scenes.Editor
             manager.SetComponentData(entity, new RetainBlobAssets { FramesToRetainBlobAssets = framesToRetainBlobAssets });
         }
         
-        public static SceneSectionData[] WriteEntityScene(Scene scene, GameObjectConversionSettings settings)
+        public static SceneSectionData[] WriteEntityScene(Scene scene, GameObjectConversionSettings settings, List<ReferencedUnityObjects> sectionRefObjs = null)
         {
-            int framesToRetainBlobAssets = RetainBlobAssetsSetting.GetFramesToRetainBlobAssets(settings.BuildSettings);
+            int framesToRetainBlobAssets = RetainBlobAssetsSetting.GetFramesToRetainBlobAssets(settings.BuildConfiguration);
             
             var world = new World("ConversionWorld");
             var entityManager = world.EntityManager;
@@ -200,7 +200,8 @@ namespace Unity.Scenes.Editor
                 //@TODO: Component should be removed but currently leads to corrupt data file. Figure out why.
                 //sectionManager.RemoveComponent(sectionManager.UniversalQuery, typeof(SceneSection));
 
-				var sectionFileSize = WriteEntityScene(sectionManager, sceneGUID, "0", settings, out var objectRefCount);
+				var sectionFileSize = WriteEntityScene(sectionManager, sceneGUID, "0", settings, out var objectRefCount, out var objRefs);
+                sectionRefObjs?.Add(objRefs);
                 sceneSections.Add(new SceneSectionData
                 {
                     FileSize = sectionFileSize,
@@ -311,7 +312,8 @@ namespace Unity.Scenes.Editor
                         // We don't want to store that on the disk
                         //@TODO: Component should be removed but currently leads to corrupt data file. Figure out why.
                         //sectionManager.RemoveComponent(sectionManager.UniversalQuery, typeof(SceneSection));
-                        var fileSize = WriteEntityScene(sectionManager, sceneGUID, subSection.Section.ToString(), settings, out var objectRefCount, entityRemapping);
+                        var fileSize = WriteEntityScene(sectionManager, sceneGUID, subSection.Section.ToString(), settings, out var objectRefCount, out var objRefs, entityRemapping);
+                        sectionRefObjs?.Add(objRefs);
                         sceneSections.Add(new SceneSectionData
                         {
                             FileSize = fileSize,
@@ -382,13 +384,12 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        static int WriteEntityScene(EntityManager scene, Hash128 sceneGUID, string subsection, GameObjectConversionSettings settings, out int objectReferenceCount, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos = default)
+        static int WriteEntityScene(EntityManager scene, Hash128 sceneGUID, string subsection, GameObjectConversionSettings settings, out int objectReferenceCount, out ReferencedUnityObjects objRefs, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos = default)
         {
             k_ProfileEntitiesSceneSave.Begin();
             var ctx = settings.AssetImportContext;
             var entitiesBinaryPath = GetSceneWritePath(sceneGUID, EntityScenesPaths.PathType.EntitiesBinary, subsection, ctx);
             var objRefsPath = GetSceneWritePath(sceneGUID, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, subsection, ctx);
-            ReferencedUnityObjects objRefs;
             objectReferenceCount = 0;
 
     	    EnsureFileIsWritableOrThrow(entitiesBinaryPath, ctx);
@@ -407,8 +408,8 @@ namespace Unity.Scenes.Editor
                 k_ProfileEntitiesSceneWriteObjRefs.Begin();
                 if (objRefs != null)
                 {
-                    var serializedObjectArray = new List<UnityObject>();
-                    serializedObjectArray.Add(objRefs);
+                    var serializedObjectList = new List<UnityObject>();
+                    serializedObjectList.Add(objRefs);
 
                     for (int i = 0;i != objRefs.Array.Length;i++)
                     {
@@ -417,13 +418,13 @@ namespace Unity.Scenes.Editor
                         {
                             var saveInBuild = (obj.hideFlags & HideFlags.DontSaveInBuild) == 0;
                             if (saveInBuild)
-                                serializedObjectArray.Add(obj);
+                                serializedObjectList.Add(obj);
                             else
                                 objRefs.Array[i] = null;
                         }
                     }
                     
-                    UnityEditorInternal.InternalEditorUtility.SaveToSerializedFileAndForget(serializedObjectArray.ToArray(), objRefsPath, false);
+                    UnityEditorInternal.InternalEditorUtility.SaveToSerializedFileAndForget(serializedObjectList.ToArray(), objRefsPath, false);
                     objectReferenceCount = objRefs.Array.Length;
                 }
                 k_ProfileEntitiesSceneWriteObjRefs.End();

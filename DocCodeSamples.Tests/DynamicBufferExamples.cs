@@ -90,6 +90,22 @@ namespace Doc.CodeSamples.Tests
             buffer.RemoveAt(0);
 
             #endregion
+
+            #region invalidation
+
+            var entity1 = EntityManager.CreateEntity();
+            var entity2 = EntityManager.CreateEntity();
+
+            DynamicBuffer<MyBufferElement> buffer1
+                = EntityManager.AddBuffer<MyBufferElement>(entity1);
+            // This line causes a structural change and invalidates
+            // the previously acquired dynamic buffer
+            DynamicBuffer<MyBufferElement> buffer2
+                = EntityManager.AddBuffer<MyBufferElement>(entity1);
+            // This line will cause an error:
+            buffer1.Add(17);
+
+            #endregion
         }
 
         #region add-in-job

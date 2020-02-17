@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using NUnit.Framework;
 using Unity.Scenes;
 using Unity.Scenes.Editor;
@@ -24,7 +25,7 @@ public class SubSceneEditorTests
         AssetDatabase.DeleteAsset(m_TempAssetDir);
     }
 
-    SubScene CreateSubScene(string subSceneName, string parentSceneName, InteractionMode interactionMode = InteractionMode.AutomatedAction)
+    SubScene CreateSubScene(string subSceneName, string parentSceneName, InteractionMode interactionMode = InteractionMode.AutomatedAction, SubSceneContextMenu.NewSubSceneMode mode = SubSceneContextMenu.NewSubSceneMode.MoveSelectionToScene)
     {
         var mainScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
         EditorSceneManager.SetActiveScene(mainScene);
@@ -36,7 +37,18 @@ public class SubSceneEditorTests
         go.name = subSceneName;
         Selection.activeGameObject = go;
 
-        return SubSceneContextMenu.CreateSubSceneAndAddSelection(Selection.activeGameObject, interactionMode);
+        var args = new SubSceneContextMenu.NewSubSceneArgs
+        {
+            target = go,
+            newSubSceneMode = mode
+        };
+        return SubSceneContextMenu.CreateNewSubScene(go.name, args, interactionMode);
+    }
+
+    [Test]
+    public void CreateEmptySubScene()
+    {
+        Assert.DoesNotThrow(() => CreateSubScene("EmptySubScene", "ParentScene", InteractionMode.AutomatedAction, SubSceneContextMenu.NewSubSceneMode.EmptyScene));
     }
 
     [Test]
@@ -60,15 +72,19 @@ public class SubSceneEditorTests
     }
 
     [Test]
-    public void InvalidFileNameCharInGameObjectName()
+    public void InvalidFileNameCharInGameObjectNameThrows()
     {
-        Assert.IsNull(CreateSubScene("SubScene/Something:", "ParentScene"), "Invalid file characters should be handled gracefully");
+        Assert.Throws<ArgumentException>(
+            () => { CreateSubScene("SubScene/Something:", "ParentScene"); }
+            , "Invalid file characters should be handled gracefully");
     }
 
     [Test]
-    public void EmptySubSceneName()
+    public void EmptySubSceneNameThrows()
     {
-        Assert.IsNull(CreateSubScene("", "ParentScene"), "Empty SubScene name is handled gracefully");
+        Assert.Throws<ArgumentException>(
+            () => { CreateSubScene("", "ParentScene"); }
+            , "Empty SubScene name is handled gracefully");
     }
 
     [Test]
@@ -84,7 +100,9 @@ public class SubSceneEditorTests
     public void OverwritingExistingSceneFilesArePrevented()
     {
         Assert.IsTrue(CreateSubScene("SubScene", "SameParentScene").EditingScene.IsValid(), "First SubScene should be created");
-        Assert.IsNull(CreateSubScene("SubScene", "SameParentScene"), "Trying to create a SubScene with same path as an exising SubScene should be prevented");
+        Assert.Throws<ArgumentException>(
+            () => { CreateSubScene("SubScene", "SameParentScene"); }
+            , "Trying to create a SubScene with same path as an exising SubScene should be prevented");
     }
 
     [Test]
@@ -113,7 +131,13 @@ public class SubSceneEditorTests
         var siblingIndex = go2.transform.GetSiblingIndex();
 
         Selection.activeGameObject = go2;
-        var subsceneComponent = SubSceneContextMenu.CreateSubSceneAndAddSelection(Selection.activeGameObject, InteractionMode.AutomatedAction);
+
+        var args = new SubSceneContextMenu.NewSubSceneArgs
+        {
+            target = Selection.activeGameObject,
+            newSubSceneMode = SubSceneContextMenu.NewSubSceneMode.MoveSelectionToScene
+        };
+        var subsceneComponent = SubSceneContextMenu.CreateNewSubScene(args.target.name, args, InteractionMode.AutomatedAction);
 
         Assert.AreEqual(siblingIndex, subsceneComponent.transform.GetSiblingIndex(), "The resulting SubScene GameObject should have the sibling order in the Hierarchy as the input GameObject.");
     }
@@ -135,9 +159,15 @@ public class SubSceneEditorTests
         PrefabUtility.SaveAsPrefabAssetAndConnect(go1, m_TempAssetDir + "/TestPrefab.prefab", InteractionMode.AutomatedAction);
 
         Selection.activeGameObject = go2;
-        var subsceneComponent = SubSceneContextMenu.CreateSubSceneAndAddSelection(Selection.activeGameObject, InteractionMode.AutomatedAction);
+        var args = new SubSceneContextMenu.NewSubSceneArgs
+        {
+            target = Selection.activeGameObject,
+            newSubSceneMode = SubSceneContextMenu.NewSubSceneMode.MoveSelectionToScene
+        };
 
-        Assert.IsNull(subsceneComponent, "Creating a SubScene from a partial Prefab selection should fail");
+        Assert.Throws<ArgumentException>(
+            () => { SubSceneContextMenu.CreateNewSubScene(args.target.name, args, InteractionMode.AutomatedAction); }
+            , "Creating a SubScene from a partial Prefab selection should fail");
     }
 
     [Test]

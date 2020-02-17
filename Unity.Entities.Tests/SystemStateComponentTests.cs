@@ -332,5 +332,45 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(m_Manager.Exists(entity));
             }
         }
+
+        [Test]
+        public void DestroySystemStateEntitySecondTimeIsIgnored()
+        {
+                var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsState1));
+                m_Manager.SetComponentData(entity1, new EcsTestData(1));
+                m_Manager.SetComponentData(entity1, new EcsState1(101));
+                m_Manager.SetSharedComponentData(entity1, new EcsTestSharedComp(42));
+                m_Manager.DestroyEntity(entity1);
+                var chunkBefore = m_Manager.GetChunk(entity1);
+                var entity2 = entity1;
+                // fill up chunk
+                for(int i=2; chunkBefore==m_Manager.GetChunk(entity2);++i)
+                {
+                    entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsState1));
+                    m_Manager.SetComponentData(entity2, new EcsTestData(i));
+                    m_Manager.SetComponentData(entity2, new EcsState1(i+100));
+                    m_Manager.SetSharedComponentData(entity2, new EcsTestSharedComp(42));
+                    m_Manager.DestroyEntity(entity2);
+                }
+
+                m_Manager.DestroyEntity(entity1);
+                var chunkAfter = m_Manager.GetChunk(entity1);
+
+                Assert.AreEqual(chunkBefore, chunkAfter);
+        }
+
+        struct SystemShared : ISystemStateSharedComponentData
+        {
+            public int Value;
+        }
+
+        [Test]
+        public void SystemStateSharedKeepsValueAfterDestroy()
+        {
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddSharedComponentData(entity, new SystemShared { Value = 123 });
+            m_Manager.DestroyEntity(entity);
+            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<CleanupEntity>(new SystemShared { Value = 123 }));
+        }
     }
 }

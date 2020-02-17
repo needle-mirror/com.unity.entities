@@ -27,10 +27,10 @@ namespace Unity.Entities.Tests.Conversion
                     SceneGUID                 = new Hash128(1, 2, 3, 4),
                     DebugConversionName       = "test name",
                     ConversionFlags           = GameObjectConversionUtility.ConversionFlags.AddEntityGUID,
-                    #if UNITY_EDITOR
-                    BuildSettings             = new BuildSettings(),
+#if UNITY_EDITOR
+                    BuildConfiguration        = BuildConfiguration.CreateInstance(),
                     //AssetImportContext        = new AssetImportContext(), // << private
-                    #endif
+#endif
                     ExtraSystems              = new[] { typeof(int) },
                     NamespaceID               = 123,
                     ConversionWorldCreated    = _ => {},
@@ -44,9 +44,9 @@ namespace Unity.Entities.Tests.Conversion
                 Assert.That(forked.SceneGUID,                 Is.EqualTo(settings.SceneGUID));
                 Assert.That(forked.DebugConversionName,       Is.EqualTo(settings.DebugConversionName + $":{234:x2}"));
                 Assert.That(forked.ConversionFlags,           Is.EqualTo(settings.ConversionFlags));
-                #if UNITY_EDITOR
-                Assert.That(forked.BuildSettings,             Is.EqualTo(settings.BuildSettings));
-                #endif
+#if UNITY_EDITOR
+                Assert.That(forked.BuildConfiguration,        Is.EqualTo(settings.BuildConfiguration));
+#endif
 
                 // non-forked
                 Assert.That(forked.ExtraSystems,              Is.Empty);

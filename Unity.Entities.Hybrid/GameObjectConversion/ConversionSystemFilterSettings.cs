@@ -8,7 +8,7 @@ using PropertyAttribute = Unity.Properties.PropertyAttribute;
 namespace Unity.Entities.Conversion
 {
 #if UNITY_EDITOR
-    public sealed class ConversionSystemFilterSettings : Build.IBuildSettingsComponent
+    public sealed class ConversionSystemFilterSettings : Build.IBuildComponent
     {
         HashSet<Assembly> m_ExcludedDomainAssemblies;
 

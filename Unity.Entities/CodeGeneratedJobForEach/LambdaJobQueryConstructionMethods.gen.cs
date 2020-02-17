@@ -62,5 +62,33 @@ namespace Unity.Entities
         public static LambdaJobChunkDescription WithSharedComponentFilter<T>(this LambdaJobChunkDescription description, [AllowDynamicValue] T sharedComponent) where T : struct, ISharedComponentData => description;
         public static LambdaJobChunkDescription WithStoreEntityQueryInField(this LambdaJobChunkDescription description, [AllowDynamicValue] ref EntityQuery query) => description;
 
+        //Start of query creating functions for ForEachLambdaJobDescriptionJCS.  Unfortunately there's no C# way to use generics to make these work for multiple jobdescription types, so we're lowteching it with t4 here.
+        [AllowMultipleInvocationsAttribute]
+        public static ForEachLambdaJobDescriptionJCS WithNone<T>(this ForEachLambdaJobDescriptionJCS description) => description;
+        [AllowMultipleInvocationsAttribute]
+        public static ForEachLambdaJobDescriptionJCS WithNone<T1,T2>(this ForEachLambdaJobDescriptionJCS description) => description;
+        [AllowMultipleInvocationsAttribute]
+        public static ForEachLambdaJobDescriptionJCS WithNone<T1,T2,T3>(this ForEachLambdaJobDescriptionJCS description) => description;
+        [AllowMultipleInvocationsAttribute]
+        public static ForEachLambdaJobDescriptionJCS WithAny<T>(this ForEachLambdaJobDescriptionJCS description) => description;
+        [AllowMultipleInvocationsAttribute]
+        public static ForEachLambdaJobDescriptionJCS WithAny<T1,T2>(this ForEachLambdaJobDescriptionJCS description) => description;
+        [AllowMultipleInvocationsAttribute]
+        public static ForEachLambdaJobDescriptionJCS WithAny<T1,T2,T3>(this ForEachLambdaJobDescriptionJCS description) => description;
+        [AllowMultipleInvocationsAttribute]
+        public static ForEachLambdaJobDescriptionJCS WithAll<T>(this ForEachLambdaJobDescriptionJCS description) => description;
+        [AllowMultipleInvocationsAttribute]
+        public static ForEachLambdaJobDescriptionJCS WithAll<T1,T2>(this ForEachLambdaJobDescriptionJCS description)  => description;
+        [AllowMultipleInvocationsAttribute]
+        public static ForEachLambdaJobDescriptionJCS WithAll<T1,T2,T3>(this ForEachLambdaJobDescriptionJCS description) => description;
+        [AllowMultipleInvocationsAttribute]
+        public static ForEachLambdaJobDescriptionJCS WithChangeFilter<T>(this ForEachLambdaJobDescriptionJCS description) => description;
+        [AllowMultipleInvocationsAttribute]
+        public static ForEachLambdaJobDescriptionJCS WithChangeFilter<T1,T2>(this ForEachLambdaJobDescriptionJCS description) => description;
+        
+        public static ForEachLambdaJobDescriptionJCS WithEntityQueryOptions(this ForEachLambdaJobDescriptionJCS description, EntityQueryOptions options) => description;
+        public static ForEachLambdaJobDescriptionJCS WithSharedComponentFilter<T>(this ForEachLambdaJobDescriptionJCS description, [AllowDynamicValue] T sharedComponent) where T : struct, ISharedComponentData => description;
+        public static ForEachLambdaJobDescriptionJCS WithStoreEntityQueryInField(this ForEachLambdaJobDescriptionJCS description, [AllowDynamicValue] ref EntityQuery query) => description;
+
    }    
 }

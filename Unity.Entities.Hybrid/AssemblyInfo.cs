@@ -10,4 +10,7 @@
 [assembly: InternalsVisibleTo("UnitTests.Editmode")]
 [assembly: InternalsVisibleTo("Unity.Samples.Tests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.EndToEnd.Tests")]
+[assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests.Playmode")]
 [assembly: InternalsVisibleTo("Unity.Physics.Hybrid")]
+[assembly: InternalsVisibleTo("Unity.Entities.Hybrid.CodeGen")]
+[assembly: InternalsVisibleTo("Unity.Entities.Hybrid.CodeGen.Tests")]

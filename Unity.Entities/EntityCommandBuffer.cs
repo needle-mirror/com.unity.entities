@@ -1162,9 +1162,7 @@ namespace Unity.Entities
         /// <param name="mgr">The exclusive entity transaction that will process the operations</param>
         public void Playback(ExclusiveEntityTransaction mgr)
         {
-            if (mgr.EntityDataAccess.EntityManager == null)
-                throw new NullReferenceException($"{nameof(mgr)} cannot be null");
-
+            mgr.CheckAccess();
             PlaybackInternal(mgr.EntityDataAccess);
         }
 
@@ -1574,7 +1572,7 @@ namespace Unity.Entities
                                 var cmd = (EntityManagedComponentCommand*)header;
                                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                                 mgr.AddComponent(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex));
-                                mgr.SetComponentObject(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex), cmd->GetBoxedObject());
+                                mgr.SetComponentObject(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex), cmd->GetBoxedObject(), mgr.ManagedComponentStore);
                             }
                             break;
 
@@ -1582,8 +1580,7 @@ namespace Unity.Entities
                             {
                                 var cmd = (EntitySharedComponentCommand*)header;
                                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                                mgr.AddSharedComponentDataBoxedDefaultMustBeNull(entity, cmd->ComponentTypeIndex, cmd->HashCode,
-                                    cmd->GetBoxedObject());
+                                mgr.AddSharedComponentDataBoxedDefaultMustBeNull(entity, cmd->ComponentTypeIndex, cmd->HashCode, cmd->GetBoxedObject(), mgr.ManagedComponentStore);
                             }
                             break;
 
@@ -1591,7 +1588,7 @@ namespace Unity.Entities
                             {
                                 var cmd = (EntityManagedComponentCommand*)header;
                                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                                mgr.SetComponentObject(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex), cmd->GetBoxedObject());
+                                mgr.SetComponentObject(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex), cmd->GetBoxedObject(), mgr.ManagedComponentStore);
                             }
                             break;
 
@@ -1599,8 +1596,7 @@ namespace Unity.Entities
                             {
                                 var cmd = (EntitySharedComponentCommand*)header;
                                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                                mgr.SetSharedComponentDataBoxedDefaultMustBeNull(entity, cmd->ComponentTypeIndex, cmd->HashCode,
-                                    cmd->GetBoxedObject());
+                                mgr.SetSharedComponentDataBoxedDefaultMustBeNull(entity, cmd->ComponentTypeIndex, cmd->HashCode, cmd->GetBoxedObject(), mgr.ManagedComponentStore);
                             }
                             break;
 
@@ -1635,7 +1631,7 @@ namespace Unity.Entities
                                 var cmd = (EntityQuerySharedComponentCommand*)header;
                                 AssertValidEntityQuery(&cmd->Header, mgr.EntityComponentStore);
                                 mgr.AddSharedComponentDataBoxedDefaultMustBeNull(cmd->Header.QueryData->MatchingArchetypes, cmd->Header.EntityQueryFilter, cmd->ComponentTypeIndex, cmd->HashCode,
-                                    cmd->GetBoxedObject());
+                                    cmd->GetBoxedObject(), mgr.ManagedComponentStore);
                             }
                             break;
 

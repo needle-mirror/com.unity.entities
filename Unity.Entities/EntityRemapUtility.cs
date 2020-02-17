@@ -18,12 +18,6 @@ namespace Unity.Entities
             public Entity Target;
         }
 
-        public struct SparseEntityRemapInfo
-        {
-            public Entity Src;
-            public Entity Target;
-        }
-
         public static void GetTargets(out NativeArray<Entity> output, NativeArray<EntityRemapInfo> remapping)
         {
             NativeArray<Entity> temp = new NativeArray<Entity>(remapping.Length, Allocator.TempJob);
@@ -58,14 +52,14 @@ namespace Unity.Entities
             }
         }
 
-        public static Entity RemapEntityForPrefab(SparseEntityRemapInfo* remapping, int remappingCount, Entity source)
+        public static Entity RemapEntityForPrefab(Entity* remapSrc, Entity* remapDst, int remappingCount, Entity source)
         {
             // When instantiating prefabs,
             // internal references are remapped.
             for (int i = 0; i != remappingCount; i++)
             {
-                if (source == remapping[i].Src)
-                    return remapping[i].Target;
+                if (source == remapSrc[i])
+                    return remapDst[i];
             }
             // And external references are kept.
             return source;
@@ -258,7 +252,7 @@ namespace Unity.Entities
 
         public static void PatchEntitiesForPrefab(EntityPatchInfo* scalarPatches, int scalarPatchCount,
             BufferEntityPatchInfo* bufferPatches, int bufferPatchCount,
-            byte* chunkBuffer, int indexInChunk, int entityCount, SparseEntityRemapInfo* remapping, int remappingCount)
+            byte* chunkBuffer, int indexInChunk, int entityCount, Entity* remapSrc, Entity* remapDst, int remappingCount)
         {
             // Patch scalars (single components) with entity references.
             for (int p = 0; p < scalarPatchCount; p++)
@@ -267,7 +261,7 @@ namespace Unity.Entities
                 for (int e = 0; e != entityCount; e++)
                 {
                     Entity* entity = (Entity*)(entityData + scalarPatches[p].Stride * (e + indexInChunk));
-                    *entity = RemapEntityForPrefab(remapping + e * remappingCount, remappingCount, *entity);
+                    *entity = RemapEntityForPrefab(remapSrc, remapDst + e * remappingCount, remappingCount, *entity);
                 }
             }
 
@@ -286,7 +280,7 @@ namespace Unity.Entities
                     for (int k = 0; k != elemCount; ++k)
                     {
                         Entity* entityPtr = (Entity*)elemsBase;
-                        *entityPtr = RemapEntityForPrefab(remapping + e * remappingCount, remappingCount, *entityPtr);
+                        *entityPtr = RemapEntityForPrefab(remapSrc, remapDst + e * remappingCount, remappingCount, *entityPtr);
                         elemsBase += bufferPatches[p].ElementStride;
                     }
                 }
@@ -309,9 +303,9 @@ namespace Unity.Entities
                 throw new ArgumentException($"Type '{type.FullName}' not supported for visiting.");
         }
 
-        internal static void PatchEntityForPrefabInBoxedType(object container, SparseEntityRemapInfo* remapInfo, int remapInfoCount)
+        internal static void PatchEntityForPrefabInBoxedType(object container, Entity* remapSrc, Entity* remapDst, int remapInfoCount)
         {
-            var visitor = new EntityRemappingVisitor(remapInfo, remapInfoCount);
+            var visitor = new EntityRemappingVisitor(remapSrc, remapDst, remapInfoCount);
             var changeTracker = new ChangeTracker();
             var type = container.GetType();
 
@@ -335,9 +329,9 @@ namespace Unity.Entities
                 AddAdapter(_EntityRemapAdapter);
             }
 
-            public EntityRemappingVisitor(EntityRemapUtility.SparseEntityRemapInfo* remapInfo, int remapInfoCount)
+            public EntityRemappingVisitor(Entity* remapSrc, Entity* remapDst, int remapInfoCount)
             {
-                _EntityRemapForPrefabAdapter = new EntityRemappingForPrefabAdapter(remapInfo, remapInfoCount);
+                _EntityRemapForPrefabAdapter = new EntityRemappingForPrefabAdapter(remapSrc, remapDst, remapInfoCount);
                 AddAdapter(_EntityRemapForPrefabAdapter);
             }
         }
@@ -396,19 +390,21 @@ namespace Unity.Entities
             , IVisitCollectionAdapter
             , IVisitContainerAdapter
         {
-            protected EntityRemapUtility.SparseEntityRemapInfo* RemapInfo { get; }
+            protected Entity* RemapSource { get; }
+            protected Entity* RemapDestination { get; }
             protected int RemapInfoCount { get; }
 
-            unsafe public EntityRemappingForPrefabAdapter(EntityRemapUtility.SparseEntityRemapInfo* remapInfo, int remapInfoCount)
+            unsafe public EntityRemappingForPrefabAdapter(Entity* remapSrc, Entity* remapDst, int remapInfoCount)
             {
-                RemapInfo = remapInfo;
+                RemapSource = remapSrc;
+                RemapDestination = remapDst;
                 RemapInfoCount = remapInfoCount;
             }
 
             unsafe public VisitStatus Visit<TProperty, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref Entity value, ref ChangeTracker changeTracker)
                 where TProperty : IProperty<TContainer, Entity>
             {
-                value = EntityRemapUtility.RemapEntityForPrefab(RemapInfo, RemapInfoCount, value);
+                value = EntityRemapUtility.RemapEntityForPrefab(RemapSource, RemapDestination, RemapInfoCount, value);
                 return VisitStatus.Handled;
             }
 

@@ -1,15 +1,15 @@
 using Unity.Build;
 
-class RetainBlobAssetsSetting : IBuildSettingsComponent
+class RetainBlobAssetsSetting : IBuildComponent
 {
     public int FramesToRetainBlobAssets;
 
     public string Name => "RetainBlobAssetsSetting";
 
-    public static int GetFramesToRetainBlobAssets(BuildSettings buildSettings)
+    public static int GetFramesToRetainBlobAssets(BuildConfiguration config)
     {
         int framesToRetainBlobAssets = 1;
-        if (buildSettings != null && buildSettings.TryGetComponent(out RetainBlobAssetsSetting retainSetting))
+        if (config != null && config.TryGetComponent(out RetainBlobAssetsSetting retainSetting))
             framesToRetainBlobAssets = retainSetting.FramesToRetainBlobAssets;
         return framesToRetainBlobAssets;
     }

@@ -15,11 +15,14 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void CheckInternalConsistency()
         {
+            var managedComponentIndices = new UnsafeBitArray(m_ManagedComponentIndex, Allocator.Temp);    
             // Iterate by archetype
             var entityCountByArchetype = 0;
             for (var i = 0; i < m_Archetypes.Length; ++i)
             {
                 var archetype = m_Archetypes.Ptr[i];
+                int managedTypeBegin = archetype->FirstManagedComponent;  
+                int managedTypeEnd = archetype->ManagedComponentsEnd;  
 
                 var countInArchetype = 0;
                 for (var j = 0; j < archetype->Chunks.Count; ++j)
@@ -66,6 +69,21 @@ namespace Unity.Entities
                         var metaChunk = GetChunk(chunk->metaChunkEntity);
                         Assert.IsTrue(metaChunk->Archetype == chunk->Archetype->MetaChunkArchetype);
                     }
+
+                    for (int iType = managedTypeBegin; iType < managedTypeEnd; ++iType)
+                    {
+                        var managedIndicesInChunk = (int*)(chunk->Buffer + archetype->Offsets[iType]);
+                        for (int ie = 0; ie < chunk->Count; ++ie)
+                        {
+                            var index = managedIndicesInChunk[ie];
+                            if (index == 0)
+                                continue;
+                            
+                            Assert.IsTrue(index < m_ManagedComponentIndex, "Managed component index in chunk is out of range.");
+                            Assert.IsFalse(managedComponentIndices.IsSet(index), "Managed component index is used multiple times.");
+                            managedComponentIndices.Set(index, true);
+                        }
+                    }
                 }
 
                 Assert.AreEqual(countInArchetype, archetype->EntityCount);
@@ -73,6 +91,20 @@ namespace Unity.Entities
                 entityCountByArchetype += countInArchetype;
             }
 
+            var freeManagedIndices = (int*)m_ManagedComponentFreeIndex.Ptr;
+            var freeManagedCount = m_ManagedComponentFreeIndex.Size / sizeof(int); 
+
+            for (int i = 0; i < freeManagedCount; ++i)
+            {
+                var index = freeManagedIndices[i];
+                Assert.IsTrue(0 < index && index < m_ManagedComponentIndex, "Managed component index in free list is out of range.");
+                Assert.IsFalse(managedComponentIndices.IsSet(index), "Managed component was marked as free but is used in chunk.");
+                managedComponentIndices.Set(index, true);
+            }
+            
+            Assert.IsTrue(managedComponentIndices.TestAll(1,m_ManagedComponentIndex-1), "Managed component index has leaked.");
+            managedComponentIndices.Dispose();
+            
             // Iterate by free list
             Assert.IsTrue(m_EntityInChunkByEntity[m_NextFreeEntityIndex].Chunk == null);
 

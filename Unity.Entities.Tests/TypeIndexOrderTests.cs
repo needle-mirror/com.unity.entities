@@ -204,9 +204,9 @@ namespace Unity.Entities.Tests
 
             var entityType = new ComponentTypeInArchetype(typeof(Entity));
 
-            //Expected order: Entity, ComponentData*, SystemState*, Buffer*, SystemBuffer*, Tag*, SystemTag*,
-            // Shared*, SystemShared*, ChunkComponentData* and ChunkTag*, ChunkSystemState* and ChunkSystemTag*,
-            // ChunkBuffer*, ChunkSystemBuffer*, ManagedComponentData
+            //Expected order: Entity, ComponentData*, SystemState*, Buffer*, SystemBuffer*, ManagedComponentData *, Tag*,
+            // SystemTag*, Shared*, SystemShared*, ChunkComponentData* and ChunkTag*, ChunkSystemState* and ChunkSystemTag*,
+            // ChunkBuffer*, ChunkSystemBuffer*
 
             var t = archetype.Archetype->Types;
 
@@ -216,18 +216,18 @@ namespace Unity.Entities.Tests
             MatchesTypes<SystemState1, SystemState2>(t[3], t[4]);
             MatchesTypes<Buffer1, Buffer2>(t[5], t[6]);
             MatchesTypes<SystemBuffer1, SystemBuffer2>(t[7], t[8]);
-            MatchesTypes<Tag1, Tag2>(t[9], t[10]);
-            MatchesTypes<SystemTag1, SystemTag2>(t[11], t[12]);
-            MatchesTypes<Shared1, Shared2>(t[13], t[14]);
-            MatchesTypes<SystemShared1, SystemShared2>(t[15], t[16]);
+            MatchesTypes<ManagedComponentData1, ManagedComponentData2>(t[9], t[10]);
 
-            MatchesChunkTypes<ComponentData1, ComponentData2, Tag1, Tag2>(t[17], t[18], t[19], t[20]);
-            MatchesChunkTypes<SystemState1, SystemState2, SystemTag1, SystemTag2>(t[21], t[22], t[23], t[24]);
+            MatchesTypes<Tag1, Tag2>(t[11], t[12]);
+            MatchesTypes<SystemTag1, SystemTag2>(t[13], t[14]);
+            MatchesTypes<Shared1, Shared2>(t[15], t[16]);
+            MatchesTypes<SystemShared1, SystemShared2>(t[17], t[18]);
 
-            MatchesChunkTypes<Buffer1, Buffer2>(t[25], t[26]);
-            MatchesChunkTypes<SystemBuffer1, SystemBuffer2>(t[27], t[28]);
+            MatchesChunkTypes<ComponentData1, ComponentData2, Tag1, Tag2>(t[19], t[20], t[21], t[22]);
+            MatchesChunkTypes<SystemState1, SystemState2, SystemTag1, SystemTag2>(t[23], t[24], t[25], t[26]);
 
-            MatchesTypes<ManagedComponentData1, ManagedComponentData2>(t[29], t[30]);
+            MatchesChunkTypes<Buffer1, Buffer2>(t[27], t[28]);
+            MatchesChunkTypes<SystemBuffer1, SystemBuffer2>(t[29], t[30]);
         }
 #endif
     }

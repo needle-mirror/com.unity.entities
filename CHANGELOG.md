@@ -1,21 +1,90 @@
 # Change log
 
 
-## [0.5.1] - 2020-01-28
+## [0.6.0] - 2020-02-17
 
-### Fixed
+### Added
 
-* Constructor-related exceptions thrown during `World.CreateSystem` will now included the inner exception details.
-* Fixed an issue where `BlobAssetReference` types was not guaranteed to be 8-byte aligned on all platforms which could result in failing to read Blob data in components correctly on 32-bit platforms.
-* Fixed issue in MinMaxAABB Equals() comparing Min to itself rather than other.
-* `Entities.ForEach` now properly treats `in` parameters of `DynamicBuffer` type as read-only
-* Fixed potential crash caused by a leaked job after an exception is thrown during a call to `IJobChunk.Schedule`.
-* `DefaultWorldInitialization.GetAllSystems` now returns `IReadOnlyList<Type>` instead of `List<Type>`
-* `DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups` now takes `IEnumerable<Type>` instead of `List<Type>`
+* The `[GenerateAuthoringComponent]` attribute is now allowed on structs implementing `IBufferElementData`. An authoring component is automatically generated to support adding a `DynamicBuffer` of the type implementing `IBufferElementData` to an entity.
+* Added new `SystemBase` base class for component systems.  This new way of defining component systems manages dependencies for the user (manual dependency management is still possible by accessing the `SystemBase.Dependency` field directly).
+* New `ScheduleParallel` methods in `IJobChunk` and `Entities.ForEach` (in `SystemBase`) to make parallel scheduling of jobs explicit.  `ScheduleSingle` in `IJobChunk` indicates scheduling work to be done in a non-parallel manner.
+* New editor workflow to quickly and easily build LiveLink player using the `BuildConfiguration` API.
+* Adds Live Link support for `GameObject` scenes.
+* The `SceneSystem` API now also loads `GameObject` scenes via `LoadSceneAsync` API.
+* Added new build component for LiveLink settings in `Unity.Scenes.Editor` to control how initial scenes are handled (LiveLink all, embed all, embed first).
+* Users can now inspect post-procssed IL code inside Unity Editor: `DOTS` -> `DOTS Compiler` -> `Open Inspector`
 
 ### Changed
 
-* Updated dependencies for this package.
+ * The package `com.unity.build` has been merged into the package `com.unity.platforms`. As such, removed the dependency on `com.unity.build@0.1.0-preview` and replaced it with `com.unity.platforms@0.2.1-preview.1`. Please read the changelog of `com.unity.platforms` for more details.
+* Managed components are now stored in a way that will generate less GC allocations when entities change archetype.
+* Moved `Unity.Entities.ICustomBootstrap` from Unity.Entities.Hybrid to Unity.Entities.
+* `World.Dispose()` now completes all reader/writer jobs on the `World`'s `EntityManager` before releasing any resources, to avoid use-after-free errors.
+* Fix `AssemblyResolveException` when loading a project with dependent packages that are using Burst in static initializers or `InitializeOnLoad`.
+* `.sceneWithBuildSettings` files that are stored in Assets/SceneDependencyCache are no longer rebuilt constantly. Because they are required for SubScene behaviour to work in the editor, if these are deleted they are recreated by OnValidate of the SubScene in the edited Scene. They should also be recreated on domain reload (restarting unity, entering/exiting playmode, etc).
+* `EntityQuery.cs`: Overloads of `CreateArchetypeChunkArray`, `ToComponentDataArray`, `ToEntityArray`, and `CopyFromComponentDataArray` that return a JobHandle (allowing the work to be done asynchronously) have been renamed to add `Async` to the title (i.e. `ToComponentDataArrayAsync`). The old overloads have been deprecated and an API Updater clause has been added.
+ * `Entities.WithName` now only accepts names that use letters, digits, and underscores (not starting with a digit, no two consecutive underscores)
+ * Updated package `com.unity.properties` to version `0.10.4-preview`.
+ * Updated package `com.unity.serialization` to version `0.6.4-preview`.
+ * The entity debugger now remembers whether chunk info panel is visible
+ * The entity debugger now displays the full name for nested types in the system list
+ * The entity debugger now sorts previously used filter components to the top of the filter GUI
+ * Bumped burst version to include the new features and fixes including:
+ * Fix an issue with function pointers being corrupted after a domain reload that could lead to hard crashes.
+ * Fix potential deadlock between Burst and the AssetDatabase if burst is being used when building the database.
+
+### Deprecated
+
+ * Method `GetBuildSettingsComponent` on class `GameObjectConversionSystem` has been renamed to `GetBuildConfigurationComponent`.
+ * Method `TryGetBuildSettingsComponent` on class `GameObjectConversionSystem` has been renamed to `TryGetBuildConfigurationComponent`.
+ * Member `BuildSettings` on class `GameObjectConversionSettings` has been renamed to `BuildConfiguration`.
+ * Member `BuildSettingsGUID` on class `SceneSystem` has been renamed to `BuildConfigurationGUID`.
+
+### Removed
+
+ * Removed expired API `SceneSectionData.SharedComponentCount`
+ * Removed expired API `struct SceneData`
+ * Removed expired API `SubScene._SceneEntities`
+ * Removed expired API `World.Active`
+
+### Fixed
+
+* Ability to open and close SubScenes from the scene hierarchy window (Without having to move cursor to inspector window).
+* Ability to create a new empty Sub Scene without first creating a game object.
+* Improve performance of SubScene loading and change tracking in the editor.
+* Fixed regression where `GetSingleton` would create a new query on every call.
+* Fixed SubScenes trying to load an already loaded AssetBundle when loaded multiple times on the same player, but with different Worlds.
+* Make it clear that SubScenes in Prefabs are not supported.
+* Lambda job codegen tests now fail if the error message does not contain the expected contents.
+* Improved performance of setting up the world required for game object conversion
+* The `chunkIndex` parameter passed to `IJobChunk.Execute()` now has the correct value.
+* Fixed an error which caused entities with `ISystemStateSharedComponentData` components to not be cleaned up correctly.
+* Managed components containing `Entity` fields will now correctly serialize.
+* Fixed issue where `BlobAssetVerifier` will throw error if it can't resolve a type.
+* Exposed the Managed Component extensions for `EntityQuery`.
+* `Entities.ForEach` now identifies when `this` of the enclosing system is captured due to calling an extension method on it when compilation fails since the lambda was emitted as a member function
+* `Entities.ForEach` now reports when a field of the outer system is captured and used by reference when compilation fails since the lambda was emitted as a member function
+* `Entities.ForEach` does not erronously point to calling static functions as the source of the error when compilation fails since the lambda was emitted as a member function
+* Debugging inside of `Entities.ForEach` with Visual Studio 2017/2019 (some debugging features will need an upcoming update of the com.unity.ide.visualstudio package).
+* `EntityQuery.ToComponentArray<T>` with `T` deriving from `UnityEngine.Component` now correctly collects all data in a chunk
+* Fixed an issue with `ComponentSystemBase.GetEntityQuery` and `EntityManager.CreateEntityQuery` calls made with `EntityQueryDesc` not respecting read-only permissions.
+
+
+## [0.5.1] - 2020-01-28
+
+### Changed
+
+* Constructor-related exceptions thrown during `World.CreateSystem` will now included the inner exception details.
+* `DefaultWorldInitialization.GetAllSystems` now returns `IReadOnlyList<Type>` instead of `List<Type>`
+* `DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups` now takes `IEnumerable<Type>` instead of `List<Type>`
+
+### Fixed
+
+* Fixed an issue where `BlobAssetReference` types was not guaranteed to be 8-byte aligned on all platforms which could result in failing to read Blob data in components correctly on 32-bit platforms.
+* Fixed issue in `MinMaxAABB.Equals()` comparing `Min` to itself rather than `other`.
+* `Entities.ForEach` now properly treats `in` parameters of `DynamicBuffer` type as read-only
+* Fixed potential crash caused by a leaked job after an exception is thrown during a call to `IJobChunk.Schedule`.
+* Fixed regression in `ComponentSystemBase.GetSingleton()` where a new query would be created every timee the function is called.
 
 
 ## [0.5.0] - 2020-01-16
@@ -23,7 +92,6 @@
 ### Added
 
 * Added AndroidHybrid.buildpipeline with RunStepAndroid
-* EntityManager.MoveEntitiesFrom now has the full method overload combination of output, filter, remapping parameters.
 
 ### Changed
 
@@ -31,18 +99,19 @@
 * Log entries emitted during subscene conversion without a context object are now displayed in the subscene inspector instead of discarded
 
 ### Deprecated
- 
+
 * Adding removal dates to the API that have been deprecated but did not have the date set.
 * `BlobAssetReference<T>`: `Release()` was deprecated, use `Dispose()` instead.
-   
+
 ### Removed
 
-* `EntityQuery.cs`: Removed expired API `CalculateLength()`, `SetFilter()` and `SetFilterChanged()`.
+ * Adding removal dates to the API that have been deprecated but did not have the date set.
+ * `BlobAssetReference<T>`: `Release()` was deprecated, use `Dispose()` instead.
+ * `EntityQuery.cs`: Removed expired API `CalculateLength()`, `SetFilter()` and `SetFilterChanged()`.
 
 ### Fixed
-
 * Fixed an issue where trying to perform EntityRemapping on Managed Components could throw if a component field was null.
-* EntityManager.MoveEntitiesFrom with query was not bumping shared component versions, order versions or dirty versions correctly. Now it does.
+* `EntityManager.MoveEntitiesFrom` with query was not bumping shared component versions, order versions or dirty versions correctly. Now it does.
 * Fixed that adding a Sub Scene component from the Add Components dropdown was not reflected in the Hierarchy.
 * Fixed so that Undo/Redo of changes to SceneAsset objectfield in the Sub Scene Inspector is reflected in the Hierarchy.
 * Make it clear when Sub Scene duplicates are present: shown in Hierarchy and by showing a warning box in the Inspector.
@@ -51,9 +120,9 @@
 * Keep sibling order for new Sub Scene when created using 'New Sub Scene From Selection' (prevents the new Sub Scene from ending as the last sibling).
 * Handle if selection contains part of a Prefab instance when creating Sub Scene from Selection.
 * Fix dangling loaded Sub Scenes not visualized in the Hierarchy when removing Scene Asset reference in Sub Scene component.
-* Fixed an issue with invalid IL generated by Entities.ForEach when structs are captured as locals from two different scopes and their fields are accessed.
+* Fixed an issue with invalid IL generated by `Entities.ForEach` when structs are captured as locals from two different scopes and their fields are accessed.
 * Make it clear in the Hierarchy and Sub Scene Inspector that nesting Sub Scenes is not yet supported.
-* Fixed an issue with BinaryWriter where serializing a System.String[] with a single element would throw an exception.
+* Fixed an issue with `BinaryWriter` where serializing a `System.String[]` with a single element would throw an exception.
 * Fixed an issue with `ComponentSystem.GetEntityQuery` and `JobComponentSystem.GetEntityQuery` which caused improper caching of queries when using "None" or "Any" fields.
 
 
@@ -62,21 +131,19 @@
 **This version requires Unity 2019.3.0f1+**
 
 ### New Features
+
 * Two new methods added to the public API:
   * `void EntityCommandBuffer.AddComponent<T>(EntityQuery entityQuery)`
   * `void EntityCommandBuffer.RemoveComponent<T>(EntityQuery entityQuery)`
 * BlobArray, BlobString & BlobPtr are not allowed to be copied by value since they carry offset pointers that aree relative to the location of the memory. This could easily result in programming mistakes. The compiler now prevents incorrect usage by enforcing any type attributed with [MayOnlyLiveInBlobStorage] to never be copied by value.
 
-
-### Upgrade guide
-
 ### Changes
-* Deprecates `TypeManager.CreateTypeIndexForComponent` and it's other component type variants. Types can be dynamically added (in Editor builds) by instead passing the new unregistered types to `TypeManager.AddNewComponentTypes` instead.
 
+* Deprecates `TypeManager.CreateTypeIndexForComponent` and it's other component type variants. Types can be dynamically added (in Editor builds) by instead passing the new unregistered types to `TypeManager.AddNewComponentTypes` instead.
 * `RequireForUpdate(EntityQuery)` and `RequireSingletonForUpdate` on a system with `[AlwaysUpdate]` will now throw an exception instead of being ignored.
 * ChangeVersionUtility.IncrementGlobalSystemVersion & ChangeVersionUtility.InitialGlobalSystemVersion is now internal. They were accidentally public previously.
 * Entity inspector now shows entity names and allows to rename the selected entity
-* Improved entity debugger UI 
+* Improved entity debugger UI
 * Create WorldRenderBounds for prefabs and disabled entities with renderers during conversion, this make instantiation of those entities significantly faster.
 * Reduced stack depth of System.Update / OnUpdate method (So it looks better in debugger)
 * Assert when using EntityQuery from another world
@@ -84,11 +151,10 @@
 * Structural changes now go through a bursted codepath and are significantly faster
 * DynamicBuffer.Capacity is now settable
 
-
 ### Fixes
 
 * Remove unnecessary & incorrect warning in DeclareReferencedPrefab when the referenced game object is a scene object
-* GameObjects with ConvertAndInject won't get detached from a non-converted parent (fixes regression) 
+* GameObjects with ConvertAndInject won't get detached from a non-converted parent (fixes regression)
 * Fixed a crash that could occur when destroying an entity with an empty LinkedEntityGroup.
 * Updated performance package dependency to 1.3.2 which fixes an obsoletion warning
 * The `EntityCommandBuffer` can be replayed repeatedly.

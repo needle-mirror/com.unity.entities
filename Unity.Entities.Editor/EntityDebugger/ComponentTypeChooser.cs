@@ -12,17 +12,19 @@ namespace Unity.Entities.Editor
     {
 
         private static List<ComponentType> types;
-        private static List<bool> typeSelections;
+        private static HashSet<ComponentType> typeSelections;
+        static List<ComponentType> previouslySelected;
 
         private static CallbackAction callback;
 
         private static readonly Vector2 kDefaultSize = new Vector2(300f, 400f);
 
-        public static void Open(Vector2 screenPosition, List<ComponentType> types, List<bool> typeSelections, CallbackAction callback)
+        public static void Open(Vector2 screenPosition, List<ComponentType> types, HashSet<ComponentType> typeSelections, List<ComponentType> previouslySelected, CallbackAction callback)
         {
             ComponentTypeChooser.callback = callback;
             ComponentTypeChooser.types = types;
             ComponentTypeChooser.typeSelections = typeSelections;
+            ComponentTypeChooser.previouslySelected = previouslySelected;
             GetWindowWithRect<ComponentTypeChooser>(new Rect(screenPosition, kDefaultSize), true, "Choose Component", true);
         }
 
@@ -33,7 +35,7 @@ namespace Unity.Entities.Editor
         {
             searchField = new SearchField();
             searchField.SetFocus();
-            typeListView = new ComponentTypeListView(new TreeViewState(), types, typeSelections, ComponentFilterChanged);
+            typeListView = new ComponentTypeListView(new TreeViewState(), types, typeSelections, previouslySelected, ComponentFilterChanged);
         }
 
         public void ComponentFilterChanged()

@@ -2,8 +2,10 @@
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Collections.Generic;
 using Mono.Cecil;
 using NUnit.Framework;
+using Unity.CompilationPipeline.Common.Diagnostics;
 
 namespace Unity.Entities.CodeGen.Tests.LambdaJobs.Infrastructure
 {
@@ -26,8 +28,11 @@ namespace Unity.Entities.CodeGen.Tests.LambdaJobs.Infrastructure
             var methodToAnalyze = MethodDefinitionForOnlyMethodOf(type);
             var forEachDescriptionConstructions = LambdaJobDescriptionConstruction.FindIn(methodToAnalyze);
             JobStructForLambdaJob jobStructForLambdaJob = null;
-            foreach(var forEachDescriptionConstruction in forEachDescriptionConstructions)
-                jobStructForLambdaJob = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction, null);
+            foreach (var forEachDescriptionConstruction in forEachDescriptionConstructions)
+            {
+                List<DiagnosticMessage> diagnosticMessages;
+                (jobStructForLambdaJob, diagnosticMessages) = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction);
+            }
 
             _methodIL = new StringBuilder();
             if (methodToAnalyze != null)

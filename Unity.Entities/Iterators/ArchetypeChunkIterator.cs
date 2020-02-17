@@ -201,7 +201,7 @@ namespace Unity.Entities
         /// <returns>Number of chunks that can be accessed.</returns>
         internal int CalculateChunkCount()
         {
-            return ChunkIterationUtility.CalculateChunkCount(m_MatchingArchetypeList, ref m_Filter);
+            return ChunkIterationUtility.CalculateChunkCount(in m_MatchingArchetypeList, ref m_Filter);
         }
 
         /// <summary>
@@ -234,10 +234,12 @@ namespace Unity.Entities
 
             return chunk->Buffer + archetype->Offsets[indexInArchetype];
         }
-        
+
         internal object GetManagedObject(ManagedComponentStore managedComponentStore, int typeIndexInQuery, int entityInChunkIndex)
         {
-            return managedComponentStore.GetManagedObject(CurrentChunk, CurrentMatchingArchetype->IndexInArchetype[typeIndexInQuery], entityInChunkIndex);
+            var indexInArchetype = CurrentMatchingArchetype->IndexInArchetype[typeIndexInQuery];
+            var managedComponentArray = (int*) ChunkDataUtility.GetComponentDataRW(CurrentChunk, 0, indexInArchetype, m_GlobalSystemVersion);
+            return managedComponentStore.GetManagedComponent(managedComponentArray[entityInChunkIndex]);
         }
     }
 }

@@ -45,8 +45,7 @@ namespace Unity.Entities
             DestroyChunks(dstEntityManager, archetypeChunkChanges.DestroyedDstChunks.Chunks);
             CloneAndAddChunks(srcEntityManager, dstEntityManager, archetypeChunkChanges.CreatedSrcChunks.Chunks);
             
-            var changedArchetypes = dstEntityManager.EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges);
-            dstEntityManager.EntityQueryManager.AddAdditionalArchetypes(changedArchetypes);
+            dstEntityManager.EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, dstEntityManager.EntityQueryManager);
 
             //@TODO-opt: use a query that searches for all chunks that have chunk components on it
             //@TODO-opt: Move this into a job
@@ -150,10 +149,15 @@ namespace Unity.Entities
             var copySize = Chunk.GetChunkBufferSize();
             UnsafeUtility.MemCpy((byte*) dstChunk + Chunk.kBufferOffset, (byte*) srcChunk + Chunk.kBufferOffset, copySize);
 
-            // @TODO: Class components should be duplicated instead of copied by ref?
-            if (dstChunk->ManagedArrayIndex != -1)
-                ManagedComponentStore.CopyManagedObjects(srcManagedComponentStore, srcChunk->Archetype, srcChunk->ManagedArrayIndex, srcChunk->Capacity, 0, dstManagedComponentStore, dstChunk->Archetype, dstChunk->ManagedArrayIndex, dstChunk->Capacity, 0, srcChunk->Count);
-            
+            var numManagedComponents = dstChunk->Archetype->NumManagedComponents;
+            for (int t = 0; t < numManagedComponents; ++t)
+            {
+                int type = t + dstChunk->Archetype->FirstManagedComponent;
+                var offset = dstChunk->Archetype->Offsets[type];
+                var a = (int*)(dstChunk->Buffer + offset);
+                dstManagedComponentStore.CloneManagedComponentsFromDifferentWorld(a, dstChunk->Count, srcManagedComponentStore , ref *dstEntityManager.EntityComponentStore);
+            }
+
             BufferHeader.PatchAfterCloningChunk(dstChunk);
             dstChunk->SequenceNumber = srcChunk->SequenceNumber;
 

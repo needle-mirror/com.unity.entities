@@ -612,7 +612,7 @@ namespace Unity.Entities.Tests
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         [StandaloneFixme] // No Unity.Properties Support
-        public void MoveEntitiesPatchesEntityReferences_ManagedComponents()
+        public void MoveEntitiesPatchesEntityReferences_ManagedComponents([Values]bool useFilteredMove)
         {
             int numberOfEntitiesPerManager = 10000;
 
@@ -624,16 +624,33 @@ namespace Unity.Entities.Tests
 
             var sourceWorld = new World("SourceWorld");
             var sourceManager = sourceWorld.EntityManager;
+            
+            // create some temporary entities to ensure that entity ids and managed component indices need to be remapped during move
+            var tempEntities = new NativeArray<Entity>(100, Allocator.Temp);
+            sourceManager.CreateEntity(sourceManager.CreateArchetype(typeof(EcsTestManagedComponent)), tempEntities);
+            for (int i = 0; i < tempEntities.Length; ++i)
+                sourceManager.SetComponentData(tempEntities[i], new EcsTestManagedComponent{value = i.ToString()});
+            
             var sourceArchetype = sourceManager.CreateArchetype(typeof(EcsTestManagedDataEntity));
             var sourceEntities = new NativeArray<Entity>(numberOfEntitiesPerManager, Allocator.Temp);
             sourceManager.CreateEntity(sourceArchetype, sourceEntities);
             for (int i = 0; i != sourceEntities.Length; i++)
                 sourceManager.SetComponentData(sourceEntities[i], new EcsTestManagedDataEntity((numberOfEntitiesPerManager + i).ToString(), sourceEntities[i]));
 
+            sourceManager.DestroyEntity(tempEntities);
+            tempEntities.Dispose();
+            
             m_Manager.Debug.CheckInternalConsistency();
             sourceManager.Debug.CheckInternalConsistency();
 
-            m_Manager.MoveEntitiesFrom(sourceManager);
+            if (useFilteredMove)
+            {
+                m_Manager.MoveEntitiesFrom(sourceManager, sourceManager.CreateEntityQuery(typeof(EcsTestManagedDataEntity)));
+            }
+            else
+            {
+                m_Manager.MoveEntitiesFrom(sourceManager);
+            }
 
             m_Manager.Debug.CheckInternalConsistency();
             sourceManager.Debug.CheckInternalConsistency();

@@ -64,6 +64,13 @@ namespace Unity.Entities.CodeGen
                 i.InterfaceType.FullName == typeReference.Module.ImportReference(interfaceType).FullName);
         }
 
+        public static bool TypeImplements(this TypeReference typeReference, TypeReference interfaceType)
+        {
+            var resolvedType = typeReference.Resolve();
+            if (resolvedType == null) return false;
+            return resolvedType.Interfaces.Any(i => i.InterfaceType == interfaceType);
+        }
+
         public static TypeReference StripRef(this TypeReference tr) => tr is ByReferenceType brt ? brt.ElementType : tr;
 
         public static bool IsVoid(this TypeReference type)

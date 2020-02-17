@@ -59,7 +59,8 @@ namespace Unity.Scenes
 
             if (resolved.AssetObjectManifest == null)
             {
-                Debug.LogError($"GlobalAssetObjectResolver Validate failed! => ObjectManifest in '{guid.ToString()}' not loadable");
+                if (!resolved.AssetBundle.isStreamedSceneAssetBundle)
+                    Debug.LogError($"GlobalAssetObjectResolver Validate failed! => ObjectManifest in '{guid.ToString()}' not loadable");
                 return;
             }
 
@@ -105,6 +106,18 @@ namespace Unity.Scenes
             var globalObjectIDsPtr = (RuntimeGlobalObjectId*)globalObjectIDs.GetUnsafePtr();
             for (int i = 0; i != globalObjectIDs.Length; i++)
                 objects[i] = ResolveObject(globalObjectIDsPtr[i]);
+        }
+
+        public void UnloadAsset(Hash128 assetId)
+        {
+            if (_Assets.TryGetValue(assetId, out var resolved))
+            {
+                if (resolved.AssetBundle != null)
+                    resolved.AssetBundle.Unload(true);
+                if(resolved.AssetObjectManifest != null)
+                    Object.DestroyImmediate(resolved.AssetObjectManifest);
+                _Assets.Remove(assetId);
+            }
         }
 
         public AssetBundle GetAssetBundle(Hash128 requestedGUID)

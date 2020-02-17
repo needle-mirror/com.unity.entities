@@ -20,11 +20,30 @@ namespace Unity.Entities.CodeGeneratedJobForEach
     {
     }
     
+    // Deprecated with JobComponentSystem
+    public interface ILambdaJobExecutionDescriptionJCS
+    {
+    }
+
+    public interface ILambdaJobExecutionDescription
+    {
+    }
+    
+    public interface ILambdaSingleJobExecutionDescription
+    {
+    }
+    
+    // Deprecated with JobComponentSystem
+    public interface ILambdaSingleJobExecutionDescriptionJCS
+    {
+    }
+    
     public interface ISupportForEachWithUniversalDelegate
     {
     }
     
-    public struct ForEachLambdaJobDescription : ILambdaJobDescription, ISupportForEachWithUniversalDelegate
+    // Deprecate with JobComponentSystem
+    public struct ForEachLambdaJobDescriptionJCS : ILambdaJobDescription, ILambdaJobExecutionDescriptionJCS, ISupportForEachWithUniversalDelegate
     {
         //this overload exists here with the sole purpose of being able to give the user a not-totally-horrible
         //experience when they try to use an unsupported lambda signature. When this happens, the C# compiler
@@ -47,11 +66,38 @@ namespace Unity.Entities.CodeGeneratedJobForEach
         }
     }
 
-    public struct LambdaSingleJobDescription : ILambdaJobDescription
+    public interface ISingleJobDescription { }
+
+    public struct LambdaSingleJobDescriptionJCS : ILambdaJobDescription, ILambdaSingleJobExecutionDescriptionJCS, ISingleJobDescription
     {
     }
 
-    public struct LambdaJobChunkDescription : ILambdaJobDescription
+    public struct ForEachLambdaJobDescription : ILambdaJobDescription, ILambdaJobExecutionDescription, ISupportForEachWithUniversalDelegate
+    {
+        //this overload exists here with the sole purpose of being able to give the user a not-totally-horrible
+        //experience when they try to use an unsupported lambda signature. When this happens, the C# compiler
+        //will go through its overload resolution, take the first candidate, and explain the user why the users
+        //lambda is incompatible with that first candidates' parametertype.  We put this method here, instead
+        //of with the other .ForEach overloads, to make sure this is the overload that the c# compiler will pick
+        //when generating its compiler error.  If we didn't do that, it might pick a completely unrelated .ForEach
+        //extention method, like the one for IJobChunk.
+        //
+        //The only communication channel we have to the user to guide them to figuring out what their problem is
+        //is the name of the expected delegate type, as the c# compiler will put that in its compiler error message.
+        //so we take this very unconventional approach here of encoding a message for the user in that type name,
+        //that is easily googlable, so they will end up at a documentation page that describes why some lambda
+        //signatures are compatible, and why some aren't, and what to do about that.
+        //
+        //the reason the delegate type is in the global namespace, is that it makes for a cleaner error message
+        //it's marked with an attribute to prevent it from showing up in intellisense.
+        public void ForEach(Invalid_ForEach_Signature_See_ForEach_Documentation_For_Rules_And_Restrictions ed)
+        {
+        }
+    }
+    public struct LambdaSingleJobDescription : ILambdaJobDescription, ILambdaSingleJobExecutionDescription, ISingleJobDescription
+    {
+    }
+    public struct LambdaJobChunkDescription : ILambdaJobDescription, ILambdaJobExecutionDescription
     {
     }
 }
@@ -61,10 +107,8 @@ namespace Unity.Entities
     public static class LambdaJobDescriptionConstructionMethods
     {
         [AttributeUsage(AttributeTargets.Method)]
-        internal class AllowMultipleInvocationsAttribute : Attribute
-        {
-        }
-
+        internal class AllowMultipleInvocationsAttribute : Attribute { }
+        
         public static TDescription WithoutBurst<TDescription>(this TDescription description) where TDescription : ILambdaJobDescription => description;
         
         [Obsolete("To turn off burst, please use .WithoutBurst() instead of .WithBurst(false). (RemovedAfter 2020-04-09)")]
@@ -86,29 +130,65 @@ namespace Unity.Entities
         public static TDescription WithNativeDisableUnsafePtrRestrictionAttribute<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType capturedVariable) where TDescription : ILambdaJobDescription => description;
         [AllowMultipleInvocations]
         public static TDescription WithNativeDisableParallelForRestriction<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType capturedVariable) where TDescription : ILambdaJobDescription => description;
+    }
 
+    // Deprecate with JobComponentSystem
+    public static class LambdaJobDescriptionExecutionMethodsJCS
+    {
         //do not remove this obsolete method. It is not really obsolete, it never existed, but it is created to give a better error message for when you try to use .Schedule() without argument.  Without this method signature,
         //c#'s overload resolution will try to match a completely different Schedule extension method, and explain why that one doesn't work, which results in an error message that sends the user in a wrong direction.
         [Obsolete("You must provide a JobHandle argument to .Schedule(). (DoNotRemove)", true)]
-        public static JobHandle Schedule<TDescription>(this TDescription description) where TDescription : ILambdaJobDescription => ThrowCodeGenException();
+        public static JobHandle Schedule<TDescription>(this TDescription description) where TDescription : ILambdaJobExecutionDescriptionJCS => ThrowCodeGenException();
         
-        public static JobHandle Schedule<TDescription>(this TDescription description, [AllowDynamicValue] JobHandle dependency) where TDescription : ILambdaJobDescription => ThrowCodeGenException();
+        public static JobHandle Schedule<TDescription>(this TDescription description, [AllowDynamicValue] JobHandle dependency) where TDescription : ILambdaJobExecutionDescriptionJCS => ThrowCodeGenException();
         
-        public static void Run<TDescription>(this TDescription description) where TDescription : ILambdaJobDescription => ThrowCodeGenException();
+        public static void Run<TDescription>(this TDescription description) where TDescription : ILambdaJobExecutionDescriptionJCS => ThrowCodeGenException();
 
-        static JobHandle ThrowCodeGenException() => throw new Exception("This method should have been replaced by codegen");
+        static JobHandle ThrowCodeGenException() => throw new Exception("This JobComponentSystem method should have been replaced by codegen");
+    }
+        
+    public static class LambdaJobDescriptionExecutionMethods
+    {
+        public static JobHandle Schedule<TDescription>(this TDescription description, [AllowDynamicValue] JobHandle dependency) where TDescription : ILambdaJobExecutionDescription => ThrowCodeGenException();
+        public static JobHandle ScheduleParallel<TDescription>(this TDescription description, [AllowDynamicValue] JobHandle dependency) where TDescription : ILambdaJobExecutionDescription => ThrowCodeGenException();
+        
+        public static void Schedule<TDescription>(this TDescription description) where TDescription : ILambdaJobExecutionDescription => ThrowCodeGenException();
+        public static void ScheduleParallel<TDescription>(this TDescription description) where TDescription : ILambdaJobExecutionDescription => ThrowCodeGenException();
+        public static void Run<TDescription>(this TDescription description) where TDescription : ILambdaJobExecutionDescription => ThrowCodeGenException();
+
+        static JobHandle ThrowCodeGenException() => throw new Exception("This SystemBase method should have been replaced by codegen");
+    }
+    
+    public static class LambdaSingleJobDescriptionExecutionMethodsJCS
+    {
+        public static JobHandle Schedule<TDescription>(this TDescription description, [AllowDynamicValue] JobHandle dependency) where TDescription : ILambdaSingleJobExecutionDescriptionJCS => ThrowCodeGenException();
+        
+        public static void Run<TDescription>(this TDescription description) where TDescription : ILambdaSingleJobExecutionDescriptionJCS => ThrowCodeGenException();
+
+        static JobHandle ThrowCodeGenException() => throw new Exception("This SystemBase method should have been replaced by codegen");
+    }
+    
+    public static class LambdaSingleJobDescriptionExecutionMethods
+    {
+        public static JobHandle Schedule<TDescription>(this TDescription description, [AllowDynamicValue] JobHandle dependency) where TDescription : ILambdaSingleJobExecutionDescription => ThrowCodeGenException();
+        
+        public static void Schedule<TDescription>(this TDescription description) where TDescription : ILambdaSingleJobExecutionDescription => ThrowCodeGenException();
+        public static void Run<TDescription>(this TDescription description) where TDescription : ILambdaSingleJobExecutionDescription => ThrowCodeGenException();
+
+        static JobHandle ThrowCodeGenException() => throw new Exception("This SystemBase method should have been replaced by codegen");
     }
 
-    public static class LambdaSimpleJobDescriptionConstructionMethods
+    public static class LambdaSingleJobDescriptionConstructionMethods
     {
         public delegate void WithCodeAction();
-        public static LambdaSingleJobDescription WithCode(this LambdaSingleJobDescription description,  [AllowDynamicValue] WithCodeAction code) =>description;
+        public static TDescription WithCode<TDescription>(this TDescription description,  [AllowDynamicValue] WithCodeAction code) 
+            where TDescription : ISingleJobDescription => description;
     }
     
     public static class LambdaJobChunkDescriptionConstructionMethods
     {
         public delegate void JobChunkDelegate(ArchetypeChunk chunk, int chunkIndex, int queryIndexOfFirstEntityInChunk);
-        public static LambdaJobChunkDescription ForEach(this LambdaJobChunkDescription description,  [AllowDynamicValue] JobChunkDelegate code) =>description;
+        public static LambdaJobChunkDescription ForEach(this LambdaJobChunkDescription description,  [AllowDynamicValue] JobChunkDelegate code) => description;
     }
     
     public static class LambdaJobChunkDescription_SetSharedComponent
@@ -122,13 +202,15 @@ namespace Unity.Entities
     
     public static class ForEachLambdaJobDescription_SetSharedComponent
     {
-        public static ForEachLambdaJobDescription SetSharedComponentFilterOnQuery<T>(ForEachLambdaJobDescription description, T sharedComponent, EntityQuery query) where T : struct, ISharedComponentData
+        public static TDescription SetSharedComponentFilterOnQuery<TDescription, T>(this TDescription description, T sharedComponent, EntityQuery query)
+            where TDescription : struct, ISupportForEachWithUniversalDelegate
+            where T : struct, ISharedComponentData
         {
             query.SetSharedComponentFilter(sharedComponent);
             return description;
         }
     }
-    
+
     public static class InternalCompilerInterface
     {
         public static JobRunWithoutJobSystemDelegate BurstCompile(JobRunWithoutJobSystemDelegate d) => 

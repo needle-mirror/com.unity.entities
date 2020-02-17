@@ -335,7 +335,9 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(chunk0, chunk1);
 
             Assert.IsFalse(m_Manager.HasChunkComponent<EcsTestManagedComponent>(entity0));
+            m_Manager.Debug.CheckInternalConsistency();
             m_Manager.AddChunkComponentData<EcsTestManagedComponent>(entity0);
+            m_Manager.Debug.CheckInternalConsistency();
             Assert.IsTrue(m_Manager.HasChunkComponent<EcsTestManagedComponent>(entity0));
             chunk0 = m_Manager.GetChunk(entity0);
 

@@ -242,10 +242,7 @@ namespace Unity.Entities
             // If can only move partial batch, move from the end so that remainder of batch isn't affected.
             srcChunkIndex = srcChunkIndex + srcCount - dstCount;
 
-            ChunkDataUtility.Convert(srcChunk, srcChunkIndex, dstChunk, dstChunkIndex, dstCount);
-
-            if (dstChunk->ManagedArrayIndex >= 0 && srcChunk->ManagedArrayIndex >= 0)
-                ManagedChangesTracker.CopyManagedObjects(srcChunk, srcChunkIndex, dstChunk, dstChunkIndex, dstCount);
+            ChunkDataUtility.Convert(srcChunk, srcChunkIndex, dstChunk, dstChunkIndex, dstCount, ref this);
 
             var dstEntities = (Entity*)ChunkDataUtility.GetComponentDataRO(dstChunk, dstChunkIndex, 0);
             for (int i = 0; i < dstCount; i++)
@@ -272,13 +269,7 @@ namespace Unity.Entities
                     var entity = fillEntities[i];
                     SetEntityInChunk(entity, new EntityInChunk { Chunk = srcChunk, IndexInChunk = srcChunkIndex + i });
                 }
-
-                if (srcChunk->ManagedArrayIndex >= 0)
-                    ManagedChangesTracker.CopyManagedObjects(srcChunk, fillStartIndex, srcChunk, srcChunkIndex, fillCount);
             }
-
-            if (srcChunk->ManagedArrayIndex >= 0)
-                ManagedChangesTracker.ClearManagedObjects(srcChunk, srcChunk->Count - dstCount, dstCount);
 
             srcArchetype->EntityCount -= dstCount;
 
@@ -364,45 +355,6 @@ namespace Unity.Entities
                     {
                         var sharedComponentDataIndex = srcChunk->SharedComponentValues[o];
                         ManagedChangesTracker.RemoveReference(sharedComponentDataIndex);
-                    }
-                }
-
-                var fixupManagedComponents = (srcArchetype->NumManagedArrays > 0) || (dstArchetype->NumManagedArrays > 0);
-                if (fixupManagedComponents)
-                {
-                    if (dstArchetype->NumManagedArrays == 0) // removed all
-                    {
-                        ManagedChangesTracker.DeallocateManagedArrayStorage(srcChunk->ManagedArrayIndex);
-                        m_ManagedArrayFreeIndex.Add(srcChunk->ManagedArrayIndex);
-                        srcChunk->ManagedArrayIndex = -1;
-                    }
-                    else
-                    {
-                        // We have changed the managed array order + size so allocate a new managed array
-                        // copy the unchanged values into it
-                        int dstManagedArrayIndex;
-                        if (!m_ManagedArrayFreeIndex.IsEmpty)
-                        {
-                            dstManagedArrayIndex = m_ManagedArrayFreeIndex.Pop<int>();
-                        }
-                        else
-                        {
-                            dstManagedArrayIndex = m_ManagedArrayIndex;
-                            m_ManagedArrayIndex++;
-                        }
-
-                        ManagedChangesTracker.AllocateManagedArrayStorage(dstManagedArrayIndex, dstArchetype->NumManagedArrays * srcChunk->Capacity);
-
-                        int srcManagedArrayIndex = srcChunk->ManagedArrayIndex;
-                        srcChunk->ManagedArrayIndex = dstManagedArrayIndex;
-
-                        if (srcManagedArrayIndex != -1)
-                        {
-                            ManagedChangesTracker.MoveChunksManagedObjects(srcArchetype, srcManagedArrayIndex, dstArchetype, dstManagedArrayIndex, srcChunk->Capacity, srcChunk->Count);
-
-                            ManagedChangesTracker.DeallocateManagedArrayStorage(srcManagedArrayIndex);
-                            m_ManagedArrayFreeIndex.Add(srcManagedArrayIndex);
-                        }
                     }
                 }
 

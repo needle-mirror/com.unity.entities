@@ -10,26 +10,28 @@ using UnityEngine.Assertions;
 
 namespace Unity.Entities
 {
+    /// <summary>
+    /// When entering playmode or the game starts in the Player a default world is created.
+    /// Sometimes you need multiple worlds to be setup when the game starts or perform some
+    /// custom world initialization. This lets you override the bootstrap of game code world creation.
+    /// </summary>
+    public interface ICustomBootstrap
+    {
+        // Returns true if the bootstrap has performed initialization.
+        // Returns false if default world initialization should be performed.
+        bool Initialize(string defaultWorldName);
+    }
+    
     [DebuggerDisplay("{Name} (#{SequenceNumber})")]
     public partial class World : IDisposable
     {
         public static World DefaultGameObjectInjectionWorld { get; set; }
 
-        [Obsolete("World.Active has been deprecated. The most common & incorrect usage has been to use World.Active from a ComponentSystem. From a ComponentSystem you should use the ComponentSystem's World property directly. It returns the world that this system belongs to. There are some rare cases where a MonoBehaviour needs to inject data into the active world, in this case use World.DefaultGameObjectInjectionWorld. (RemovedAfter 2020-01-22)")]
-        public static World Active
-        {
-            get { return DefaultGameObjectInjectionWorld; }
-            set { DefaultGameObjectInjectionWorld = value; }
-        }
-
-
-        
         static readonly List<World> allWorlds = new List<World>();
 
 #if UNITY_DOTSPLAYER
         public static World[] AllWorlds => allWorlds.ToArray();
-        public ComponentSystemBase[] Systems => m_Systems.ToArray();
-
+        public IEnumerable<ComponentSystemBase> Systems => m_Systems;
         List<ComponentSystemBase> m_Systems = new List<ComponentSystemBase>();
 #else
         public static ReadOnlyCollection<World> AllWorlds => new ReadOnlyCollection<World>(allWorlds);
@@ -74,7 +76,15 @@ namespace Unity.Entities
             get
             {
                 if (m_TimeSingletonQuery.IsEmptyIgnoreFilter)
+                {
+#if UNITY_EDITOR
+                    var entity = EntityManager.CreateEntity(typeof(WorldTime), typeof(WorldTimeQueue));
+                    EntityManager.SetName(entity , "WorldTime");
+#else
                     EntityManager.CreateEntity(typeof(WorldTime), typeof(WorldTimeQueue));
+#endif
+                }
+
                 return m_TimeSingletonQuery.GetSingletonEntity();
             }
         }
@@ -123,6 +133,8 @@ namespace Unity.Entities
                 throw new ArgumentException("The World has already been Disposed.");
             // Debug.LogError("Dispose World "+ Name + " - " + GetHashCode());
 
+            m_EntityManager.PreDisposeCheck();
+            
             if (allWorlds.Contains(this))
                 allWorlds.Remove(this);
 
@@ -248,6 +260,13 @@ namespace Unity.Entities
             return (T) GetOrCreateSystemInternal<T>();
         }
 
+        public ComponentSystemBase GetOrCreateSystem(Type type)
+        {
+            CheckGetOrCreateSystem();
+
+            var system = GetExistingSystem(type);
+            return system ?? TypeManager.ConstructSystem(type);
+        }
 #else
         ComponentSystemBase CreateSystemInternal(Type type, object[] constructorArguments)
         {

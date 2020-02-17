@@ -27,9 +27,9 @@ namespace Unity.Entities.Editor
             foreach (var connectedPlayer in EditorConnection.instance.ConnectedPlayers)
             {
                 var playerId = connectedPlayer.playerId;
-                var buildSettingGuid = EditorSceneLiveLinkToPlayerSendSystem.instance.GetBuildSettingsGUIDForLiveLinkConnection(playerId);
+                var buildConfigurationGuid = EditorSceneLiveLinkToPlayerSendSystem.instance.GetBuildConfigurationGUIDForLiveLinkConnection(playerId);
 
-                m_LinkConnections.Add(new LiveLinkConnection(playerId, connectedPlayer.name, LiveLinkConnectionStatus.Connected, buildSettingGuid));
+                m_LinkConnections.Add(new LiveLinkConnection(playerId, connectedPlayer.name, LiveLinkConnectionStatus.Connected, buildConfigurationGuid));
             }
 
             m_ConnectionsView = new LiveLinkConnectionsView(m_LinkConnections, GetGroupName);
@@ -37,11 +37,11 @@ namespace Unity.Entities.Editor
             m_ConnectionsView.ResetPlayer += ResetPlayer;
         }
 
-        string GetGroupName(Hash128 buildSettingsGuid)
+        string GetGroupName(Hash128 buildConfigurationGuid)
         {
-            if (buildSettingsGuid != default)
+            if (buildConfigurationGuid != default)
             {
-                var path = AssetDatabase.GUIDToAssetPath(buildSettingsGuid.ToString());
+                var path = AssetDatabase.GUIDToAssetPath(buildConfigurationGuid.ToString());
                 if (!string.IsNullOrEmpty(path))
                     return Path.GetFileNameWithoutExtension(path);
             }
@@ -49,7 +49,7 @@ namespace Unity.Entities.Editor
             return "Unknown";
         }
 
-        void OnPlayerConnected(int playerId, Hash128 buildSettingsGuid)
+        void OnPlayerConnected(int playerId, Hash128 buildConfigurationGuid)
         {
             var connectedPlayer = EditorConnection.instance.ConnectedPlayers.Find(x => x.playerId == playerId);
             if (connectedPlayer == null)
@@ -59,11 +59,11 @@ namespace Unity.Entities.Editor
             if (existingConnection != null)
             {
                 existingConnection.Status = LiveLinkConnectionStatus.Connected;
-                existingConnection.BuildSettingsGuid = buildSettingsGuid;
+                existingConnection.BuildConfigurationGuid = buildConfigurationGuid;
                 existingConnection.Name = connectedPlayer.name;
             }
             else
-                m_LinkConnections.Add(new LiveLinkConnection(connectedPlayer.playerId, connectedPlayer.name, LiveLinkConnectionStatus.Connected, buildSettingsGuid));
+                m_LinkConnections.Add(new LiveLinkConnection(connectedPlayer.playerId, connectedPlayer.name, LiveLinkConnectionStatus.Connected, buildConfigurationGuid));
         }
 
         void OnPlayerDisconnected(int playerId)
@@ -114,19 +114,19 @@ namespace Unity.Entities.Editor
         internal class LiveLinkConnection
         {
             LiveLinkConnectionStatus m_Status;
-            Hash128 m_BuildSettingsGuid;
+            Hash128 m_BuildConfigurationGuid;
             string m_Name;
 
             public event Action<LiveLinkConnection, LiveLinkConnectionStatus> StatusChanged;
-            public event Action<LiveLinkConnection> BuildSettingsGuidChanged;
+            public event Action<LiveLinkConnection> BuildConfigurationGuidChanged;
             public event Action<LiveLinkConnection> NameChanged;
 
-            public LiveLinkConnection(int playerId, string name, LiveLinkConnectionStatus status, Hash128 buildSettingsGuid)
+            public LiveLinkConnection(int playerId, string name, LiveLinkConnectionStatus status, Hash128 buildConfigurationGuid)
             {
                 PlayerId = playerId;
                 Name = name;
                 m_Status = status;
-                BuildSettingsGuid = buildSettingsGuid;
+                BuildConfigurationGuid = buildConfigurationGuid;
             }
 
             public int PlayerId { get; }
@@ -156,15 +156,15 @@ namespace Unity.Entities.Editor
                 }
             }
 
-            public Hash128 BuildSettingsGuid
+            public Hash128 BuildConfigurationGuid
             {
-                get => m_BuildSettingsGuid;
+                get => m_BuildConfigurationGuid;
                 set
                 {
-                    if (m_BuildSettingsGuid == value) return;
+                    if (m_BuildConfigurationGuid == value) return;
 
-                    m_BuildSettingsGuid = value;
-                    BuildSettingsGuidChanged?.Invoke(this);
+                    m_BuildConfigurationGuid = value;
+                    BuildConfigurationGuidChanged?.Invoke(this);
                 }
             }
         }
@@ -200,14 +200,14 @@ namespace Unity.Entities.Editor
             {
                 connection.NameChanged += OnConnectionNameChanged;
                 connection.StatusChanged += OnConnectionStatusChanged;
-                connection.BuildSettingsGuidChanged += OnConnectionBuildSettingChanged;
+                connection.BuildConfigurationGuidChanged += OnConnectionBuildConfigurationChanged;
             }
 
             void Unsubscribe(LiveLinkConnection connection)
             {
                 connection.NameChanged -= OnConnectionNameChanged;
                 connection.StatusChanged -= OnConnectionStatusChanged;
-                connection.BuildSettingsGuidChanged -= OnConnectionBuildSettingChanged;
+                connection.BuildConfigurationGuidChanged -= OnConnectionBuildConfigurationChanged;
             }
 
             void OnConnectionsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
@@ -239,7 +239,7 @@ namespace Unity.Entities.Editor
                 LiveLinkToolbar.RepaintPlaybar();
             }
 
-            void OnConnectionBuildSettingChanged(LiveLinkConnection connection)
+            void OnConnectionBuildConfigurationChanged(LiveLinkConnection connection)
                 => BuildConnectionListUI();
 
             public void BuildFullUI(VisualElement root)
@@ -264,8 +264,7 @@ namespace Unity.Entities.Editor
                 {
                     foreach (var connection in m_Connections) DisablePlayer?.Invoke(connection);
                 };
-                // temporary until we have a _start live link_  window ready
-//                container.Q<Button>(kBaseUssClass + "__footer__start").SetEnabled(false);
+                container.Q<Button>(kBaseUssClass + "__footer__start").clickable.clicked += StartLiveLinkWindow.OpenWindow;
 
                 if (m_Connections.Count == 0)
                 {
@@ -308,7 +307,7 @@ namespace Unity.Entities.Editor
 
                 m_ConnectionsUIPerPlayerId.Clear();
                 m_Groups.Clear();
-                foreach (var connectionGroup in m_Connections.GroupBy(x => x.BuildSettingsGuid))
+                foreach (var connectionGroup in m_Connections.GroupBy(x => x.BuildConfigurationGuid))
                 {
                     var groupVisualElement = m_GroupTemplate.GetNewInstance();
                     groupVisualElement.Q<Label>().text = m_GetGroupName(connectionGroup.Key);
@@ -453,7 +452,7 @@ namespace Unity.Entities.Editor
                 if (connections.Count == 0)
                     return s_EmptyDropdownSize;
 
-                var groupCounts = connections.GroupBy(x => x.BuildSettingsGuid).Count();
+                var groupCounts = connections.GroupBy(x => x.BuildConfigurationGuid).Count();
                 return new Vector2(Width, BordersHeight + FooterHeight + groupCounts * GroupHeaderHeight + connections.Count * ItemHeight);
             }
 

@@ -6,10 +6,11 @@
         "Unity.Entities.CodeGen",
         "Unity.Entities.CodeGen.Tests.TestTypes",
         "Unity.Burst",
-        "Unity.Properties"
-    ],
-    "optionalUnityReferences": [
-        "TestAssemblies"
+        "Unity.Properties",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Unity.Entities.Hybrid",
+        "Unity.Entities.Editor"
     ],
     "includePlatforms": [
         "Editor"
@@ -21,8 +22,13 @@
         "Mono.Cecil.dll",
         "Mono.Cecil.Rocks.dll",
         "Mono.Cecil.Pdb.dll",
+        "nunit.framework.dll",
         "nunit.framework.dll"
     ],
     "autoReferenced": false,
-    "versionDefines": []
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

@@ -473,6 +473,9 @@ namespace Unity.Scenes
 
             if (ProcessActiveStreams())
                 EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
+            
+            // Process unloading bundles
+            SceneBundleHandle.ProcessUnloadingBundles();
         }
 
         public void UnloadSectionImmediate(Entity scene)
@@ -514,8 +517,6 @@ namespace Unity.Scenes
 
             var entitiesBinaryPath = sectionData.ScenePath.ToString();
             var resourcesPath = sectionData.HybridPath.ToString();
-            var useAssetBundle = sectionData.UseAssetBundle;
-            var useLiveLinkObjectResolver = sectionData.UseLiveLinkObjectResolver;
 
             return new AsyncLoadSceneOperation(new AsyncLoadSceneData
             {
@@ -524,9 +525,8 @@ namespace Unity.Scenes
                 ExpectedObjectReferenceCount = sceneData.ObjectReferenceCount,
                 ResourcesPathObjRefs = resourcesPath,
                 EntityManager = dstManager,
-                UsingBundles = useAssetBundle,
                 BlockUntilFullyLoaded = blockUntilFullyLoaded
-            }, useLiveLinkObjectResolver);
+            });
         }
     }
 }

@@ -15,7 +15,7 @@ namespace Unity.Entities
     public static class LambdaJobQueryConstructionMethods
     {
 <#
-var types = new[] { "ForEachLambdaJobDescription", "LambdaJobChunkDescription" };
+var types = new[] { "ForEachLambdaJobDescription", "LambdaJobChunkDescription", "ForEachLambdaJobDescriptionJCS" };
 foreach(var type in types)
 {#>
         //Start of query creating functions for <#=type#>.  Unfortunately there's no C# way to use generics to make these work for multiple jobdescription types, so we're lowteching it with t4 here.

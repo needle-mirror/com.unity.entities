@@ -8,9 +8,6 @@ using System.Text;
 using Unity.Collections;
 using Unity.Profiling;
 using Unity.Transforms;
-#if UNITY_EDITOR
-using UnityEditor.SceneManagement;
-#endif
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.SceneManagement;
@@ -19,6 +16,7 @@ using UnityLogType = UnityEngine.LogType;
 using UnityObject = UnityEngine.Object;
 using UnityComponent = UnityEngine.Component;
 using static Unity.Debug;
+using System.ComponentModel;
 
 namespace Unity.Entities.Conversion
 {
@@ -38,7 +36,7 @@ namespace Unity.Entities.Conversion
         const int k_SceneSectionMask = 8;
         const int k_AllMask = 15;
 
-        static List<Component>               s_ComponentsCache = new List<Component>();
+        static List<UnityComponent>          s_ComponentsCache = new List<UnityComponent>();
 
         GameObjectConversionSettings         m_Settings;
         readonly EntityManager               m_DstManager;
@@ -175,6 +173,7 @@ namespace Unity.Entities.Conversion
 
             return m_Archetypes[flags];
         }
+        
 
         Entity CreateDstEntity(UnityObject uobject, int serial)
         {
@@ -189,12 +188,12 @@ namespace Unity.Entities.Conversion
                 var go = uobject as GameObject;
                 if (go != null)
                 {
-                    if (ForceStaticOptimization || go.GetComponentInParent<StaticOptimizeEntity>() != null)
+                    if (ForceStaticOptimization || go.GetComponentInParentIncludeInactive<StaticOptimizeEntity>() != null)
                         flags |= k_StaticMask;
                     if (!go.IsActiveIgnorePrefab())
                         flags |= k_DisabledMask;
                 }
-                else if (uobject is Component)
+                else if (uobject is UnityComponent)
                     throw new ArgumentException("Object must be a GameObject, Prefab, or Asset", nameof(uobject));
 
                 var entity = m_DstManager.CreateEntity(m_Archetypes[flags]);
@@ -207,7 +206,7 @@ namespace Unity.Entities.Conversion
                     int sectionIndex = 0;
                     if (go != null)
                     {
-                        var section = go.GetComponentInParent<SceneSectionComponent>();
+                        var section = go.GetComponentInParentIncludeInactive<SceneSectionComponent>();
                         if (section != null)
                             sectionIndex = section.SectionIndex;
                     }
@@ -276,28 +275,24 @@ namespace Unity.Entities.Conversion
             }
         }
 
-        #if UNITY_EDITOR
-
-        public T GetBuildSettingsComponent<T>() where T : Build.IBuildSettingsComponent
+#if UNITY_EDITOR
+        public T GetBuildConfigurationComponent<T>() where T : Build.IBuildComponent
         {
-            if (m_Settings.BuildSettings != null)
+            if (m_Settings.BuildConfiguration == null || !m_Settings.BuildConfiguration)
             {
-                return m_Settings.BuildSettings.GetComponent<T>();
+                return default;
             }
-
-            return default;
+            return m_Settings.BuildConfiguration.GetComponent<T>();
         }
 
-        public bool TryGetBuildSettingsComponent<T>(out T component) where T : Build.IBuildSettingsComponent
+        public bool TryGetBuildConfigurationComponent<T>(out T component) where T : Build.IBuildComponent
         {
-
-            if (m_Settings.BuildSettings != null)
+            if (m_Settings.BuildConfiguration == null || !m_Settings.BuildConfiguration)
             {
-                return m_Settings.BuildSettings.TryGetComponent(out component);
+                component = default;
+                return false;
             }
-
-            component = default;
-            return false;
+            return m_Settings.BuildConfiguration.TryGetComponent(out component);
         }
 
         /// <summary>
@@ -309,7 +304,7 @@ namespace Unity.Entities.Conversion
         {
             if (!m_ConversionTypeLookupCache.TryGetValue(conversionSystemType, out var shouldRun))
             {
-                var hasFilter = TryGetBuildSettingsComponent<ConversionSystemFilterSettings>(out var filter);
+                var hasFilter = TryGetBuildConfigurationComponent<ConversionSystemFilterSettings>(out var filter);
                 shouldRun = !hasFilter || filter.ShouldRunConversionSystem(conversionSystemType);
 
                 m_ConversionTypeLookupCache[conversionSystemType] = shouldRun;
@@ -319,7 +314,7 @@ namespace Unity.Entities.Conversion
         }
 
         /// <summary>
-        /// Returns whether the current build settings configuration includes the given types at runtime.
+        /// Returns whether the current build configuration includes the given types at runtime.
         /// Typically used in an implementation of GameObjectConversionSystem.ShouldRunConversionSystem,
         /// but can also be used to make more detailed decisions.
         /// </summary>
@@ -327,7 +322,7 @@ namespace Unity.Entities.Conversion
         {
             if (!m_ConversionTypeLookupCache.TryGetValue(componentType, out var hasType))
             {
-                // TODO -- check using a TypeCache obtained from the build settings
+                // TODO -- check using a TypeCache obtained from the build configuration
                 hasType = true;
 
                 m_ConversionTypeLookupCache[componentType] = hasType;
@@ -337,7 +332,7 @@ namespace Unity.Entities.Conversion
         }
 
         /// <summary>
-        /// Returns whether the current build settings configuration includes the given types at runtime.
+        /// Returns whether the current build configuration includes the given types at runtime.
         /// Typically used in an implementation of GameObjectConversionSystem.ShouldRunConversionSystem,
         /// but can also be used to make more detailed decisions.
         /// </summary>
@@ -591,8 +586,9 @@ namespace Unity.Entities.Conversion
             if (hasGameObjectBasedRenderingRepresentation && liveLinkScene)
             {
                 #if UNITY_2020_1_OR_NEWER
+                
                 var sceneCullingMask = UnityEditor.GameObjectUtility.ModifyMaskIfGameObjectIsHiddenForPrefabModeInContext(
-                    EditorSceneManager.DefaultSceneCullingMask,
+                    UnityEditor.SceneManagement.EditorSceneManager.DefaultSceneCullingMask,
                     pickableObject);
                 #else
                 var sceneCullingMask = EditorRenderData.LiveLinkEditGameViewMask;
@@ -839,7 +835,7 @@ namespace Unity.Entities.Conversion
                     var companion = UnityObject.Instantiate(gameObject);
                     companion.name = CompanionLink.GenerateCompanionName(entity);
 
-                    foreach (var component in gameObject.GetComponents<Component>())
+                    foreach (var component in gameObject.GetComponents<UnityComponent>())
                     {
                         var type = component.GetType();
                         if (!components.Contains(type))

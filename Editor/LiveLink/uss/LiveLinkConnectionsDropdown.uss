@@ -5,7 +5,7 @@
 .live-link-connections-dropdown__all-connections-actions-section {
     padding-top: 2px;
     padding-bottom: 2px;
-    /*border-bottom-width: 1px;*/
+    border-bottom-width: 1px;
     border-top-width: 1px;
 }
 

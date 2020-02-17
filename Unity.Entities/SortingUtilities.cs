@@ -57,7 +57,7 @@ namespace Unity.Entities
     }
 
     // @macton This version simply fixes the sorting issues in the most expidient way.
-    // - Next version will need to reimplement the merge sort with lookaside buffers. 
+    // - Next version will need to reimplement the merge sort with lookaside buffers.
     struct IndexedValue<T> : IComparable<IndexedValue<T>>
         where T : struct, IComparable<T>
     {
@@ -99,13 +99,10 @@ namespace Unity.Entities
         }
     }
 
-    [BurstCompile] 
+    [BurstCompile]
     unsafe struct SegmentSortMerge<T> : IJob
         where T : struct, IComparable<T>
     {
-#if !NET_DOTS
-        [DeallocateOnJobCompletion]
-#endif
         [ReadOnly]
         public NativeArray<IndexedValue<T>> IndexedSourceBuffer;
 
@@ -246,7 +243,7 @@ namespace Unity.Entities
             };
             var copyIndexValuesJobHandle = copyIndexedValuesJob.Schedule(length, 1024, inputDeps);
 
-            var workerSegmentCount = segmentCount / JobsUtility.MaxJobThreadCount; // .JobsWorkerCount 
+            var workerSegmentCount = segmentCount / JobsUtility.MaxJobThreadCount; // .JobsWorkerCount
             var segmentSortJob = new SegmentSort<S>
             {
                 Data = copyIndexedValues,
@@ -264,11 +261,8 @@ namespace Unity.Entities
                 SegmentWidth = 1024
             };
             var segmentSortMergeJobHandle = segmentSortMergeJob.Schedule(segmentSortJobHandle);
-#if NET_DOTS
-            segmentSortMergeJobHandle.Complete();
-            copyIndexedValues.Dispose();
-#endif
-            return segmentSortMergeJobHandle;
+
+            return copyIndexedValues.Dispose(segmentSortMergeJobHandle);
         }
 
 

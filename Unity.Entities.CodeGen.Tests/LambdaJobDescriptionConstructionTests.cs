@@ -84,7 +84,7 @@ namespace Unity.Entities.CodeGen.Tests
             {
                 nameof(LambdaJobDescriptionConstructionMethods.WithBurst),
                 nameof(LambdaJobDescriptionConstructionMethods.WithName),
-                nameof(LambdaSimpleJobDescriptionConstructionMethods.WithCode),
+                nameof(LambdaSingleJobDescriptionConstructionMethods.WithCode),
             }, icm.Select(i => i.MethodName));
             
             CollectionAssert.AreEqual(new[]
@@ -218,8 +218,60 @@ namespace Unity.Entities.CodeGen.Tests
                     .Schedule(inputDeps);
             }
         }
+
+        [Test]
+        public void InvalidJobNamesThrow()
+        {
+            AssertProducesError(typeof(InvalidJobNameWithSpaces), nameof(UserError.DC0039), "WithName");
+            AssertProducesError(typeof(InvalidJobNameStartsWithDigit), nameof(UserError.DC0039), "WithName");
+            AssertProducesError(typeof(InvalidJobNameCompilerReservedName), nameof(UserError.DC0039), "WithName");
+        }
+
+        public class InvalidJobNameWithSpaces : JobComponentSystem
+        {
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                return Entities
+                    .WithName("This name may not contain spaces")
+                    .ForEach(
+                        (ref Translation translation, ref Boid boid, in Velocity velocity) =>
+                        {
+                            translation.Value += velocity.Value;
+                        })
+                    .Schedule(inputDeps);
+            }
+        }
         
+        public class InvalidJobNameStartsWithDigit : JobComponentSystem
+        {
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                return Entities
+                    .WithName("1job")
+                    .ForEach(
+                        (ref Translation translation, ref Boid boid, in Velocity velocity) =>
+                        {
+                            translation.Value += velocity.Value;
+                        })
+                    .Schedule(inputDeps);
+            }
+        }
         
+        public class InvalidJobNameCompilerReservedName : JobComponentSystem
+        {
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                return Entities
+                    .WithName("__job")
+                    .ForEach(
+                        (ref Translation translation, ref Boid boid, in Velocity velocity) =>
+                        {
+                            translation.Value += velocity.Value;
+                        })
+                    .Schedule(inputDeps);
+            }
+        }
+
         [Test]
         public void ForgotToAddForEachTest()
         {

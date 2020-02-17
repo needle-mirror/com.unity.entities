@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -9,26 +8,37 @@ using UnityEngine.Assertions;
 
 namespace Unity.Entities
 {
-    internal unsafe class EntityQueryManager : IDisposable
+    internal unsafe struct EntityQueryManager
     {
-        private readonly ComponentDependencyManager* m_JobSafetyManager;
-        private ChunkAllocator m_GroupDataChunkAllocator;
+        private ComponentDependencyManager*  m_DependencyManager;
+        private ChunkAllocator               m_GroupDataChunkAllocator;
         private UnsafeEntityQueryDataPtrList m_EntityGroupDatas;
-        private NativeMultiHashMap<int, int> m_EntityGroupDataCache;
-
-        internal int m_EntityQueryMasksAllocated;
-
-        public EntityQueryManager(ComponentDependencyManager* safetyManager)
+        
+        private UntypedUnsafeHashMap    m_EntityGroupDataCacheUntyped;
+        internal int                         m_EntityQueryMasksAllocated;
+        
+        public static EntityQueryManager* Create(ComponentDependencyManager* dependencyManager)
         {
-            m_JobSafetyManager = safetyManager;
-            m_GroupDataChunkAllocator = new ChunkAllocator();
-            m_EntityGroupDataCache = new NativeMultiHashMap<int, int>(1024, Allocator.Persistent);
-            m_EntityGroupDatas = new UnsafeEntityQueryDataPtrList(0, Allocator.Persistent);
+            var queryManager = (EntityQueryManager*)UnsafeUtility.Malloc(sizeof(EntityQueryManager), 64, Allocator.Persistent);
+            queryManager->m_DependencyManager = dependencyManager;
+            queryManager->m_GroupDataChunkAllocator = new ChunkAllocator();
+            ref var groupCache = ref UnsafeUtilityEx.As<UntypedUnsafeHashMap, UnsafeMultiHashMap<int, int>>(ref queryManager->m_EntityGroupDataCacheUntyped);
+            groupCache = new UnsafeMultiHashMap<int, int>(1024, Allocator.Persistent);
+            queryManager->m_EntityGroupDatas = new UnsafeEntityQueryDataPtrList(0, Allocator.Persistent);
+            queryManager->m_EntityQueryMasksAllocated = 0;
+            return queryManager;
         }
 
-        public void Dispose()
+        public static void Destroy(EntityQueryManager* manager)
         {
-            m_EntityGroupDataCache.Dispose();
+            manager->Dispose();
+            UnsafeUtility.Free(manager, Allocator.Persistent);
+        }
+
+        void Dispose()
+        {
+            ref var groupCache = ref UnsafeUtilityEx.As<UntypedUnsafeHashMap, UnsafeMultiHashMap<int, int>>(ref m_EntityGroupDataCacheUntyped);
+            groupCache.Dispose();
             for (var g = 0; g < m_EntityGroupDatas.Length; ++g)
             {
                 m_EntityGroupDatas.Ptr[g]->Dispose();
@@ -325,7 +335,7 @@ namespace Unity.Entities
             return true;
         }
 
-        private int IntersectSortedComponentIndexArrays(int* arrayA, int arrayACount, int* arrayB, int arrayBCount, int* outArray)
+        private int IntersectSortedComponentIndexArrays(int* arrayA, byte* accessArrayA, int arrayACount, int* arrayB, byte* accessArrayB, int arrayBCount, int* outArray, byte* outAccessArray)
         {
             var intersectionCount = 0;
 
@@ -339,7 +349,9 @@ namespace Unity.Entities
                     j++;
                 else
                 {
-                    outArray[intersectionCount++] = arrayB[j];
+                    outArray[intersectionCount] = arrayB[j];
+                    outAccessArray[intersectionCount] = accessArrayB[j];
+                    intersectionCount++;
                     i++;
                     j++;
                 }
@@ -355,14 +367,18 @@ namespace Unity.Entities
             for (int queryIndex = 0; queryIndex < queryCount; ++queryIndex)
                 maxIntersectionCount = math.max(maxIntersectionCount, queries[queryIndex].AllCount);
 
+            // allocate index array and r/w permissions array
             var intersection = (int*)allocator.Allocate<int>(maxIntersectionCount);
             UnsafeUtility.MemCpy(intersection, queries[0].All, sizeof(int) * queries[0].AllCount);
+
+            var access = (byte*) allocator.Allocate<byte>(maxIntersectionCount);
+            UnsafeUtility.MemCpy(access, queries[0].AllAccessMode, sizeof(byte) * queries[0].AllCount);
 
             var intersectionCount = maxIntersectionCount;
             for (int i = 1; i < queryCount; ++i)
             {
-                intersectionCount = IntersectSortedComponentIndexArrays(intersection, intersectionCount, queries[i].All,
-                    queries[i].AllCount, intersection);
+                intersectionCount = IntersectSortedComponentIndexArrays(intersection, access, intersectionCount, 
+                    queries[i].All, queries[i].AllAccessMode, queries[i].AllCount, intersection, access);
             }
 
             var outRequiredComponents = (ComponentType*)allocator.Allocate<ComponentType>(intersectionCount + 1);
@@ -370,6 +386,7 @@ namespace Unity.Entities
             for (int i = 0; i < intersectionCount; ++i)
             {
                 outRequiredComponents[i + 1] = ComponentType.FromTypeIndex(intersection[i]);
+                outRequiredComponents[i + 1].AccessModeType = (ComponentType.AccessMode)access[i];
             }
 
             outRequiredComponentsCount = intersectionCount + 1;
@@ -436,17 +453,19 @@ namespace Unity.Entities
             for (var i = 0; i < queryCount; ++i)
                 hash = hash * 397 ^ query[i].GetHashCode();
             EntityQueryData* cachedQuery = null;
-            if(m_EntityGroupDataCache.TryGetFirstValue(hash, out var entityGroupDataIndex, out var iterator))
+            ref var groupCache = ref UnsafeUtilityEx.As<UntypedUnsafeHashMap, UnsafeMultiHashMap<int, int>>(ref m_EntityGroupDataCacheUntyped);
+
+            if (groupCache.TryGetFirstValue(hash, out var entityGroupDataIndex, out var iterator))
             {
                 do
                 {
                     var possibleMatch = m_EntityGroupDatas.Ptr[entityGroupDataIndex];
-                    if(Matches(possibleMatch, query, queryCount, component, componentCount))
+                    if (Matches(possibleMatch, query, queryCount, component, componentCount))
                     {
                         cachedQuery = possibleMatch;
                         break;
                     }
-                } while (m_EntityGroupDataCache.TryGetNextValue(out entityGroupDataIndex, ref iterator));
+                } while (groupCache.TryGetNextValue(out entityGroupDataIndex, ref iterator));
             }
 
             if (cachedQuery == null)
@@ -476,11 +495,11 @@ namespace Unity.Entities
                     AddArchetypeIfMatching(archetype, cachedQuery);
                 }
 
-                m_EntityGroupDataCache.Add(hash, m_EntityGroupDatas.Length);
+                groupCache.Add(hash, m_EntityGroupDatas.Length);
                 m_EntityGroupDatas.Add(cachedQuery);
             }
 
-            return new EntityQuery(cachedQuery, m_JobSafetyManager, entityComponentStore, managedComponentStore);
+            return new EntityQuery(cachedQuery, m_DependencyManager, entityComponentStore, managedComponentStore);
         }
 
         void InitializeReaderWriter(EntityQueryData* grp, ComponentType* requiredTypes, int requiredCount)

@@ -150,11 +150,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void Test1()
         {
-#if !UNITY_DOTSPLAYER
             World w = new World("TestWorld");
-#else
-            World w = DefaultTinyWorldInitialization.Initialize("TestWorld");
-#endif
             World.DefaultGameObjectInjectionWorld = w;
             EntityManager em = World.DefaultGameObjectInjectionWorld.EntityManager;
             List<Entity> remember = new List<Entity>();
@@ -181,11 +177,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void Test2()
         {
-#if !UNITY_DOTSPLAYER
             World w = new World("TestWorld");
-#else
-            World w = DefaultTinyWorldInitialization.Initialize("TestWorld");
-#endif
             World.DefaultGameObjectInjectionWorld = w;
             EntityManager em = World.DefaultGameObjectInjectionWorld.EntityManager;
 
@@ -198,11 +190,7 @@ namespace Unity.Entities.Tests
             w.Dispose();
             w = null;
 
-#if !UNITY_DOTSPLAYER
             w = new World("TestWorld2");
-#else
-            w = DefaultTinyWorldInitialization.Initialize("TestWorld");
-#endif
             World.DefaultGameObjectInjectionWorld = w;
             em = World.DefaultGameObjectInjectionWorld.EntityManager;
             var allEnt = em.GetAllEntities(Allocator.Temp);

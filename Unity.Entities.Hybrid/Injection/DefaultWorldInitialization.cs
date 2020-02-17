@@ -11,19 +11,6 @@ using Unity.Collections;
 
 namespace Unity.Entities
 {
-    
-    /// <summary>
-    /// When entering playmode or the game starts in the Player.
-    /// A default world is created, sometimes you need multiple worlds to be setup when the game starts.
-    /// This lets you override the bootstrap of game code world creation.
-    /// </summary>
-    public interface ICustomBootstrap
-    {
-        // Returns true if the bootstrap has performed initialization.
-        // Returns false if default world initialization should be performed.
-        bool Initialize(string defaultWorldName);
-    }
-
     public static class DefaultWorldInitialization
     {
         static bool s_UnloadOrPlayModeChangeShutdownRegistered = false;
@@ -109,7 +96,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Initializes the default world or runs ICustomBootstrap if one is is available. 
+        /// Initializes the default world or runs ICustomBootstrap if one is available. 
         /// </summary>
         /// <param name="defaultWorldName">The name of the world that will be created. Unless there is a custom bootstrap.</param>
         /// <param name="editorWorld">Editor worlds by default only include systems with [ExecuteAlways]. If editorWorld is true, ICustomBootstrap will not be used.</param>

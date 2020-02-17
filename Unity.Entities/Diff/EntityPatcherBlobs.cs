@@ -147,7 +147,7 @@ namespace Unity.Entities
 #if !NET_DOTS
                             else if (component.IsManagedComponent)
                             {
-                                var obj = entityManager.GetManagedComponentDataAsObject(entity, component);
+                                var obj = entityManager.GetComponentObject<object>(entity, component);
                                 var pointer = (byte*) UnsafeUtility.PinGCObjectAndGetAddress(obj, out ulong handle);
                                 pointer += TypeManager.ObjectOffset;
                                 UnsafeUtility.MemCpy(pointer + targetOffset, &targetBlobAssetReferenceData, sizeof(BlobAssetReferenceData));

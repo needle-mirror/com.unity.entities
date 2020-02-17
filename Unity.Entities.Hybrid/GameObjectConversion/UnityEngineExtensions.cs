@@ -24,6 +24,26 @@ namespace Unity.Entities.Conversion
             return hash;
         }
         
+        public static T GetComponentInParentIncludeInactive<T>(this GameObject go) 
+            where T : Component 
+        {
+            if (go.activeInHierarchy)
+                return go.GetComponentInParent<T>();
+            else
+            {
+                var transform = go.transform;
+                while (transform != null)
+                {
+                    if (transform.TryGetComponent<T>(out var com))
+                        return com;
+                    
+                    transform = transform.parent;
+                }
+
+                return null;
+            }
+        }
+        
         /// <summary>
         /// Returns an EntityGuid that can be used as a guid within a (non-persistent) session to refer to an entity generated
         /// from a UnityEngine.Object. The primary entity will be index 0, and additional entities will have increasing

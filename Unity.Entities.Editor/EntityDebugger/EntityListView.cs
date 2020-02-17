@@ -128,7 +128,7 @@ namespace Unity.Entities.Editor
 
             var group = SelectedEntityQuery?.Group;
 
-            if (group == null)
+            if (group == null || !group.IsCreated)
             {
                 var query = SelectedEntityQuery?.QueryDesc;
                 if (query == null)

@@ -9,7 +9,7 @@ using UnityObject = UnityEngine.Object;
 
 namespace Unity.Entities.Tests.Conversion
 {
-    abstract class ConversionTestFixtureBase : ECSTestsFixture
+    internal abstract class ConversionTestFixtureBase : ECSTestsFixture
     {
         protected enum DestructionBy
         {

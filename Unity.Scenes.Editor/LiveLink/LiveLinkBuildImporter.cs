@@ -55,8 +55,8 @@ namespace Unity.Scenes.Editor
     {
         const int k_CurrentFileFormatVersion = 1;
         const string k_DependenciesExtension = "dependencies";
-        const string k_BundleExtension = "bundle";
-        const string k_ManifestExtension = "manifest";
+        public const string k_BundleExtension = "bundle";
+        public const string k_ManifestExtension = "manifest";
 
         const string k_PrefabExtension = ".prefab";
         const string k_SceneExtension = ".unity";

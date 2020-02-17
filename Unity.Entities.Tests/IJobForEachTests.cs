@@ -3,6 +3,7 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
+using Unity.Transforms;
 
 namespace Unity.Entities.Tests
 {
@@ -181,6 +182,27 @@ namespace Unity.Entities.Tests
         }
 #endif
 
+        // Tests for a bug in runtime where Exclude/Require where types in different
+        // assemblies don't get applied: https://unity3d.atlassian.net/browse/DOTSR-666
+        [ExcludeComponent(typeof(EcsTestData3))]
+        [RequireComponentTag(typeof(Scale))]
+        struct ProcessTagged1Extern : IJobForEach<EcsTestData, EcsTestData2>
+        {
+            public void Execute(ref EcsTestData src, ref EcsTestData2 dst)
+            {
+                dst.value1 = dst.value0 = src.value;
+            }
+        }
+
+        void TestExcludeRequire1Extern(bool didProcess, Entity entity)
+        {
+            m_Manager.SetComponentData(entity, new EcsTestData(TEST_VALUE));
+
+            new ProcessTagged1Extern().Schedule(EmptySystem).Complete();
+
+            Assert.AreEqual(didProcess ? TEST_VALUE : 0, m_Manager.GetComponentData<EcsTestData2>(entity).value0);
+        }
+
         [ExcludeComponent(typeof(EcsTestData3))]
         [RequireComponentTag(typeof(EcsTestData4))]
         struct ProcessTagged1 : IJobForEach<EcsTestData, EcsTestData2>
@@ -275,6 +297,19 @@ namespace Unity.Entities.Tests
                 m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData4)));
             TestExcludeRequire3(true,
                 m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4)));
+
+            /*
+             * [ExcludeComponent(typeof(EcsTestData3))]
+             * [RequireComponentTag(typeof(Scale))]
+            */
+            TestExcludeRequire1Extern(false,
+                m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3)));
+
+            TestExcludeRequire1Extern(false,
+                m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2)));
+
+            TestExcludeRequire1Extern(true,
+                m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData4), typeof(Scale)));
         }
 
         struct ProcessFilteredData : IJobForEach<EcsTestData>

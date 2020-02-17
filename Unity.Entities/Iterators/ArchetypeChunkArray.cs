@@ -561,14 +561,27 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckReadAndThrow(componentType.m_Safety);
 #endif
             var archetype = m_Chunk->Archetype;
+            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, componentType.m_TypeIndex);
 
-            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(archetype, componentType.m_TypeIndex);
+            NativeArray<int> indexArray;
+            if (typeIndexInArchetype == -1)
+            {
+                indexArray = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<int>(null, 0, 0);
+            }
+            else
+            {
+                var buffer = m_Chunk->Buffer;
+                var length = m_Chunk->Count;
+                var startOffset = archetype->Offsets[typeIndexInArchetype];
+                indexArray = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<int>(buffer + startOffset, length, Allocator.None);
+            }
 
-            int offset, length;
-            var array = manager.ManagedComponentStore.GetManagedObjectRange(m_Chunk, typeIndexInArchetype, out offset, out length);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref indexArray, componentType.m_Safety);
+#endif
+            m_Chunk->SetChangeVersion(typeIndexInArchetype, componentType.GlobalSystemVersion);
 
-            var componentArray = new ArchetypeChunkComponentObjects<T>(offset, length, array);
-            return componentArray;
+            return new ArchetypeChunkComponentObjects<T>(indexArray, manager);
         }
 
         /// <summary>
@@ -970,26 +983,21 @@ namespace Unity.Entities
     /// </summary>
     /// <typeparam name="T"></typeparam>
     [StructLayout(LayoutKind.Sequential)]
-    public struct ArchetypeChunkComponentObjects<T>
+    public unsafe struct ArchetypeChunkComponentObjects<T>
         where T : class
     {
         /// <summary>
         ///
         /// </summary>
-        public readonly int  Length;
-        internal int         Offset;
-        internal T[]         Array;
+        NativeArray<int> m_IndexArray;
+        EntityComponentStore* m_EntityComponentStore;
+        ManagedComponentStore m_ManagedComponentStore;
 
-        internal const int ArrayByteOffset = 8;
-
-        unsafe internal ArchetypeChunkComponentObjects(int offset, int length, object[] objectArray)
+        unsafe internal ArchetypeChunkComponentObjects(NativeArray<int> indexArray, EntityManager entityManager)
         {
-            Length = length;
-            Offset = offset;
-            Array = null;
-
-            var arrayPtr = (byte*) UnsafeUtility.AddressOf(ref this);
-            UnsafeUtility.CopyObjectAddressToPtr(objectArray, arrayPtr + ArrayByteOffset);
+            m_IndexArray = indexArray;
+            m_EntityComponentStore = entityManager.EntityComponentStore;
+            m_ManagedComponentStore = entityManager.ManagedComponentStore;
         }
 
         /// <summary>
@@ -997,26 +1005,20 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="index"></param>
         /// <exception cref="IndexOutOfRangeException"></exception>
-        public T this[int index]
+        public unsafe T this[int index]
         {
             get
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if ((uint)index >= (uint)Length)
-                    throw new IndexOutOfRangeException($"index: {index} must be smaller than Length: {Length}");
-#endif
-
-                return Array[Offset + index];
+                // Direct access to the m_ManagedComponentData for fast iteration
+                // we can not cache m_ManagedComponentData directly since it can be reallocated
+                return (T)m_ManagedComponentStore.m_ManagedComponentData[m_IndexArray[index]];
             }
 
             set
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if ((uint)index >= (uint)Length)
-                    throw new IndexOutOfRangeException($"index: {index} must be smaller than Length: {Length}");
-#endif
-
-                Array[Offset + index] = value;
+                var iManagedComponent = m_IndexArray[index];
+                m_ManagedComponentStore.UpdateManagedComponentValue(&iManagedComponent, value, ref *m_EntityComponentStore);
+                m_IndexArray[index] = iManagedComponent;
             }
         }
     }

@@ -5,13 +5,65 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+#if UNITY_DOTSPLAYER
+using Unity.Tiny;
+#endif
 
 namespace Unity.Entities.Tests
 {
-#if !UNITY_EDITOR
-    // Editor manages its own SystemGroups, so this test case is meaningless there.
+    public class AutoCreateComponentSystemTestsFixture
+    {
+        protected World m_PreviousWorld;
+        protected World World;
+        protected EntityManager m_Manager;
+        protected EntityManager.EntityManagerDebug m_ManagerDebug;
 
-    class Issue1792 : ECSTestsFixture
+        protected int StressTestEntityCount = 1000;
+
+        [SetUp]
+        public void Setup()
+        {
+            m_PreviousWorld = World.DefaultGameObjectInjectionWorld;
+            const string kTestWorldName = "Test World";
+#if UNITY_DOTSPLAYER
+            // Tiny always runs outside of process from the Editor, as such we need to
+            // invoke the tiny bootstrapping for worlds manually
+            World = DefaultWorldInitialization.Initialize(kTestWorldName);
+#else
+            World = World.DefaultGameObjectInjectionWorld = new World(kTestWorldName);
+#endif
+
+            m_Manager = World.EntityManager;
+            m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            if (m_Manager != null && m_Manager.IsCreated)
+            {
+                // Clean up systems before calling CheckInternalConsistency because we might have filters etc
+                // holding on SharedComponentData making checks fail
+                while (World.Systems.ToArray().Length > 0)
+                {
+                    World.DestroySystem(World.Systems.ToArray()[0]);
+                }
+
+                m_ManagerDebug.CheckInternalConsistency();
+
+                World.Dispose();
+                World = null;
+
+                World.DefaultGameObjectInjectionWorld = m_PreviousWorld;
+                m_PreviousWorld = null;
+                m_Manager = null;
+            }
+        }
+    }
+
+    // Editor manages its own SystemGroups, so this test case is meaningless there.
+#if !UNITY_EDITOR
+    class Issue1792 : AutoCreateComponentSystemTestsFixture
     {
         static bool aCreated = false;
         static bool bCreated = false;
@@ -64,7 +116,7 @@ namespace Unity.Entities.Tests
     }
 #endif
 
-    class AutoCreateComponentSystemTests : ECSTestsFixture
+    class AutoCreateComponentSystemTests : AutoCreateComponentSystemTestsFixture
     {
     
         internal class SystemA : ComponentSystem

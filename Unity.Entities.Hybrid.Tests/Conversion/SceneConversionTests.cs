@@ -1,7 +1,7 @@
 using NUnit.Framework;
-using Unity.Build;
 using Unity.Entities.Conversion;
 using Unity.Mathematics;
+using Unity.Build;
 using Unity.Transforms;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -115,7 +115,7 @@ namespace Unity.Entities.Tests.Conversion
             var go = CreateGameObject("Test Conversion");
             go.transform.localPosition = new Vector3(1, 2, 3);
 
-            var buildSettings = BuildSettings.CreateInstance((bs) =>
+            var config = BuildConfiguration.CreateInstance((bs) =>
             {
                 bs.hideFlags = HideFlags.HideAndDontSave;
                 bs.SetComponent(new ConversionSystemFilterSettings("Unity.Transforms.Hybrid"));
@@ -124,7 +124,7 @@ namespace Unity.Entities.Tests.Conversion
             var conversionSettings = new GameObjectConversionSettings
             {
                 DestinationWorld = World,
-                BuildSettings = buildSettings
+                BuildConfiguration = config
             };
 
             GameObjectConversionUtility.ConvertScene(scene, conversionSettings);

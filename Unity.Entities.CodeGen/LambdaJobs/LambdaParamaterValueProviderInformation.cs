@@ -138,7 +138,9 @@ namespace Unity.Entities.CodeGen
             // class IComponentData / UnityEngine.Object
             if (resolvedParameterType.IsIComponentDataClass() || resolvedParameterType.IsUnityEngineObject())
             {
-                if (lambdaJobDescriptionConstruction.UsesBurst || lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Schedule)
+                if (lambdaJobDescriptionConstruction.UsesBurst ||
+                    lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Schedule ||
+                    lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.ScheduleParallel)
                     UserError.DC0023(lambdaJobDescriptionConstruction.ContainingMethod, parameterType, lambdaJobDescriptionConstruction.WithCodeInvocationInstruction).Throw();
 
                 bool readOnly = false;

@@ -331,7 +331,7 @@ namespace Unity.Entities.CodeGeneratedJobForEach
         {
             int entityCount = this.EntityCount;
             int num = 0;
-            while (num != entityCount)
+            while (num < entityCount)
             {
                 Entity entity = this.For(num);
                 if (!(entity == Entity.Null))
