@@ -70,23 +70,9 @@ namespace Unity.Entities
 
         public static GameObjectConversionSettings FromWorld(World destinationWorld, BlobAssetStore blobAssetStore) => new GameObjectConversionSettings { DestinationWorld = destinationWorld, BlobAssetStore = blobAssetStore};
         public static GameObjectConversionSettings FromHash(Hash128 hash, BlobAssetStore blobAssetStore) => new GameObjectConversionSettings { SceneGUID = hash, BlobAssetStore = blobAssetStore};
-#if UNITY_EDITOR
+    #if UNITY_EDITOR
         public static GameObjectConversionSettings FromGUID(UnityEditor.GUID guid, BlobAssetStore blobAssetStore) => new GameObjectConversionSettings { SceneGUID = guid, BlobAssetStore = blobAssetStore};
-#endif
-        
-        [Obsolete("GameObjectConversionSettings.implicit operator(World) is deprecated, use GameObjectConversionSettings.FromWorld() instead. (RemovedAfter 2020-02-20)")]
-        public static implicit operator GameObjectConversionSettings(World destinationWorld)
-            => new GameObjectConversionSettings { DestinationWorld = destinationWorld };
-
-        [Obsolete("GameObjectConversionSettings.implicit operator(Hash128) is deprecated, use GameObjectConversionSettings.FromHash() instead. (RemovedAfter 2020-02-20)")]
-        public static implicit operator GameObjectConversionSettings(Hash128 sceneGuid)
-            => new GameObjectConversionSettings { SceneGUID = sceneGuid };
-
-        #if UNITY_EDITOR
-        [Obsolete("GameObjectConversionSettings.implicit operator(UnityEditor.GUID) is deprecated, use GameObjectConversionSettings.FromGUID() instead. (RemovedAfter 2020-02-20)")]
-        public static implicit operator GameObjectConversionSettings(UnityEditor.GUID sceneGuid)
-            => new GameObjectConversionSettings { SceneGUID = sceneGuid };
-        #endif
+    #endif
 
         // use this to inject systems into the conversion world (good for testing)
         public GameObjectConversionSettings WithExtraSystems(params Type[] extraSystems)

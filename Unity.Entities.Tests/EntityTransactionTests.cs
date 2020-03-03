@@ -47,6 +47,7 @@ namespace Unity.Entities.Tests
             }
         }
 
+        [RuntimeMainThread]
         struct CreateEntityJob : IJob
         {
             public ExclusiveEntityTransaction entities;

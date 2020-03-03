@@ -12,8 +12,9 @@ namespace Unity.Entities
     /// a set of <see cref="ArchetypeChunk"/> instances.
     /// </summary>
     /// <remarks>
-    /// Create and schedule an IJobChunk Job inside a <see cref="JobComponentSystem"/>. The Job component system calls
-    /// the Execute function once for each <see cref="EntityArchetype"/> found by the <see cref="EntityQuery"/> used to
+    /// Create and schedule an IJobChunk Job inside the OnUpdate() function of a <see cref="SystemBase"/> implementation.
+    /// The Job component system calls
+    /// the Execute function once for each <see cref="ArchetypeChunk"/> found by the <see cref="EntityQuery"/> used to
     /// schedule the Job.
     ///
     /// To pass data to the Execute function beyond the parameters of the Execute() function, add public fields to the
@@ -24,6 +25,9 @@ namespace Unity.Entities
     /// component.
     ///
     /// For more information see [Using IJobChunk](xref:ecs-ijobchunk).
+    /// <example>
+    /// <code source="../DocCodeSamples.Tests/ChunkIterationJob.cs" region="basic-ijobchunk" title="IJobChunk Example"/>
+    /// </example>
     /// </remarks>
     [JobProducerType(typeof(JobChunkExtensions.JobChunk_Process<>))]
     public interface IJobChunk
@@ -65,6 +69,7 @@ namespace Unity.Entities
             public T Data;
 
             [NativeDisableContainerSafetyRestriction]
+            [DeallocateOnJobCompletion]
             public NativeArray<byte> PrefilterData;
 
             public int IsParallel;
@@ -187,26 +192,17 @@ namespace Unity.Entities
             try
             {
 #endif
-                JobHandle handle = default;
-
                 if (!isParallel)
                 {
-                    handle = JobsUtility.Schedule(ref scheduleParams);
+                    return JobsUtility.Schedule(ref scheduleParams);
                 }
                 else
                 {
                 	if (mode == ScheduleMode.Batched)
-                	{
-                    	handle = JobsUtility.ScheduleParallelForDeferArraySize(ref scheduleParams, 1, deferredCountData, null);
-                	}
+                    	return JobsUtility.ScheduleParallelForDeferArraySize(ref scheduleParams, 1, deferredCountData, null);
                 	else
-                	{
-                		handle = JobsUtility.ScheduleParallelFor(ref scheduleParams, unfilteredChunkCount, unfilteredChunkCount);
-					}
+                		return JobsUtility.ScheduleParallelFor(ref scheduleParams, unfilteredChunkCount, unfilteredChunkCount);
 				}
-
-				return prefilterData.Dispose(handle);
-
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             }
             catch (InvalidOperationException e)

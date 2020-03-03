@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine.Assertions;
+using Unity.Assertions;
+using Unity.Burst;
 using Unity.Entities.Serialization;
-using Unity.Mathematics;
 #if !NET_DOTS
 using Unity.Properties;
 #endif
@@ -53,8 +53,26 @@ namespace Unity.Entities
 
         int m_FreeListIndex;
 
-        internal delegate void InstantiateHybridComponentDelegate(int* srcArray, int componentCount, Entity* dstEntities, int* dstArray, int instanceCount, ManagedComponentStore managedComponentStore);
+        internal delegate void InstantiateHybridComponentDelegate(int* srcArray, int componentCount, Entity* dstEntities, int* dstComponentLinkIndices, int* dstArray, int instanceCount, ManagedComponentStore managedComponentStore);
         internal static InstantiateHybridComponentDelegate InstantiateHybridComponent;
+
+        internal delegate void AssignHybridComponentsToCompanionGameObjectsDelegate(EntityManager entityManager, NativeArray<Entity> entities);
+        internal static AssignHybridComponentsToCompanionGameObjectsDelegate AssignHybridComponentsToCompanionGameObjects;
+
+        private sealed class ManagedComponentStoreKeyContext
+        {
+        }
+
+        private sealed class CompanionLinkTypeIndexStatic
+        {
+            public static readonly SharedStatic<int> Ref = SharedStatic<int>.GetOrCreate<ManagedComponentStoreKeyContext, CompanionLinkTypeIndexStatic>();
+        }
+
+        public static int CompanionLinkTypeIndex
+        {
+            get => CompanionLinkTypeIndexStatic.Ref.Data;
+            set => CompanionLinkTypeIndexStatic.Ref.Data = value;
+        }
 
         public ManagedComponentStore()
         {
@@ -65,6 +83,10 @@ namespace Unity.Entities
         {
             for (var i = 1; i != m_SharedComponentData.Count; i++)
                 (m_SharedComponentData[i] as IRefCounted)?.Release();
+
+            for (var i = 0; i != m_ManagedComponentData.Length; i++)
+                DisposeManagedObject(m_ManagedComponentData[i]);
+
             m_SharedComponentInfo.Dispose();
             m_SharedComponentData.Clear();
             m_SharedComponentData = null;
@@ -657,10 +679,11 @@ namespace Unity.Entities
                     {
                         var srcArray = (int*)reader.ReadNextArray<int>(out var componentCount);
                         var entities = (Entity*)reader.ReadNextArray<Entity>(out var instanceCount);
+                        var dstComponentLinkIndices = (int*)reader.ReadNextArray<int>(out _);
                         var dstArray = (int*)reader.ReadNextArray<int>(out _);
-                        
+
                         if(InstantiateHybridComponent != null)
-                            InstantiateHybridComponent(srcArray, componentCount, entities, dstArray, instanceCount, this);
+                            InstantiateHybridComponent(srcArray, componentCount, entities, dstComponentLinkIndices, dstArray, instanceCount, this);
                         else
                         {
                             // InstantiateHybridComponent was not injected just copy the reference to the object and dont clone it
@@ -681,6 +704,7 @@ namespace Unity.Entities
                         for (int i = 0; i < count; ++i)
                         {
                             var managedComponentIndex = reader.ReadNext<int>();
+                            (m_ManagedComponentData[managedComponentIndex] as IDisposable)?.Dispose();
                             m_ManagedComponentData[managedComponentIndex] = null;
                         }
                     }
@@ -698,13 +722,17 @@ namespace Unity.Entities
             managedDeferredCommands.Reset();
         }
 
-        static object CloneManagedComponent(object obj)
+        public static object CloneManagedComponent(object obj)
         {
             if (obj == null)
             {
                 return null;
             }
-            else
+            if (obj is ICloneable cloneable)
+            {
+                return cloneable.Clone();
+            }
+
             {
 #if !NET_DOTS
                 var type = obj.GetType();
@@ -765,6 +793,10 @@ namespace Unity.Entities
         {
             entityComponentStore.AssertNoQueuedManagedDeferredCommands();
             var iManagedComponent = *index;
+            
+            if(iManagedComponent != 0)
+                (m_ManagedComponentData[iManagedComponent] as IDisposable)?.Dispose();
+            
             if (value != null)
             {
                 if (iManagedComponent == 0)
@@ -792,6 +824,7 @@ namespace Unity.Entities
                 var obj = srcManagedComponentStore.m_ManagedComponentData[indices[i]];
                 var clone = CloneManagedComponent(obj);
                 int dstIndex = dstEntityComponentStore.AllocateManagedComponentIndex();
+                (m_ManagedComponentData[dstIndex] as IDisposable)?.Dispose();
                 m_ManagedComponentData[dstIndex] = clone;
             }
         }
@@ -799,14 +832,20 @@ namespace Unity.Entities
         public void ResetManagedComponentStoreForDeserialization(int managedComponentCount, ref EntityComponentStore entityComponentStore)
         {
             managedComponentCount++; // also need space for 0 index (null)
-            UnityEngine.Assertions.Assert.AreEqual(0, entityComponentStore.ManagedComponentIndexUsedCount);
-            entityComponentStore.m_ManagedComponentFreeIndex.Size = 0;
+            Assert.AreEqual(0, entityComponentStore.ManagedComponentIndexUsedCount);
+            entityComponentStore.m_ManagedComponentFreeIndex.Length = 0;
             entityComponentStore.m_ManagedComponentIndex = managedComponentCount;
             if (managedComponentCount > entityComponentStore.m_ManagedComponentIndexCapacity)
             {
                 entityComponentStore.m_ManagedComponentIndexCapacity = managedComponentCount;
                 SetManagedComponentCapacity(managedComponentCount);
             }
+        }
+
+        public static void DisposeManagedObject(object obj)
+        {
+            if(obj is IDisposable disposable)
+                disposable.Dispose();
         }
     }
 }

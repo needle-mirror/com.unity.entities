@@ -3,6 +3,7 @@
     "references": [
         "Unity.Collections",
         "Unity.Entities",
+        "Unity.Entities.Tests",
         "Unity.Entities.CodeGen",
         "Unity.Entities.CodeGen.Tests.TestTypes",
         "Unity.Burst",

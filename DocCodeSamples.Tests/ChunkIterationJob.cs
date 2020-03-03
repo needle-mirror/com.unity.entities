@@ -22,7 +22,7 @@ namespace Doc.CodeSamples.Tests
     }
 
     #region rotationspeedsystem
-    public class RotationSpeedSystem : JobComponentSystem
+    public class RotationSpeedSystem : SystemBase
     {
         private EntityQuery m_Query;
 
@@ -66,7 +66,7 @@ namespace Doc.CodeSamples.Tests
 
         #region schedulequery
 
-        protected override JobHandle OnUpdate(JobHandle inputDependencies)
+        protected override void OnUpdate()
         {
             var job = new RotationSpeedJob()
             {
@@ -74,14 +74,14 @@ namespace Doc.CodeSamples.Tests
                 RotationSpeedType = GetArchetypeChunkComponentType<RotationSpeed>(true),
                 DeltaTime = Time.DeltaTime
             };
-            return job.Schedule(m_Query, inputDependencies);
+            this.Dependency =  job.ScheduleParallel(m_Query, this.Dependency);
         }
 
         #endregion
     }
 
 
-    public class RotationSpeedSystemExample2 : JobComponentSystem
+    public class RotationSpeedSystemExample2 : SystemBase
     {
         private EntityQuery m_Query;
 
@@ -121,7 +121,7 @@ namespace Doc.CodeSamples.Tests
 
         #endregion
 
-        protected override JobHandle OnUpdate(JobHandle inputDependencies)
+        protected override void OnUpdate()
         {
             var job = new RotationSpeedJob()
             {
@@ -130,11 +130,11 @@ namespace Doc.CodeSamples.Tests
                 DeltaTime = Time.DeltaTime
             };
 
-            return job.Schedule(m_Query, inputDependencies);
+            this.Dependency =  job.ScheduleParallel(m_Query, this.Dependency);
         }
     }
 
-    public class RotationSpeedSystemExample3 : JobComponentSystem
+    public class RotationSpeedSystemExample3 : SystemBase
     {
         private EntityQuery m_Query;
 
@@ -180,7 +180,7 @@ namespace Doc.CodeSamples.Tests
             }
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDependencies)
+        protected override void OnUpdate()
         {
             var job = new RotationSpeedJob()
             {
@@ -189,7 +189,7 @@ namespace Doc.CodeSamples.Tests
                 DeltaTime = Time.DeltaTime
             };
 
-            return job.Schedule(m_Query, inputDependencies);
+            this.Dependency = job.ScheduleParallel(m_Query, this.Dependency);
         }
     }
 
@@ -208,7 +208,7 @@ namespace Doc.CodeSamples.Tests
         public float Value;
     }
 
-    public class UpdateSystemExample : JobComponentSystem
+    public class UpdateSystemExample : SystemBase
     {
         #region changefilter
 
@@ -264,7 +264,7 @@ namespace Doc.CodeSamples.Tests
 
         #region changefilteronupdate
 
-        protected override JobHandle OnUpdate(JobHandle inputDependencies)
+        protected override void OnUpdate()
         {
             var job = new UpdateJob();
 
@@ -273,10 +273,75 @@ namespace Doc.CodeSamples.Tests
             job.InputAType = GetArchetypeChunkComponentType<InputA>(true);
             job.InputBType = GetArchetypeChunkComponentType<InputB>(true);
             job.OutputType = GetArchetypeChunkComponentType<Output>(false);
-
-            return job.Schedule(m_Query, inputDependencies);
+            
+            this.Dependency = job.ScheduleParallel(m_Query, this.Dependency);
         }
 
         #endregion
     }
+
+    #region basic-ijobchunk
+    [GenerateAuthoringComponent]
+    public struct Target : IComponentData
+    {
+        public Entity entity;
+    }
+
+    public class ChaserSystem : SystemBase
+    {
+        private EntityQuery query; // Initialized in Oncreate()
+
+        [BurstCompile]
+        private struct ChaserSystemJob : IJobChunk
+        {
+            // Read-write data in the current chunk
+            public ArchetypeChunkComponentType<Translation> PositionTypeAccessor;
+
+            // Read-only data in the current chunk
+            [ReadOnly]
+            public ArchetypeChunkComponentType<Target> TargetTypeAccessor;
+
+            // Read-only data stored (potentially) in other chunks
+            [ReadOnly]
+            //[NativeDisableParallelForRestriction]
+            public ComponentDataFromEntity<LocalToWorld> EntityPositions;
+
+            // Non-entity data
+            public float deltaTime;
+
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+                NativeArray<Translation> positions = chunk.GetNativeArray<Translation>(PositionTypeAccessor);
+                NativeArray<Target> targets = chunk.GetNativeArray<Target>(TargetTypeAccessor);
+
+                for (int i = 0; i < positions.Length; i++)
+                {
+                    Entity targetEntity = targets[i].entity;
+                    float3 targetPosition = EntityPositions[targetEntity].Position;
+                    float3 chaserPosition = positions[i].Value;
+
+                    float3 displacement = (targetPosition - chaserPosition);
+                    positions[i] = new Translation { Value = chaserPosition + displacement * deltaTime };
+                }
+            }
+        }
+
+        protected override void OnCreate()
+        {
+            query = this.GetEntityQuery(typeof(Translation), ComponentType.ReadOnly<Target>());
+        }
+
+        protected override void OnUpdate()
+        {
+            var job = new ChaserSystemJob();
+            job.PositionTypeAccessor = this.GetArchetypeChunkComponentType<Translation>(false);
+            job.TargetTypeAccessor = this.GetArchetypeChunkComponentType<Target>(true);
+
+            job.EntityPositions = this.GetComponentDataFromEntity<LocalToWorld>(true);
+            job.deltaTime = this.Time.DeltaTime;
+
+            this.Dependency = job.Schedule(query, this.Dependency);
+        }
+    }
+    #endregion
 }

@@ -45,7 +45,7 @@ namespace Unity.Scenes
                 Serialize(entityChangeSet, &changeSetBuffer, out var globalObjectIds);
                 
                 buffer.Add(globalObjectIds);
-                buffer.Add(changeSetBuffer.Ptr, changeSetBuffer.Size);
+                buffer.Add(changeSetBuffer.Ptr, changeSetBuffer.Length);
                 
                 changeSetBuffer.Dispose();
                 globalObjectIds.Dispose();

@@ -7,5 +7,5 @@
         "Unity.Scenes.Editor.BuildStepCreateResourceCatalog, Unity.Scenes.Editor",
         "Unity.Build.Classic.BuildStepBuildClassicPlayer, Unity.Build.Classic"
     ],
-    "RunStep": null
+    "RunStep": "Unity.Build.Classic.RunStepNotImplemented, Unity.Build.Classic"
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEditor.IMGUI.Controls;
@@ -280,6 +281,7 @@ namespace Unity.Entities.Editor
         }
 
         [SerializeField] private bool ShowInactiveSystems;
+        [SerializeField] private bool ShowAllWorlds;
 
         private void CreateWorldPopup()
         {
@@ -291,8 +293,9 @@ namespace Unity.Entities.Editor
                 {
                     ShowInactiveSystems = !ShowInactiveSystems;
                     systemListView.Reload();
-                }
-                );
+                },
+                () => ShowAllWorlds,
+                v => ShowAllWorlds = v);
         }
 
         private void CreateChunkInfoListView()
@@ -402,7 +405,7 @@ namespace Unity.Entities.Editor
         private void SystemList()
         {
             var rect = GUIHelpers.GetExpandingRect();
-            if (World.AllWorlds.Count != 0)
+            if (World.All.Count > 0)
             {
                 systemListView.OnGUI(rect);
             }

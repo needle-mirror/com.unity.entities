@@ -136,16 +136,6 @@ namespace Unity.Scenes
                         AddSceneEntities();
                 }
             }
-            
-            // Validate SubScene build configuration exists
-            foreach (var world in World.AllWorlds)
-            {
-                var sceneSystem = world.GetExistingSystem<SceneSystem>();
-                if (sceneSystem is null)
-                    continue;
-                
-                EntityScenesPaths.CreateBuildConfigurationSceneFile(_SceneGUID,sceneSystem.BuildConfigurationGUID);
-            }
         }
 
         internal bool CanBeLoaded()
@@ -212,8 +202,8 @@ namespace Unity.Scenes
             flags |= EditorApplication.isPlaying ? SceneLoadFlags.BlockOnImport : 0;
 #else
             flags |= SceneLoadFlags.BlockOnImport;
-#endif            
-            foreach (var world in World.AllWorlds)
+#endif
+            foreach (var world in World.All)
             {
                 var sceneSystem = world.GetExistingSystem<SceneSystem>();
                 if (sceneSystem != null)
@@ -234,7 +224,7 @@ namespace Unity.Scenes
         {
             if (_AddedSceneGUID != default)
             {
-                foreach (var world in World.AllWorlds)
+                foreach (var world in World.All)
                 {
                     var sceneSystem = world.GetExistingSystem<SceneSystem>();
                     if (sceneSystem != null)

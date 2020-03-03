@@ -15,7 +15,7 @@ namespace Unity.Scenes
             {
                 var buf = new UnsafeAppendBuffer(ptr, bytes.Length);
                 buf.Add(value);
-                Assert.AreEqual(buf.Size, bytes.Length);
+                Assert.AreEqual(buf.Length, bytes.Length);
             }
 
             return bytes;

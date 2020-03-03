@@ -31,9 +31,9 @@ namespace Unity.Entities.Tests
             {
                 // Clean up systems before calling CheckInternalConsistency because we might have filters etc
                 // holding on SharedComponentData making checks fail
-                while (m_World2.Systems.ToArray().Length > 0)
+                while (m_World2.Systems.Count > 0)
                 {
-                    m_World2.DestroySystem(m_World2.Systems.ToArray()[0]);
+                    m_World2.DestroySystem(m_World2.Systems[0]);
                 }
 
                 m_ManagerDebug2.CheckInternalConsistency();
@@ -1718,6 +1718,7 @@ namespace Unity.Entities.Tests
         }
 
         [BurstCompile(CompileSynchronously = true)]
+        [RuntimeMainThread]
         struct BufferCopyJob : IJobParallelFor
         {
             public EntityCommandBuffer.Concurrent CommandBuffer;

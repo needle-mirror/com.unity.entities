@@ -278,7 +278,7 @@ namespace Unity.Scenes.Editor
         {
             var pendingWork = false;
 
-            foreach (var world in World.AllWorlds)
+            foreach (var world in World.All)
             {
                 var sceneSystem = world.GetExistingSystem<SceneSystem>();
                 if (sceneSystem is null)

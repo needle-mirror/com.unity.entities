@@ -5,19 +5,24 @@
         "Unity.Entities",
         "Unity.Scenes.Hybrid",
         "Unity.Scenes.Editor",
-        "Unity.Entities.Hybrid"
-    ],
-    "optionalUnityReferences": [
-        "TestAssemblies"
+        "Unity.Entities.Hybrid",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Unity.Entities.TestComponents"
     ],
     "includePlatforms": [
         "Editor"
     ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
-    "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": []
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

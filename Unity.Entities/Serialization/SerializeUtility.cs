@@ -36,11 +36,10 @@ namespace Unity.Entities.Serialization
         internal struct SharedComponentRecord
         {
             public ulong StableTypeHash;
-            public int HashCode;
             public int ComponentSize;
         }
 
-        public static int CurrentFileFormatVersion = 27;
+        public static int CurrentFileFormatVersion = 35;
 
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, object[] unityObjects = null)
         {
@@ -71,7 +70,7 @@ namespace Unity.Entities.Serialization
             sharedAndManagedBuffer.ResizeUninitialized(sharedAndManagedDataSize);
             reader.ReadBytes(sharedAndManagedBuffer.Ptr, sharedAndManagedDataSize);
             var sharedAndManagedStream = sharedAndManagedBuffer.AsReader();
-            var managedDataReader = new PropertiesBinaryReader(&sharedAndManagedStream, (UnityEngine.Object[])unityObjects);
+            var managedDataReader = new ManagedDataReader(&sharedAndManagedStream, (UnityEngine.Object[])unityObjects);
             ReadSharedComponents(manager, managedDataReader, sharedComponentRemap, sharedComponentRecordArray);
             manager.ManagedComponentStore.ResetManagedComponentStoreForDeserialization(managedComponentCount, ref *manager.EntityComponentStore);
 
@@ -81,7 +80,7 @@ namespace Unity.Entities.Serialization
                 ulong typeHash = sharedAndManagedStream.ReadNext<ulong>();
                 int typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(typeHash);
                 Type managedType = TypeManager.GetTypeInfo(typeIndex).Type;
-                object obj = BoxedProperties.ReadBoxedClass(managedType, managedDataReader);
+                object obj = managedDataReader.ReadManagedComponent(managedType);
                 manager.ManagedComponentStore.SetManagedComponentValue(i+1, obj);
             }
 #else
@@ -109,9 +108,7 @@ namespace Unity.Entities.Serialization
                 blobAssetOwner = new BlobAssetOwner(allBlobAssetData, totalBlobAssetSize);
                 blobAssetRefChunks = new NativeList<ArchetypeChunk>(32, Allocator.Temp);
             }
-#if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
-            int iManagedComponentIndex = 0;
-#endif
+
             int sharedComponentArraysIndex = 0;
             for (int i = 0; i < totalChunkCount; ++i)
             {
@@ -171,29 +168,6 @@ namespace Unity.Entities.Serialization
                 if (chunk->metaChunkEntity != Entity.Null)
                 {
                     chunksWithMetaChunkEntities.Add(new ArchetypeChunk(chunk, manager.EntityComponentStore));
-                }
-
-                if (archetype->NumManagedComponents > 0)
-                {
-#if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
-                    if (archetype->NumManagedComponents != 0)
-                    {
-                        for (int ic = 0; ic < archetype->NumManagedComponents; ++ic)
-                        {
-                            var index = archetype->TypeMemoryOrder[ic + archetype->FirstManagedComponent];
-                            Assert.IsTrue(archetype->Types[index].IsManagedComponent);
-                            var managedComponentIndices = (int*)ChunkDataUtility.GetComponentDataRO(chunk, 0, index);
-                            for (int ei = 0; ei < chunk->Count; ++ei)
-                            {
-                                if(managedComponentIndices[ei] == 0)
-                                    continue;
-                                Assert.Equals(iManagedComponentIndex++, managedComponentIndices[ei]);
-                            }
-                        }
-                    }
-#else
-                    throw new ArgumentException("Serialization of GameObject components is not supported for pure entity scenes");
-#endif
                 }
             }
             
@@ -385,8 +359,8 @@ namespace Unity.Entities.Serialization
             var totalChunkCount = GenerateRemapInfo(entityManager, archetypeArray, entityRemapInfos);
 
             referencedObjects = null;
-            WriteSharedAndManagedComponents(entityManager, archetypeArray, sharedComponentsToSerialize, writer, out referencedObjects, isDOTSRuntime,
-                (EntityRemapUtility.EntityRemapInfo*)entityRemapInfos.GetUnsafePtr());
+            WriteSharedAndManagedComponents(entityManager, archetypeArray, sharedComponentsToSerialize, writer, out referencedObjects,
+                isDOTSRuntime, (EntityRemapUtility.EntityRemapInfo*)entityRemapInfos.GetUnsafePtr());
 
             writer.Write(totalChunkCount);
 
@@ -482,7 +456,7 @@ namespace Unity.Entities.Serialization
             return (x + 15) & ~15;
         }
 
-        unsafe static void PatchManagedComponentIndices(Chunk* chunk, Archetype* archetype, ref int currentIndex, ManagedComponentStore managedComponentStore)
+        unsafe static void PatchManagedComponentIndices(Chunk* chunk, Archetype* archetype, ref int currentManagedIndex, ManagedComponentStore managedComponentStore)
         {
             for (int i = 0; i < archetype->NumManagedComponents; ++i)
             {
@@ -497,7 +471,7 @@ namespace Unity.Entities.Serialization
                     if (obj == null)
                         managedComponentIndices[ei] = 0;
                     else
-                        managedComponentIndices[ei] = currentIndex++;
+                        managedComponentIndices[ei] = currentManagedIndex++;
                 }
             }
         }
@@ -514,7 +488,7 @@ namespace Unity.Entities.Serialization
             var sharedComponentRecordArray = new NativeArray<SharedComponentRecord>(sharedComponentIndicies.Length, Allocator.Temp);
             if (!isDOTSRuntime)
             {
-                var propertiesWriter = new PropertiesBinaryWriter(&allManagedObjectsBuffer);
+                var propertiesWriter = new ManagedDataWriter(&allManagedObjectsBuffer);
                 for (int i = 0; i < sharedComponentIndicies.Length; ++i)
                 {
                     var index = sharedComponentIndicies[i];
@@ -527,7 +501,6 @@ namespace Unity.Entities.Serialization
                     var typeInfo = TypeManager.GetTypeInfo(TypeManager.GetTypeIndex(type));
                     sharedComponentRecordArray[i] = new SharedComponentRecord()
                     {
-                        HashCode = TypeManager.GetHashCode(managedObject, typeInfo.TypeIndex),
                         StableTypeHash = typeInfo.StableTypeHash,
                         ComponentSize = -1
                     };
@@ -536,34 +509,45 @@ namespace Unity.Entities.Serialization
                 for (int a = 0; a < archetypeArray.Length; ++a)
                 {
                     var archetype = archetypeArray.Ptr[a];
+                    if (archetype->NumManagedComponents == 0)
+                        continue;
+
                     for (var ci = 0; ci < archetype->Chunks.Count; ++ci)
                     {
                         var chunk = archetype->Chunks.p[ci];
-                        if (archetype->NumManagedComponents != 0)
+
+                        for (int i = 0; i < archetype->NumManagedComponents; ++i)
                         {
-                            for (int i = 0; i < archetype->NumManagedComponents; ++i)
+                            var index = archetype->TypeMemoryOrder[i + archetype->FirstManagedComponent];
+                            var managedComponentIndices = (int*)ChunkDataUtility.GetComponentDataRO(chunk, 0, index);
+                            var cType = TypeManager.GetTypeInfo(archetype->Types[index].TypeIndex);
+
+                            for (int ei = 0; ei < chunk->Count; ++ei)
                             {
-                                var index = archetype->TypeMemoryOrder[i + archetype->FirstManagedComponent];
-                                Assert.IsTrue(archetype->Types[index].IsManagedComponent);
+                                if (managedComponentIndices[ei] == 0)
+                                    continue;
 
-                                var cType = TypeManager.GetTypeInfo(archetype->Types[index].TypeIndex);
-                                if (cType.Category == TypeManager.TypeCategory.Class)
-                                    throw new ArgumentException("Serialization of GameObject components is not supported for pure entity scenes");
+                                var obj = entityManager.ManagedComponentStore.GetManagedComponent(managedComponentIndices[ei]);
+                                if (obj == null)
+                                    continue;
 
-                                var managedComponentIndices = (int*)ChunkDataUtility.GetComponentDataRO(chunk, 0, index);
-                                for (int ei = 0; ei < chunk->Count; ++ei)
+                                if (obj.GetType() != cType.Type)
                                 {
-                                    if(managedComponentIndices[ei] == 0)
-                                        continue;
+                                    throw new InvalidOperationException($"Managed object type {obj.GetType()} doesn't match component type in archetype {cType.Type}");
+                                }
 
-                                    var obj = entityManager.ManagedComponentStore.GetManagedComponent(managedComponentIndices[ei]);
-                                    if(obj == null)
-                                        continue;
-                                    managedComponentCount++;
-                                    var managedObject = Convert.ChangeType(obj, cType.Type);
-                                    allManagedObjectsBuffer.Add<ulong>(cType.StableTypeHash);
+                                managedComponentCount++;
+                                allManagedObjectsBuffer.Add<ulong>(cType.StableTypeHash);
+
+                                if (cType.HasEntities)
+                                {
                                     var patchedClone = ManagedComponentStore.CloneAndPatchManagedComponent(obj, remapping);
-                                    BoxedProperties.WriteBoxedType(managedObject, propertiesWriter);
+                                    propertiesWriter.WriteManagedComponent(patchedClone);
+                                    ManagedComponentStore.DisposeManagedObject(patchedClone);
+                                }
+                                else
+                                {
+                                    propertiesWriter.WriteManagedComponent(obj);
                                 }
                             }
                         }
@@ -581,13 +565,11 @@ namespace Unity.Entities.Serialization
                     Type type = obj.GetType();
                     var typeIndex = TypeManager.GetTypeIndex(type);
                     var typeInfo = TypeManager.GetTypeInfo(typeIndex);
-                    int hash = TypeManager.GetHashCode(obj, typeIndex);
                     int size = UnsafeUtility.SizeOf(type);
 
                     sharedComponentRecordArray[i] = new SharedComponentRecord()
                     {
                         StableTypeHash = typeInfo.StableTypeHash,
-                        HashCode = hash,
                         ComponentSize = size
                     };
 
@@ -604,10 +586,10 @@ namespace Unity.Entities.Serialization
             writer.Write(sharedComponentRecordArray.Length);
             writer.WriteArray(sharedComponentRecordArray);
 
-            writer.Write(allManagedObjectsBuffer.Size);
+            writer.Write(allManagedObjectsBuffer.Length);
 
             writer.Write(managedComponentCount);
-            writer.WriteBytes(allManagedObjectsBuffer.Ptr, allManagedObjectsBuffer.Size);
+            writer.WriteBytes(allManagedObjectsBuffer.Ptr, allManagedObjectsBuffer.Length);
 
             sharedComponentRecordArray.Dispose();
             allManagedObjectsBuffer.Dispose();
@@ -650,7 +632,7 @@ namespace Unity.Entities.Serialization
             Assert.AreEqual(expectedReadSize, sizeRead, "The amount of shared component data we read doesn't match the amount we serialized.");
         }
 #else
-        static void ReadSharedComponents(ExclusiveEntityTransaction manager, PropertiesBinaryReader managedDataReader, NativeArray<int> sharedComponentRemap, NativeArray<SharedComponentRecord> sharedComponentRecordArray)
+        static void ReadSharedComponents(ExclusiveEntityTransaction manager, ManagedDataReader managedDataReader, NativeArray<int> sharedComponentRemap, NativeArray<SharedComponentRecord> sharedComponentRecordArray)
         {
             // 0 index is special and means default shared component value
             // Also see below the offset + 1 indices for the same reason
@@ -662,8 +644,9 @@ namespace Unity.Entities.Serialization
                 var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(record.StableTypeHash);
                 var typeInfo = TypeManager.GetTypeInfo(typeIndex);
                 var managedObject = BoxedProperties.ReadBoxedClass(typeInfo.Type, managedDataReader);
-                int sharedComponentIndex = manager.ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, record.HashCode, managedObject);
-                
+                var currentHash = TypeManager.GetHashCode(managedObject, typeInfo.TypeIndex);
+                int sharedComponentIndex = manager.ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, currentHash, managedObject);
+
                 // When deserialization a shared component it is possible that it's hashcode changes if for example the referenced object (a UnityEngine.Object for example) becomes null.
                 // This can result in the sharedComponentIndex at serialize time being different from the sharedComponentIndex at load time.
                 // Thus we keep a remap table to handle this potential remap.
@@ -1167,5 +1150,39 @@ namespace Unity.Entities.Serialization
 
             return totalChunkCount;
         }
+
+#if !NET_DOTS
+        unsafe class ManagedDataReader : PropertiesBinaryReader
+        {
+            public ManagedDataReader(UnsafeAppendBuffer.Reader* stream, UnityEngine.Object[] objectTable)
+                : base(stream, objectTable)
+            {
+            }
+            
+            public object ReadManagedComponent(Type type)
+            {
+                if (typeof(UnityEngine.Object).IsAssignableFrom(type))
+                    return ReadObject();
+
+                return BoxedProperties.ReadBoxedClass(type, this);                
+            }
+        }
+
+        unsafe class ManagedDataWriter : PropertiesBinaryWriter
+        {
+            public ManagedDataWriter(UnsafeAppendBuffer* stream)
+                : base(stream)
+            {
+            }
+            
+            public void WriteManagedComponent(object obj)
+            {
+                if (obj is UnityEngine.Object uobj) 
+                    AppendObject(uobj);
+
+                BoxedProperties.WriteBoxedType(obj, this);
+            }
+        }
+#endif
     }
 }

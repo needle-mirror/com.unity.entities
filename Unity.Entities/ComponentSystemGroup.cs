@@ -17,19 +17,12 @@ namespace Unity.Entities
 
         public virtual IEnumerable<ComponentSystemBase> Systems => m_systemsToUpdate;
 
-        // Fixed-Rate Support
-        // internal for now, until we figure out proper API
-        internal bool FixedTimeStepEnabled { get; /*protected*/ set; }
-        internal float FixedTimeStep { get; /*protected*/ set; }
-        protected double m_LastFixedUpdateTime;
-        protected int m_FixedUpdateCount;
-
         public void AddSystemToUpdateList(ComponentSystemBase sys)
         {
             if (sys != null)
             {
                 if (this == sys)
-                    throw new ArgumentException($"Can't add {TypeManager.SystemName(GetType())} to its own update list");
+                    throw new ArgumentException($"Can't add {TypeManager.GetSystemName(GetType())} to its own update list");
 
                 // Check for duplicate Systems. Also see issue #1792
                 if (m_systemsToUpdate.IndexOf(sys) >= 0)
@@ -80,9 +73,7 @@ namespace Unity.Entities
                     (sys as ComponentSystemGroup).RecursiveLogToConsole();
                 }
 
-                var index = TypeManager.GetSystemTypeIndex(sys.GetType());
-                var names = TypeManager.SystemNames;
-                var name = names[index];
+                var name = TypeManager.GetSystemName(sys.GetType());
                 Debug.Log(name);
             }
         }
@@ -106,67 +97,28 @@ namespace Unity.Entities
             }
         }
 
-        // Fixed-Rate Support
-        // internal for now, until we figure out proper API
-        internal void SetFixedTimeStep(float step)
-        {
-            Assert.IsTrue(step > 0.0f, "Fixed time step must be > 0.0f");
-
-            if (!FixedTimeStepEnabled)
-            {
-                m_LastFixedUpdateTime = 0.0;
-                m_FixedUpdateCount = 0;
-            }
-
-            FixedTimeStepEnabled = true;
-            FixedTimeStep = step;
-        }
-
-        internal void DisableFixedTimeStep()
-        {
-            FixedTimeStepEnabled = false;
-            FixedTimeStep = 0.0f;
-        }
-
+        /// <summary>
+        /// An optional callback.  If set, this group's systems will be updated in a loop while
+        /// this callback returns true.  This can be used to implement custom processing before/after
+        /// update (first call should return true, second should return false), or to run a group's
+        /// systems multiple times (return true more than once).
+        /// 
+        /// The group is passed as the first parameter.
+        /// </summary>
+        public Func<ComponentSystemGroup, bool> UpdateCallback;
+        
         protected override void OnUpdate()
         {
-            if (FixedTimeStepEnabled)
+            if (UpdateCallback == null)
             {
-                // First trigger after enabling always ticks at the current time
-                if (m_FixedUpdateCount == 0)
-                {
-                    m_LastFixedUpdateTime = Time.ElapsedTime;
-                    m_FixedUpdateCount = 1;
-
-                    World.PushTime(new TimeData(
-                        elapsedTime: m_LastFixedUpdateTime,
-                        deltaTime: FixedTimeStep));  // fudge the initial delta time to be what's expected, even though it's really 0
-
-                    UpdateAllSystems();
-
-                    World.PopTime();
-
-                    return;
-                }
-
-                // Note that FixedTimeStep of 0.0f will never update
-                while (Time.ElapsedTime - m_LastFixedUpdateTime > FixedTimeStep)
-                {
-                    m_LastFixedUpdateTime += FixedTimeStep;
-                    m_FixedUpdateCount++;
-
-                    World.PushTime(new TimeData(
-                        elapsedTime: m_LastFixedUpdateTime,
-                        deltaTime: FixedTimeStep));
-
-                    UpdateAllSystems();
-
-                    World.PopTime();
-                }
+                UpdateAllSystems();
             }
             else
             {
-                UpdateAllSystems();
+                while (UpdateCallback(this))
+                {
+                    UpdateAllSystems();
+                }
             }
         }
 

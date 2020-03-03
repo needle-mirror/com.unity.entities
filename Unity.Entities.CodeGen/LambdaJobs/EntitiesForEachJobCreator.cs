@@ -31,8 +31,8 @@ namespace Unity.Entities.CodeGen
         public FieldReference[] ChainOfFieldsToOldField;
         public FieldReference NewField;
     }
-    
-    internal class JobStructForLambdaJob
+
+    class JobStructForLambdaJob
     {
         public LambdaJobDescriptionConstruction LambdaJobDescriptionConstruction { get; }
         public TypeDefinition TypeDefinition;
@@ -52,7 +52,8 @@ namespace Unity.Entities.CodeGen
         public MethodDefinition ClonedLambdaBody => ClonedMethods.First();
         
         public Dictionary<FieldReference, CapturedVariableDescription> CapturedVariables;
-        
+        LambdaJobsComponentAccessPatcher _componentAccessPatcher;
+
         static Type InterfaceTypeFor(LambdaJobDescriptionConstruction lambdaJobDescriptionConstruction)
         {
             switch (lambdaJobDescriptionConstruction.Kind)
@@ -68,6 +69,17 @@ namespace Unity.Entities.CodeGen
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+        }
+        
+        public static bool IsPermittedMethodToInvokeWithThis(MethodReference method)
+        {
+            if (!method.DeclaringType.TypeReferenceEquals(typeof(SystemBase)))
+                return false;
+            if (method.Name == nameof(SystemBase.GetComponent) ||
+                method.Name == nameof(SystemBase.SetComponent) ||
+                method.Name == nameof(SystemBase.HasComponent))
+                return true;
+            return false;
         }
 
         MethodDefinition AddMethod(MethodDefinition method)
@@ -88,9 +100,9 @@ namespace Unity.Entities.CodeGen
             return new JobStructForLambdaJob(lambdaJobDescriptionConstruction);
         }
         
-        JobStructForLambdaJob(LambdaJobDescriptionConstruction lambdaJobDescriptionConstruction2)
+        JobStructForLambdaJob(LambdaJobDescriptionConstruction lambdaJobDescriptionConstruction)
         {
-            LambdaJobDescriptionConstruction = lambdaJobDescriptionConstruction2;
+            LambdaJobDescriptionConstruction = lambdaJobDescriptionConstruction;
             var containingMethod = LambdaJobDescriptionConstruction.ContainingMethod;
 
             if (containingMethod.DeclaringType.NestedTypes.Any(t => t.Name == LambdaJobDescriptionConstruction.ClassName))
@@ -110,22 +122,25 @@ namespace Unity.Entities.CodeGen
             
             TypeDefinition.CustomAttributes.Add(
                 new CustomAttribute(AttributeConstructorReferenceFor(typeof(DOTSCompilerGeneratedAttribute), TypeDefinition.Module)));
+
+            _componentAccessPatcher = new LambdaJobsComponentAccessPatcher(TypeDefinition, LambdaJobDescriptionConstruction.MethodLambdaWasEmittedAs.Parameters);
             
             var structInterfaceType = InterfaceTypeFor(LambdaJobDescriptionConstruction);
             if (structInterfaceType != null)
                 TypeDefinition.Interfaces.Add(new InterfaceImplementation(moduleDefinition.ImportReference(structInterfaceType)));
 
             containingMethod.DeclaringType.NestedTypes.Add(TypeDefinition);
-
-
-            if (LambdaJobDescriptionConstruction.LambdaWasEmittedAsInstanceMethodOnContainingType)
+            
+            if (LambdaJobDescriptionConstruction.LambdaWasEmittedAsInstanceMethodOnContainingType && !LambdaJobDescriptionConstruction.HasAllowedMethodInvokedWithThis)
             {
                 //if you capture no locals, but you do use a field/method on the componentsystem, the lambda gets emitted as an instance method on the component system
                 //this is inconvenient for us. To make the rest of our code not have to deal with this case, we will emit an OriginalLambda method on our job type, that calls
                 //the lambda as it is emitted as an instance method on the component system.  See EntitiesForEachNonCapturingInvokingInstanceMethod test for more details.
                 //example:
                 //https://sharplab.io/#v2:CYLg1APgAgTAjAWAFBQMwAJboMLoN7LpGYZQAs6AsgJ4CSAdgM4AuAhvQMYCmlXzAFgHtgACgCU+AL6FiMomkwVK4/HOJEAogA8uHAK7MuIlQF4AfFTpM2nHnyGixYgNxrpSdVDgA2Rem26BkZeMOisYnjukkA==
-                
+                // Note, we have an exemption for the special case where we want to clone our methods into the JobStruct but we are not capturing.
+                // This occurs because we call a method on our declaring type that we will later replace with codegen.
+
                 MakeOriginalLambdaMethodThatRelaysToInstanceMethodOnComponentSystem();
             }
             else
@@ -151,7 +166,7 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        private void MakeDeallocateOnCompletionMethod()
+        void MakeDeallocateOnCompletionMethod()
         {
             //we only have to clean up ourselves, in Run execution mode.
             if (LambdaJobDescriptionConstruction.ExecutionMode != ExecutionMode.Run)
@@ -259,7 +274,7 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        private MethodDefinition MakeExecuteMethod(LambdaParameterValueInformations lambdaParameterValueInformations)
+        MethodDefinition MakeExecuteMethod(LambdaParameterValueInformations lambdaParameterValueInformations)
         {
             switch (LambdaJobDescriptionConstruction.Kind)
             {
@@ -306,7 +321,7 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        private  MethodDefinition CreateRunWithoutJobSystemMethod(TypeDefinition newJobStruct)
+        MethodDefinition CreateRunWithoutJobSystemMethod(TypeDefinition newJobStruct)
         {
             var moduleDefinition = newJobStruct.Module;
             var result =
@@ -355,7 +370,24 @@ namespace Unity.Entities.CodeGen
             if (hasNestedLambdaJob)
                 UserError.DC0029(lambdaJobMethod, lambdaJobInstruction).Throw();
 
-            (ClonedMethods, CapturedVariables) = CecilHelpers.CloneClosureExecuteMethodAndItsLocalFunctions(displayClassExecuteMethodAndItsLocalMethods, TypeDefinition, "OriginalLambdaBody");
+            IEnumerable<Instruction> PermittedCapturingInstructionsGenerator(IEnumerable<MethodDefinition> methodsToClone)
+            {
+                var instructionsThatPushThisForPermittedMethodCall = new List<Instruction>();
+                foreach (var method in methodsToClone)
+                {
+                    instructionsThatPushThisForPermittedMethodCall.AddRange(
+                        method.Body.Instructions.Where(i => i.IsInvocation(out var methodReference) && IsPermittedMethodToInvokeWithThis(methodReference))
+                            .Select(i => CecilHelpers.FindInstructionThatPushedArg(method, 0, i)));
+                }
+
+                return instructionsThatPushThisForPermittedMethodCall;
+            }
+            
+            (ClonedMethods, CapturedVariables) = 
+                CecilHelpers.CloneClosureExecuteMethodAndItsLocalFunctions(displayClassExecuteMethodAndItsLocalMethods, TypeDefinition, "OriginalLambdaBody", 
+                    PermittedCapturingInstructionsGenerator);
+
+            _componentAccessPatcher.PatchComponentAccessInstructions(ClonedMethods);
 
             if (LambdaJobDescriptionConstruction.DelegateProducingSequence.CapturesLocals)
             {
@@ -370,7 +402,7 @@ namespace Unity.Entities.CodeGen
             VerifyDisplayClassFieldsAreValid();
         }
 
-        private void MakeOriginalLambdaMethodThatRelaysToInstanceMethodOnComponentSystem()
+        void MakeOriginalLambdaMethodThatRelaysToInstanceMethodOnComponentSystem()
         {
             SystemInstanceField = new FieldDefinition("hostInstance", FieldAttributes.Public,
                 LambdaJobDescriptionConstruction.ContainingMethod.DeclaringType);
@@ -395,7 +427,7 @@ namespace Unity.Entities.CodeGen
             ClonedMethods = new[] {fakeClonedLambdaBody};
         }
 
-        private void VerifyDisplayClassFieldsAreValid()
+        void VerifyDisplayClassFieldsAreValid()
         {
             if (LambdaJobDescriptionConstruction.AllowReferenceTypes)
                 return;
@@ -485,7 +517,7 @@ namespace Unity.Entities.CodeGen
                 var methodBody = methodUsedByLambdaJob.Body;
                 var (ldFtn, newObj) = FindClosureCreatingInstructions(methodBody, instruction);
 
-                var newType = new TypeDefinition("", "InlineEntitiesForEachInvocation" + counter++, TypeAttributes.NestedPublic | TypeAttributes.SequentialLayout,methodUsedByLambdaJob.Module.ImportReference(typeof(ValueType)))
+                var newType = new TypeDefinition("", "InlineEntitiesForEachInvocation" + counter++, TypeAttributes.NestedPublic | TypeAttributes.SequentialLayout | TypeAttributes.Sealed,methodUsedByLambdaJob.Module.ImportReference(typeof(ValueType)))
                 {
                     DeclaringType = methodUsedByLambdaJob.DeclaringType
                 };
@@ -497,6 +529,7 @@ namespace Unity.Entities.CodeGen
 
                 var variable = new VariableDefinition(newType);
                 methodBody.Variables.Add(variable);
+                methodBody.InitLocals = true; // initlocals must be set for verifiable methods with one or more local variables
 
                 InstructionExtensions.MakeNOP(ldFtn.Previous);
                 InstructionExtensions.MakeNOP(ldFtn);
@@ -538,7 +571,7 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        private MethodDefinition MakeScheduleTimeInitializeMethod(LambdaParameterValueInformations lambdaParameterValueInformations)
+        MethodDefinition MakeScheduleTimeInitializeMethod(LambdaParameterValueInformations lambdaParameterValueInformations)
         {
             var scheduleTimeInitializeMethod =
                 new MethodDefinition("ScheduleTimeInitialize", MethodAttributes.Public, TypeDefinition.Module.TypeSystem.Void)
@@ -571,12 +604,14 @@ namespace Unity.Entities.CodeGen
                 scheduleIL.Emit(OpCodes.Ldarg_1);
                 scheduleIL.Emit(OpCodes.Stfld, SystemInstanceField);
             }
-            
+
+            _componentAccessPatcher.EmitScheduleInitializeOnLoadCode(scheduleIL);
+
             scheduleIL.Emit(OpCodes.Ret);
             return scheduleTimeInitializeMethod;
         }
 
-        private  MethodDefinition MakeExecuteMethod_Job()
+        MethodDefinition MakeExecuteMethod_Job()
         {
             var executeMethod = CecilHelpers.AddMethodImplementingInterfaceMethod(TypeDefinition.Module, 
                 TypeDefinition, typeof(IJob).GetMethod(nameof(IJob.Execute)));
@@ -589,7 +624,7 @@ namespace Unity.Entities.CodeGen
             return executeMethod;
         }
 
-        private MethodDefinition MakeExecuteMethod_Chunk(LambdaParameterValueInformations lambdaParameterValueInformations)
+        MethodDefinition MakeExecuteMethod_Chunk(LambdaParameterValueInformations lambdaParameterValueInformations)
         {
             var executeMethod = CecilHelpers.AddMethodImplementingInterfaceMethod(TypeDefinition.Module, 
                 TypeDefinition, typeof(IJobChunk).GetMethod(nameof(IJobChunk.Execute)));
@@ -608,7 +643,7 @@ namespace Unity.Entities.CodeGen
             return executeMethod;
         }
 
-        private MethodDefinition MakeExecuteMethod_Entities(LambdaParameterValueInformations providerInformations)
+        MethodDefinition MakeExecuteMethod_Entities(LambdaParameterValueInformations providerInformations)
         {
             var executeMethod = CecilHelpers.AddMethodImplementingInterfaceMethod(TypeDefinition.Module, 
                 TypeDefinition, typeof(IJobChunk).GetMethod(nameof(IJobChunk.Execute)));
@@ -633,8 +668,8 @@ namespace Unity.Entities.CodeGen
 
             return executeMethod;
         }
-        
-        private MethodDefinition MakeExecuteMethod_EntitiesWithStructuralChanges(LambdaParameterValueInformations providerInformations)
+
+        MethodDefinition MakeExecuteMethod_EntitiesWithStructuralChanges(LambdaParameterValueInformations providerInformations)
         {
             var executeMethod = new MethodDefinition("Execute", MethodAttributes.Public, TypeDefinition.Module.TypeSystem.Void)
             {
@@ -667,7 +702,7 @@ namespace Unity.Entities.CodeGen
             return executeMethod;
         }
 
-        private void EmitCallToDeallocateOnCompletion(ILProcessor ilProcessor)
+        void EmitCallToDeallocateOnCompletion(ILProcessor ilProcessor)
         {
             if (DeallocateOnCompletionMethod == null)
                 return;
@@ -699,6 +734,7 @@ namespace Unity.Entities.CodeGen
             TypeDefinition.Methods.Add(iterateEntitiesMethod);
 
             var ilProcessor = iterateEntitiesMethod.Body.GetILProcessor();
+            iterateEntitiesMethod.Body.InitLocals = true; // initlocals must be set for verifiable methods with one or more local variables
 
             var loopTerminator = new VariableDefinition(TypeSystem.Int32);
             iterateEntitiesMethod.Body.Variables.Add(loopTerminator);
@@ -759,6 +795,7 @@ namespace Unity.Entities.CodeGen
             
             TypeDefinition.Methods.Add(performLambdaMethod);
             var ilProcessor = performLambdaMethod.Body.GetILProcessor();
+            performLambdaMethod.Body.InitLocals = true; // initlocals must be set for verifiable methods with one or more local variables
 
             void CastPerformLambdaParameterToTypeAndLeaveOnStack(TypeReference castToType, int performLambdaParameterParameterIdx)
             {
@@ -816,23 +853,23 @@ namespace Unity.Entities.CodeGen
             return performLambdaMethod;
         }
 
-        private void ApplyBurstAttributeIfRequired()
+        void ApplyBurstAttributeIfRequired()
         {
             if (!LambdaJobDescriptionConstruction.UsesBurst)
                 return;
             
             var module = TypeDefinition.Module;
             var burstCompileAttributeConstructor = AttributeConstructorReferenceFor(typeof(BurstCompileAttribute), module);
+            var burstCompileAttribute = new CustomAttribute(burstCompileAttributeConstructor);
+            var useBurstMethod = LambdaJobDescriptionConstruction.InvokedConstructionMethods.FirstOrDefault(m=>m.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithBurst));
 
+// Temporary workaround for DOTSR-1016
+#if !UNITY_DOTSPLAYER
             CustomAttributeNamedArgument CustomAttributeNamedArgumentFor(string name, Type type, object value)
             {
                 return new CustomAttributeNamedArgument(name,
                     new CustomAttributeArgument(module.ImportReference(type), value));
             }
-
-            var burstCompileAttribute = new CustomAttribute(burstCompileAttributeConstructor);
-
-            var useBurstMethod = LambdaJobDescriptionConstruction.InvokedConstructionMethods.FirstOrDefault(m=>m.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithBurst));
 
             if (useBurstMethod != null && useBurstMethod.Arguments.Length == 3)
             {
@@ -840,6 +877,7 @@ namespace Unity.Entities.CodeGen
                 burstCompileAttribute.Properties.Add(CustomAttributeNamedArgumentFor(nameof(BurstCompileAttribute.FloatPrecision),typeof(FloatPrecision), useBurstMethod.Arguments[1]));
                 burstCompileAttribute.Properties.Add(CustomAttributeNamedArgumentFor(nameof(BurstCompileAttribute.CompileSynchronously),typeof(bool), useBurstMethod.Arguments[2]));
             }
+#endif
 
             TypeDefinition.CustomAttributes.Add(burstCompileAttribute);
             RunWithoutJobSystemMethod?.CustomAttributes.Add(burstCompileAttribute);
@@ -854,7 +892,7 @@ namespace Unity.Entities.CodeGen
         }
 
 
-        private MethodDefinition AddMethodToTransferFieldsWithDisplayClass(string methodName, TransferDirection direction)
+        MethodDefinition AddMethodToTransferFieldsWithDisplayClass(string methodName, TransferDirection direction)
         {
             var method =new MethodDefinition(methodName, MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot, TypeDefinition.Module.TypeSystem.Void);
 

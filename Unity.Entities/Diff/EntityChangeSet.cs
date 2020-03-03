@@ -424,6 +424,12 @@ namespace Unity.Entities
             CreatedBlobAssets.Dispose();
             DestroyedBlobAssets.Dispose();
             BlobAssetData.Dispose();
+            
+            foreach (var shared in SetSharedComponents)
+                (shared.BoxedSharedValue as IRefCounted)?.Release();
+            
+            foreach (var managed in SetManagedComponents)
+                (managed.BoxedValue as IDisposable)?.Dispose();
         }
     }
 }

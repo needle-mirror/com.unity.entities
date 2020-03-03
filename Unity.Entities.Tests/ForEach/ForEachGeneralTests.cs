@@ -128,9 +128,6 @@ namespace Unity.Entities.Tests.ForEach
 
     class ForEachGenericTests : EntityQueryBuilderTestFixture
     {
-        // $ currently instantiations of generic types are not discovered by static type registry tooling
-
-#if !UNITY_DOTSPLAYER
         [Test]
         public void GenericComponentData()
         {
@@ -170,9 +167,7 @@ namespace Unity.Entities.Tests.ForEach
                 Assert.AreEqual(1, counter);
             }
         }
-#endif // !NET_DOTS
 
-#if !UNITY_DOTSPLAYER
         [Test]
         public void GenericTag()
         {
@@ -190,9 +185,7 @@ namespace Unity.Entities.Tests.ForEach
                 Assert.AreEqual(0, counter);
             }
         }
-#endif // !NET_DOTS
 
-#if !UNITY_DOTSPLAYER
         [Test]
         public void GenericValueMethod()
         {
@@ -220,7 +213,6 @@ namespace Unity.Entities.Tests.ForEach
 
             Func(10);
         }
-#endif // !NET_DOTS
 
         [Test]
         public void GenericTagMethod()

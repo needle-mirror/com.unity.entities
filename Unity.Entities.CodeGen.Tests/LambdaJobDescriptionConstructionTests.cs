@@ -222,9 +222,9 @@ namespace Unity.Entities.CodeGen.Tests
         [Test]
         public void InvalidJobNamesThrow()
         {
-            AssertProducesError(typeof(InvalidJobNameWithSpaces), nameof(UserError.DC0039), "WithName");
-            AssertProducesError(typeof(InvalidJobNameStartsWithDigit), nameof(UserError.DC0039), "WithName");
-            AssertProducesError(typeof(InvalidJobNameCompilerReservedName), nameof(UserError.DC0039), "WithName");
+            AssertProducesError(typeof(InvalidJobNameWithSpaces), nameof(UserError.DC0043), "WithName");
+            AssertProducesError(typeof(InvalidJobNameStartsWithDigit), nameof(UserError.DC0043), "WithName");
+            AssertProducesError(typeof(InvalidJobNameCompilerReservedName), nameof(UserError.DC0043), "WithName");
         }
 
         public class InvalidJobNameWithSpaces : JobComponentSystem
@@ -378,6 +378,188 @@ namespace Unity.Entities.CodeGen.Tests
                 }
 
                 return default;
+            }
+        }
+        
+        [Test]
+        public void WithLambdaStoredInFieldTest()
+        {
+            AssertProducesError(typeof(WithLambdaStoredInFieldSystem), nameof(UserError.DC0044));
+        }
+
+        public class WithLambdaStoredInFieldSystem : JobComponentSystem
+        {
+            UniversalDelegates.R<Translation> _translationAction;
+            
+            protected override JobHandle OnUpdate(JobHandle inputDependencies)
+            {
+                _translationAction = (ref Translation t) => { };
+                return Entities.ForEach(_translationAction).Schedule(inputDependencies);
+            }
+        }
+        
+        [Test]
+        public void WithLambdaStoredInVariableTest()
+        {
+            AssertProducesError(typeof(WithLambdaStoredInVariableSystem), nameof(UserError.DC0044));
+        }
+
+        public class WithLambdaStoredInVariableSystem : JobComponentSystem
+        {
+            protected override JobHandle OnUpdate(JobHandle inputDependencies)
+            {
+                UniversalDelegates.R<Translation> translationAction = (ref Translation t) => { };
+                return Entities.ForEach(translationAction).Schedule(inputDependencies);
+            }
+        }
+        
+        [Test]
+        public void WithLambdaStoredInArgTest()
+        {
+            AssertProducesError(typeof(WithLambdaStoredInArgSystem), nameof(UserError.DC0044));
+        }
+
+        public class WithLambdaStoredInArgSystem : JobComponentSystem
+        {
+            JobHandle Test(UniversalDelegates.R<Translation> action)
+            {
+                return Entities.ForEach(action).Schedule(default);
+            }
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                return Test((ref Translation t) => { });
+            }
+        }
+        
+        [Test]
+        public void WithLambdaReturnedFromMethodTest()
+        {
+            AssertProducesError(typeof(WithLambdaReturnedFromMethodSystem), nameof(UserError.DC0044));
+        }
+
+        public class WithLambdaReturnedFromMethodSystem : JobComponentSystem
+        {
+            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            {
+                return Entities.ForEach(GetAction()).Schedule(default);
+            }
+            
+            static UniversalDelegates.R<Translation> GetAction()
+            {
+                return (ref Translation t) => { };
+            }
+        }
+        
+        [Test]
+        public void WithGetComponentAndCaptureOfThisTest()
+        {
+            AssertProducesError(typeof(WithGetComponentAndCaptureOfThis), nameof(UserError.DC0001), "someField");
+        }
+
+        public class WithGetComponentAndCaptureOfThis : SystemBase
+        {
+            float someField = 3.0f;
+            
+            protected override void OnUpdate()
+            {
+                Entities
+                    .ForEach(
+                        (ref Translation translation) =>
+                        {
+                            var vel = GetComponent<Velocity>(default);
+                            translation = new Translation() {Value = someField * vel.Value};
+                        })
+                    .Schedule();
+            }
+        }
+        
+        [Test]
+        public void WithGetComponentAndCaptureOfThisAndVarTest()
+        {
+            AssertProducesError(typeof(WithGetComponentAndCaptureOfThisAndVar), nameof(UserError.DC0001), "someField");
+        }
+
+        public class WithGetComponentAndCaptureOfThisAndVar : SystemBase
+        {
+            float someField = 3.0f;
+            
+            protected override void OnUpdate()
+            {
+                float someVar = 2.0f;
+                Entities
+                    .ForEach(
+                        (ref Translation translation) =>
+                        {
+                            var vel = GetComponent<Velocity>(default);
+                            translation = new Translation() {Value = someField * vel.Value * someVar};
+                        })
+                    .Schedule();
+            }
+        }
+        
+        [Test]
+        public void GetComponentWithConditionTest()
+        {
+            AssertProducesError(typeof(GetComponentWithCondition), nameof(UserError.DC0045), "GetComponent");
+        }
+        
+        public class GetComponentWithCondition : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                Entities.ForEach((Entity entity, ref Translation tde) =>
+                {
+                    Entity e1 = default, e2 = default;
+                    tde.Value += GetComponent<Velocity>(tde.Value > 1 ? e1 : e2).Value;
+                }).Schedule();
+            }
+        }
+        
+        [Test]
+        public void SetComponentWithPermittedAliasTest()
+        {
+            AssertProducesNoError(typeof(SetComponentWithPermittedAlias));
+        }
+        
+        public class SetComponentWithPermittedAlias : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                Entities.ForEach((Entity e, in Translation data) => {
+                    GetComponent<Translation>(e);
+                }).Run();
+            }
+        }
+        
+        [Test]
+        public void SetComponentWithNotPermittedParameterThatAliasesTestTest()
+        {
+            AssertProducesError(typeof(SetComponentWithNotPermittedParameterThatAliasesTest), nameof(UserError.DC0047), "Translation");
+        }
+        
+        public class SetComponentWithNotPermittedParameterThatAliasesTest : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                Entities.ForEach((Entity e, ref Translation data) => {
+                    var translation = GetComponent<Translation>(e);
+                }).Run();
+            }
+        }
+        
+        [Test]
+        public void SetComponentWithNotPermittedComponentAccessThatAliasesTest()
+        {
+            AssertProducesError(typeof(SetComponentWithNotPermittedComponentAccessThatAliases), nameof(UserError.DC0046), "SetComponent");
+        }
+        
+        public class SetComponentWithNotPermittedComponentAccessThatAliases : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                Entities.ForEach((Entity e, in Translation data) => {
+                    SetComponent(e, new Translation());
+                }).Run();
             }
         }
     }

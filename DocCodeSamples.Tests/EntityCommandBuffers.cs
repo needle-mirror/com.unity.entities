@@ -12,7 +12,7 @@ namespace Doc.CodeSamples.Tests
         public byte Value;
     }
     
-    class LifetimeSystem : JobComponentSystem
+    class LifetimeSystem : SystemBase
     {
         EndSimulationEntityCommandBufferSystem m_EndSimulationEcbSystem;
         protected override void OnCreate()
@@ -23,12 +23,12 @@ namespace Doc.CodeSamples.Tests
                 .GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        protected override void OnUpdate()
         {
             // Acquire an ECB and convert it to a concurrent one to be able
             // to use it from a parallel job.
             var ecb = m_EndSimulationEcbSystem.CreateCommandBuffer().ToConcurrent();
-            var jobHandle = Entities
+            Entities
                 .ForEach((Entity entity, int entityInQueryIndex, ref Lifetime lifetime) =>
                 {
                     // Track the lifetime of an entity and destroy it once
@@ -44,11 +44,10 @@ namespace Doc.CodeSamples.Tests
                     {
                         lifetime.Value -= 1;
                     }
-                }).Schedule(inputDeps);
+                }).ScheduleParallel();
             
             // Make sure that the ECB system knows about our job
-            m_EndSimulationEcbSystem.AddJobHandleForProducer(jobHandle);
-            return default;
+            m_EndSimulationEcbSystem.AddJobHandleForProducer(this.Dependency);
         }
     }
     #endregion

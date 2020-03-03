@@ -10,12 +10,14 @@
         "Editor"
     ],
     "excludePlatforms": [],
-    "allowUnsafeCode": false,
+    "allowUnsafeCode": true,
     "overrideReferences": true,
     "precompiledReferences": [
         "Mono.Cecil.dll",
         "Mono.Cecil.Rocks.dll",
-        "Mono.Cecil.Pdb.dll"
+        "Mono.Cecil.Pdb.dll",
+		"Unity.IL2CPP",
+		"Unity.IL2CPP.Common"
     ],
     "autoReferenced": false,
     "versionDefines": []

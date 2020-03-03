@@ -39,7 +39,7 @@ namespace Unity.Entities
         {
             using (s_CreateConversionWorld.Auto())
             {
-                var gameObjectWorld = new World($"GameObject -> Entity Conversion '{settings.DebugConversionName}'");
+                var gameObjectWorld = new World($"GameObject -> Entity Conversion '{settings.DebugConversionName}'", WorldFlags.Live | WorldFlags.Conversion | WorldFlags.Staging);
                 gameObjectWorld.CreateSystem<GameObjectConversionMappingSystem>(settings);
 
                 var systemTypes = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.GameObjectConversion);
@@ -185,6 +185,11 @@ namespace Unity.Entities
 
                 using (s_GenerateLinkedEntityGroups.Auto())
                     conversion.MappingSystem.GenerateLinkedEntityGroups();
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+                using (s_CreateCompanionGameObjects.Auto())
+                    conversion.MappingSystem.CreateCompanionGameObjects();
+#endif
 
                 conversionWorld.EntityManager.DestroyEntity(conversionWorld.EntityManager.UniversalQuery);
 

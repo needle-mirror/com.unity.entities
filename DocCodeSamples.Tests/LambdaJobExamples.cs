@@ -9,71 +9,72 @@ namespace Doc.CodeSamples.Tests
     using Unity.Collections;
     using System.Collections.Generic;
     using UnityEngine;
+    using Unity.Mathematics;
     using Random = Unity.Mathematics.Random;
 
     #region entities-foreach-example
-    class ApplyVelocitySystem : JobComponentSystem
+    class ApplyVelocitySystem : SystemBase
     {
-        protected override JobHandle OnUpdate(JobHandle inputDependencies)
+        protected override void OnUpdate()
         {
-            var jobHandle = Entities
+            Entities
                 .ForEach((ref Translation translation,
                           in Velocity velocity) =>
                 {
                     translation.Value += velocity.Value;
                 })
-                .Schedule(inputDependencies);
-
-            return jobHandle;
+                .Schedule();
         }
     }
     #endregion
     #region job-with-code-example
-    public class RandomSumJob : JobComponentSystem
+    public class RandomSumJob : SystemBase
     {
         private uint seed = 1;
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        protected override void OnUpdate()
         {
             Random randomGen = new Random(seed++);
             NativeArray<float> randomNumbers
                 = new NativeArray<float>(500, Allocator.TempJob);
 
-            JobHandle generateNumbers = Job.WithCode(() =>
+            Job.WithCode(() =>
             {
                 for (int i = 0; i < randomNumbers.Length; i++)
                 {
                     randomNumbers[i] = randomGen.NextFloat();
                 }
-            }).Schedule(inputDeps);
+            }).Schedule();
 
-
+            // To get data out of a job, you must use a NativeArray
+            // even if there is only one value
             NativeArray<float> result
                 = new NativeArray<float>(1, Allocator.TempJob);
 
-            JobHandle sumNumbers = Job.WithCode(() =>
+            Job.WithCode(() =>
             {
                 for (int i = 0; i < randomNumbers.Length; i++)
                 {
                     result[0] += randomNumbers[i];
                 }
-            }).Schedule(generateNumbers);
+            }).Schedule();
 
-            sumNumbers.Complete();
+            // This completes the scheduled jobs to get the result immediately, but for
+            // better efficiency you should schedule jobs early in the frame with one 
+            // system and get the results late in the frame with a different system.
+            this.CompleteDependency();
             UnityEngine.Debug.Log("The sum of "
                                   + randomNumbers.Length + " numbers is " + result[0]);
 
             randomNumbers.Dispose();
             result.Dispose();
-
-            return sumNumbers;
         }
     }
 
     #endregion
 
     //Used to verify the BuffersByEntity example (not shown in docs)
-    public class MakeData : ComponentSystem
+    public class MakeData : SystemBase
     {
         protected override void OnCreate()
         {
@@ -94,7 +95,6 @@ namespace Doc.CodeSamples.Tests
 
         protected override void OnUpdate()
         {
-
         }
     }
 
@@ -104,12 +104,12 @@ namespace Doc.CodeSamples.Tests
     }
 
     #region dynamicbuffer
-    public class BufferSum : JobComponentSystem
+    public class BufferSum : SystemBase
     {
         private EntityQuery query;
 
         //Schedules the two jobs with a dependency between them
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        protected override void OnUpdate()
         {
             //The query variable can be accessed here because we are
             //using WithStoreEntityQueryInField(query) in the entities.ForEach below
@@ -121,7 +121,7 @@ namespace Doc.CodeSamples.Tests
                 = new NativeArray<int>(entitiesInQuery, Allocator.TempJob);
 
             //Schedule the first job to add all the buffer elements
-            JobHandle bufferSumJob = Entities
+            Entities
                 .ForEach((int entityInQueryIndex, in DynamicBuffer<IntBufferData> buffer) =>
                 {
                     for (int i = 0; i < buffer.Length; i++)
@@ -131,10 +131,10 @@ namespace Doc.CodeSamples.Tests
                 })
                 .WithStoreEntityQueryInField(ref query)
                 .WithName("IntermediateSums")
-                .Schedule(inputDeps);
+                .ScheduleParallel(); // Execute in parallel for each chunk of entities
 
             //Schedule the second job, which depends on the first
-            JobHandle finalSumJob = Job
+            Job
                 .WithCode(() =>
                 {
                     int result = 0;
@@ -148,9 +148,7 @@ namespace Doc.CodeSamples.Tests
                 .WithDeallocateOnJobCompletion(intermediateSums)
                 .WithoutBurst()
                 .WithName("FinalSum")
-                .Schedule(bufferSumJob);
-
-            return finalSumJob;
+                .Schedule(); // Execute on a single, background thread
         }
     }
     #endregion
@@ -164,19 +162,19 @@ namespace Doc.CodeSamples.Tests
         public int Value;
     }
 
-    public class WithAllExampleSystem : JobComponentSystem
+    public class WithAllExampleSystem : SystemBase
     {
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        protected override void OnUpdate()
         {
             #region entity-query
-            return Entities.WithAll<LocalToWorld>()
+            Entities.WithAll<LocalToWorld>()
                 .WithAny<Rotation, Translation, Scale>()
                 .WithNone<LocalToParent>()
                 .ForEach((ref Destination outputData, in Source inputData) =>
                 {
                     /* do some work */
                 })
-                .Schedule(inputDeps);
+                .Schedule();
             #endregion
         }
     }
@@ -185,48 +183,48 @@ namespace Doc.CodeSamples.Tests
     {
         public float Value;
     }
-    public class WithStoreQuerySystem : JobComponentSystem
+    public class WithStoreQuerySystem : SystemBase
     {
         #region store-query
         private EntityQuery query;
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        protected override void OnUpdate()
         {
             int dataCount = query.CalculateEntityCount();
             NativeArray<float> dataSquared
                 = new NativeArray<float>(dataCount, Allocator.Temp);
-            JobHandle GetSquaredValues = Entities
+            Entities
                 .WithStoreEntityQueryInField(ref query)
                 .ForEach((int entityInQueryIndex, in Data data) =>
                     {
                         dataSquared[entityInQueryIndex] = data.Value * data.Value;
                     })
-                .Schedule(inputDeps);
+                .ScheduleParallel();
 
-            return Job
+            Job
                 .WithCode(() =>
                 {
                     //Use dataSquared array...
                     var v = dataSquared[dataSquared.Length -1];
                 })
                 .WithDeallocateOnJobCompletion(dataSquared)
-                .Schedule(GetSquaredValues);
+                .Schedule();
         }
         #endregion
     }
 
-    public class WithChangeExampleSystem : JobComponentSystem
+    public class WithChangeExampleSystem : SystemBase
     {
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        protected override void OnUpdate()
         {
             #region with-change-filter
-            return Entities
+            Entities
                 .WithChangeFilter<Source>()
                 .ForEach((ref Destination outputData,
                     in Source inputData) =>
                 {
                     /* Do work */
                 })
-                .Schedule(inputDeps);
+                .ScheduleParallel();
             #endregion
         }
     }
@@ -246,45 +244,41 @@ namespace Doc.CodeSamples.Tests
     }
 
     #region with-shared-component
-    public class ColorCycleJob : JobComponentSystem
+    public class ColorCycleJob : SystemBase
     {
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        protected override void OnUpdate()
         {
             List<Cohort> cohorts = new List<Cohort>();
             EntityManager.GetAllUniqueSharedComponentData<Cohort>(cohorts);
-            JobHandle sequentialDeps = inputDeps; // Chain job dependencies
             foreach (Cohort cohort in cohorts)
             {
                 DisplayColor newColor = ColorTable.GetNextColor(cohort.Value);
-                JobHandle thisJobHandle =
-                    Entities.WithSharedComponentFilter(cohort)
-                        .ForEach((ref DisplayColor color) => { color = newColor; })
-                        .Schedule(sequentialDeps);
-                sequentialDeps = thisJobHandle;
+                Entities.WithSharedComponentFilter(cohort)
+                    .ForEach((ref DisplayColor color) => { color = newColor; })
+                    .ScheduleParallel();
             }
-            return sequentialDeps;
         }
     }
     #endregion
 
-    public class ReadWriteModExample : JobComponentSystem
+    public class ReadWriteModExample : SystemBase
     {
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        protected override void OnUpdate()
         {
             #region read-write-modifiers
-            return Entities.ForEach(
+            Entities.ForEach(
                     (ref Destination outputData,
                         in Source inputData) =>
                     {
                         outputData.Value = inputData.Value;
                     })
-                .Schedule(inputDeps);
+                .ScheduleParallel();
             #endregion
         }
     }
 
     #region basic-ecb
-    public class MyJobSystem : JobComponentSystem
+    public class MyJobSystem : SystemBase
     {
         private EndSimulationEntityCommandBufferSystem commandBufferSystem;
 
@@ -295,16 +289,38 @@ namespace Doc.CodeSamples.Tests
                 .GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        protected override void OnUpdate()
         {
             EntityCommandBuffer.Concurrent commandBuffer
                 = commandBufferSystem.CreateCommandBuffer().ToConcurrent();
 
             //.. The rest of the job system code
-            return inputDeps;
         }
     }
     #endregion
+
+    public struct Movement:IComponentData
+    {
+        public float3 Value;
+    }
+
+    public class EFESystem : SystemBase
+    {
+        protected override void OnUpdate()
+        {
+
+            #region lambda-params
+            Entities.ForEach(
+                (Entity entity,
+                 int entityInQueryIndex,
+                 ref Translation translation,
+                 in Movement move) => {/* .. */})
+            #endregion
+                .Run();
+        }
+
+
+    }
 }
 
 namespace Doc.CodeSamples.Tests
@@ -326,7 +342,7 @@ namespace Doc.CodeSamples.Tests
         public float LifeLeft;
     }
 
-    public class ParticleSpawner : JobComponentSystem
+    public class ParticleSpawner : SystemBase
     {
         private EndSimulationEntityCommandBufferSystem commandBufferSystem;
 
@@ -337,7 +353,7 @@ namespace Doc.CodeSamples.Tests
                 .GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        protected override void OnUpdate()
         {
             EntityCommandBuffer.Concurrent commandBufferCreate
                 = commandBufferSystem.CreateCommandBuffer().ToConcurrent();
@@ -391,7 +407,7 @@ namespace Doc.CodeSamples.Tests
                     }
                 })
                 .WithName("ParticleSpawning")
-                .Schedule(inputDeps);
+                .Schedule(this.Dependency);
 
             JobHandle MoveJobHandle = Entities
                 .ForEach((ref Translation translation, in Velocity velocity) =>
@@ -412,15 +428,13 @@ namespace Doc.CodeSamples.Tests
                         commandBufferCull.DestroyEntity(entityInQueryIndex, entity);
                 })
                 .WithName("CullOldEntities")
-                .Schedule(inputDeps);
+                .Schedule(this.Dependency);
 
-            JobHandle finalDependencies
+            this.Dependency
                 = JobHandle.CombineDependencies(MoveJobHandle, cullJobHandle);
 
             commandBufferSystem.AddJobHandleForProducer(spawnJobHandle);
             commandBufferSystem.AddJobHandleForProducer(cullJobHandle);
-
-            return finalDependencies;
         }
     }
     #endregion

@@ -1,5 +1,4 @@
 using System;
-using System.ComponentModel;
 
 namespace Unity.Entities
 {
@@ -12,12 +11,6 @@ namespace Unity.Entities
     {
         public string UserName;
         public int    Version;
-
-        [EditorBrowsable(EditorBrowsableState.Never), Obsolete("It is recommended to use the string userName & int version override (RemovedAfter 2020-02-18)")]
-        public ConverterVersionAttribute(int version)
-        {
-            Version = version;
-        }
 
         public ConverterVersionAttribute(string userName, int version)
         {

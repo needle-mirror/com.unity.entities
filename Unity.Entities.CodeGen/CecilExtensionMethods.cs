@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Unity.Burst;
+using Unity.Collections;
 
 namespace Unity.Entities.CodeGen
 {
@@ -12,6 +14,9 @@ namespace Unity.Entities.CodeGen
         {
             return typeReference.Resolve() ?? throw new ResolutionException(typeReference);
         }
+        
+        public static bool TypeReferenceEquals(this TypeReference ref1, Type ref2) =>
+            ref1.FullName == ref2.FullName;
 
         public static bool TypeReferenceEquals(this TypeReference ref1, TypeReference ref2) =>
             ref1.FullName == ref2.FullName;
@@ -55,14 +60,14 @@ namespace Unity.Entities.CodeGen
 
         public static bool IsDynamicBufferOfT(this TypeReference typeReference) =>
             typeReference.GetElementType().FullName == typeof(DynamicBuffer<>).FullName;
-
+        
         public static bool TypeImplements(this TypeReference typeReference, Type interfaceType)
         {
             var resolvedType = typeReference.Resolve();
             if (resolvedType == null) return false;
             return resolvedType.Interfaces.Any(i =>
                 i.InterfaceType.FullName == typeReference.Module.ImportReference(interfaceType).FullName);
-        }
+        } 
 
         public static bool TypeImplements(this TypeReference typeReference, TypeReference interfaceType)
         {
@@ -190,6 +195,36 @@ namespace Unity.Entities.CodeGen
         }
     }
 
+    static class FieldDefinitionExtensions
+    {
+        public static bool HasReadOnlyAttribute(this FieldDefinition fieldDefinition) =>
+            fieldDefinition.CustomAttributes.Any(ca => ca.AttributeType.Name == nameof(ReadOnlyAttribute) && ca.AttributeType.Namespace == typeof(ReadOnlyAttribute).Namespace);
+        
+        public static void AddReadOnlyAttribute(this FieldDefinition fieldDefinition)
+        {
+            var readOnlyAttribute = fieldDefinition.Module.ImportReference(typeof(ReadOnlyAttribute).GetConstructors().Single(c => !c.GetParameters().Any()));
+            fieldDefinition.CustomAttributes.Add(new CustomAttribute(readOnlyAttribute));
+        }
+        
+        public static void RemoveReadOnlyAttribute(this FieldDefinition fieldDefinition)
+        {
+            foreach (var attribute in fieldDefinition.CustomAttributes)
+            {
+                if (attribute.AttributeType.TypeReferenceEquals(typeof(ReadOnlyAttribute)))
+                {
+                    fieldDefinition.CustomAttributes.Remove(attribute);
+                    break;
+                }
+            }
+        }
+        
+        public static void AddNoAliasAttribute(this FieldDefinition fieldDefinition)
+        {
+            var noAliasAttribute = fieldDefinition.Module.ImportReference(typeof(NoAliasAttribute).GetConstructors().Single(c => !c.GetParameters().Any()));
+            fieldDefinition.CustomAttributes.Add(new CustomAttribute(noAliasAttribute));
+        }
+    }
+
     static class TypeDefinitionExtensions
     {
         public static bool IsDelegate(this TypeDefinition typeDefinition) =>
@@ -224,6 +259,54 @@ namespace Unity.Entities.CodeGen
                 return false;
             var baseType = typeDefinition.BaseType.Resolve();
             return IsUnityEngineObject(baseType);
+        }
+        
+        public static void AddNoAliasAttribute(this TypeDefinition typeDefinition)
+        {
+            var noAliasAttribute = typeDefinition.Module.ImportReference(typeof(NoAliasAttribute).GetConstructors().Single(c => !c.GetParameters().Any()));
+            typeDefinition.CustomAttributes.Add(new CustomAttribute(noAliasAttribute));
+        }
+
+		public static bool IsChildTypeOf(this TypeDefinition typeDefinition, TypeDefinition baseClass)
+        {
+            while (!baseClass.Equals(typeDefinition))
+            {
+                if (typeDefinition == null || typeDefinition.BaseType == null)
+                    return false;
+                typeDefinition = typeDefinition.BaseType.Resolve();
+            }
+
+            return true;
+        }
+        
+        public static void MakeTypeInternal(this TypeDefinition typeDefinition)
+        {
+            if (typeDefinition.IsNested)
+            {
+                if (!typeDefinition.IsNestedPublic)
+                {
+                    typeDefinition.IsNestedFamilyOrAssembly = true;
+                }
+            }
+            else if (!typeDefinition.IsPublic)
+            {
+                typeDefinition.IsNotPublic = true;
+            }
+        }
+
+        public static void MakeTypePublic(this TypeDefinition typeDefinition)
+        {
+            if (typeDefinition.IsNested)
+            {
+                if (!typeDefinition.IsNestedPublic)
+                {
+                    typeDefinition.IsNestedPublic = true;
+                }
+            }
+            else if (!typeDefinition.IsPublic)
+            {
+                typeDefinition.IsPublic = true;
+            }
         }
     }
 
@@ -296,10 +379,13 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        public static bool IsInvocation(this Instruction instruction)
+        public static bool IsInvocation(this Instruction instruction, out MethodReference targetMethod)
         {
             var opCode = instruction.OpCode;
-            return opCode == OpCodes.Call || (opCode == OpCodes.Callvirt || opCode == OpCodes.Calli);
+            var result = opCode == OpCodes.Call || opCode == OpCodes.Callvirt;
+            targetMethod = result ? (MethodReference)instruction.Operand : null;
+            
+            return result;
         }
 
         public static bool IsBranch(this Instruction instruction)
@@ -368,6 +454,21 @@ namespace Unity.Entities.CodeGen
                 case Code.Stloc_3:
                     index = 3;
                     return true;
+                default:
+                    return false;
+            }
+        }
+        
+        public static bool IsLoadArg(this Instruction instruction, out int index)
+        {
+            index = 0;
+            switch (instruction.OpCode.Code)
+            {
+                case Code.Ldarg: index = (int)instruction.Operand; return true;
+                case Code.Ldarg_0: index = 0; return true;
+                case Code.Ldarg_1: index = 1; return true;
+                case Code.Ldarg_2: index = 2; return true;
+                case Code.Ldarg_3: index = 3; return true;
                 default:
                     return false;
             }

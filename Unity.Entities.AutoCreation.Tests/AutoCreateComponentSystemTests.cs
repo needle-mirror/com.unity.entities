@@ -44,9 +44,9 @@ namespace Unity.Entities.Tests
             {
                 // Clean up systems before calling CheckInternalConsistency because we might have filters etc
                 // holding on SharedComponentData making checks fail
-                while (World.Systems.ToArray().Length > 0)
+                while (World.Systems.Count > 0)
                 {
-                    World.DestroySystem(World.Systems.ToArray()[0]);
+                    World.DestroySystem(World.Systems[0]);
                 }
 
                 m_ManagerDebug.CheckInternalConsistency();

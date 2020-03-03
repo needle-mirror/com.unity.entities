@@ -78,6 +78,10 @@ namespace Unity.Entities
         
         static void DestroyChunkForDiffing(EntityManager entityManager, Chunk* chunk)
         {
+            var count = chunk->Count;
+            ChunkDataUtility.DeallocateBuffers(chunk);
+            entityManager.EntityComponentStore->DeallocateManagedComponents(chunk, 0, count);
+
             chunk->Archetype->EntityCount -= chunk->Count;
             entityManager.EntityComponentStore->FreeEntities(chunk);
 
@@ -150,12 +154,23 @@ namespace Unity.Entities
             UnsafeUtility.MemCpy((byte*) dstChunk + Chunk.kBufferOffset, (byte*) srcChunk + Chunk.kBufferOffset, copySize);
 
             var numManagedComponents = dstChunk->Archetype->NumManagedComponents;
+            var hasHybridComponents = dstArchetype->HasHybridComponents;
             for (int t = 0; t < numManagedComponents; ++t)
             {
                 int type = t + dstChunk->Archetype->FirstManagedComponent;
+
+                if (hasHybridComponents)
+                {
+                    // We consider hybrid components as always different, there's no reason to clone those at this point
+                    var typeCategory = TypeManager.GetTypeInfo(dstChunk->Archetype->Types[type].TypeIndex).Category;
+                    if(typeCategory == TypeManager.TypeCategory.Class)
+                        continue;
+                }
+
                 var offset = dstChunk->Archetype->Offsets[type];
                 var a = (int*)(dstChunk->Buffer + offset);
-                dstManagedComponentStore.CloneManagedComponentsFromDifferentWorld(a, dstChunk->Count, srcManagedComponentStore , ref *dstEntityManager.EntityComponentStore);
+
+                dstManagedComponentStore.CloneManagedComponentsFromDifferentWorld(a, dstChunk->Count, srcManagedComponentStore, ref *dstEntityManager.EntityComponentStore);
             }
 
             BufferHeader.PatchAfterCloningChunk(dstChunk);

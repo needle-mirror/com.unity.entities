@@ -8,7 +8,9 @@
         "Unity.Collections",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "Unity.Transforms"
+        "Unity.Transforms",
+        "Unity.Mathematics.Extensions",
+        "Unity.Mathematics.Extensions.Hybrid"
     ],
     "includePlatforms": [
         "Editor"

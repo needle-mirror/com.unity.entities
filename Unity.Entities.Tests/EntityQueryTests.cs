@@ -913,6 +913,50 @@ namespace Unity.Entities.Tests
                 }
             }
         }
+
+        [Test]
+        public void ToComponentDataArrayWithUnrelatedQueryThrows()
+        {
+            var query = EmptySystem.GetEntityQuery(typeof(EcsTestData));
+            
+            JobHandle jobHandle;
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                query.ToComponentDataArrayAsync<EcsTestData2>(Allocator.Persistent, out jobHandle);
+            });
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                query.ToComponentDataArray<EcsTestData2>(Allocator.Persistent);
+            });
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                query.ToComponentDataArray<EcsTestManagedComponent>();
+            });
+#endif
+        }
+
+        [Test]
+        public void CopyFromComponentDataArrayWithUnrelatedQueryThrows()
+        {
+            var query = EmptySystem.GetEntityQuery(typeof(EcsTestData));
+            
+            JobHandle jobHandle;
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                using (var array = new NativeArray<EcsTestData2>(0, Allocator.Persistent))
+                {
+                    query.CopyFromComponentDataArray<EcsTestData2>(array);
+                }
+            });
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                using (var array = new NativeArray<EcsTestData2>(0, Allocator.Persistent))
+                {
+                    query.CopyFromComponentDataArrayAsync<EcsTestData2>(array, out jobHandle);
+                }
+            });
+        }
         
         [Test]
         public void UseDisposedQueryThrows()

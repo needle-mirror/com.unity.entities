@@ -462,9 +462,21 @@ namespace Unity.Entities.CodeGen
                 var referenceTypeByReferenceRef = Module.ImportReference(ReferenceType.MakeByReferenceType());
                 var resolvedType = ReferenceType.Resolve();
 
+                // Child classes won't list their parents fields so collect them all here
+                var fields = new List<FieldDefinition>();
+                var parentType = resolvedType;
+                for(;;)
+                {
+                    fields.InsertRange(0, parentType.Fields);
+                    if (parentType.BaseType == null || parentType.BaseType.FullName == "System.Object")
+                        break;
+                    
+                    parentType = parentType.BaseType.Resolve();
+                }
+
                 // We need to generate a static readonly Property<typeof(Type), typeof(FieldType)> for each field
                 // So we define the fields and generate the initialization code at the same time 
-                foreach (var fieldDef in resolvedType.Fields)
+                foreach (var fieldDef in fields)
                 {
                     // For now only support public fields
                     // Skips statics as those aren't serialized and skip pointers as Properties

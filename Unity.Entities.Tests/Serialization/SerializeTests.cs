@@ -1143,7 +1143,7 @@ namespace Unity.Entities.Tests
             var managedTestDataArray = managedGroup.ToComponentDataArray<EcsTestManagedDataEntity>();
             for (int i = 0; i != managedTestDataArray.Length; i++)
             {
-                Assert.AreEqual(managedTestDataArray[i].value2, m_Manager.GetComponentData<EcsTestData>(managedTestDataArray[i].value1).value);
+                Assert.AreEqual(managedTestDataArray[i].value2, entityManager.GetComponentData<EcsTestData>(managedTestDataArray[i].value1).value);
             }
 
             targetEntities.Dispose();

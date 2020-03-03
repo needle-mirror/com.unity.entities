@@ -1,11 +1,14 @@
 ﻿#if !UNITY_DISABLE_MANAGED_COMPONENTS
 using System;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using UnityEditor;
 using UnityEngine;
-using UnityEngine.Assertions;
 
 namespace Unity.Entities
 {
+    struct EditorCompanionInPreviewSceneTag : IComponentData { }
+
 #if UNITY_EDITOR
     [UnityEditor.InitializeOnLoad] // ensures type manager is initialized on domain reload when not playing
 #endif
@@ -15,13 +18,16 @@ namespace Unity.Entities
 
         static AttachToEntityClonerInjection()
         {
-            InitializeTypeManager();
+            Initialize();
         }
 
         [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.BeforeSceneLoad)]
-        static void InitializeTypeManager()
+        static void Initialize()
         {
+            TypeManager.Initialize();
+            ManagedComponentStore.CompanionLinkTypeIndex = TypeManager.GetTypeIndex(typeof(CompanionLink));
             ManagedComponentStore.InstantiateHybridComponent = InstantiateHybridComponentDelegate;
+            ManagedComponentStore.AssignHybridComponentsToCompanionGameObjects = AssignHybridComponentsToCompanionGameObjectsDelegate;
         }
 
         /// <summary>
@@ -30,47 +36,75 @@ namespace Unity.Entities
         /// <param name="srcArray">Array of source managed component indices. One per <paramref name="componentCount"/></param>
         /// <param name="componentCount">Number of component being instantiated</param>
         /// <param name="dstEntities">Array of destination entities. One per <paramref name="instanceCount"/></param>
+        /// <param name="dstCompanionLinkIndices">Array of destination CompanionLink indices, can be null if the hybrid components are not owned</param>
         /// <param name="dstArray">Array of destination managed component indices. One per <paramref name="componentCount"/>*<paramref name="instanceCount"/>. All indices for the first component stored first etc.</param>
         /// <param name="instanceCount">Number of instances being created</param>
         /// <param name="managedComponentStore">Managed Store that owns the instances we create</param>
-        static void InstantiateHybridComponentDelegate(int* srcArray, int componentCount, Entity* dstEntities, int* dstArray, int instanceCount, ManagedComponentStore managedComponentStore)
+        static void InstantiateHybridComponentDelegate(int* srcArray, int componentCount, Entity* dstEntities, int* dstCompanionLinkIndices, int* dstArray, int instanceCount, ManagedComponentStore managedComponentStore)
         {
-            object[] gameObjectInstances = null;
-                
-            for (int src = 0; src < componentCount; ++src)
+            if (dstCompanionLinkIndices != null)
             {
-                object sourceComponent = managedComponentStore.GetManagedComponent(srcArray[src]);
-                if ((sourceComponent as UnityEngine.Component)?.gameObject.GetComponent<CompanionLink>() == null)
+                var dstCompanionGameObjects = new GameObject[instanceCount];
+                for (int i = 0; i < instanceCount; ++i)
                 {
-                    for (int i = 0; i < instanceCount; ++i)
-                        managedComponentStore.SetManagedComponentValue(dstArray[i], sourceComponent);
+                    var companionLink = (CompanionLink)managedComponentStore.GetManagedComponent(dstCompanionLinkIndices[i]);
+                    dstCompanionGameObjects[i] = companionLink.Companion;
+                    CompanionLink.SetCompanionName(dstEntities[i], dstCompanionGameObjects[i]);
                 }
-                else
+
+                for (int src = 0; src < componentCount; ++src)
                 {
-                    var unityComponent = (UnityEngine.Component) sourceComponent;
-
-                    if (gameObjectInstances == null)
-                    {
-                        gameObjectInstances = new object[instanceCount];
-
-                        for (int i = 0; i < instanceCount; ++i)
-                        {
-                            var instance = GameObject.Instantiate(unityComponent.gameObject);
-                            instance.name = CompanionLink.GenerateCompanionName(dstEntities[i]);
-                            gameObjectInstances[i] = instance;
-                            instance.hideFlags |= HideFlags.HideInHierarchy;
-                        }
-                    }
+                    var componentType = managedComponentStore.GetManagedComponent(srcArray[src]).GetType();
 
                     for (int i = 0; i < instanceCount; i++)
                     {
-                        var componentInInstance = ((GameObject)gameObjectInstances[i]).GetComponent(unityComponent.GetType());
+                        var componentInInstance = dstCompanionGameObjects[i].GetComponent(componentType);
                         managedComponentStore.SetManagedComponentValue(dstArray[i], componentInInstance);
                     }
                 }
-
-                dstArray += instanceCount;
             }
+            else
+            {
+                for (int src = 0; src < componentCount; ++src)
+                {
+                    var component = managedComponentStore.GetManagedComponent(srcArray[src]);
+
+                    for (int i = 0; i < instanceCount; i++)
+                    {
+                        managedComponentStore.SetManagedComponentValue(dstArray[i], component);
+                    }
+                }
+            }
+        }
+        
+        static void AssignHybridComponentsToCompanionGameObjectsDelegate(EntityManager entityManager, NativeArray<Entity> entities)
+        {
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                var entity = entities[i];
+                var companionGameObject = entityManager.GetComponentData<CompanionLink>(entity).Companion;
+
+                var archetypeChunk = entityManager.GetChunk(entities[i]);
+                var archetype = archetypeChunk.Archetype.Archetype;
+
+                var types = archetype->Types;
+                var firstIndex = archetype->FirstManagedComponent;
+                var lastIndex = archetype->ManagedComponentsEnd;
+
+                for (int t = firstIndex; t < lastIndex; ++t)
+                {
+                    var type = TypeManager.GetTypeInfo(types[t].TypeIndex);
+
+                    if (type.Category != TypeManager.TypeCategory.Class)
+                        continue;
+
+                    var hybridComponent = companionGameObject.GetComponent(type.Type);
+                    entityManager.SetComponentObject(entity, ComponentType.FromTypeIndex(type.TypeIndex), hybridComponent);
+                }
+            }
+
+            entityManager.RemoveComponent<CompanionGameObjectActiveSystemState>(entities);
+            entityManager.RemoveComponent<EditorCompanionInPreviewSceneTag>(entities);
         }
     }
 }

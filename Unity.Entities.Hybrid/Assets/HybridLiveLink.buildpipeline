@@ -6,5 +6,5 @@
         "Unity.Scenes.Editor.BuildStepCreateResourceCatalog, Unity.Scenes.Editor",
         "Unity.Scenes.Editor.BuildStepBuildClassicLiveLink, Unity.Scenes.Editor"
     ],
-    "RunStep": null
+    "RunStep": "Unity.Build.Classic.RunStepNotImplemented, Unity.Build.Classic"
 }

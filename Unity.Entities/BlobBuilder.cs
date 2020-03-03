@@ -95,7 +95,7 @@ namespace Unity.Entities
     /// to the old one and then dispose of it.
     /// </remarks>
     /// <example>
-    /// <code source="../Documentation.Tests/BlobAssetExamples.cs" region="builderclassexample" title="BlobBuilder Example"/>
+    /// <code source="../DocCodeSamples.Tests/BlobAssetExamples.cs" region="builderclassexample" title="BlobBuilder Example"/>
     /// </example>
     unsafe public struct BlobBuilder : IDisposable
     {

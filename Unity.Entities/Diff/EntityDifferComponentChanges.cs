@@ -873,6 +873,8 @@ namespace Unity.Entities
                     PackedEntityIndex = packedEntityIndex,
                     PackedTypeIndex = packedTypeIndex
                 };
+                
+                (afterValue as IRefCounted)?.Retain();
 
                 result.Add(new PackedSharedComponentDataChange
                 {
@@ -905,6 +907,14 @@ namespace Unity.Entities
             for (var i = 0; i < changes.Length; i++)
             {
                 var change = changes[i];
+                var typeInfo = TypeManager.GetTypeInfo(change.TypeIndex);
+
+                if (typeInfo.Category == TypeManager.TypeCategory.Class)
+                {
+                    // Hybrid Components should be ignored in the diff, the Companion Link will clone the Companion GameObject
+                    // and when we apply the diff we'll relink the Hybrid Component to the ones from the Companion GameObject
+                    continue;
+                }
 
                 var afterValue = afterManagedComponentStore.GetManagedComponent(change.AfterManagedComponentIndex);
 
@@ -918,7 +928,6 @@ namespace Unity.Entities
                     }
                 }
 
-                var typeInfo = TypeManager.GetTypeInfo(change.TypeIndex);
                 var packedEntityIndex = packedEntityCollection.GetOrAdd(change.EntityGuid);
                 var packedTypeIndex = packedStableTypeHashCollection.GetOrAdd(new ComponentTypeHash
                 {
@@ -930,6 +939,8 @@ namespace Unity.Entities
                     PackedEntityIndex = packedEntityIndex,
                     PackedTypeIndex = packedTypeIndex
                 };
+
+                afterValue = ManagedComponentStore.CloneManagedComponent(afterValue);
 
                 result.Add(new PackedManagedComponentDataChange
                 {

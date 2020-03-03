@@ -258,7 +258,7 @@ namespace Unity.Entities
             public void CheckInternalConsistency()
             {
                 //@TODO: Validate from perspective of chunkquery...
-                m_Manager.EntityComponentStore->CheckInternalConsistency();
+                m_Manager.EntityComponentStore->CheckInternalConsistency(m_Manager.ManagedComponentStore.m_ManagedComponentData);
 
                 Assert.IsTrue(m_Manager.ManagedComponentStore.AllSharedComponentReferencesAreFromChunks(m_Manager.EntityComponentStore));
                 m_Manager.ManagedComponentStore.CheckInternalConsistency();

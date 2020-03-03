@@ -117,7 +117,7 @@ namespace Unity.Entities.Tests
                 debugEntities);
         }
 
-        #if !NET_DOTS
+#if !UNITY_DOTSPLAYER
         class TestClassComponent : UnityEngine.Object 
         {
             public int Value;
@@ -150,9 +150,9 @@ namespace Unity.Entities.Tests
                     new DebugComponent { Type = typeof(TestClassComponent), Data = new TestClassComponent { Value = 6 } }) },
                 debugEntities);
         }
-        #endif // !NET_DOTS
+#endif // !UNITY_DOTSPLAYER
     }
-    
+
     public class DebugComponentTests
     {
         [Test]

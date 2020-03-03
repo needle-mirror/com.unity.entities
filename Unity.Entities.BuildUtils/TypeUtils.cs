@@ -5,8 +5,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Mono.Cecil;
-using Unity.IL2CPP.Common;
-using Unity.IL2CPP.ILPreProcessor;
+using Unity.Cecil.Awesome;
+using Unity.Cecil.Awesome.Comparers;
 
 namespace Unity.Entities.BuildUtils
 {

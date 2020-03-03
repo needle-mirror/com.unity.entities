@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -22,17 +23,17 @@ namespace Unity.Entities.Editor
             {
                 var currentSelection = getWorldSelection();
                 var menu = new GenericMenu();
-                if (World.AllWorlds.Count > 0)
+                foreach (var world in World.All)
                 {
-                    foreach (var world in World.AllWorlds)
-                    {
+                    if (getShowAllWorlds() || (world.Flags & (WorldFlags.Streaming | WorldFlags.Shadow)) == 0)
                         menu.AddItem(new GUIContent(world.Name), currentSelection == world, () => setWorldSelection(world));
-                    }
                 }
-                else
-                {
+
+                if (menu.GetItemCount() == 0)
                     menu.AddDisabledItem(new GUIContent("No Worlds"));
-                }
+
+                menu.AddSeparator("");
+                menu.AddItem(new GUIContent("Show All Worlds"), getShowAllWorlds(), ToggleShowAllWorlds);
                 menu.AddSeparator("");
                 menu.AddItem(new GUIContent(kPlayerLoopName), currentSelection == null, () => setWorldSelection(null));
                 menu.AddSeparator("");
@@ -41,21 +42,38 @@ namespace Unity.Entities.Editor
             }
         }
 
+        void ToggleShowAllWorlds()
+        {
+            var showAllWorlds = !getShowAllWorlds();
+            setShowAllWorlds(showAllWorlds);
+
+            if (showAllWorlds)
+                return;
+
+            var currentSelection = getWorldSelection();
+            if (currentSelection != null && (currentSelection.Flags & (WorldFlags.Streaming | WorldFlags.Shadow)) != 0)
+                setWorldSelection(World.All.Count > 0 ? World.All[0] : null);
+        }
+
         private readonly WorldSelectionGetter getWorldSelection;
         private readonly WorldSelectionSetter setWorldSelection;
         
         private readonly ShowInactiveSystemsGetter getShowInactiveSystems;
         private readonly GenericMenu.MenuFunction setShowInactiveSystems;
-        
-        
 
-        public WorldPopup(WorldSelectionGetter getWorld, WorldSelectionSetter setWorld, ShowInactiveSystemsGetter getShowSystems, GenericMenu.MenuFunction setShowSystems)
+        private readonly Func<bool> getShowAllWorlds;
+        private readonly Action<bool> setShowAllWorlds;
+
+        public WorldPopup(WorldSelectionGetter getWorld, WorldSelectionSetter setWorld, ShowInactiveSystemsGetter getShowSystems, GenericMenu.MenuFunction setShowSystems, Func<bool> getShowAllWorlds, Action<bool> setShowAllWorlds)
         {
             getWorldSelection = getWorld;
             setWorldSelection = setWorld;
 
             getShowInactiveSystems = getShowSystems;
             setShowInactiveSystems = setShowSystems;
+
+            this.getShowAllWorlds = getShowAllWorlds;
+            this.setShowAllWorlds = setShowAllWorlds;
         }
         
         public void OnGUI(bool showingPlayerLoop, string lastSelectedWorldName, GUIStyle style = null)
@@ -75,14 +93,19 @@ namespace Unity.Entities.Editor
             {
                 if (lastSelectedWorldName == kNoWorldName)
                 {
-                    if (World.AllWorlds.Count > 0)
-                        setWorldSelection(World.AllWorlds[0]);
+                    if (World.All.Count > 0)
+                        setWorldSelection(World.All[0]);
                 }
                 else
                 {
-                    var namedWorld = World.AllWorlds.FirstOrDefault(x => x.Name == lastSelectedWorldName);
-                    if (namedWorld != null)
-                        setWorldSelection(namedWorld);
+                    foreach (var world in World.All)
+                    {
+                        if (world.Name != lastSelectedWorldName)
+                            continue;
+
+                        setWorldSelection(world);
+                        return;
+                    }
                 }
             }
         }

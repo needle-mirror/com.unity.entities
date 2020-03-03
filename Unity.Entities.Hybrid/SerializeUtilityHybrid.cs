@@ -1,7 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
 using Unity.Collections;
-using UnityEditor;
-using UnityEngine;
 using UnityObject = UnityEngine.Object;
 
 namespace Unity.Entities.Serialization
@@ -10,15 +9,13 @@ namespace Unity.Entities.Serialization
     {
         public static void Serialize(EntityManager manager, BinaryWriter writer, out ReferencedUnityObjects objRefs)
         {
-            object[] referencedObjects;
-            SerializeUtility.SerializeWorld(manager, writer, out referencedObjects);
+            SerializeUtility.SerializeWorld(manager, writer, out var referencedObjects);
             SerializeObjectReferences(manager, writer, (UnityEngine.Object[]) referencedObjects, out objRefs);
         }
 
         public static void Serialize(EntityManager manager, BinaryWriter writer, out ReferencedUnityObjects objRefs, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos)
         {
-            object[] referencedObjects;
-            SerializeUtility.SerializeWorld(manager, writer, out referencedObjects, entityRemapInfos);
+            SerializeUtility.SerializeWorld(manager, writer, out var referencedObjects, entityRemapInfos);
             SerializeObjectReferences(manager, writer, (UnityEngine.Object[]) referencedObjects, out objRefs);
         }
 
@@ -34,9 +31,9 @@ namespace Unity.Entities.Serialization
         {
             objRefs = null;
 
-            if (referencedObjects != null && referencedObjects.Length > 0)
+            if (referencedObjects?.Length > 0)
             {
-                objRefs = ScriptableObject.CreateInstance<ReferencedUnityObjects>();
+                objRefs = UnityEngine.ScriptableObject.CreateInstance<ReferencedUnityObjects>();
                 objRefs.Array = referencedObjects;
             }
         }
@@ -51,11 +48,38 @@ namespace Unity.Entities.Serialization
             // but it would require tight integration in the deserialize function so that a correct fake null unityengine.object can be constructed on deserialize
             if (objectReferences != null)
             {
+#if !UNITY_EDITOR || USE_SUBSCENE_EDITORBUNDLES
+                // When using bundles, the Companion GameObjects cannot be directly used (prefabs), so we need to instantiate everything.
+                var sourceToInstance = new Dictionary<UnityEngine.GameObject, UnityEngine.GameObject>();
+#endif
+
                 for (int i = 0; i != objectReferences.Length; i++)
                 {
                     if (objectReferences[i] == null)
+                    {
                         objectReferences[i] = null;
+                        continue;
+                    }
+
+#if !UNITY_EDITOR || USE_SUBSCENE_EDITORBUNDLES
+                    if(objectReferences[i] is UnityEngine.GameObject source)
+                    {
+                        var instance = UnityEngine.GameObject.Instantiate(source);
+                        objectReferences[i] = instance;
+                        sourceToInstance.Add(source, instance);
+                    }
+#endif
                 }
+
+#if !UNITY_EDITOR || USE_SUBSCENE_EDITORBUNDLES
+                for (int i = 0; i != objectReferences.Length; i++)
+                {
+                    if(objectReferences[i] is UnityEngine.Component component)
+                    {
+                        objectReferences[i] = sourceToInstance[component.gameObject].GetComponent(component.GetType());
+                    }
+                }
+#endif
             }
         }
     }

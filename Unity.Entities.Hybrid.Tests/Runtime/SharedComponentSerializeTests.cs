@@ -1,6 +1,7 @@
 ﻿//#define WRITE_TO_DISK
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
@@ -61,6 +62,64 @@ namespace Unity.Entities.Tests
 
             Assert.IsTrue(newWorldEntities.Debug.IsSharedComponentManagerEmpty());
 
+            world.Dispose();
+            reader.Dispose();
+        }
+
+
+        public struct SharedComponentWithUnityObject : ISharedComponentData, IEquatable<SharedComponentWithUnityObject>
+        {
+            public Object obj;
+
+            public bool Equals(SharedComponentWithUnityObject other)
+            {
+                return Equals(obj, other.obj);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is SharedComponentWithUnityObject other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return (obj != null ? obj.GetHashCode() : 0);
+            }
+        }
+
+        [Test]
+        // https://fogbugz.unity3d.com/f/cases/1204153/
+        public void SharedComponentUnityObjectSerialize_Case_1204153()
+        {
+            var go1 = new GameObject();
+            var go2 = new GameObject();
+            var shared = new SharedComponentWithUnityObject { obj = go1 };
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddSharedComponentData(entity, shared);
+            var writer = new TestBinaryWriter();
+
+            ReferencedUnityObjects objRefs = null;
+            SerializeUtilityHybrid.Serialize(m_Manager, writer, out objRefs);
+            var reader = new TestBinaryReader(writer);
+
+            // Swap the obj ref to a different instance but same value.  This can occur with any Unity.Object
+            // during subscene serialize/deserialize since the editor's Unity.Object.GetHashCode() returns
+            // an instance ID instead of a hash of the values in it.  There is no reasonable expectation that
+            // the instance IDs would match between a serialize and deserialize.
+            objRefs.Array[0] = go2;
+
+            var world = new World("temp");
+            SerializeUtilityHybrid.Deserialize(world.EntityManager, reader, objRefs);
+
+            var newWorldEntities = world.EntityManager;
+            var uniqueShared = new List<SharedComponentWithUnityObject>();
+            var query = newWorldEntities.CreateEntityQuery(ComponentType.ReadWrite<SharedComponentWithUnityObject>());
+            newWorldEntities.GetAllUniqueSharedComponentData(uniqueShared);
+            Assert.AreEqual(2, uniqueShared.Count);
+            query.SetSharedComponentFilter(uniqueShared[1]);
+            Assert.AreEqual(1, query.CalculateEntityCount());
+
+            query.Dispose();
             world.Dispose();
             reader.Dispose();
         }

@@ -20,7 +20,6 @@ namespace Unity.Entities.Editor
     {
         internal const string kDefaultLiveLinkBuildPipelineAssetPath = "Packages/com.unity.entities/Unity.Entities.Hybrid/Assets/HybridLiveLink.buildpipeline";
         internal const string kWinLiveLinkBuildPipelineAssetPath = "Packages/com.unity.entities/Unity.Entities.Hybrid/Assets/WindowsHybridLiveLink.buildpipeline";
-        internal const string kOSXLiveLinkBuildPipelineAssetPath = "Packages/com.unity.entities/Unity.Entities.Hybrid/Assets/OSXHybridLiveLink.buildpipeline";
 
         static ProfilerMarker s_OpenStartLiveLinkWindowMarker = new ProfilerMarker(nameof(StartLiveLinkWindow) + "." + nameof(OpenWindow));
 
@@ -48,43 +47,11 @@ namespace Unity.Entities.Editor
             m_View.Start += OnStart;
             m_View.EditBuildConfiguration += OnEditBuildConfiguration;
             m_View.RevealBuildInFinder += OnRevealBuildInFinder;
-            m_View.CreateNewBuildConfiguration += OnCreateNewBuildConfiguration;
 
             m_View.Initialize(rootVisualElement);
             ResetConfigurationListInView();
 
             BuildSettingsAssetPostProcessor.ScanAssetDatabaseForBuildConfigurations += ResetConfigurationListInView;
-        }
-
-        void OnCreateNewBuildConfiguration(string path)
-        {
-            var pipeline = LoadExistingBuildPipelineForCurrentPlatform();
-
-            path = AssetDatabase.GenerateUniqueAssetPath(Path.Combine("Assets", string.Concat(path, BuildConfiguration.AssetExtension)));
-            var o = BuildConfiguration.CreateAsset(path, config =>
-            {
-                config.SetComponent(new GeneralSettings());
-                config.SetComponent(new SceneList { BuildCurrentScene = true });
-                config.SetComponent(new ClassicBuildProfile { Pipeline = pipeline, Target = Application.platform == RuntimePlatform.WindowsEditor ? BuildTarget.StandaloneWindows : BuildTarget.StandaloneOSX });
-                config.SetComponent(new OutputBuildDirectory { OutputDirectory = "Builds/" + Path.GetFileNameWithoutExtension(path) });
-                config.SetComponent(new ClassicScriptingSettings());
-            });
-
-            ProjectWindowUtil.ShowCreatedAsset(o);
-            m_View.SelectBuildConfiguration(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(o)));
-        }
-
-        BuildPipeline LoadExistingBuildPipelineForCurrentPlatform()
-        {
-            switch (Application.platform)
-            {
-                case RuntimePlatform.WindowsEditor:
-                    return BuildPipeline.LoadAsset(kWinLiveLinkBuildPipelineAssetPath);
-                case RuntimePlatform.OSXEditor:
-                    return BuildPipeline.LoadAsset(kOSXLiveLinkBuildPipelineAssetPath);
-                default:
-                    return BuildPipeline.LoadAsset(kDefaultLiveLinkBuildPipelineAssetPath);
-            }
         }
 
         void OnStart(StartMode startMode, BuildConfigurationViewModel buildConfiguration)
@@ -141,7 +108,6 @@ namespace Unity.Entities.Editor
             m_View.Start -= OnStart;
             m_View.EditBuildConfiguration -= OnEditBuildConfiguration;
             m_View.RevealBuildInFinder -= OnRevealBuildInFinder;
-            m_View.CreateNewBuildConfiguration -= OnCreateNewBuildConfiguration;
             BuildSettingsAssetPostProcessor.ScanAssetDatabaseForBuildConfigurations -= ResetConfigurationListInView;
             m_View = null;
         }
@@ -192,9 +158,6 @@ namespace Unity.Entities.Editor
             BuildConfigurationViewModel m_LastSelectedConfiguration;
             BuildConfigurationViewModel m_SelectedConfiguration;
 
-            Button m_AddNewButton;
-            VisualElement m_NewBuildName;
-            TextField m_NewBuildNameTextField;
             VisualElement m_FooterMessage;
             bool m_DiscardSelectionChanged;
             Button m_NewBuildNameSubmit;
@@ -229,16 +192,6 @@ namespace Unity.Entities.Editor
                 m_ConfigurationsListView.onItemChosen += chosenConfiguration => EditBuildConfiguration((BuildConfigurationViewModel) chosenConfiguration);
 #endif
 
-                m_AddNewButton = m_Root.Q<Button>(kNamePrefix + "body__new-build-button");
-                m_AddNewButton.clicked += ShowNewBuildNameInput;
-
-                m_NewBuildName = m_Root.Q<VisualElement>(kNamePrefix + "new-build-name");
-                m_NewBuildNameTextField = m_NewBuildName.Q<TextField>();
-                m_NewBuildNameSubmit = m_NewBuildName.Q<Button>(kNamePrefix + "new-build-name__submit");
-                m_NewBuildNameTextField.RegisterCallback<KeyDownEvent>(OnNewBuildKeyDown);
-                m_NewBuildNameTextField.RegisterCallback<BlurEvent>(OnNewBuildFocusChanged);
-                m_NewBuildName.Hide();
-
                 m_BuildMessage = m_Root.Q<VisualElement>(kNamePrefix + "build-message");
                 m_BuildMessage.Hide();
                 m_ActionButtons = m_Root.Q<VisualElement>(kNamePrefix + "footer");
@@ -262,7 +215,6 @@ namespace Unity.Entities.Editor
             public event Action<StartMode, BuildConfigurationViewModel> Start = delegate { };
             public event Action<BuildConfigurationViewModel> EditBuildConfiguration = delegate { };
             public event Action<BuildConfigurationViewModel> RevealBuildInFinder = delegate { };
-            public event Action<string> CreateNewBuildConfiguration = delegate { };
 
             public void ResetConfigurationList(IEnumerable<string> configurationAssetGuids)
             {
@@ -308,9 +260,6 @@ namespace Unity.Entities.Editor
                 if(buildConfigurationViewModel == m_SelectedConfiguration)
                     UpdateActionButtonsState();
             }
-
-            public void SelectBuildConfiguration(string assetGuid)
-                => m_ConfigurationsListView.selectedIndex = m_BuildConfigurationViewModels.FindIndex(b => b.AssetGuid == assetGuid);
 
             internal void FilterConfigurations()
             {
@@ -424,65 +373,6 @@ namespace Unity.Entities.Editor
                 visualElement.Q<Label>().text = configurationViewModel.Name;
             }
 
-            void ShowNewBuildNameInput()
-            {
-                m_AddNewButton.Hide();
-                m_NewBuildName.Show();
-
-                m_NewBuildNameTextField.Focus();
-                m_NewBuildNameTextField.Q("unity-text-input").Focus();
-
-                m_LastSelectedConfiguration = m_SelectedConfiguration;
-                m_ConfigurationsListView.selectedIndex = -1;
-            }
-
-            void OnNewBuildKeyDown(KeyDownEvent evt)
-            {
-                if (evt.keyCode == KeyCode.Escape)
-                {
-                    evt.PreventDefault();
-                    evt.StopPropagation();
-
-                    HideNewConfigurationForm(true);
-                }
-                else if (evt.keyCode == KeyCode.KeypadEnter || evt.keyCode == KeyCode.Return)
-                {
-                    evt.PreventDefault();
-                    evt.StopPropagation();
-
-                    CreateBuildConfigurationWithFormValues();
-                }
-            }
-
-            void OnNewBuildFocusChanged(BlurEvent evt)
-            {
-                if (evt.relatedTarget == m_NewBuildNameSubmit)
-                    CreateBuildConfigurationWithFormValues();
-                else
-                    HideNewConfigurationForm(true);
-            }
-
-            void CreateBuildConfigurationWithFormValues()
-            {
-                var path = m_NewBuildNameTextField.value;
-                HideNewConfigurationForm(false);
-
-                if (!string.IsNullOrEmpty(path))
-                    CreateNewBuildConfiguration(path.Normalize());
-            }
-
-            void HideNewConfigurationForm(bool resetPreviousSelectedConfiguration)
-            {
-                m_AddNewButton.Show();
-                m_NewBuildName.Hide();
-                m_NewBuildNameTextField.value = string.Empty;
-
-                if (resetPreviousSelectedConfiguration && m_LastSelectedConfiguration != null)
-                    m_ConfigurationsListView.selectedIndex = m_BuildConfigurationViewModels.IndexOf(m_LastSelectedConfiguration);
-
-                m_LastSelectedConfiguration = null;
-            }
-
             static string GetUssClass(BuildTarget buildTarget)
             {
                 switch (buildTarget)
@@ -552,16 +442,43 @@ namespace Unity.Entities.Editor
                 Target = Asset.TryGetComponent(out ClassicBuildProfile classicBuildProfile) ? classicBuildProfile.Target : BuildTarget.NoTarget;
                 OutputBuildDirectory = Asset.GetOutputBuildDirectory();
 
+                IsLiveLinkCompatible = DetermineLivelinkCompatibility();
+
+                SelectedStartMode = IsActionAllowed(StartMode.RunLatestBuild, out _) ? StartMode.RunLatestBuild : StartMode.BuildAndRun;
+            }
+
+            public bool DetermineLivelinkCompatibility()
+            {
+#if !UNITY_BUILD_CLASS_BASED_PIPELINES
+                IEnumerable<BuildStep> EnumerateBuildSteps(BuildPipeline buildPipeline)
+                {
+                    foreach (var step in buildPipeline.BuildSteps)
+                    {
+                        if (step is BuildPipeline subPipeline)
+                        {
+                            foreach (var nestedStep in EnumerateBuildSteps(subPipeline))
+                            {
+                                yield return nestedStep;
+                            }
+                        }
+                        else
+                        {
+                            yield return step as BuildStep;
+                        }
+                    }
+                }
+
                 var pipeline = Asset.GetBuildPipeline();
                 if (pipeline != null)
                 {
                     pipeline.OnEnable();
-                    IsLiveLinkCompatible = EnumerateBuildSteps(pipeline).Any(s => s is BuildStepBuildClassicLiveLink);
+                    return EnumerateBuildSteps(pipeline).Any(s => s is BuildStepBuildClassicLiveLink);
                 }
                 else
-                    IsLiveLinkCompatible = false;
-
-                SelectedStartMode = IsActionAllowed(StartMode.RunLatestBuild, out _) ? StartMode.RunLatestBuild : StartMode.BuildAndRun;
+                    return false;
+#else
+                return true;
+#endif                
             }
 
             public bool HasALatestBuild => OutputBuildDirectory != null && Directory.Exists(OutputBuildDirectory);
@@ -605,24 +522,6 @@ namespace Unity.Entities.Editor
                         return false;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(mode), mode, null);
-                }
-            }
-
-            IEnumerable<BuildStep> EnumerateBuildSteps(BuildPipeline buildPipeline)
-            {
-                foreach (var step in buildPipeline.BuildSteps)
-                {
-                    if (step is BuildPipeline pipeline)
-                    {
-                        foreach (var nestedStep in EnumerateBuildSteps(pipeline))
-                        {
-                            yield return nestedStep;
-                        }
-                    }
-                    else
-                    {
-                        yield return step as BuildStep;
-                    }
                 }
             }
         }

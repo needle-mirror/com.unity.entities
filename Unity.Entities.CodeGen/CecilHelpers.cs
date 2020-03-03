@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
+using Unity.Collections;
+using FieldAttributes = Mono.Cecil.FieldAttributes;
 #if !UNITY_DOTSPLAYER
 using System.Reflection;
 using UnityEngine;
@@ -102,12 +105,13 @@ namespace Unity.Entities.CodeGen
                 currentInstruction = currentInstruction.Previous;
             }
         }
-        
+
         public static (MethodDefinition[], Dictionary<FieldReference, CapturedVariableDescription> capturedVariables) CloneClosureExecuteMethodAndItsLocalFunctions(
-            IEnumerable<MethodDefinition> methodsToClone, TypeDefinition targetType, string newMethodName)
+            IEnumerable<MethodDefinition> methodsToClone, TypeDefinition targetType, string newMethodName, 
+            Func<IEnumerable<MethodDefinition>, IEnumerable<Instruction>> permittedCapturingInstructionsGenerator)
         {
             Dictionary<FieldReference, CapturedVariableDescription> capturedVariables = new Dictionary<FieldReference, CapturedVariableDescription>();
-            
+
             // Construct list of all DisplayClasses under our declaring type (we need to do this as other delegates might use generate their own DisplayClasses)
             var lambdaDisplayClasses = DisplayClassDescendants(methodsToClone.First().DeclaringType);
             
@@ -119,19 +123,26 @@ namespace Unity.Entities.CodeGen
                     .Where(i => (i.IsLoadFieldOrLoadFieldAddress() || i.IsStoreField()) && i.Operand is FieldReference &&
                         !(i.Operand as FieldReference).FieldType.IsDisplayClass() && lambdaDisplayClasses.Contains((i.Operand as FieldReference).DeclaringType))
                     .ToArray();
-            
+
+            // Find instructions that are we want to ignore when constructing captured variables
+            var permittedCapturingInstructions = permittedCapturingInstructionsGenerator(methodsToClone);
+
             // Walk through instructions that use a captured variable and try to construct list of CapturedVariableDescriptions (old and new fields)
             foreach (var instructionThatLoadsOrStoresVariableInDisplayClass in instructionsThatLoadsOrStoresVariableInDisplayClass)
             {
+                // We need to ignore cases where we are permitted to capture (generally for a method that we are going to stub out later)
+                if (permittedCapturingInstructions.Contains(instructionThatLoadsOrStoresVariableInDisplayClass))
+                    continue;
+                
                 var oldField = instructionThatLoadsOrStoresVariableInDisplayClass.Operand as FieldReference;
                 if (capturedVariables.ContainsKey(oldField))
                     continue;
-                
+
                 var oldFields = new List<FieldReference>();
                 oldFields.Add(oldField);
                 
                 var containingMethod = methodsToClone.Single(m => m.Body.Instructions.Contains(instructionThatLoadsOrStoresVariableInDisplayClass));
-                var initialLdFldInstruction = CecilHelpers.FindInstructionThatPushedArg(containingMethod, 0, instructionThatLoadsOrStoresVariableInDisplayClass);
+                var initialLdFldInstruction = FindInstructionThatPushedArg(containingMethod, 0, instructionThatLoadsOrStoresVariableInDisplayClass);
                 foreach (var instruction in WalkBackLdFldInstructionsToLdarg0(containingMethod, initialLdFldInstruction))
                 {
                     var field = instruction.Operand as FieldReference;
@@ -156,7 +167,7 @@ namespace Unity.Entities.CodeGen
             foreach (var instructionThatLoadOrStoreCapturedVariable in instructionsThatLoadOrStoreCapturedVariable)
             {
                 var containingMethod = methodsToClone.Single(m => m.Body.Instructions.Contains(instructionThatLoadOrStoreCapturedVariable));
-                var initialLdFldInstruction = CecilHelpers.FindInstructionThatPushedArg(containingMethod, 0, instructionThatLoadOrStoreCapturedVariable);
+                var initialLdFldInstruction = FindInstructionThatPushedArg(containingMethod, 0, instructionThatLoadOrStoreCapturedVariable);
                 foreach (var instruction in WalkBackLdFldInstructionsToLdarg0(containingMethod, initialLdFldInstruction))
                 {
                     instruction.MakeNOP();
@@ -293,7 +304,7 @@ namespace Unity.Entities.CodeGen
                 if (instructionThatPushedArg == null)
                     continue;
 
-                if (InstructionExtensions.IsInvocation(instructionThatPushedArg))
+                if (InstructionExtensions.IsInvocation(instructionThatPushedArg, out _))
                     continue;
 
                 var pushDelta = InstructionExtensions.GetPushDelta(instructionThatPushedArg);
@@ -611,7 +622,7 @@ namespace Unity.Entities.CodeGen
         {
             foundSoFar = foundSoFar ?? new HashSet<string>();
 
-            var usedInThisMethod = method.Body.Instructions.Where(i=>i.IsInvocation()).Select(i => i.Operand).OfType<MethodReference>().Where(mr => mr.DeclaringType.TypeReferenceEquals(method.DeclaringType));
+            var usedInThisMethod = method.Body.Instructions.Where(i=>i.IsInvocation(out _)).Select(i => i.Operand).OfType<MethodReference>().Where(mr => mr.DeclaringType.TypeReferenceEquals(method.DeclaringType));
 
             foreach (var usedMethod in usedInThisMethod)
             {
@@ -761,7 +772,7 @@ namespace Unity.Entities.CodeGen
         }
 
         public static Instruction FindInstructionThatPushedArg(MethodDefinition containingMethod, int argNumber,
-            Instruction callInstructionsWhoseArgumentsWeWantToFind)
+            Instruction callInstructionsWhoseArgumentsWeWantToFind, bool breakWhenBranchDetected = false)
         {
             containingMethod.Body.EnsurePreviousAndNextAreSet();
 
@@ -780,13 +791,15 @@ namespace Unity.Entities.CodeGen
                 var result = CecilHelpers.MatchesDelegateProducingPattern(containingMethod, cursor, CecilHelpers.DelegateProducingPattern.MatchSide.End);
                 if (result != null)
                 {
-                    //so we are crawling backwards through isntructions.  if we find a "this is roslyn caching a delegate" sequence,
+                    //so we are crawling backwards through instructions.  if we find a "this is roslyn caching a delegate" sequence,
                     //we're going to pretend it is a single instruction, that pushes the delegate on the stack, and pops nothing.
                     cursor = result.Instructions.First();
                     pushAmount = 1;
                     popAmount = 0;
                 } else if (cursor.IsBranch())
                 {
+                    if (breakWhenBranchDetected)
+                        return null;
                     var target = (Instruction) cursor.Operand;
                     if (!seenInstructions.Contains(target))
                     {

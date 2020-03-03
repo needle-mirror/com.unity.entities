@@ -1,16 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using Unity.Entities;
+using System.Linq;
 using Unity.Platforms;
 using Unity.Build;
 using Unity.Build.Classic;
 using Unity.Build.Common;
 using Unity.Build.Internals;
 using UnityEditor;
+using UnityEngine;
+using BuildContext = Unity.Build.BuildContext;
+
 
 namespace Unity.Scenes.Editor
 {
+#if !UNITY_BUILD_CLASS_BASED_PIPELINES
     [BuildStep(Name = "Build SubScene Bundles", Description = "Building SubScene Bundles", Category = "Hybrid")]
     sealed class BuildStepSubSceneBundles : BuildStep
     {
@@ -21,60 +25,33 @@ namespace Unity.Scenes.Editor
             typeof(ClassicBuildProfile),
             typeof(SceneList)
         };
-
+        
         public override BuildStepResult RunBuildStep(BuildContext context)
         {
             m_TemporaryFileTracker = new TemporaryFileTracker();
-
-            var profile = GetRequiredComponent<ClassicBuildProfile>(context);
-            if (profile.Target == UnityEditor.BuildTarget.NoTarget)
-                return Failure($"Invalid build target '{profile.Target.ToString()}'.");
-            if (profile.Target != EditorUserBuildSettings.activeBuildTarget)
-                return Failure($"ActiveBuildTarget must be switched before the {nameof(BuildStepSubSceneBundles)} step.");
-
-            var buildConfigurationGuid = new Hash128(BuildContextInternals.GetBuildConfigurationGUID(context));
-            var content = new UnityEditor.Build.Pipeline.BundleBuildContent(new AssetBundleBuild[0]);
-            var sceneList = GetRequiredComponent<SceneList>(context);
-            var visited = new HashSet<Hash128>();
-            foreach (var scenePath in sceneList.GetScenePathsForBuild())
-            {
-                var sceneGuid = AssetDatabase.AssetPathToGUID(scenePath);
-                var subSceneGuids = SceneMetaDataImporter.GetSubSceneGuids(sceneGuid);
-                foreach (var subSceneGuid in subSceneGuids)
-                {
-                    if (!visited.Add(subSceneGuid))
-                        continue;
-
-                    var hash128Guid = EntityScenesPaths.CreateBuildConfigurationSceneFile(subSceneGuid, buildConfigurationGuid);
-                    content.CustomAssets.Add(new UnityEditor.Build.Pipeline.Interfaces.CustomContent
-                    {
-                        Asset = hash128Guid,
-                        Processor = SubSceneImporter.ConvertToBuild
-                    });
-                }
-            }
-
-            if (content.CustomAssets.Count == 0)
-            {
-                return Success();
-            }
-
-            var buildPath = Path.GetDirectoryName(EntityScenesPaths.GetLoadPath(new Hash128(), EntityScenesPaths.PathType.EntitiesUnityObjectReferences, 0));
-
+            
             // Delete SubScenes build folder defensively (Eg. if unity crashes during build)
-            FileUtil.DeleteFileOrDirectory(buildPath);
+            var streamingAssetsSubscenes = "Assets/StreamingAssets/SubScenes";
+            FileUtil.DeleteFileOrDirectory(streamingAssetsSubscenes);
+            
+            m_TemporaryFileTracker.CreateDirectory(streamingAssetsSubscenes);
 
-            m_TemporaryFileTracker.CreateDirectory(buildPath);
+            List<(string sourceFile, string destinationFile)> filesToCopy = new List<(string sourceFile, string destinationFile)>();
 
-            var group = UnityEditor.BuildPipeline.GetBuildTargetGroup(profile.Target);
-            var parameters = new UnityEditor.Build.Pipeline.BundleBuildParameters(profile.Target, group, buildPath);
-            parameters.BundleCompression = UnityEngine.BuildCompression.Uncompressed;
+            void RegisterFileCopy(string sourceFile, string destinationFile)
+            {
+                filesToCopy.Add((sourceFile,destinationFile));
+            }
+            
+            SubSceneBuildCode.PrepareAdditionalFiles( BuildContextInternals.GetBuildConfigurationGUID(context), type=>GetRequiredComponent(context,type), RegisterFileCopy, Application.streamingAssetsPath, $"Library/SubsceneBundles");
+            
+            foreach (var (sourceFile, targetFile) in filesToCopy)
+            {
+                m_TemporaryFileTracker.TrackFile(targetFile);
+                File.Copy(sourceFile, targetFile, true);
+            }
 
-            var status = UnityEditor.Build.Pipeline.ContentPipeline.BuildAssetBundles(parameters, content, out UnityEditor.Build.Pipeline.Interfaces.IBundleBuildResults result);
-            context.SetValue(result);
-
-            var succeeded = status >= UnityEditor.Build.Pipeline.ReturnCode.Success;
-            return succeeded ? Success() : Failure($"BuildAssetBundles failed with status '{status}'.");
+            return Success();
         }
 
         public override BuildStepResult CleanupBuildStep(BuildContext context)
@@ -83,4 +60,15 @@ namespace Unity.Scenes.Editor
             return Success();
         }
     }
+#else
+    class SubsceneFilesProvider : AdditionalFilesProviderBase
+    {
+        public override Type[] UsedComponents { get; } = {typeof(SceneList), typeof(ClassicBuildProfile)};
+
+        protected override void OnPrepareAdditionalAssetsBeforeBuild()
+        {
+            SubSceneBuildCode.PrepareAdditionalFiles(BuildConfigurationGuid, GetComponent, AddFile, StreamingAssetsDirectory, $"Library/SubsceneBundles");
+        }
+    }
+#endif
 }

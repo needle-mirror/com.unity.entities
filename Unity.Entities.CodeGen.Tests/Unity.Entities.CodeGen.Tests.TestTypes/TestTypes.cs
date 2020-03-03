@@ -30,6 +30,10 @@ namespace Unity.Entities.CodeGen.Tests.TestTypes
     {
         public int Value;
     }
+    
+    public struct TagComponentInAnotherAssembly : IComponentData
+    {
+    }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
     public class SpeedInAnotherAssembly : IComponentData

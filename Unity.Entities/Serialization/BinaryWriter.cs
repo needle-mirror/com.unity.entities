@@ -135,7 +135,7 @@ namespace Unity.Entities.Serialization
             return _ObjectTable.ToArray();
         }
 
-        void AppendObject(UnityEngine.Object obj, ref UnsafeAppendBuffer stream)
+        protected void AppendObject(UnityEngine.Object obj)
         {
             int index = -1;
             if (obj != null)
@@ -148,7 +148,7 @@ namespace Unity.Entities.Serialization
                 }
             }
 
-            stream.Add(index);
+            Buffer.Add(index);
         }
 #endif
 
@@ -200,7 +200,7 @@ namespace Unity.Entities.Serialization
 #if !NET_DOTS
             else if (typeof(UnityEngine.Object).IsAssignableFrom(typeof(TValue)))
             {
-                AppendObject(value as UnityEngine.Object, ref Buffer);
+                AppendObject(value as UnityEngine.Object);
                 EndContainer(property, ref container, ref value, ref changeTracker);
                 return VisitStatus.Override;
             }
@@ -324,9 +324,9 @@ namespace Unity.Entities.Serialization
 #if !NET_DOTS
         private UnityEngine.Object[] _ObjectTable;
 
-        unsafe UnityEngine.Object ReadObject(UnsafeAppendBuffer.Reader* stream)
+        protected unsafe UnityEngine.Object ReadObject()
         {
-            stream->ReadNext(out int index);
+            _PrimitiveReader.Buffer->ReadNext(out int index);
             if (index != -1)
                 return _ObjectTable[index];
             else
@@ -406,7 +406,7 @@ namespace Unity.Entities.Serialization
                 if (_ObjectTable == null)
                     throw new ArgumentException("We are reading a UnityEngine.Object however no ObjectTable was provided to the PropertiesBinaryReader.");
 
-                var unityObject = ReadObject(_PrimitiveReader.Buffer);
+                var unityObject = ReadObject();
                 Unsafe.As<TValue, UnityEngine.Object>(ref value) = unityObject;
                 
                 EndContainer(property, ref container, ref value, ref changeTracker);

@@ -555,7 +555,7 @@ namespace Unity.Scenes
             _GlobalAssetObjectResolver.DisposeAssetBundles();
             _GlobalAssetObjectResolver = new GlobalAssetObjectResolver();
 
-            foreach (var world in World.AllWorlds)
+            foreach (var world in World.All)
             {
                 var system = world.GetExistingSystem<LiveLinkPlayerAssetRefreshSystem>();
                 if (system != null)

@@ -1,9 +1,9 @@
 # Manual iteration
 
-You can also request all the chunks explicitly in a NativeArray and process them with a Job such as `IJobParallelFor`. This method is recommended if you need to manage chunks in some way that is not appropriate for the simplified model of simply iterating over all the Chunks in a EntityQuery. As in:
+You can request all of the chunks explicitly in a NativeArray and process them with a job such as `IJobParallelFor`. You should use this method if you need to manage chunks in a way that is not appropriate for the simplified model of  iterating over all of the chunks in a EntityQuery. The following is an example of this:
 
 ```c#
-public class RotationSpeedSystem : JobComponentSystem
+public class RotationSpeedSystem : SystemBase
 {
    [BurstCompile]
    struct RotationSpeedJob : IJobParallelFor
@@ -42,7 +42,7 @@ public class RotationSpeedSystem : JobComponentSystem
        m_Query = GetEntityQuery(queryDesc);
    }
 
-   protected override JobHandle OnUpdate(JobHandle inputDeps)
+   protected override void OnUpdate()
    {
        var rotationType = GetArchetypeChunkComponentType<RotationQuaternion>();
        var rotationSpeedType = GetArchetypeChunkComponentType<RotationSpeed>(true);
@@ -55,14 +55,14 @@ public class RotationSpeedSystem : JobComponentSystem
            RotationSpeedType = rotationSpeedType,
            DeltaTime = Time.deltaTime
        };
-       return rotationsSpeedJob.Schedule(chunks.Length,32,inputDeps);
+       this.Dependency rotationsSpeedJob.Schedule(chunks.Length,32, this.Dependency);
    }
 }
 ```
 
-## Iterating manually in a ComponentSystem
+## Iterating manually
 
-Although not a generally recommended practice, you can use the EntityManager class to manually iterate through the entities or chunks. These iteration methods should only be used in test or debugging code (or when you are just experimenting) or in an isolated World in which you have a perfectly controlled set of entities.
+You can use the EntityManager class to manually iterate through the entities or chunks, though this is not best practice. You should only use these iteration methods in test or debugging code (or when you are just experimenting), or in an isolated World where you have a perfectly controlled set of entities.
 
 For example, the following snippet iterates through all of the entities in the active World:
 
@@ -76,7 +76,7 @@ foreach (var entity in allEntities)
 allEntities.Dispose();
 ```
 
- While this snippet iterates through all of the chunks in the active World:
+ This snippet iterates through all of the chunks in the active World:
 
 ``` c#
 var entityManager = World.Active.EntityManager;

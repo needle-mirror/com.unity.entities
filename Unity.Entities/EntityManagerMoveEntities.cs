@@ -507,7 +507,7 @@ namespace Unity.Entities
 
             k_ProfileMoveManagedComponents.Begin();
             m_ManagedComponentStore.MoveManagedComponentsFromDifferentWorld(srcManagedIndices, dstManagedIndices, srcManagedIndices.Length, srcManagedComponentStore);
-            srcEntityComponentStore->m_ManagedComponentFreeIndex.Size = 0;
+            srcEntityComponentStore->m_ManagedComponentFreeIndex.Length = 0;
             srcEntityComponentStore->m_ManagedComponentIndex = 1;
             k_ProfileMoveManagedComponents.End();
 

@@ -4,6 +4,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
+using UnityEngine.Assertions;
 
 namespace Unity.Entities
 {
@@ -445,10 +446,23 @@ namespace Unity.Entities
 
         internal static void UnpackPrefilterData(NativeArray<byte> prefilterData, out ArchetypeChunk* chunks, out int* entityOffsets, out int filteredChunkCount)
         {
-            chunks = (ArchetypeChunk*) prefilterData.GetUnsafePtr();
+#if UNITY_DOTSPLAYER
+            // TODO should be GetUnsafePtr(). Working around a bug in the (DOTS-Runtime) safety checks.
+            // https://unity3d.atlassian.net/browse/DOTSR-927
+            chunks = (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafeBufferPointerWithoutChecks(prefilterData);
+#else
+            chunks = (ArchetypeChunk*)prefilterData.GetUnsafePtr();
+#endif
 
-            filteredChunkCount = *(int*)((byte*) prefilterData.GetUnsafePtr() + prefilterData.Length - sizeof(int));
-            entityOffsets = (int*) (chunks + filteredChunkCount);
+#if UNITY_DOTSPLAYER
+            // TODO should be GetUnsafePtr(). Working around a bug in the (DOTS-Runtime) safety checks.
+            // https://unity3d.atlassian.net/browse/DOTSR-927
+            filteredChunkCount = *(int*)((byte*)NativeArrayUnsafeUtility.GetUnsafeBufferPointerWithoutChecks(prefilterData) + prefilterData.Length - sizeof(int));
+#else
+            filteredChunkCount = *(int*)((byte*)prefilterData.GetUnsafePtr() + prefilterData.Length - sizeof(int));
+#endif
+            Assert.IsTrue(filteredChunkCount >= 0);
+            entityOffsets = (int*)(chunks + filteredChunkCount);
         }
     }
 }

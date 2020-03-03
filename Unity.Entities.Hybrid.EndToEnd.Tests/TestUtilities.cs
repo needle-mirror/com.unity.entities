@@ -9,14 +9,17 @@ namespace Unity.Entities.Hybrid.EndToEnd.Tests
         [Flags]
         public enum SystemCategories
         {
-            Streaming = 1
+            Streaming = 1,
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            HybridComponents = 2,
+#endif
         }
 
         public static void RegisterSystems(World world, SystemCategories categories)
         {
             var systems = new List<Type>();
 
-            if (categories.HasFlag(SystemCategories.Streaming))
+            if ((categories & SystemCategories.Streaming) == SystemCategories.Streaming)
             {
                 systems.AddRange(new []
                 {
@@ -26,6 +29,17 @@ namespace Unity.Entities.Hybrid.EndToEnd.Tests
                     typeof(SceneSectionStreamingSystem)
                 });
             }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            if ((categories & SystemCategories.HybridComponents) == SystemCategories.HybridComponents)
+            {
+                systems.AddRange(new []
+                {
+                    typeof(CompanionGameObjectUpdateSystem),
+                    typeof(CompanionGameObjectUpdateTransformSystem)
+                });
+            }
+#endif
 
             DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, systems);
         }

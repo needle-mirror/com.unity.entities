@@ -414,16 +414,31 @@ namespace Unity.Scenes.Editor
                     for (int i = 0;i != objRefs.Array.Length;i++)
                     {
                         var obj = objRefs.Array[i];
+
                         if (obj != null && !EditorUtility.IsPersistent(obj))
                         {
-                            var saveInBuild = (obj.hideFlags & HideFlags.DontSaveInBuild) == 0;
-                            if (saveInBuild)
+                            if (obj is GameObject gameObject)
+                            {
+                                // Reset hide flags, otherwise they would prevent putting hybrid components in builds.
+                                gameObject.hideFlags = HideFlags.None;
+                                foreach (var component in gameObject.GetComponents<UnityEngine.Component>())
+                                    component.hideFlags = HideFlags.None;
+
+                                serializedObjectList.Add(gameObject);
+                                serializedObjectList.AddRange(gameObject.GetComponents<UnityEngine.Component>());
+                                continue;
+                            }
+
+                            if (obj is UnityEngine.Component)
+                                continue;
+                            
+                            if ((obj.hideFlags & HideFlags.DontSaveInBuild) == 0)
                                 serializedObjectList.Add(obj);
                             else
                                 objRefs.Array[i] = null;
                         }
                     }
-                    
+
                     UnityEditorInternal.InternalEditorUtility.SaveToSerializedFileAndForget(serializedObjectList.ToArray(), objRefsPath, false);
                     objectReferenceCount = objRefs.Array.Length;
                 }

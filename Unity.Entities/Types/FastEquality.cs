@@ -293,8 +293,8 @@ namespace Unity.Entities
                 var writer = new PropertiesBinaryWriter(&buffer);
                 BoxedProperties.WriteBoxedType(lhs, writer);
 
-                var remainder = buffer.Size & (sizeof(int) - 1);
-                var alignedSize = buffer.Size - remainder;
+                var remainder = buffer.Length & (sizeof(int) - 1);
+                var alignedSize = buffer.Length - remainder;
                 var bufferPtrAtEndOfAlignedData = buffer.Ptr + alignedSize;
                 for (int i = 0; i < alignedSize; i += sizeof(int))
                 {
@@ -382,7 +382,7 @@ namespace Unity.Entities
                 var writerRHS = new PropertiesBinaryWriter(&bufferRHS);
                 BoxedProperties.WriteBoxedType(rhs, writerRHS);
 
-                if (UnsafeUtility.MemCmp(bufferLHS.Ptr, bufferRHS.Ptr, bufferLHS.Size) != 0)
+                if (UnsafeUtility.MemCmp(bufferLHS.Ptr, bufferRHS.Ptr, bufferLHS.Length) != 0)
                     return false;
 
                 var objectTableLHS = writerLHS.GetObjectTable();

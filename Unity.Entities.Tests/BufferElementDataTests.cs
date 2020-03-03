@@ -565,6 +565,7 @@ namespace Unity.Entities.Tests
             handle.Complete();
         }
 
+        [RuntimeMainThread]
         struct WriteJob : IJobChunk
         {
             public ArchetypeChunkBufferType<EcsIntElement> Int;

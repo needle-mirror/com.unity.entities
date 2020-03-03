@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.CodeGeneratedJobForEach;
@@ -227,16 +228,120 @@ namespace Unity.Entities
             d;
 #endif
         
-        
         public unsafe delegate void JobChunkRunWithoutJobSystemDelegate(ArchetypeChunkIterator* iterator, void* job);
         public unsafe delegate void JobRunWithoutJobSystemDelegate(void* job);
-        
-        public static unsafe void RunIJob<T>(ref T jobData, JobRunWithoutJobSystemDelegate functionPointer) where T : struct, IJob
+
+#if NET_DOTS && ENABLE_UNITY_COLLECTIONS_CHECKS && !UNITY_DOTSPLAYER_IL2CPP
+        // DOTS Runtime always compiles against the .Net Framework which will re-order structs if they contain non-blittable data (unlike mono which
+        // will keep structs as Layout.Sequential). However, Burst will always assume a struct layout as if Layout.Sequential was used which presents 
+        // a data layout mismatch that must be accounted for. The DOTS Runtime job system handles this problem by marshalling jobData structs already 
+        // but in the case where we are calling RunJob/RunJobChunk we bypass the job system data marshalling by executing the bursted static function directly 
+        // passing the jobData as a void*. So we must account for this marshalling here. Note we only need to do this when collection checks are on since
+        // job structs must be non-blittable for bursting however collection checks add reference types which Burst internally treates as IntPtr which 
+        // allows collection checks enabled code to still burst compile.
+        struct JobMarshalFnLookup<T> where T : struct, IJobBase
+        {
+            static IntPtr MarshalFn;
+
+            public static IntPtr GetMarshalFn()
+            {
+                if(MarshalFn == IntPtr.Zero)
+                {
+                    var job = default(T);
+                    var fn = job.GetMarshalMethod_Gen();
+                    // Pin the delegate so it can be used for the lifetime of the app. Never de-alloc
+                    var handle = GCHandle.Alloc(fn); 
+                    MarshalFn = Marshal.GetFunctionPointerForDelegate(fn);
+                }
+                return MarshalFn;
+            }
+        }
+        public static unsafe void RunIJob<T>(ref T jobData, JobRunWithoutJobSystemDelegate functionPointer) where T : unmanaged, IJob, IJobBase
+        {
+            var managedJobDataPtr = UnsafeUtility.AddressOf(ref jobData);
+            var unmanagedSize = jobData.GetUnmanagedJobSize_Gen();
+            if (unmanagedSize != -1)
+            {
+                const int kAlignment = 16;
+                int alignedSize = (unmanagedSize + kAlignment - 1) & ~(kAlignment - 1);
+                byte* unmanagedJobData = stackalloc byte[alignedSize];
+                byte* alignedUnmanagedJobData = (byte*)((UInt64)(unmanagedJobData + kAlignment - 1) & ~(UInt64)(kAlignment - 1));
+
+                // DOTS Runtime job marshalling code assumes the job is wrapped so create the wrapper and assign the jobData
+                IJobExtensions.JobStruct<T> jobStructData = default;
+                jobStructData.JobData = jobData;
+                byte* jobStructDataPtr = (byte*)UnsafeUtility.AddressOf(ref jobStructData);
+
+                byte* dst = (byte*)alignedUnmanagedJobData;
+                byte* src = (byte*)jobStructDataPtr;
+                var marshalFnPtr = JobMarshalFnLookup<T>.GetMarshalFn();
+                UnsafeUtility.CallFunctionPtr_pp(marshalFnPtr.ToPointer(), dst, src);
+
+                // In the case of JobStruct we know the jobwrapper doesn't add 
+                // anything to the jobData so just pass it along, no offset required unlike JobChunk
+                functionPointer(alignedUnmanagedJobData);
+            }
+            else
+            {
+                functionPointer(managedJobDataPtr);
+            }
+        }
+
+        public static unsafe void RunJobChunk<T>(ref T jobData, EntityQuery query, JobChunkRunWithoutJobSystemDelegate functionPointer) where T : unmanaged, IJobChunk, IJobBase
+        {
+            var myIterator = query.GetArchetypeChunkIterator();
+
+            try
+            {
+                query._DependencyManager->IsInForEachDisallowStructuralChange++;
+
+                var managedJobDataPtr = UnsafeUtility.AddressOf(ref jobData);
+                var unmanagedSize = jobData.GetUnmanagedJobSize_Gen();
+                if (unmanagedSize != -1)
+                {
+                    const int kAlignment = 16;
+                    int alignedSize = (unmanagedSize + kAlignment - 1) & ~(kAlignment - 1);
+                    byte* unmanagedJobData = stackalloc byte[alignedSize];
+                    byte* alignedUnmanagedJobData = (byte*)((UInt64)(unmanagedJobData + kAlignment - 1) & ~(UInt64)(kAlignment - 1));
+
+                    // DOTS Runtime job marshalling code assumes the job is wrapped so create the wrapper and assign the jobData
+                    JobChunkExtensions.JobChunkData<T> jobChunkData = default;
+                    jobChunkData.Data = jobData;
+                    byte* jobChunkDataPtr = (byte*)UnsafeUtility.AddressOf(ref jobChunkData);
+
+                    byte* dst = (byte*)alignedUnmanagedJobData;
+                    byte* src = (byte*)jobChunkDataPtr;
+                    var marshalFnPtr = JobMarshalFnLookup<T>.GetMarshalFn();
+                    UnsafeUtility.CallFunctionPtr_pp(marshalFnPtr.ToPointer(), dst, src);
+
+                    // Since we are running inline, normally the outer job scheduling code would
+                    // reference jobWrapper.Data however we can't do that since if we are in this code it means
+                    // we are dealing with a job/jobwrapper that is burst compiled and is non-blittable. Thus any
+                    // type-safe offset we calculate here will be based on the managed data layout which is not useful.
+                    // Instead we can at least know that for a sequential layout (which is what we know we must be using
+                    // since we are burst compiled) our JobChunkData contains a safety field as its first member. Skipping over this will
+                    // provide the necessary offset to jobChunkData.Data
+                    var DataOffset = UnsafeUtility.SizeOf<JobChunkExtensions.EntitySafetyHandle>();
+                    Assertions.Assert.AreEqual(jobChunkData.safety.GetType(), typeof(JobChunkExtensions.EntitySafetyHandle));
+                    functionPointer(&myIterator, alignedUnmanagedJobData + DataOffset);
+                }
+                else
+                {
+                    functionPointer(&myIterator, managedJobDataPtr);
+                }
+            }
+            finally
+            {
+                query._DependencyManager->IsInForEachDisallowStructuralChange--;
+            }
+        }
+#else
+        public static unsafe void RunIJob<T>(ref T jobData, JobRunWithoutJobSystemDelegate functionPointer) where T : unmanaged, IJob
         {
             functionPointer(UnsafeUtility.AddressOf(ref jobData));
         }
-        
-        public static unsafe void RunJobChunk<T>(ref T jobData, EntityQuery query, JobChunkRunWithoutJobSystemDelegate functionPointer) where T : struct, IJobChunk
+
+        public static unsafe void RunJobChunk<T>(ref T jobData, EntityQuery query, JobChunkRunWithoutJobSystemDelegate functionPointer) where T : unmanaged, IJobChunk
         {
             var myIterator = query.GetArchetypeChunkIterator();
 
@@ -254,6 +359,7 @@ namespace Unity.Entities
             functionPointer(&myIterator, UnsafeUtility.AddressOf(ref jobData));
             #endif
         }
+#endif
     }
 }
 

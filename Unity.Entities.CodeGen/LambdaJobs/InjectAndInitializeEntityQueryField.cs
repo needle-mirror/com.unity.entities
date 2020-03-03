@@ -99,6 +99,7 @@ namespace Unity.Entities.CodeGen
             typeDefinition.Methods.Add(getEntityQueryFromMethod);
 
             var body = getEntityQueryFromMethod.Body;
+            body.InitLocals = true; // initlocals must be set for verifiable methods with one or more local variables
 
             var getEntityQueryMethod = moduleDefinition.ImportReference(typeof(ComponentSystemBase)
                 .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public).Single(m =>

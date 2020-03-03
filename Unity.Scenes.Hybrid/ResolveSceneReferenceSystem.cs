@@ -58,15 +58,12 @@ namespace Unity.Scenes
     class ResolveSceneReferenceSystem : ComponentSystem
     {
         private NativeList<Hash128> m_ChangedScenes = new NativeList<Hash128>(Allocator.Persistent);
-        private EntityQuery m_NotYetRequestedScenes;
-
+        private EntityQuery m_ScenesToRequest;
+#if UNITY_EDITOR && !USE_SUBSCENE_EDITORBUNDLES
         private EntityQuery m_ImportingScenes;
+#endif
         private EntityQuery m_ResolvedScenes;
 
-#if UNITY_EDITOR
-        long m_LastNumImports = -1;
-#endif
-        
         public void NotifySceneContentsHasChanged(Hash128 scene)
         {
             m_ChangedScenes.Add(scene);
@@ -81,16 +78,15 @@ namespace Unity.Scenes
         void UpdateSceneContentsChanged(Hash128 buildConfigurationGUID)
         {
 #if UNITY_EDITOR
-            var importCounter = UnityEditor.Experimental.AssetDatabaseExperimental.counters.import.imported.total;
-            if (importCounter == m_LastNumImports)
-                return;
-            m_LastNumImports = importCounter;
             Entities.With(m_ResolvedScenes).ForEach((Entity sceneEntity, ref SceneReference scene, ref ResolvedSceneHash resolvedScene) =>
             {
                 LogResolving("Queuing UpdateSceneContentsChanged", scene.SceneGUID);
                 var hash = EntityScenesPaths.GetSubSceneArtifactHash(scene.SceneGUID, buildConfigurationGUID, UnityEditor.Experimental.AssetDatabaseExperimental.ImportSyncMode.Queue);
                 if ((hash != default) && (hash != resolvedScene.ArtifactHash))
+                {
+                    LogResolving("Scene hash changed", scene.SceneGUID);
                     NotifySceneContentsHasChanged(scene.SceneGUID);
+                }
             });
 #endif
 
@@ -107,6 +103,7 @@ namespace Unity.Scenes
                         var unloadFlags = SceneSystem.UnloadParameters.DestroySectionProxyEntities | SceneSystem.UnloadParameters.DontRemoveRequestSceneLoaded;
                         sceneSystem.UnloadScene(sceneEntity, unloadFlags);
                     }
+                    Assertions.Assert.IsTrue(EntityManager.GetEntityQueryMask(m_ScenesToRequest).Matches(sceneEntity));
                 }
                 m_ChangedScenes.Clear();
             }
@@ -213,6 +210,7 @@ namespace Unity.Scenes
                 buffer.Add(new ResolvedSectionEntity { SectionEntity = sectionEntity });
             }
             sceneMetaDataRef.Dispose();
+            Assertions.Assert.IsTrue(EntityManager.GetEntityQueryMask(m_ResolvedScenes).Matches(sceneEntity));
         }
 
         //@TODO: What happens if we change source assets between queuing a request for the first time and it being resolved?
@@ -225,6 +223,8 @@ namespace Unity.Scenes
             Enabled = !liveLinkEnabled;
             if (!Enabled)
                 return;
+#else
+            SceneWithBuildConfigurationGUIDs.ValidateBuildSettingsCache();
 #endif
             var buildConfigurationGUID = World.GetExistingSystem<SceneSystem>().BuildConfigurationGUID;
 
@@ -249,11 +249,11 @@ namespace Unity.Scenes
 
 
             //@TODO: Temporary workaround to prevent crash after build player
-            if (m_NotYetRequestedScenes.IsEmptyIgnoreFilter)
+            if (m_ScenesToRequest.IsEmptyIgnoreFilter)
                 return;
 
             // We are seeing this scene for the first time, so we need to schedule a request.
-            Entities.With(m_NotYetRequestedScenes).ForEach((Entity sceneEntity, ref SceneReference scene, ref RequestSceneLoaded requestSceneLoaded) =>
+            Entities.With(m_ScenesToRequest).ForEach((Entity sceneEntity, ref SceneReference scene, ref RequestSceneLoaded requestSceneLoaded) =>
             {
 #if UNITY_EDITOR && !USE_SUBSCENE_EDITORBUNDLES
                  var blocking = (requestSceneLoaded.LoadFlags & SceneLoadFlags.BlockOnImport) != 0;
@@ -271,26 +271,30 @@ namespace Unity.Scenes
                 ResolveScene(sceneEntity, ref scene, requestSceneLoaded, new Hash128());
 #endif
             });
-            EntityManager.AddComponent(m_NotYetRequestedScenes, ComponentType.ReadWrite<ResolvedSectionEntity>());
+            EntityManager.AddComponent(m_ScenesToRequest, ComponentType.ReadWrite<ResolvedSectionEntity>());
         }
 
         protected override void OnCreate()
         {
-            m_NotYetRequestedScenes = GetEntityQuery(ComponentType.ReadWrite<SceneReference>(),
+            m_ScenesToRequest = GetEntityQuery(ComponentType.ReadWrite<SceneReference>(),
                 ComponentType.ReadWrite<RequestSceneLoaded>(),
                 ComponentType.Exclude<ResolvedSectionEntity>(),
                 ComponentType.Exclude<DisableSceneResolveAndLoad>());
 
+#if UNITY_EDITOR && !USE_SUBSCENE_EDITORBUNDLES
             m_ImportingScenes = GetEntityQuery(ComponentType.ReadWrite<SceneReference>(),
                 ComponentType.ReadWrite<RequestSceneLoaded>(),
                 ComponentType.ReadWrite<ResolvedSectionEntity>(),
                 ComponentType.Exclude<ResolvedSceneHash>(),
                 ComponentType.Exclude<DisableSceneResolveAndLoad>());
+#endif
 
             m_ResolvedScenes = GetEntityQuery(ComponentType.ReadWrite<SceneReference>(),
                 ComponentType.ReadWrite<RequestSceneLoaded>(),
                 ComponentType.ReadWrite<ResolvedSectionEntity>(),
+#if UNITY_EDITOR && !USE_SUBSCENE_EDITORBUNDLES
                 ComponentType.ReadWrite<ResolvedSceneHash>(),
+#endif
                 ComponentType.Exclude<DisableSceneResolveAndLoad>());
         }
 

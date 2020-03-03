@@ -3,20 +3,19 @@ uid: ecs-job-extensions
 ---
 # Job extensions
 
-The Unity C# Job System lets you run code on multiple threads. The system provides scheduling, 
-parallel processing, and multi-threaded safety. The Job System is a core Unity module that provides 
-the general purpose interfaces and classes for creating and running jobs (whether or not you are using ECS). 
+The Unity C# job system lets you run code on multiple threads. The system provides scheduling, parallel processing, and multi-threaded safety. The job system is a core Unity module that provides the general purpose interfaces and classes to create and run jobs (whether or not you are using ECS). 
+
 These interfaces include:
 
-* [IJob](https://docs.unity3d.com/ScriptReference/Unity.Jobs.IJob.html) — create a Job that runs on any thread or core, as determined by the Job System scheduler.
-* [IJobParallelFor](https://docs.unity3d.com/ScriptReference/Unity.Jobs.IJobParallelFor.html) — create a Job that can run on multiple threads in parallel to process the elements of a [NativeContainer](https://docs.unity3d.com/Manual/JobSystemNativeContainer.html).
-* [IJobExtensions](https://docs.unity3d.com/ScriptReference/Unity.Jobs.IJobExtensions.html) — provides extension methods for running IJobs.
-* [IJobParalllelForExtensions](https://docs.unity3d.com/ScriptReference/Unity.Jobs.IJobParallelForExtensions.html)— provides extension methods for running IJobParallelFor jobs.
-* [JobHandle](https://docs.unity3d.com/ScriptReference/Unity.Jobs.JobHandle.html) — a handle for accessing a scheduled job. `JobHandle` instances also allow you to specify dependencies between Jobs.
+* [IJob](https://docs.unity3d.com/ScriptReference/Unity.Jobs.IJob.html): Create a job that runs on any thread or core, which the job system scheduler determines.
+* [IJobParallelFor](https://docs.unity3d.com/ScriptReference/Unity.Jobs.IJobParallelFor.html): Create a job that can run on multiple threads in parallel to process the elements of a [NativeContainer](https://docs.unity3d.com/Manual/JobSystemNativeContainer.html).
+* [IJobExtensions](https://docs.unity3d.com/ScriptReference/Unity.Jobs.IJobExtensions.html): Provides extension methods to run IJobs.
+* [IJobParalllelForExtensions](https://docs.unity3d.com/ScriptReference/Unity.Jobs.IJobParallelForExtensions.html): Provides extension methods to run IJobParallelFor jobs.
+* [JobHandle](https://docs.unity3d.com/ScriptReference/Unity.Jobs.JobHandle.html): A handle to access a scheduled job. You can also use `JobHandle` instances to specify dependencies between jobs.
 
-For an overview of the Jobs System see [C# Job System](https://docs.unity3d.com/Manual/JobSystemSafetySystem.html) in the Unity Manual.
+For an overview of the jobs system see [C# Job System](https://docs.unity3d.com/Manual/JobSystemSafetySystem.html) in the Unity User Manual.
 
-The Jobs package extends the Job System to support ECS. It contains:
+The [Jobs package](https://docs.unity3d.com/Packages/com.unity.jobs@latest) extends the job system to support ECS. It contains:
 
 * [IJobParallelForDeferExtensions](https://docs.unity3d.com/Packages/com.unity.jobs@latest?preview=1&subfolder=/api/Unity.Jobs.IJobParallelForDeferExtensions.html)
 * [IJobParallelForFilter](https://docs.unity3d.com/Packages/com.unity.jobs@latest?preview=1&subfolder=/api/Unity.Jobs.IJobParallelForFilter.html)

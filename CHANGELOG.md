@@ -1,5 +1,62 @@
 # Change log
 
+## [0.7.0] - 2020-03-03
+
+### Added
+
+* Added `HasComponent`/`GetComponent`/`SetComponent` methods that streamline access to components through entities when using the `SystemBase` class.  These methods call through to `EntityManager` methods when in OnUpdate code and codegen access through `ComponentDataFromEntity` when inside of `Entities.ForEach`.
+* `SubScene` support for hybrid components, allowing Editor LiveLink (Player LiveLink is not supported yet).
+
+### Changed
+
+* Fixed an issue where shared component filtering could be broken until the shared component data is manually set/added when using a deserialized world.
+* Users can control the update behaviour of a `ComponentSystemGroup` via an update callback.  See the documentation for `ComponentSystemGroup.UpdateCallback`, as well as examples in `FixedRateUtils`.
+* `IDisposable` and `ICloneable` are now supported on managed components.
+* `World` now exposes a `Flags` field allowing the editor to improve how it filters world to show in various tooling windows.
+* `World.Systems` is now a read only collection that does not allocate managed memory while being iterated over.
+* Updated package `com.unity.platforms` to version `0.2.1-preview.4`.
+
+### Deprecated
+
+* Property `World.AllWorlds` is now replaced by `World.All` which now returns a read only collection that does not allocate managed memory while being iterated over.
+
+### Removed
+
+* Removed expired API `implicit operator GameObjectConversionSettings(World)`
+* Removed expired API `implicit operator GameObjectConversionSettings(Hash128)`
+* Removed expired API `implicit operator GameObjectConversionSettings(UnityEditor.GUID)`
+* Removed expired API `TimeData.deltaTime`
+* Removed expired API `TimeData.time`
+* Removed expired API `TimeData.timeSinceLevelLoad`
+* Removed expired API `TimeData.captureFramerate`
+* Removed expired API `TimeData.fixedTime`
+* Removed expired API `TimeData.frameCount`
+* Removed expired API `TimeData.timeScale`
+* Removed expired API `TimeData.unscaledTime`
+* Removed expired API `TimeData.captureDeltaTime`
+* Removed expired API `TimeData.fixedUnscaledTime`
+* Removed expired API `TimeData.maximumDeltaTime`
+* Removed expired API `TimeData.realtimeSinceStartup`
+* Removed expired API `TimeData.renderedFrameCount`
+* Removed expired API `TimeData.smoothDeltaTime`
+* Removed expired API `TimeData.unscaledDeltaTime`
+* Removed expired API `TimeData.fixedUnscaledDeltaTime`
+* Removed expired API `TimeData.maximumParticleDeltaTime`
+* Removed expired API `TimeData.inFixedTimeStep`
+* Removed expired API `ComponentSystemBase.OnCreateManager()`
+* Removed expired API `ComponentSystemBase.OnDestroyManager()`
+* Removed expired API `ConverterVersionAttribute(int)`
+
+### Fixed
+
+* Non-moving children in transform hierarchies no longer trigger transform system updates.
+* Fixed a bug where dynamic buffer components would sometimes leak during live link.
+* Fixed crash that would occur if only method in a module was generated from a `[GenerateAuthoringComponent]` type.
+* `Entities.ForEach` now throws a correct error message when it is used with a delegate stored in a variable, field or returned from a method.
+* Fix IL2CPP compilation error with `Entities.ForEach` that uses a tag component and `WithStructuralChanges`.
+* `Entities.ForEach` now marshals lambda parameters for DOTS Runtime when the lambda is burst compiled and has collection checks enabled. Previously using `EntityCommandBuffer` or other types with a `DisposeSentinel` field as part of your lambda function (when using DOTS Runtime) may have resulted in memory access violation.
+* Throw correct error message if accessing `ToComponentDataArrayAsync` `CopyFromComponentDataArray` or `CopyFromComponentDataArrayAsync` from an unrelated query.
+
 
 ## [0.6.0] - 2020-02-17
 
@@ -258,7 +315,7 @@ Removed the following deprecated API as announced in/before `0.1.1-preview`:
 * Significantly improved `Entity` instantiation performance when running in-Editor.
 * Added support for managed `IComponentData` types such as `class MyComponent : IComponentData {}` which allows managed types such as GameObjects or List<>s to be stored in components. Users should use managed components sparingly in production code when possible as these components cannot be used by the Job System or archetype chunk storage and thus will be significantly slower to work with. Refer to the documentation for [component data](Documentation~/component_data.md) for more details on managed component use, implications and prevention.
 * 'SubSceneStreamingSystem' has been renamed to `SceneSectionStreamingSystem` and is now internal
-* Deprecated `_SceneEntities` in `SubScene.cs`. Please use `SceneSystem.LoadAsync` / `Unload` with the respective SceneGUID instead. This API will be removed after 2019-11-22.
+* Deprecated `_SceneEntities` in `SubScene.cs`. Please use `SceneSystem.LoadAsync` / `Unload` with the respective SceneGUID instead.
 * Updated `com.unity.serialization` to `0.6.3-preview`.
 * The deprecated `GetComponentGroup()` APIs are now `protected` and can only be called from inside a System like their `GetEntityQuery()` successors.
 * All GameObjects with a ConvertToEntity set to "Convert and Destroy" will all be processed within the same conversion pass, this allows cross-referencing.

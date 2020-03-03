@@ -265,7 +265,7 @@ namespace Unity.Entities
                 else
                 {
                     if (hasHybridComponents && TypeManager.GetTypeInfo(srcType.TypeIndex).Category == TypeManager.TypeCategory.Class)
-                    { 
+                    {
                         //Hybrid component, put at end of array
                         var index = componentCount - nonNullHybridComponents - 1;
                         componentIndices[index] = srcManagedComponentIndex;
@@ -294,9 +294,12 @@ namespace Unity.Entities
                 
             if(hasHybridComponents)
             {
+                var companionLinkIndexInTypeArray = GetIndexInTypeArray(dstArchetype, ManagedComponentStore.CompanionLinkTypeIndex);
+                var companionLinkIndices = (companionLinkIndexInTypeArray == -1) ? null : (int*)(dstBaseAddr + dstOffsets[companionLinkIndexInTypeArray]);
+
                 var dstEntities = (Entity*) dstChunk->Buffer + dstBaseIndex;
                 entityComponentStore.ManagedChangesTracker.CloneHybridComponentBegin(
-                    componentIndices + componentCount - nonNullHybridComponents, nonNullHybridComponents, dstEntities, count);
+                    componentIndices + componentCount - nonNullHybridComponents, nonNullHybridComponents, dstEntities, count, companionLinkIndices);
                 for (int c = componentCount - nonNullHybridComponents; c < componentCount; ++c)
                 {
                     var dst = (int*) (componentDstArrayStart[c]);

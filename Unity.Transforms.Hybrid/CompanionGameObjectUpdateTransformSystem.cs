@@ -9,6 +9,7 @@ using UnityEngine.Jobs;
 
 struct CompanionGameObjectUpdateTransformSystemState : ISystemStateComponentData { }
 
+[ExecuteAlways]
 [UpdateAfter(typeof(TransformSystemGroup))]
 public class CompanionGameObjectUpdateTransformSystem : JobComponentSystem
 {
@@ -66,7 +67,11 @@ public class CompanionGameObjectUpdateTransformSystem : JobComponentSystem
 
             var transforms = new Transform[m_Entities.Length];
             for (int i = 0; i < m_Entities.Length; i++)
-                transforms[i] = EntityManager.GetComponentObject<CompanionLink>(m_Entities[i]).transform;
+            {
+                var link = EntityManager.GetComponentData<CompanionLink>(m_Entities[i]);
+                transforms[i] = link.Companion.transform;
+            }
+
             m_TransformAccessArray.SetTransforms(transforms);
         }
 

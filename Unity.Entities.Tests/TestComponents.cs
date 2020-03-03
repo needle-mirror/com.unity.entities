@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Unity.Entities;
 using Unity.Entities.Tests;
+using Unity.Assertions;
 
 [assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<int>))]
 [assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<float>))]
@@ -151,6 +153,30 @@ namespace Unity.Entities.Tests
             Value = value;
         }
     }
+    
+    public unsafe struct EcsTestSharedCompWithRefCount : ISharedComponentData, IRefCounted
+    {
+        readonly int* RefCount;
+
+        public EcsTestSharedCompWithRefCount(int* refCount)
+        {
+            Assert.IsTrue(refCount != null);
+            this.RefCount = refCount;
+        }
+
+        public void Retain()
+        {
+            Assert.IsTrue(RefCount != null);
+            Interlocked.Increment(ref *RefCount);
+        }
+
+        public void Release()
+        {
+            Assert.IsTrue(RefCount != null);
+            Interlocked.Decrement(ref *RefCount);
+        }
+    }
+    
 
     public struct EcsTestDataEntity : IComponentData
     {
@@ -402,5 +428,35 @@ namespace Unity.Entities.Tests
     {
         public string value4;
     }
+    
+    public unsafe class EcsTestManagedCompWithRefCount : IComponentData, ICloneable, IDisposable
+    {
+        readonly int* RefCount;
+
+        public EcsTestManagedCompWithRefCount()
+        {
+            RefCount = null;
+        }
+        
+        public EcsTestManagedCompWithRefCount(int* refCount)
+        {
+            Assert.IsTrue(refCount != null);
+            this.RefCount = refCount;
+        }
+
+        public object Clone()
+        {
+            Assert.IsTrue(RefCount != null);
+            Interlocked.Increment(ref *RefCount);
+            return this;
+        }
+
+        public void Dispose()
+        {
+            Assert.IsTrue(RefCount != null);
+            Interlocked.Decrement(ref *RefCount);
+        }
+    }
+    
 #endif
 }

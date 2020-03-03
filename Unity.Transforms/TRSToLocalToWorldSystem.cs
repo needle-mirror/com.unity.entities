@@ -260,7 +260,7 @@ namespace Unity.Transforms
         protected override JobHandle OnUpdate(JobHandle inputDeps)
         {
             var rotationType = GetArchetypeChunkComponentType<Rotation>(true);
-            var compositeRotationTyoe = GetArchetypeChunkComponentType<CompositeRotation>(true);
+            var compositeRotationType = GetArchetypeChunkComponentType<CompositeRotation>(true);
             var translationType = GetArchetypeChunkComponentType<Translation>(true);
             var nonUniformScaleType = GetArchetypeChunkComponentType<NonUniformScale>(true);
             var scaleType = GetArchetypeChunkComponentType<Scale>(true);
@@ -269,7 +269,7 @@ namespace Unity.Transforms
             var trsToLocalToWorldJob = new TRSToLocalToWorld()
             {
                 RotationType = rotationType,
-                CompositeRotationType = compositeRotationTyoe,
+                CompositeRotationType = compositeRotationType,
                 TranslationType = translationType,
                 ScaleType = scaleType,
                 NonUniformScaleType = nonUniformScaleType,

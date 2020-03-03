@@ -645,6 +645,8 @@ namespace Unity.Entities
             NativeMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes)
         {
+            var entitiesWithCompanionLink = new NativeList<Entity>(Allocator.Temp);
+
             for (var i = 0; i < managedComponentDataChanges.Length; i++)
             {
                 var packedManagedComponentDataChange = managedComponentDataChanges[i];
@@ -669,10 +671,22 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        entityManager.SetComponentObject(entity, component, packedManagedComponentDataChange.BoxedValue);
+                        var clone = ManagedComponentStore.CloneManagedComponent(packedManagedComponentDataChange.BoxedValue);
+                        entityManager.SetComponentObject(entity, component, clone);
+
+                        if (component.TypeIndex == ManagedComponentStore.CompanionLinkTypeIndex)
+                        {
+                            entitiesWithCompanionLink.Add(entity);
+                        }
                     }
                 }
                 while (packedEntities.TryGetNextValue(out entity, ref iterator));
+            }
+
+            var entitiesWithCompanionLinkCount = entitiesWithCompanionLink.Length;
+            if (entitiesWithCompanionLinkCount > 0)
+            {
+                ManagedComponentStore.AssignHybridComponentsToCompanionGameObjects(entityManager, entitiesWithCompanionLink.AsArray());
             }
         }
 

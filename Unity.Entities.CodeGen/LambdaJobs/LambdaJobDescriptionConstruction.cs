@@ -63,6 +63,8 @@ namespace Unity.Entities.CodeGen
         public bool LambdaWasEmittedAsInstanceMethodOnContainingType => MethodLambdaWasEmittedAs.DeclaringType.TypeReferenceEquals(ContainingMethod.DeclaringType);
 
         public static bool UsesNoAlias = true;
+        public bool HasAllowedMethodInvokedWithThis;
+
         public bool UsesBurst
         {
             get
@@ -72,7 +74,7 @@ namespace Unity.Entities.CodeGen
                 if (WithStructuralChanges)
                     return false;
 
-                var oldWithBurstMethod = InvokedConstructionMethods.FirstOrDefault(m =>m.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithBurst) && m.Arguments.Length == 1);
+                var oldWithBurstMethod = InvokedConstructionMethods.FirstOrDefault(m => m.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithBurst) && m.Arguments.Length == 1);
                 if (oldWithBurstMethod != null)
                     return (int)oldWithBurstMethod.Arguments[0] == 1;
 
@@ -221,7 +223,7 @@ namespace Unity.Entities.CodeGen
                     var givenName = withNameModifier?.Arguments.OfType<string>().Single();
                     var lambdaJobName = givenName ?? $"{method.Name}_LambdaJob{lambdaNumber}";
                     if (givenName != null && !VerifyLambdaName(givenName))
-                        UserError.DC0039(method, givenName, getEntitiesOrJobInstruction).Throw();
+                        UserError.DC0043(method, givenName, getEntitiesOrJobInstruction).Throw();
 
                     var hasWithStructuralChangesModifier 
                         = modifiers.Any(m => m.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithStructuralChanges));
@@ -410,8 +412,25 @@ namespace Unity.Entities.CodeGen
             var delegatePushingInstruction = CecilHelpers.FindInstructionThatPushedArg(methodToAnalyze, 1, withCodeInvocationInstruction);
 
             var result = CecilHelpers.MatchesDelegateProducingPattern(methodToAnalyze, delegatePushingInstruction, CecilHelpers.DelegateProducingPattern.MatchSide.Start);
+
             if (result == null)
+            {
+                // Make sure we aren't generating this lambdajob from a stored delegate
+                bool LivesInUniversalDelegatesNamespace(TypeReference type) => type.Namespace == typeof(UniversalDelegates.R<>).Namespace;
+                if ((delegatePushingInstruction.OpCode == OpCodes.Ldfld && LivesInUniversalDelegatesNamespace(((FieldReference)delegatePushingInstruction.Operand).FieldType) || 
+                     (delegatePushingInstruction.IsLoadLocal(out var localIndex) && LivesInUniversalDelegatesNamespace(methodToAnalyze.Body.Variables[localIndex].VariableType)) ||
+                     (delegatePushingInstruction.IsLoadArg(out var argIndex) && 
+                      LivesInUniversalDelegatesNamespace(methodToAnalyze.Parameters[methodToAnalyze.HasThis ? (argIndex - 1) : argIndex].ParameterType))))
+                     UserError.DC0044(methodToAnalyze, delegatePushingInstruction).Throw();
+                else if (((delegatePushingInstruction.OpCode == OpCodes.Call || delegatePushingInstruction.OpCode == OpCodes.Callvirt) &&
+                          delegatePushingInstruction.Operand is MethodReference callMethod))
+                {
+                    if (LivesInUniversalDelegatesNamespace(callMethod.ReturnType))
+                        UserError.DC0044(methodToAnalyze, delegatePushingInstruction).Throw();
+                }
+                
                 InternalCompilerError.DCICE002(methodToAnalyze, delegatePushingInstruction).Throw();
+            }
 
             return result;
         }

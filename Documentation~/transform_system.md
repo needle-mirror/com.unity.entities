@@ -732,11 +732,13 @@ Overriding transform components
 
 A user component (UserComponent) is defined and added to the LocalToWorld WriteGroup, as in:
 
+``` c#
 [Serializable]
 [WriteGroup(typeof(LocalToWorld))]
 struct UserComponent : IComponentData
 {
 }
+```
 
 Overriding transform components means that no additional extensions are possible. The user defined transform is the only transform that can occur with the specified user component.
 
@@ -744,25 +746,19 @@ In the UserTransformSystem, use the default query method to request write access
 
 e.g.
 
-    public class UserTransformSystem : JobComponentSystem
+``` c#
+    public class UserTransformSystem : SystemBase
     {
-        [BurstCompile]
-        struct UserTransform : IJobForEach<LocalToWorld, UserComponent>
+        protected override void OnUpdate()
         {
-            public void Execute(ref LocalToWorld localToWorld, [ReadOnly] ref UserComponent userComponent)
-            {
-                localToWorld.Value = ... // Assign localToWorld as needed for UserTransform
-            }
-        }
-    
-        protected override JobHandle OnUpdate(JobHandle inputDependencies)
-        {
-            var job = new UserTransform()
-            {
-            };
-            return job.Schedule(this, inputDependencies);
+            Entities
+                .ForEach(
+                    (ref LocalToWorld localToWorld, in UserComponent userComponent)=>{
+                        localToWorld.Value = ... // Assign localToWorld as needed for UserTransform
+                    }).ScheduleParallel();
         }
     }
+```
 
 All other transform components which write to LocalToWorld will be ignored by the transform system where UserComponent is included.
 
@@ -786,33 +782,29 @@ However, unexpected behavior may result if two different systems both override L
 
 e.g. If there is an additional:
 
+``` c#
     [Serializable]
     [WriteGroup(typeof(LocalToWorld))]
     struct UserComponent2 : IComponentData
     {
     }
+```
 
 And the equivalent system:
 
-    public class UserTransformSystem2 : JobComponentSystem
+```c#
+    public class UserTransformSystem2 : SystemBase
     {
-        [BurstCompile]
-        struct UserTransform2 : IJobForEach<LocalToWorld, UserComponent2>
+        protected override void OnUpdate()
         {
-            public void Execute(ref LocalToWorld localToWorld, [ReadOnly] ref UserComponent2 userComponent2)
-            {
-                localToWorld.Value = ... // Assign localToWorld as needed for UserTransform
-            }
-        }
-    
-        protected override JobHandle OnUpdate(JobHandle inputDependencies)
-        {
-            var job = new UserTransform()
-            {
-            };
-            return job.Schedule(this, inputDependencies);
+            Entities
+                .ForEach(
+                    (ref LocalToWorld localToWorld, in UserComponent2 userComponent2)=>{
+                        localToWorld.Value = ... // Assign localToWorld as needed for UserTransform
+                    }).ScheduleParallel();
         }
     }
+```
 
 Then if the following components are present...
 
@@ -835,48 +827,32 @@ In order to ensure that multiple overridden transform components can interact in
 
 e.g. If there is a:
 
+``` c#
     [Serializable]
     [WriteGroup(typeof(LocalToWorld))]
     struct UserComponent : IComponentData
     {
     }
+```
 
 And a system which filters based on the WriteGroup of LocalToWorld:
 
-    public class UserTransformSystem : JobComponentSystem
+``` c#
+    public class UserTransformSystem : SystemBase
     {
-        private EntityQuery m_Query;
 
-        protected override void OnCreate()
+        protected override void OnUpdate()
         {
-            m_Query = GetEntityQuery(new EntityQueryDesc()
-            {
-                All = new ComponentType[]
-                {
-                    ComponentType.ReadWrite<LocalToWorld>(),
-                    ComponentType.ReadOnly<UserComponent>(),
-                },
-                Options = EntityQueryDescOptions.FilterWriteGroup
-            });
+            Entities
+                .WithEntityQueryOptions(EntityQueryOptions.FilterWriteGroup)
+                .ForEach(
+                    (ref LocalToWorld localToWorld, in UserComponent userComponent)=>{
+                        localToWorld.Value = ... // Assign localToWorld as needed for UserTransform
+                    }).ScheduleParallel();
         }
-
-        [BurstCompile]
-        struct UserTransform : IJobForEach<LocalToWorld, UserComponent>
-        {
-            public void Execute(ref LocalToWorld localToWorld, [ReadOnly] ref UserComponent userComponent)
-            {
-                localToWorld.Value = ... // Assign localToWorld as needed for UserTransform
-            }
-        }
-    
-        protected override JobHandle OnUpdate(JobHandle inputDependencies)
-        {
-            var job = new UserTransform()
-            {
-            };
-            return job.ScheduleGroup(m_Query, inputDependencies);
-        }
+        
     }
+```
 
 m_Query in UserTransformSystem will only match the explicitly mentioned components.
 
@@ -901,54 +877,34 @@ The implicit expectation is that UserComponent is a completely orthogonal set of
 
 However, they may be explicitly supported by UserComponent systems by adding to the queries, as:
 
-    public class UserTransformExtensionSystem : JobComponentSystem
+``` c#
+    public class UserTransformExtensionSystem : SystemBase
     {
-        private EntityQuery m_Query;
-
-        protected override void OnCreate()
+        protected override void OnUpdate()
         {
-            m_Query = GetEntityQuery(new EntityQueryDesc()
-            {
-                All = new ComponentType[]
-                {
-                    ComponentType.ReadWrite<LocalToWorld>(),
-                    ComponentType.ReadOnly<UserComponent>(),
-                    ComponentType.ReadOnly<Translation>(),
-                    ComponentType.ReadOnly<Rotation>(),
-                    ComponentType.ReadOnly<Scale>(),
-                },
-                Options = EntityQueryDescOptions.FilterWriteGroup
-            });
-        }
-
-        [BurstCompile]
-        struct UserTransform : IJobForEach<LocalToWorld, UserComponent>
-        {
-            public void Execute(ref LocalToWorld localToWorld, [ReadOnly] ref UserComponent userComponent,
-                [ReadOnly] ref Translation translation,
-                [ReadOnly] ref Rotation rotation,
-                [ReadOnly] ref Scale scale)
-            {
-                localToWorld.Value = ... // Assign localToWorld as needed for UserTransform
-            }
-        }
-    
-        protected override JobHandle OnUpdate(JobHandle inputDependencies)
-        {
-            var job = new UserTransform()
-            {
-            };
-            return job.ScheduleGroup(m_Query, inputDependencies);
+            Entities
+                .WithEntityQueryOptions(EntityQueryOptions.FilterWriteGroup)
+                .ForEach(
+                    (ref LocalToWorld localToWorld, 
+                     in UserComponent userComponent,
+                     in Translation translation,
+                     in Rotation rotation,
+                     in Scale scale) => {
+                        localToWorld.Value = ... // Assign localToWorld as needed for UserTransform
+                    }).ScheduleParallel();
         }
     }
+```
 
 In the same way, if there is an additional:
 
+``` c#
     [Serializable]
     [WriteGroup(typeof(LocalToWorld))]
     struct UserComponent2 : IComponentData
     {
     }
+```
 
 And there is:
 
@@ -962,43 +918,22 @@ The UserTransformSystem defined above would not match, since UserComponent2 is n
 
 However, an explicit query can be created which can resolve the case and ensure the behavior is well defined. As in:
 
-    public class UserTransformComboSystem : JobComponentSystem
+
+``` c#
+    public class UserTransformComboSystem : SystemBase
     {
-        private EntityQuery m_Query;
-
-        protected override void OnCreate()
+        protected override void OnUpdate()
         {
-            m_Query = GetEntityQuery(new EntityQueryDesc()
-            {
-                All = new ComponentType[]
-                {
-                    ComponentType.ReadWrite<LocalToWorld>(),
-                    ComponentType.ReadOnly<UserComponent>(),
-                    ComponentType.ReadOnly<UserComponent2>(),
-                },
-                Options = EntityQueryDescOptions.FilterWriteGroup
-            });
-        }
-
-        [BurstCompile]
-        struct UserTransform : IJobForEach<LocalToWorld, UserComponent>
-        {
-            public void Execute(ref LocalToWorld localToWorld, 
-                [ReadOnly] ref UserComponent userComponent,
-                [ReadOnly] ref UserComponent2 userComponent2
-            {
-                localToWorld.Value = ... // Assign localToWorld as needed for UserTransform
-            }
-        }
-    
-        protected override JobHandle OnUpdate(JobHandle inputDependencies)
-        {
-            var job = new UserTransform()
-            {
-            };
-            return job.ScheduleGroup(m_Query, inputDependencies);
+            Entities
+                .ForEach(
+                (ref LocalToWorld localToWorld, 
+                 in UserComponent userComponent,
+                 in UserComponent2 userComponent2)=>{
+                    localToWorld.Value = ... // Assign localToWorld as needed for UserTransform
+                }).ScheduleParallel();
         }
     }
+```
 
 Then the following systems (or equivalents):
   - UserTransformSystem (LocalToWorld FilterWriteGroup:UserComponent) 

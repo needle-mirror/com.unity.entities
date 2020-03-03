@@ -112,27 +112,28 @@ namespace Unity.Entities.CodeGen
             // IComponentData
             if (resolvedParameterType.IsIComponentDataStruct())
             {
-                var readOnly = !parameter.ParameterType.IsByReference || HasCompilerServicesIsReadOnlyAttribute(parameter);
+                var readOnly = !parameter.ParameterType.IsByReference || parameter.HasCompilerServicesIsReadOnlyAttribute();
                 
                 if (resolvedParameterType.IsTagComponentDataStruct())
                 {
                     var (provider, providerRuntime) =
                         ImportReferencesFor(
                             typeof(LambdaParameterValueProvider_IComponentData_Tag<>), 
-                            typeof(LambdaParameterValueProvider_IComponentData_Tag<>.Runtime), parameter.ParameterType.GetElementType());
+                            withStructuralChanges
+                                ? typeof(LambdaParameterValueProvider_IComponentData_Tag<>.StructuralChangeRuntime)
+                                : typeof(LambdaParameterValueProvider_IComponentData_Tag<>.Runtime), parameter.ParameterType.GetElementType());
                     return new LambdaParamaterValueProviderInformation(provider, providerRuntime, readOnly, parameter.Name, null, false);
                 }
                 else
                 {
-                    
                     var (provider, providerRuntime) =
                     ImportReferencesFor(
                         typeof(LambdaParameterValueProvider_IComponentData<>),
                             withStructuralChanges
                                 ? typeof(LambdaParameterValueProvider_IComponentData<>.StructuralChangeRuntime)
-                            : typeof(LambdaParameterValueProvider_IComponentData<>.Runtime), parameter.ParameterType.GetElementType());
-                return new LambdaParamaterValueProviderInformation(provider, providerRuntime, readOnly, parameter.Name, null, withStructuralChanges);
-            }
+                                : typeof(LambdaParameterValueProvider_IComponentData<>.Runtime), parameter.ParameterType.GetElementType());
+                    return new LambdaParamaterValueProviderInformation(provider, providerRuntime, readOnly, parameter.Name, null, withStructuralChanges);
+                }
             }
 
             // class IComponentData / UnityEngine.Object
@@ -146,7 +147,7 @@ namespace Unity.Entities.CodeGen
                 bool readOnly = false;
                 if (parameter.ParameterType.IsByReference)
                 {
-                    if (HasCompilerServicesIsReadOnlyAttribute(parameter))
+                    if (parameter.HasCompilerServicesIsReadOnlyAttribute())
                         readOnly = true;
                     else
                         UserError.DC0024(lambdaJobDescriptionConstruction.ContainingMethod, parameterType, lambdaJobDescriptionConstruction.WithCodeInvocationInstruction).Throw();
@@ -166,7 +167,7 @@ namespace Unity.Entities.CodeGen
                 if (parameterType is ByReferenceType referenceType)
                     typeRef = referenceType.ElementType;
                 
-                var readOnly = HasCompilerServicesIsReadOnlyAttribute(parameter);
+                var readOnly = parameter.HasCompilerServicesIsReadOnlyAttribute();
                 GenericInstanceType bufferOfT = (GenericInstanceType)typeRef;
                 TypeReference bufferElementType = bufferOfT.GenericArguments[0];
                 var (provider, providerRuntime) = ImportReferencesFor(typeof(LambdaParameterValueProvider_DynamicBuffer<>),
@@ -247,11 +248,6 @@ namespace Unity.Entities.CodeGen
 
             UserError.DC0005(lambdaJobDescriptionConstruction.ContainingMethod, lambdaJobDescriptionConstruction.WithCodeInvocationInstruction, parameter).Throw();
             return null;
-        }
-        
-        static bool HasCompilerServicesIsReadOnlyAttribute(ParameterDefinition p)
-        {
-            return p.HasCustomAttributes && p.CustomAttributes.Any(c =>c.AttributeType.FullName == "System.Runtime.CompilerServices.IsReadOnlyAttribute");
         }
     }
 }

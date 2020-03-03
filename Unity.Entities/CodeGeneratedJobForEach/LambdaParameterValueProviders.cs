@@ -149,6 +149,7 @@ namespace Unity.Entities.CodeGeneratedJobForEach
         }
     }
     
+    // Most of this is unused but it makes the symmetry of codegen easier (from a codegen perspective we can treat tag components the same as normal ones)
     public struct LambdaParameterValueProvider_IComponentData_Tag<T>
         where T : struct, IComponentData
     {
@@ -160,7 +161,21 @@ namespace Unity.Entities.CodeGeneratedJobForEach
         }
         
         public unsafe Runtime PrepareToExecuteOnEntitiesIn(ref ArchetypeChunk chunk) { return new Runtime() { }; }
-        public Runtime PrepareToExecuteWithStructuralChanges(ComponentSystemBase componentSystem, EntityQuery query) { return new Runtime() { }; }
+        public struct StructuralChangeRuntime
+        {
+            public unsafe T For(Entity entity, out T originalComponent)
+            {
+                originalComponent = default;
+                return default;
+            }
+
+            public unsafe void WriteBack(Entity entity, ref T lambdaComponent, ref T originalComponent)
+            { }
+        }
+        public StructuralChangeRuntime PrepareToExecuteWithStructuralChanges(ComponentSystemBase componentSystem, EntityQuery query)
+        {
+            return new StructuralChangeRuntime();
+        }
     }
 
     public struct LambdaParameterValueProvider_ManagedComponentData<T> where T : class

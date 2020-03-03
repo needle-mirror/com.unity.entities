@@ -169,7 +169,14 @@ namespace Unity.Entities.Editor.Tests
                 () => true);
             var systemItems = listView.GetRows().Where(x => listView.systemsById.ContainsKey(x.id)).Select(x => listView.systemsById[x.id]);
             var systemList = systemItems.ToList();
-            Assert.AreEqual(World2.Systems.Count(), systemList.Intersect(World2.Systems).Count());
+
+            var world2Systems = new List<ComponentSystemBase>();
+            foreach (var system in World2.Systems)
+            {
+                world2Systems.Add(system);
+            }
+
+            Assert.That(world2Systems, Is.EquivalentTo(systemList.Intersect(world2Systems)));
         }
 
         [Test]
@@ -183,8 +190,14 @@ namespace Unity.Entities.Editor.Tests
                 () => true);
             var systemItems = listView.GetRows().Where(x => listView.systemsById.ContainsKey(x.id)).Select(x => listView.systemsById[x.id]);
             var allSystems = new List<ComponentSystemBase>();
-            allSystems.AddRange(World.Systems);
-            allSystems.AddRange(World2.Systems);
+            foreach (var system in World.Systems)
+            {
+                allSystems.Add(system);
+            }
+            foreach (var system in World2.Systems)
+            {
+                allSystems.Add(system);
+            }
             var systemList = systemItems.ToList();
             Assert.AreEqual(allSystems.Count(x => !(x is ComponentSystemGroup) ), allSystems.Intersect(systemList).Count());
         }

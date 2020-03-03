@@ -197,11 +197,12 @@ namespace Unity.Entities
             CommandBuffer.Add(dstIndices, count * sizeof(int));
         }
 
-        public void CloneHybridComponentBegin(int* srcIndices, int componentCount, Entity* dstEntities, int instanceCount)
+        public void CloneHybridComponentBegin(int* srcIndices, int componentCount, Entity* dstEntities, int instanceCount, int* dstCompanionLinkIndices)
         {
             CommandBuffer.Add<int>((int)Command.CloneHybridComponents);
             CommandBuffer.AddArray<int>(srcIndices, componentCount);
             CommandBuffer.AddArray<Entity>(dstEntities, instanceCount);
+            CommandBuffer.AddArray<int>(dstCompanionLinkIndices, dstCompanionLinkIndices == null ? 0 : instanceCount);
             CommandBuffer.Add<int>(instanceCount * componentCount);
         }
 
@@ -216,7 +217,7 @@ namespace Unity.Entities
             CommandBuffer.Add<int>((int)Command.FreeManagedComponents);
                         
             CommandBuffer.Add<int>(-1); // this will contain the array count
-            return CommandBuffer.Size - sizeof(int);
+            return CommandBuffer.Length - sizeof(int);
         }
 
         public void AddToFreeManagedComponentCommand(int managedComponentIndex)
@@ -226,10 +227,10 @@ namespace Unity.Entities
         
         public void EndDeallocateManagedComponentCommand(int handle)
         {
-            int count = (CommandBuffer.Size - handle)/sizeof(int) - 1;
+            int count = (CommandBuffer.Length - handle)/sizeof(int) - 1;
             if (count == 0)
             {
-                CommandBuffer.Size -= sizeof(int) * 2;
+                CommandBuffer.Length -= sizeof(int) * 2;
             }
             else
             {
@@ -1489,16 +1490,18 @@ namespace Unity.Entities
             queries->AddAdditionalArchetypes(changeList);
         }
 
-        public int ManagedComponentIndexUsedCount => m_ManagedComponentIndex - 1 - m_ManagedComponentFreeIndex.Size / 4;
-        public int ManagedComponentFreeCount => m_ManagedComponentIndexCapacity - m_ManagedComponentIndex + m_ManagedComponentFreeIndex.Size / 4;
+        public int ManagedComponentIndexUsedCount => m_ManagedComponentIndex - 1 - m_ManagedComponentFreeIndex.Length / 4;
+        public int ManagedComponentFreeCount => m_ManagedComponentIndexCapacity - m_ManagedComponentIndex + m_ManagedComponentFreeIndex.Length / 4;
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void AssertNoQueuedManagedDeferredCommands()
         {
-            Assert.IsTrue(ManagedChangesTracker.Empty);
+            var isEmpty = ManagedChangesTracker.Empty;
+            ManagedChangesTracker.Reset();
+            Assert.IsTrue(isEmpty);
         } 
         
-        void DeallocateManagedComponents(Chunk* chunk, int indexInChunk, int batchCount)
+        public void DeallocateManagedComponents(Chunk* chunk, int indexInChunk, int batchCount)
         {
             var archetype = chunk->Archetype;
             if (archetype->NumManagedComponents == 0)
@@ -1553,17 +1556,17 @@ namespace Unity.Entities
 
         public void AllocateManagedComponentIndices(int* dst, int count)
         {
-            int freeCount = m_ManagedComponentFreeIndex.Size / sizeof(int);
+            int freeCount = m_ManagedComponentFreeIndex.Length / sizeof(int);
             if (freeCount >= count)
             {
                 var newFreeCount = freeCount - count;
                 UnsafeUtility.MemCpy(dst,(int*)m_ManagedComponentFreeIndex.Ptr + newFreeCount, count * sizeof(int));
-                m_ManagedComponentFreeIndex.Size = newFreeCount * sizeof(int);
+                m_ManagedComponentFreeIndex.Length = newFreeCount * sizeof(int);
             }
             else
             {
                 UnsafeUtility.MemCpy(dst,(int*)m_ManagedComponentFreeIndex.Ptr, freeCount * sizeof(int));
-                m_ManagedComponentFreeIndex.Size = 0;
+                m_ManagedComponentFreeIndex.Length = 0;
                 ReserveManagedComponentIndices(count - freeCount);
                 for (int i = freeCount; i < count; ++i)
                     dst[i] = m_ManagedComponentIndex++;

@@ -7,10 +7,10 @@ using Unity.Build.Common;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
-using BuildPipeline = Unity.Build.BuildPipeline;
 
 namespace Unity.Entities.Editor.Tests
 {
+    
     [TestFixture]
     class StartLiveLinkWindowTests
     {
@@ -85,12 +85,13 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(listView.itemsSource.Count, Is.EqualTo(2));
         }
 
+#if !UNITY_BUILD_CLASS_BASED_PIPELINES
         [Test]
         public void ConfigurationViewModel_DetectWhenNotLiveLinkCompatible()
         {
-            var liveLinkPipeline = BuildPipeline.LoadAsset(StartLiveLinkWindow.kDefaultLiveLinkBuildPipelineAssetPath);
-            var liveLinkMetaPipeline = BuildPipeline.LoadAsset(StartLiveLinkWindow.kWinLiveLinkBuildPipelineAssetPath);
-            var nonLiveLinkPipeline = BuildPipeline.LoadAsset("Packages/com.unity.entities/Unity.Entities.Hybrid/Assets/Hybrid.buildpipeline");
+            var liveLinkPipeline = Build.BuildPipeline.LoadAsset(StartLiveLinkWindow.kDefaultLiveLinkBuildPipelineAssetPath);
+            var liveLinkMetaPipeline = Build.BuildPipeline.LoadAsset(StartLiveLinkWindow.kWinLiveLinkBuildPipelineAssetPath);
+            var nonLiveLinkPipeline = Build.BuildPipeline.LoadAsset("Packages/com.unity.entities/Unity.Entities.Hybrid/Assets/Hybrid.buildpipeline");
             var liveLink = new StartLiveLinkWindow.BuildConfigurationViewModel(CreateBuildConfiguration("LiveLink", configuration =>
             {
                 configuration.SetComponent(new GeneralSettings());
@@ -128,7 +129,7 @@ namespace Unity.Entities.Editor.Tests
             {
                 configuration.SetComponent(new GeneralSettings());
                 configuration.SetComponent(new SceneList { BuildCurrentScene = true });
-                configuration.SetComponent(new ClassicBuildProfile { Pipeline = BuildPipeline.LoadAsset(StartLiveLinkWindow.kDefaultLiveLinkBuildPipelineAssetPath), Target = BuildTarget.Android });
+                configuration.SetComponent(new ClassicBuildProfile { Pipeline = Build.BuildPipeline.LoadAsset(StartLiveLinkWindow.kDefaultLiveLinkBuildPipelineAssetPath), Target = BuildTarget.Android });
                 configuration.SetComponent(new OutputBuildDirectory { OutputDirectory = "TestConfigurationBuilds" });
                 configuration.SetComponent(new ClassicScriptingSettings());
             }));
@@ -148,7 +149,8 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(viewModel.IsActionAllowed(StartLiveLinkWindow.StartMode.BuildAndRun, out _), Is.False);
             Assert.That(viewModel.IsActionAllowed(StartLiveLinkWindow.StartMode.RunLatestBuild, out _), Is.False);
         }
-
+#endif
+        
         string CreateBuildConfiguration(string assetName = "TestConfiguration", Action<BuildConfiguration> mutator = null)
         {
             var cfg = BuildConfiguration.CreateAsset(Path.Combine(m_TestDirectoryPath, assetName + BuildConfiguration.AssetExtension), mutator);

@@ -111,7 +111,7 @@ namespace Unity.Entities
                     return;
             }
 
-            var world = new World(defaultWorldName);
+            var world = new World(defaultWorldName, editorWorld ? WorldFlags.Editor : WorldFlags.Game);
             World.DefaultGameObjectInjectionWorld = world;
 
             var systems = GetAllSystems(WorldSystemFilterFlags.Default, editorWorld);

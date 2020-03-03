@@ -8,8 +8,7 @@ namespace Unity.Entities
 
 {
     /// <summary>
-    /// A [NativeContainer](https://docs.unity3d.com/ScriptReference/Unity.Collections.LowLevel.Unsafe.NativeContainerAttribute)
-    /// that provides access to all instances of components of type T, indexed by <see cref="Entity"/>.
+    /// A [NativeContainer] that provides access to all instances of components of type T, indexed by <see cref="Entity"/>.
     /// </summary>
     /// <typeparam name="T">The type of <see cref="IComponentData"/> to access.</typeparam>
     /// <remarks>
@@ -17,22 +16,23 @@ namespace Unity.Entities
     /// type. You can use ComponentDataFromEntity to look up data associated with one entity while iterating over a 
     /// different set of entities. For example, Unity.Transforms stores the <see cref="Entity"/> object of parent entities 
     /// in a Parent component and looks up the parent's LocalToWorld matrix using 
-    /// `ComponentDataFromEntity&lt;LocalToWorld&gt;` when calculating the world positions of child entities.
+    /// ComponentDataFromEntity&lt;LocalToWorld&gt; when calculating the world positions of child entities.
     ///
     /// To get a ComponentDataFromEntity, call <see cref="ComponentSystemBase.GetComponentDataFromEntity"/>.
     ///
-    /// Pass a ComponentDataFromEntity container to a Job by defining a public field of the appropriate type
-    /// in your IJob implementation. You can safely read from ComponentDataFromEntity in any Job, but by
-    /// default, you cannot write to components in the container in parallel Jobs (including 
+    /// Pass a ComponentDataFromEntity container to a job by defining a public field of the appropriate type
+    /// in your IJob implementation. You can safely read from ComponentDataFromEntity in any job, but by
+    /// default, you cannot write to components in the container in parallel jobs (including 
     /// <see cref="IJobForEach{T0}"/> and <see cref="IJobChunk"/>). If you know that two instances of a parallel
-    /// Job can never write to the same index in the container, you can disable the restriction on parallel writing
-    /// by adding
-    /// [NativeDisableParallelForRestrictionAttribute] (https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeDisableParallelForRestrictionAttribute.html) 
-    /// to the ComponentDataFromEntity field definition in the Job struct.
+    /// job can never write to the same index in the container, you can disable the restriction on parallel writing
+    /// by adding [NativeDisableParallelForRestrictionAttribute] to the ComponentDataFromEntity field definition in the job struct.
     ///
     /// If you would like to access an entity's components outside of a job, consider using the <see cref="EntityManager"/> methods
     /// <see cref="EntityManager.GetComponentData"/> and <see cref="EntityManager.SetComponentData"/>
     /// instead, to avoid the overhead of creating a ComponentDataFromEntity object.
+    ///
+    /// [NativeContainer]: https://docs.unity3d.com/ScriptReference/Unity.Collections.LowLevel.Unsafe.NativeContainerAttribute
+    /// [NativeDisableParallelForRestrictionAttribute]: https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeDisableParallelForRestrictionAttribute.html
     /// </remarks>
     [NativeContainer]
     public unsafe struct ComponentDataFromEntity<T> where T : struct, IComponentData
@@ -143,9 +143,9 @@ namespace Unity.Entities
         /// in a parallel Job. This restriction is in place because multiple threads could write to the same component,
         /// leading to a race condition and nondeterministic results. However, when you are certain that your algorithm
         /// cannot write to the same component from different threads, you can manually disable this safety check 
-        /// by putting the 
-        /// [NativeDisableParallelForRestrictions](https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeDisableParallelForRestrictionAttribute.html)
-        /// attribute on the ComponentDataFromEntity field in the Job.
+        /// by putting the [NativeDisableParallelForRestrictions] attribute on the ComponentDataFromEntity field in the Job.
+        /// 
+        /// [NativeDisableParallelForRestrictionAttribute]: https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeDisableParallelForRestrictionAttribute.html
         /// </remarks>
         /// <exception cref="System.ArgumentException">Thrown if T is zero-size.</exception>
         public T this[Entity entity]

@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
@@ -28,26 +30,32 @@ namespace Unity.Entities.Tests
         [Test]
         public void ActiveWorldResets()
         {
-            int count = World.AllWorlds.Count();
-            var worldA = new World("WorldA");
-            var worldB = new World("WorldB");
+            var copy = CopyWorlds(alsoClear: true);
+            try
+            {
+                var worldA = new World("WorldA");
+                var worldB = new World("WorldB");
 
-            World.DefaultGameObjectInjectionWorld = worldB;
+                World.DefaultGameObjectInjectionWorld = worldB;
 
-            Assert.AreEqual(worldB, World.DefaultGameObjectInjectionWorld);
-            Assert.AreEqual(count + 2, World.AllWorlds.Count());
-            Assert.AreEqual(worldA, World.AllWorlds[World.AllWorlds.Count()-2]);
-            Assert.AreEqual(worldB, World.AllWorlds[World.AllWorlds.Count()-1]);
+                Assert.AreEqual(worldB, World.DefaultGameObjectInjectionWorld);
+                Assert.That(World.All[0], Is.EqualTo(worldA));
+                Assert.That(World.All[1], Is.EqualTo(worldB));
 
-            worldB.Dispose();
+                worldB.Dispose();
 
-            Assert.IsFalse(worldB.IsCreated);
-            Assert.IsTrue(worldA.IsCreated);
-            Assert.AreEqual(null, World.DefaultGameObjectInjectionWorld);
+                Assert.That(worldB.IsCreated, Is.False);
+                Assert.That(worldA.IsCreated, Is.True);
+                Assert.That(World.DefaultGameObjectInjectionWorld, Is.Null);
 
-            worldA.Dispose();
+                worldA.Dispose();
 
-            Assert.AreEqual(count, World.AllWorlds.Count());
+                Assert.That(World.All.Count, Is.EqualTo(0));
+            }
+            finally
+            {
+                ResetWorlds(copy);
+            }
         }
 
         class TestManager : ComponentSystem
@@ -105,7 +113,7 @@ namespace Unity.Entities.Tests
             // Adding a manager during construction is not allowed
             Assert.Throws<TargetInvocationException>(() => world.CreateSystem<AddWorldDuringConstructorThrowsSystem>());
             // The manager will not be added to the list of managers if throws
-            Assert.AreEqual(0, world.Systems.Count());
+            Assert.AreEqual(0, world.Systems.Count);
 
             world.Dispose();
         }
@@ -123,12 +131,12 @@ namespace Unity.Entities.Tests
         public void SystemThrowingInOnCreateIsRemoved()
         {
             var world = new World("WorldX");
-            Assert.AreEqual(0, world.Systems.Count());
+            Assert.AreEqual(0, world.Systems.Count);
 
             Assert.Throws<AssertionException>(() => world.GetOrCreateSystem<SystemThrowingInOnCreateIsRemovedSystem>());
 
             // throwing during OnCreateManager does not add the manager to the behaviour manager list
-            Assert.AreEqual(0, world.Systems.Count());
+            Assert.AreEqual(0, world.Systems.Count);
 
             world.Dispose();
         }
@@ -168,9 +176,9 @@ namespace Unity.Entities.Tests
         public void SystemIsAccessibleDuringOnCreateManager ()
         {
             var world = new World("WorldX");
-            Assert.AreEqual(0, world.Systems.Count());
+            Assert.AreEqual(0, world.Systems.Count);
             world.CreateSystem<SystemIsAccessibleDuringOnCreateManagerSystem>();
-            Assert.AreEqual(1, world.Systems.Count());
+            Assert.AreEqual(1, world.Systems.Count);
 
             world.Dispose();
         }
@@ -274,8 +282,7 @@ namespace Unity.Entities.Tests
                 world.SetTime(timeData);
             }
 
-            sim.SetFixedTimeStep(1.0f);
-            Assert.IsTrue(sim.FixedTimeStepEnabled);
+            FixedRateUtils.EnableFixedRateWithCatchUp(sim, 1.0f);
 
             // first frame will tick immediately
             AdvanceWorldTime(0.5f);
@@ -310,8 +317,45 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(4.5, uc.lastUpdateTime, 0.001f);
             Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
             Assert.AreEqual(2, uc.updateCount);
-            
+
             world.Dispose();
+        }
+
+        [Test]
+        public void DisposeAllWorlds()
+        {
+            var worlds = CopyWorlds(alsoClear: true);
+            try
+            {
+                var createdWorlds = new[] { new World("a"), new World("b") };
+
+                foreach (var world in World.All)
+                {
+                    Assert.That(world.IsCreated, Is.True);
+
+                }
+
+                World.DisposeAllWorlds();
+
+                Assert.That(World.All.Count, Is.EqualTo(0));
+                Assert.That(createdWorlds.All(w => w.IsCreated), Is.False);
+            }
+            finally
+            {
+                ResetWorlds(worlds);
+            }
+        }
+
+        [Test]
+        public void IteratingOverBoxedNoAllocReadOnlyCollectionThrows()
+        {
+            var sourceList = Enumerable.Range(1, 10).ToList();
+            var readOnlyCollection = new World.NoAllocReadOnlyCollection<int>(sourceList);
+
+            var ex = Assert.Throws<NotSupportedException>(() => ((IEnumerable<int>) readOnlyCollection).GetEnumerator());
+            var ex2 = Assert.Throws<NotSupportedException>(() => ((IEnumerable) readOnlyCollection).GetEnumerator());
+            Assert.That(ex.Message, Is.EqualTo($"To avoid boxing, do not cast {nameof(World.NoAllocReadOnlyCollection<int>)} to IEnumerable<T>."));
+            Assert.That(ex2.Message, Is.EqualTo($"To avoid boxing, do not cast {nameof(World.NoAllocReadOnlyCollection<int>)} to IEnumerable."));
         }
 
 #if UNITY_EDITOR
@@ -347,6 +391,7 @@ namespace Unity.Entities.Tests
                 return inputDeps;
             }
         }
+
         public class ContainerUsingSystem : JobComponentSystem
         {
             public struct ContainerJob : IJob
@@ -361,6 +406,7 @@ namespace Unity.Entities.Tests
                 return job.Schedule(inputDeps);
             }
         }
+
         [Test]
         public void World_DisposeWithRunningJobs_Succeeds()
         {
@@ -372,6 +418,23 @@ namespace Unity.Entities.Tests
             owner.Update();
             user.Update();
             w.Dispose();
+        }
+
+        public static World[] CopyWorlds(bool alsoClear = false)
+        {
+            var worlds = World.s_AllWorlds.ToArray();
+            if (alsoClear)
+                World.s_AllWorlds.Clear();
+            return worlds;
+        }
+
+        public static void ResetWorlds(params World[] world)
+        {
+            World.s_AllWorlds.Clear();
+            foreach (var w in world)
+            {
+                World.s_AllWorlds.Add(w);
+            }
         }
     }
 }

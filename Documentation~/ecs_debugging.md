@@ -3,11 +3,14 @@ uid: ecs-debugging
 ---
 # Debugging ECS
 
-> Synopsis: All about debugging ECS
-> Outline:
-> Entity Debugger
-> Inspecting an Entity
-> Live-link
+In addition to "traditional" debugging using breakpoints, Unity provides the following tools for debugging DOTS code:
+
+* Entity Debugger window
+* Burst Inspector
+* DOTS Decompiler
+* Entity Inspectors
+* Livelink
+* Profiler
 
 <a name="entity_debugger"></a>
 ## Entity Debugger
@@ -23,7 +26,7 @@ The Systems list shows the systems in your project and how much time a system ta
 
 Use the System Display control drop down at the top of the list to control what to display in the System list. The System Display control contains:
 
-* Worlds — Choose the World containing the entities and ComponentSystems to display. By default, an **Editor World** exists when not in play mode and a **Default World** exists in play mode. 
+* Worlds — Choose the World containing the entities and systems to display. By default, an **Editor World** exists when not in play mode and a **Default World** exists in play mode. 
 * **Show Full Player Loop** option — Choose to display the systems of all Worlds and show all of the Unity execution phases (not just those containing systems).
 * **Show Inactive Systems** option — Choose to show systems that are not currently running in addition to the running systems.
 

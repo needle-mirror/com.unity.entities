@@ -564,6 +564,7 @@ namespace Unity.Entities.Tests
 	        handle.Complete();
 	    }
 
+        [RuntimeMainThread]
 	    struct WriteJob : IJobChunk
 	    {
 	        public ArchetypeChunkBufferType<EcsIntStateElement> Int;
@@ -603,7 +604,8 @@ namespace Unity.Entities.Tests
 	        job.Schedule(group).Complete();
 	    }
 
-	    struct ReadOnlyJob : IJobChunk
+	    [RuntimeMainThread]
+        struct ReadOnlyJob : IJobChunk
 	    {
 	        [ReadOnly]
 	        public ArchetypeChunkBufferType<EcsIntStateElement> Int;

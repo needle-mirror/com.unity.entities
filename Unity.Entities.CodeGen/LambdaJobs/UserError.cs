@@ -286,9 +286,28 @@ namespace Unity.Entities.CodeGen
                 instruction: null);
         }
 
-        public static DiagnosticMessage DC0039(MethodDefinition containingMethod, string name, Instruction instruction)
+        public static DiagnosticMessage DC0043(MethodDefinition containingMethod, string name, Instruction instruction)
         {
-            return MakeError(nameof(DC0039),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithName)} cannot be used with name '{name}'. The given name must consist of letters, digits, and underscores only, and may not contain two consecutive underscores.", containingMethod, instruction);
+            return MakeError(nameof(DC0043),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithName)} cannot be used with name '{name}'. The given name must consist of letters, digits, and underscores only, and may not contain two consecutive underscores.", containingMethod, instruction);
+        }
+        
+        public static DiagnosticMessage DC0044(MethodDefinition method, Instruction instruction)
+        {
+            return MakeError(nameof(DC0044), $"Entities.ForEach can only be used with an inline lambda.  Calling it with a delegate stored in a variable, field, or returned from a method is not supported.", method, instruction);
+        }
+        
+        public static DiagnosticMessage DC0045(MethodDefinition containingMethod, string methodName, Instruction instruction)
+        {
+            return MakeError(nameof(DC0045),$"Entities.ForEach cannot use {methodName} with branches in the method invocation.", containingMethod, instruction);
+        }
+        
+        public static DiagnosticMessage DC0046(MethodDefinition containingMethod, string methodName, string typeName, Instruction instruction)
+        {
+            return MakeError(nameof(DC0046),$"Entities.ForEach cannot use component access method {methodName} that needs write access with the same type {typeName} that is used in lambda parameters.", containingMethod, instruction);
+        }
+        public static DiagnosticMessage DC0047(MethodDefinition containingMethod, string methodName, string typeName, Instruction instruction)
+        {
+            return MakeError(nameof(DC0047),$"Entities.ForEach cannot use component access method {methodName} with the same type {typeName} that is used in lambda parameters with write access (as ref).", containingMethod, instruction);
         }
 
         static DiagnosticMessage MakeInternal(DiagnosticType type, string errorCode, string messageData, MethodDefinition method, Instruction instruction)

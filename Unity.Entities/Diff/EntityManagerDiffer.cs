@@ -30,7 +30,7 @@ namespace Unity.Entities
         {
             m_SourceEntityManager = sourceEntityManager ?? throw new ArgumentNullException(nameof(sourceEntityManager));
             m_EntityQueryDesc = entityQueryDesc ?? EntityGuidQueryDesc;
-            m_ShadowWorld = new World(sourceEntityManager.World.Name + " (Shadow)");
+            m_ShadowWorld = new World(sourceEntityManager.World.Name + " (Shadow)", sourceEntityManager.World.Flags | WorldFlags.Shadow);
             m_ShadowEntityManager = m_ShadowWorld.EntityManager;
             m_BlobAssetCache = new BlobAssetCache(allocator);
         }

@@ -3,37 +3,56 @@ uid: ecs-systems
 ---
 # Systems
 
-A **System**, the *S* in ECS,  provides the logic that transforms the component data from its current state to its next state — for example, a system might update the positions of all moving entities by their velocity times the time interval since the previous update.
+A **System**, the *S* in ECS,  provides the logic that transforms the component data from its current state to its next state — for example, a system might update the positions of all moving entities by their velocity multiplied by the time interval since the previous update.
 
-Unity ECS provides a number of different kinds of systems. The main systems that you can implement to transform your entity data are the [ComponentSystem](xref:ecs-component-system) and the [JobComponentSystem](xref:ecs-job-component-system). Both these system types facilitate selecting and iterating over a set of entities based on their associated components.
+![](images/BasicSystem.png)
 
-Systems provide event-style callback functions, such as OnCreate() and OnUpdate() that you can implement to run code at the correct time in a system's life cycle. These functions are invoked on the main thread. In a Job Component System, you typically schedule Jobs in the OnUpdate() function. The Jobs themselves run on worker threads. In general, Job Component Systems provide the best performance since they take advantage of multiple CPU cores. Performance can be improved even more when your Jobs are compiled by the Burst compiler.
+## Instantiating systems
 
-Unity ECS automatically discovers system classes in your project and instantiates them at runtime. Systems are organized within a [World](xref:Unity.Entities.World) by group. You can control which group a system is added to and the order of that system within the group using [system attributes](system_update_order.md#attributes). By default, all systems are added to the Simulation System Group of the default world in a deterministic, but unspecified, order. You can disable automatic creation using a system attribute.
+Unity ECS automatically discovers system classes in your project and instantiates them at runtime. It adds each discovered system to one of the default system groups. You can use [system attributes] to specify the parent group of a system and the order of that system within the group . If you do not specify a parent, Unity adds the system to the Simulation system group of the default world in a deterministic, but unspecified, order. You can also use an attribute to disable automatic creation.
 
-A system's update loop is driven by its parent [Component System Group](xref:ecs-system-update-order). A Component System Group is, itself, a specialized kind of system that is responsible for updating its child systems. 
+A system's update loop is driven by its parent [ComponentSystemGroup]. A ComponentSystemGroup is, itself, a specialized kind of system that is responsible for updating its child systems. Groups can be nested. Systems derive their [time] data from the [World] they are running in; time is updated by the [UpdateWorldTimeSystem].
 
-You can view the runtime system configuration using the Entity Debugger window (menu: **Window** > **Analysis** > **Entity Debugger**). 
-
-<a name="events"></a>
-## System event functions
-
-You can implement a set of system lifecycle event functions when you implement a system. Unity ECS invokes these functions in the following order:
-
-* [OnCreate()](xref:ComponentSystemBase.OnCreate*) -- called when the system is created.
-* [OnStartRunning()](xref:ComponentSystemBase.OnStartRunning*) -- before the first OnUpdate and whenever the system resumes running.
-* `OnUpdate()` -- every frame as long as the system has work to do (see ShouldRunSystem()) and the system is Enabled. Note that the OnUpdate function is defined in the subclasses of ComponentSystemBase; each type of system class can define its own update behavior.
-* [OnStopRunning()](xref:ComponentSystemBase.OnStopRunning*) -- whenever the system stops updating because it finds no entities matching its queries. Also called before OnDestroy.
-* [OnDestroy()](xref:ComponentSystemBase.OnDestroy*) -- when the system is destroyed.
-
-All of these functions are executed on the main thread. Note that you can schedule Jobs from the OnUpdate(JobHandle) function of a JobComponentSystem to perform work on background threads.
+You can view the system configuration using the Entity Debugger window (menu: **Window** > **Analysis** > **Entity Debugger**). 
 
 <a name="types"></a>
 ## System types
 
-Unity ECS provides several types of systems. In general, the systems you write to implement your game behaviour and data transformation will extend either [ComponentSystem](xref:ecs-component-system) or [JobComponentSystem](xref:ecs-job-component-system). The other system classes have specialized purposes; you typically use existing instances of the Entity Command Buffer System and Component System Group classes.
+Unity ECS provides several types of systems. In general, the systems you write to implement your game behavior and data transformations will extend [SystemBase]. The other system classes have specialized purposes. You typically use existing instances of the [EntityCommandBufferSystem] and [ComponentSystemGroup] classes. 
 
-* [Component Systems](xref:ecs-component-system) -- Implement a [ComponentSystem](xref:Unity.Entities.ComponentSystem) subclass for systems that perform their work on the main thread or that use Jobs not specifically optimized for ECS.
-* [Job Component Systems](xref:ecs-job-component-system) -- Implement a [JobComponentSystem](xref:Unity.Entities.JobComponentSystem)  subclass for systems that perform their work using [IJobForEach](xref:Unity.Entities.IJobForEach`1) or [IJobChunk](xref:Unity.Entities.IJobChunk).
-* [Entity Command Buffer Systems](xref:ecs-entity-command-buffer) -- provides [EntityCommandBuffer](xref:Unity.Entities.EntityCommandBuffer) instances for other systems. Each of the default system groups maintains an Entity Command Buffer System at the beginning and end of its list of child systems.
-* [Component System Groups](xref:ecs-system-update-order) -- provides nested organization and update order for other systems. Unity ECS creates several Component System Groups by default.
+* [SystemBase] -- the base class to implement when creating systems.
+* [EntityCommandBufferSystem] -- provides [EntityCommandBuffer] instances for other systems. Each of the default system groups maintains an Entity Command Buffer System at the beginning and end of its list of child systems. This allows you to group structural changes so that they incur fewer [syncronization points] in a frame.
+* [ComponentSystemGroup] -- provides nested organization and update order for other systems. Unity ECS creates several Component System Groups by default.
+* [GameObjectConversionSystem] -- converts GameObject-based, in-Editor representations of your game to efficient, entity-based, runtime representations. Game conversion systems run in the Unity Editor.
+
+**Important:** The [ComponentSystem] and [JobComponentSystem] classes, along with [IJobForEach], are being phased out of the DOTS API, but have not been officially deprecated yet. Use [SystemBase] and [Entities.ForEach] instead.
+
+
+[ComponentSystemGroup]: xref:ecs-system-update-order
+[Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
+[Job.WithCode]: xref:Unity.Entities.SystemBase.Job
+[EntityCommandBufferSystem]: xref:ecs-entity-command-buffer
+[EntityCommandBuffer]: xref:Unity.Entities.EntityCommandBuffer
+[IJobChunk]: xref:Unity.Entities.IJobChunk)
+[OnCreate()]: xref:Unity.Entities.ComponentSystemBase.OnCreate*
+[OnDestroy()]: xref:Unity.Entities.ComponentSystemBase.OnDestroy*
+[OnStartRunning()]: xref:Unity.Entities.ComponentSystemBase.OnStartRunning*
+[OnStopRunning()]: xref:Unity.Entities.ComponentSystemBase.OnStopRunning*
+[OnUpdate()]: xref:Unity.Entities.SystemBase.OnUpdate*
+[syncronization points]: xref:sync-points
+[system attributes]: system_update_order.md#attributes
+[SystemBase]: xref:Unity.Entities.SystemBase
+[World]: xref:Unity.Entities.World
+[GameObject conversion systems]: gp_overview.md
+[GameObjectConversionSystem]: gp_overview.md
+[time]: xref:Unity.Entities.Core.TimeData
+[World]: xref:Unity.Entities.World
+[UpdateWorldTimeSystem]: xref:Unity.Entities.UpdateWorldTimeSystem
+[system events]: #system-events
+[C# Job System]: https://docs.unity3d.com/Manual/JobSystem.html
+[system groups]: system_update_order.md#groups
+[system attributes]: system_update_order.md#attributes
+[ComponentSystem]: https://docs.unity3d.com/Packages/com.unity.entities@0.5/manual/entity_iteration_foreach.html
+[IJobForEach]: https://docs.unity3d.com/Packages/com.unity.entities@0.5/manual/entity_iteration_job.html
+[JobComponentSystem]: https://docs.unity3d.com/Packages/com.unity.entities@0.5/manual/entities_job_foreach.html
+

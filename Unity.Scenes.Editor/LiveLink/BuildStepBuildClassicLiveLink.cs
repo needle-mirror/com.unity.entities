@@ -9,6 +9,7 @@ using Unity.Build.Internals;
 using Unity.Properties;
 using UnityEditor;
 
+#if !UNITY_BUILD_CLASS_BASED_PIPELINES
 namespace Unity.Scenes.Editor
 {
     [BuildStep(Name = "Build LiveLink Player", Description = "Build LiveLink Player", Category = "Classic")]
@@ -123,3 +124,4 @@ namespace Unity.Scenes.Editor
         }
     }
 }
+#endif

@@ -1,65 +1,60 @@
 ---
 uid: ecs-version-numbers
 ---
-# Version Numbers
+# Version numbers
 
-## Scope
+Version numbers (also known as generations) detect potential changes. You can use them to implement efficient optimization strategies, such as to skip processing when data hasn't changed since the last frame of the application. It's useful to perform quick version checks on entities to improve the performance of your application.
 
-The purpose of version numbers (aka. generations) is the detection of potential changes. Amongst other things, they can be used to implement cheap and efficient optimization strategies, e.g. some processing might be skipped when the data it operates on is guaranteed not to have changed since last frame.
+This page outlines all of the different version numbers ECS uses, and the conditions that causes them to change.
 
-It often happens that by performing a very quick conservative version check for a bunch of entities at once, significant performance gains can be easily obtained.
+All version numbers are 32-bit signed integers. They always increase unless they wrap around: signed integer overflow is defined behavior in C#. This means that to compare version numbers, you should use the (in)equality operator, not relational operators.
 
-This page lists and documents all the different version numbers used by ECS, in particular conditions that will cause them to change.
+For example, the correct way to check if VersionB is more recent than VersionA is to use the following:
 
-## Preliminary Remarks
+    bool VersionBIsMoreRecent = (VersionB - VersionA) > 0;
 
-All version numbers are 32 bits signed integers, they always increase unless they wrap around, signed integer overflow is defined behavior in C#. This means that comparing version numbers should be done using the (in)equality operator, not relational operators.
-
-The right way to check if VersionB is more recent than VersionA is:
-`bool VersionBIsMoreRecent = (VersionB - VersionA) > 0;`
-
-There is usually no guarantee by how much a version number will increase.
+There is usually no guarantee how much a version number increases by.
 
 ## EntityId.Version
 
-An `EntityId` is made of an index and a version number. Since indices are recycled, the version number is increased in `EntityManager` every time the entity is destroyed. If there is a mismatch in the version numbers when an `EntityId` is looked up in `EntityManager`, it means the entity referred to doesn’t exist anymore.
+An `EntityId` is made of an index and a version number. Because ECS recycles indices, the version number is increased in `EntityManager` every time the entity is destroyed. If there is a mismatch in the version numbers when an `EntityId` is looked up in `EntityManager`, it means that the entity referred to doesn’t exist anymore.
 
-> Before fetching the position of the enemy some unit is tracking via an EntityId, you can call `ComponentDataFromEntity.Exists` that uses the version number to check if the entity still exists.
+For example, before you fetch the position of the enemy that a unit is tracking via an `EntityId`, you can call `ComponentDataFromEntity.Exists`. This uses the version number to check if the entity still exists.
 
 ## World.Version
 
-The version number of a world is increased every time a manager (i.e. system) is created or destroyed.
+ECS increases the version number of a World every time it creates or destroys a manager (i.e. system).
 
 ## EntityDataManager.GlobalVersion
 
-Is increased before every single (job) component system update.
+`EntityDataManager.GlobalVersion` is increased before every job component system update.
 
-> The purpose of this version number is to be used in conjunction with `System.LastSystemVersion`.
+You should use this version number in conjunction with `System.LastSystemVersion`.
 
 ## System.LastSystemVersion
 
-Takes the value of `EntityDataManager.GlobalVersion` after every single (job) component system update.
+`System.LastSystemVersion` takes the value of `EntityDataManager.GlobalVersion` after every job component system update.
 
-> The purpose of this version number is to be used in conjunction with `Chunk.ChangeVersion[]`.
+You should use this version number in conjunction with `Chunk.ChangeVersion[]`.
 
 ## Chunk.ChangeVersion
 
-For each component type in the archetype, this array contains the value of `EntityDataManager.GlobalVersion` at the time the component array was last accessed as writeable within this chunk. This in no way guarantees that anything has effectively changed, only that it could have potentially changed.
+For each component type in the archetype, this array contains the value of `EntityDataManager.GlobalVersion` at the time the component array was last accessed as writeable within this chunk. This does not guarantee that anything has changed, only that it might have changed.
 
-Shared components can never be accessed as writeable, even if there is technically a version number stored for those too, it serves no purpose.
+You can never access shared components as writeable, even if there is a version number stored for those too: it serves no purpose.
 
-When using the `[ChangedFilter]` attribute in an `IJobForEach`, the `Chunk.ChangeVersion` for that specific component is compared to `System.LastSystemVersion`, so only chunks whose component arrays have been accessed as writeable since after the system last started running will be processed.
+When you use the `WithChangeFilter()` function in an `Entities.ForEach` construction, ECS compares the `Chunk.ChangeVersion` for that specific component to `System.LastSystemVersion`, and it only processes chunks whose component arrays have been accessed as writeable after the system last started running.
 
-> If the amount of health points of a group of units is guaranteed not to have changed since the previous frame, checking if those units should update their damage model can be skipped altogether.
+For example, if the amount of health points of a group of units is guaranteed not to have changed since the previous frame, you can skip checking if those units should update their damage model.
 
 ## EntityManager.m_ComponentTypeOrderVersion[]
 
-For each non-shared component type, the version number is increased every time an iterator involving that type should become invalid. In other words, anything that might modify arrays of that type (not instances).
+For each non-shared component type, ECS increases the version number every time an iterator involving that type becomes invalid. In other words, anything that might modify arrays of that type (not instances).
 
-> If we have static objects identified by a particular component, and a per-chunk bounding box, we know we only need to update those bounding boxes if the type order version changes for that component.
+For example, if you have static objects that a particular component identifies, and a per-chunk bounding box, you only need to update those bounding boxes if the type order version changes for that component.
 
 ## SharedComponentDataManager.m_SharedComponentVersion[]
 
-These version numbers increase when any structural change happens to the entities stored in a chunk referencing that shared component.
+These version numbers increase when any structural change happens to the entities stored in a chunk that reference the shared component.
 
-> Imagine we keep a count of entities per shared component, we can rely on that version number to only redo each count if the corresponding version number changes.
+For example, if you keep a count of entities per shared component, you can rely on that version number to only redo each count if the corresponding version number changes.

@@ -7,17 +7,6 @@
     border-color: #232323;
 }
 
-#start-live-link__body__new-build-button {
-    border-color: #232323;
-}
-#start-live-link__body__new-build-button:hover {
-    background-color: rgb(86, 86, 86);
-}
-
-#start-live-link__body__new-build-button__icon {
-    background-image: resource('d_Toolbar Plus');
-}
-
 .start-live-link__item-template__error-icon {
      background-image: resource("d_console.erroricon.png");
 }
@@ -59,17 +48,4 @@
 }
 .start-live-link__message__icon-info {
     background-image: resource("d_console.infoicon@2x.png");
-}
-#start-live-link__new-build-name {
-    border-color: #232323;
- }
-
-#start-live-link__new-build-name__cancel {
-    background-image: resource("d_winbtn_win_close.png");
-}
-#start-live-link__new-build-name__submit {
-    background-image: resource("d_Toolbar Plus");
-}
-#start-live-link__new-build-name Button:hover {
-    background-color: rgb(86, 86, 86);
 }

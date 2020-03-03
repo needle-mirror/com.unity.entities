@@ -833,7 +833,7 @@ namespace Unity.Entities.Conversion
                     gameObject.SetActive(false);
 
                     var companion = UnityObject.Instantiate(gameObject);
-                    companion.name = CompanionLink.GenerateCompanionName(entity);
+                    CompanionLink.SetCompanionName(entity, companion);
 
                     foreach (var component in gameObject.GetComponents<UnityComponent>())
                     {
@@ -853,14 +853,14 @@ namespace Unity.Entities.Conversion
                         }
                     }
 
-                    m_DstManager.AddComponentObject(entity, companion.AddComponent<CompanionLink>());
+                    m_DstManager.AddComponentData(entity, new CompanionLink { Companion = companion });
 
                     // Can't detach children before instantiate because that won't work with a prefab
 
                     for (int i = companion.transform.childCount - 1; i >= 0; i -= 1)
                         UnityObject.DestroyImmediate(companion.transform.GetChild(i).gameObject);
 
-                    companion.hideFlags |= HideFlags.HideInHierarchy;
+                    companion.hideFlags = CompanionLink.CompanionFlags;
                 }
                 catch (Exception exception)
                 {

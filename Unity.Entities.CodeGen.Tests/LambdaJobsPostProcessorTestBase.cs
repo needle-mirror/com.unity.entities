@@ -71,8 +71,9 @@ namespace Unity.Entities.CodeGen.Tests
 
         protected MethodDefinition MethodDefinitionForOnlyMethodOfDefinition(TypeDefinition typeDefinition)
         {
-            var a = typeDefinition.GetMethods().Where(m => !m.IsConstructor && !m.IsStatic).ToList();
-            return a.Count == 1 ? a.Single() : a.Single(m=>m.Name == "Test");
+            var a = typeDefinition.GetMethods().Where(m => !m.IsConstructor && !m.IsStatic && !m.IsCompilerControlled && 
+                                                           !m.CustomAttributes.Any(c => c.AttributeType.Name == nameof(CompilerGeneratedAttribute))).ToList();
+            return a.Count == 1 ? a.Single() : a.Single(m => m.Name == "Test");
         }
 
         static MemoryStream PdbStreamFor(string assemblyLocation)

@@ -44,9 +44,23 @@ namespace Unity.Transforms
             [ReadOnly] public ArchetypeChunkComponentType<CompositeScale> CompositeScaleType;
             [ReadOnly] public ArchetypeChunkComponentType<ParentScaleInverse> ParentScaleInverseType;
             public ArchetypeChunkComponentType<LocalToParent> LocalToParentType;
+            public uint LastSystemVersion;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
             {
+                bool changed =
+                    chunk.DidChange(TranslationType, LastSystemVersion) ||
+                    chunk.DidChange(RotationType, LastSystemVersion) ||
+                    chunk.DidChange(CompositeRotationType, LastSystemVersion) ||
+                    chunk.DidChange(ScaleType, LastSystemVersion) ||
+                    chunk.DidChange(NonUniformScaleType, LastSystemVersion) ||
+                    chunk.DidChange(CompositeScaleType, LastSystemVersion) ||
+                    chunk.DidChange(ParentScaleInverseType, LastSystemVersion);
+                if (!changed)
+                {
+                    return;
+                }
+
                 var chunkTranslations = chunk.GetNativeArray(TranslationType);
                 var chunkNonUniformScales = chunk.GetNativeArray(NonUniformScaleType);
                 var chunkScales = chunk.GetNativeArray(ScaleType);
@@ -493,7 +507,7 @@ namespace Unity.Transforms
         protected override JobHandle OnUpdate(JobHandle inputDeps)
         {
             var rotationType = GetArchetypeChunkComponentType<Rotation>(true);
-            var compositeRotationTyoe = GetArchetypeChunkComponentType<CompositeRotation>(true);
+            var compositeRotationType = GetArchetypeChunkComponentType<CompositeRotation>(true);
             var translationType = GetArchetypeChunkComponentType<Translation>(true);
             var nonUniformScaleType = GetArchetypeChunkComponentType<NonUniformScale>(true);
             var scaleType = GetArchetypeChunkComponentType<Scale>(true);
@@ -503,13 +517,14 @@ namespace Unity.Transforms
             var trsToLocalToParentJob = new TRSToLocalToParent()
             {
                 RotationType = rotationType,
-                CompositeRotationType = compositeRotationTyoe,
+                CompositeRotationType = compositeRotationType,
                 TranslationType = translationType,
                 ScaleType = scaleType,
                 NonUniformScaleType = nonUniformScaleType,
                 CompositeScaleType = compositeScaleType,
                 ParentScaleInverseType = parentScaleInverseType,
-                LocalToParentType = localToWorldType
+                LocalToParentType = localToWorldType,
+                LastSystemVersion = LastSystemVersion
             };
             var trsToLocalToParentJobHandle = trsToLocalToParentJob.Schedule(m_Group, inputDeps);
             return trsToLocalToParentJobHandle;

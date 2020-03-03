@@ -19,10 +19,10 @@ namespace Unity.Entities
     }
 
     /// <summary>
-    /// Defines a queryDesc to find archetypes with specific components.
+    /// Describes a query used to find archetypes with specific components.
     /// </summary>
     /// <remarks>
-    /// A queryDesc combines components in the All, Any, and None sets according to the
+    /// A query description combines components in the All, Any, and None sets according to the
     /// following rules:
     ///
     /// * All - Includes archetypes that have every component in this set
@@ -35,7 +35,7 @@ namespace Unity.Entities
     /// * Enemy1 has components: Position, Rotation, Melee
     /// * Enemy2 has components: Position, Rotation, Ranger
     ///
-    /// The queryDesc below would give you all of the archetypes that:
+    /// The query description below gives you all of the archetypes that:
     /// have any of [Melee or Ranger], AND have none of [Player], AND have all of [Position and Rotation]
     /// <code>
     /// new EntityQueryDesc {
@@ -45,30 +45,34 @@ namespace Unity.Entities
     /// }
     /// </code>
     ///
-    /// In other words, the queryDesc selects the Enemy1 and Enemy2 entities, but not the Player entity.
+    /// In other words, the query description selects the Enemy1 and Enemy2 entities, but not the Player entity.
+    ///
+    /// Use an EntityQueryDesc object to create an <see cref="EntityQuery"/> object. In a system, call
+    /// <see cref="ComponentSystemBase.GetEntityQuery(EntityQueryDesc[])"/>; otherwise, call
+    /// <see cref="EntityManager.CreateEntityQuery(EntityQueryDesc[])"/>.
     /// </remarks>
     public class EntityQueryDesc
     {
         /// <summary>
-        /// The queryDesc includes archetypes that contain at least one (but possibly more) of the
-        /// components in the Any list.
+        /// Include archetypes that contain at least one (but possibly more) of the
+        /// components in the `Any` list.
         /// </summary>
         public ComponentType[] Any = Array.Empty<ComponentType>();
         /// <summary>
-        /// The queryDesc excludes archetypes that contain any of the
-        /// components in the None list.
+        /// Exclude archetypes that contain any of the
+        /// components in the `None` list.
         /// </summary>
         public ComponentType[] None = Array.Empty<ComponentType>();
         /// <summary>
-        /// The queryDesc includes archetypes that contain all of the
-        /// components in the All list.
+        /// Include archetypes that contain all of the
+        /// components in the `All` list.
         /// </summary>
         public ComponentType[] All = Array.Empty<ComponentType>();
         /// <summary>
-        /// Specialized queryDesc options.
+        /// Specialized options for the query.
         /// </summary>
         /// <remarks>
-        /// You should not need to set these options for most queriesDesc.
+        /// You should not need to set these options for most queries.
         ///
         /// Options is a bit mask; use the bitwise OR operator to combine multiple options.
         /// </remarks>
@@ -141,25 +145,29 @@ namespace Unity.Entities
         /// </summary>
         Default = 0,
         /// <summary>
-        /// The queryDesc includes the special <see cref="Prefab"/> component.
+        /// The query does not exclude the special <see cref="Prefab"/> component.
         /// </summary>
         IncludePrefab = 1,
         /// <summary>
-        /// The queryDesc includes the special <see cref="Disabled"/> component.
+        /// The query does not exclude the special <see cref="Disabled"/> component.
         /// </summary>
         IncludeDisabled = 2,
         /// <summary>
-        /// The queryDesc should filter selected entities based on the
-        /// <see cref="WriteGroupAttribute"/> settings of the components specified in the queryDesc.
+        /// The query filters selected entities based on the
+        /// <see cref="WriteGroupAttribute"/> settings of the components specified in the query description.
         /// </summary>
         FilterWriteGroup = 4,
     }
 
     /// <summary>
-    /// This mask can be used to quickly identify if an entity would be returned by an EntityQuery.  There is a maximum
-    /// limit of 1024 EntityQueryMasks that can be created.  EntityQueryMasks cannot be created from EntityQueries
-    /// with filters.
+    /// A EntityQueryMask provides a fast check of whether an entity would be selected by an entity query.
     /// </summary>
+    /// <remarks>
+    /// Create an entity query mask using the <seealso cref="EntityManager.GetEntityQueryMask"/> function.
+    /// 
+    /// You can create up to 1024 unique EntityQueryMasks instances in a given progrom. Entity query masks
+    /// cannot be created from entity queries with filters.
+    /// </remarks>
     /// <seealso cref="EntityManager.GetEntityQueryMask"/>
     public unsafe struct EntityQueryMask
     {
@@ -182,8 +190,9 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Confirms whether an entity would belong to the EntityQuery used to create this EntityQueryMask.
+        /// Reports whether an entity would be selected by the EntityQuery instance used to create this entity query mask.
         /// </summary>
+        /// <remarks>The check does not take the results of filters into account.</remarks>
         /// <param name="entity">The entity to check.</param>
         /// <returns>True if the entity would be returned by the EntityQuery, false if it would not.</returns>
         public bool Matches(Entity entity)
@@ -193,33 +202,77 @@ namespace Unity.Entities
     };
 
     /// <summary>
-    /// A EntityQuery provides a queryDesc-based view of your component data.
+    /// Use an EntityQuery object to select entities with components that meet specific requirements.
     /// </summary>
     /// <remarks>
-    /// A EntityQuery defines a view of your data based on a queryDesc for the set of
-    /// component types that an archetype must contain in order for its chunks and entities
-    /// to be included in the view. You can also exclude archetypes that contain specific types
-    /// of components. For simple queriesDesc, you can create a EntityQuery based on an array of
+    /// An entity query defines the set of component types that an [archetype] must contain
+    /// in order for its chunks and entities to be selected and specifies whether the components accessed
+    /// through the query are read-only or read-write. 
+    ///
+    /// For simple queries, you can create an EntityQuery based on an array of
     /// component types. The following example defines a EntityQuery that finds all entities
-    /// with both RotationQuaternion and RotationSpeed components.
+    /// with both Rotation and RotationSpeed components.
     ///
-    /// <code>
-    /// //In a JobComponentSystem or ComponentSystem
-    /// EntityQuery m_Query = GetEntityQuery(typeof(RotationQuaternion),
-    ///                                            ComponentType.ReadOnly{RotationSpeed}());
-    /// </code>
+    /// <example>
+    /// <code source="../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-from-list" title="EntityQuery Example"/>
+    /// </example>
     ///
-    /// The queryDesc uses `ComponentType.ReadOnly` instead of the simpler `typeof` expression
-    /// to designate that the system does not write to RotationSpeed. Always specify read only
-    /// when possible, since there are fewer constraints on read access to data, which can help
+    /// The query uses [ComponentType.ReadOnly] instead of the simpler `typeof` expression
+    /// to designate that the system does not write to RotationSpeed. Always specify read-only
+    /// when possible, since there are fewer constraints on read-only access to data, which can help
     /// the Job scheduler execute your Jobs more efficiently.
     ///
-    /// For more complex queriesDesc, you can use an <see cref="EntityQueryDesc"/> instead of a
-    /// simple list of component types.
+    /// For more complex queries, you can use an <see cref="EntityQueryDesc"/> object to create the entity query.
+    /// A query description provides a flexible query mechanism to specify which archetypes to select
+    /// based on the following sets of components:
     ///
-    /// Use the EntityManager <see cref="EntityManager.CreateEntityQuery"/> or the
-    /// ComponentSystemBase <see cref="ComponentSystemBase.GetEntityQuery"/> functions
-    /// to get a EntityQuery instance.
+    /// * `All` = All component types in this array must exist in the archetype
+    /// * `Any` = At least one of the component types in this array must exist in the archetype
+    /// * `None` = None of the component types in this array can exist in the archetype
+    ///
+    /// For example, the following query includes archetypes containing Rotation and
+    /// RotationSpeed components, but excludes any archetypes containing a Frozen component:
+    ///
+    /// <example>
+    /// <code source="../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-from-description" title="EntityQuery Example"/>
+    /// </example>
+    ///
+    /// **Note:** Do not include completely optional components in the query description. To handle optional
+    /// components, use <see cref="IJobChunk"/> and the [ArchetypeChunk.Has()] method to determine whether a chunk contains the
+    /// optional component or not. Since all entities within the same chunk have the same components, you
+    /// only need to check whether an optional component exists once per chunk -- not once per entity.
+    ///
+    /// Within a system class, use the [ComponentSystemBase.GetEntityQuery()] function
+    /// to get a EntityQuery instance. Outside a system, use the [EntityManager.CreateEntityQuery()] function.
+    ///
+    /// You can filter entities based on
+    /// whether they have [changed] or whether they have a specific value for a [shared component].
+    /// Once you have created an EntityQuery object, you can
+    /// [reset] and change the filter settings, but you cannot modify the base query.
+    /// 
+    /// Use an EntityQuery for the following purposes:
+    ///
+    /// * To get a [native array] of a the values for a specific <see cref="IComponentData"/> type for all entities matching the query
+    /// * To get an [native array] of the <see cref="ArchetypeChunk"/> objects matching the query
+    /// * To schedule an <see cref="IJobChunk"/> job
+    /// * To control whether a system updates using [ComponentSystemBase.RequireForUpdate(query)]
+    /// 
+    /// Note that [Entities.ForEach] defines an entity query implicitly based on the methods you call. You can
+    /// access this implicit EntityQuery object using [Entities.WithStoreEntityQueryInField]. However, you cannot
+    /// create an [Entities.ForEach] construction based on an existing EntityQuery object.
+    ///
+    /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
+    /// [Entities.WithStoreEntityQueryInField]: xref:Unity.Entities.SystemBase.Entities
+    /// [ComponentSystemBase.GetEntityQuery()]: xref:Unity.Entities.ComponentSystemBase.GetEntityQuery*
+    /// [EntityManager.CreateEntityQuery()]: xref:Unity.Entities.EntityManager.CreateEntityQuery*
+    /// [ComponentType.ReadOnly]: xref:Unity.Entities.ComponentType.ReadOnly``1
+    /// [ComponentSystemBase.RequireForUpdate()]: xref:Unity.Entities.ComponentSystemBase.RequireForUpdate(Unity.Entities.EntityQuery)
+    /// [ArchetypeChunk.Has()]: xref:Unity.Entities.ArchetypeChunk.Has``1(Unity.Entities.ArchetypeChunkComponentType{``0})
+    /// [archetype]: xref:Unity.Entities.EntityArchetype
+    /// [changed]: xref:Unity.Entities.EntityQuery.SetChangedVersionFilter*
+    /// [shared component]: xref:Unity.Entities.EntityQuery.SetSharedComponentFilter*
+    /// [reset]: xref:Unity.Entities.EntityQuery.ResetFilter*
+    /// [native array]: https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeArray_1.html
     /// </remarks>
     public unsafe class EntityQuery : IDisposable
     {
@@ -250,9 +303,9 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Ignore this EntityQuery if it has no entities in any of its archetypes.
+        /// Reports whether this query would currently select zero entities.
         /// </summary>
-        /// <returns>True if this EntityQuery has no entities. False if it has 1 or more entities.</returns>
+        /// <returns>True, if this EntityQuery matches zero existing entities. False, if it matches one or more entities.</returns>
         public bool IsEmptyIgnoreFilter
         {
             get
@@ -294,7 +347,7 @@ namespace Unity.Entities
         /// <summary>
         /// Gets the array of <see cref="ComponentType"/> objects included in this EntityQuery.
         /// </summary>
-        /// <returns>Array of ComponentTypes</returns>
+        /// <returns>An array of ComponentType objects</returns>
         internal ComponentType[] GetQueryTypes()
         {
 #if !NET_DOTS
@@ -354,12 +407,11 @@ namespace Unity.Entities
         /// <summary>
         /// Disposes this EntityQuery instance.
         /// </summary>
-        /// <remarks>Do not dispose EntityQuery instance created by a
-        /// <see cref="ComponentSystem"/> or
-        /// <see cref="JobComponentSystem"/>. The system automatically disposes of
+        /// <remarks>Do not dispose the EntityQuery instances created using
+        /// <see cref="SystemBase.Entities"/>. The system automatically disposes of
         /// its own entity queries.</remarks>
         /// <exception cref="InvalidOperationException">Thrown if you attempt to dispose an EntityQuery
-        /// belonging to a ComponentSystem or JobComponentSystem.</exception>
+        /// belonging to a SystemBase instance.</exception>
         public void Dispose()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -423,7 +475,7 @@ namespace Unity.Entities
         /// Calculates the number of entities selected by this EntityQuery.
         /// </summary>
         /// <remarks>
-        /// The EntityQuery must run the queryDesc and apply any filters to calculate the entity count.
+        /// The EntityQuery must run the query and apply any filters to calculate the entity count.
         /// </remarks>
         /// <returns>The number of entities based on the current EntityQuery properties.</returns>
         public int CalculateEntityCount()
@@ -436,7 +488,7 @@ namespace Unity.Entities
         /// Calculates the number of entities selected by this EntityQuery, ignoring any set filters.
         /// </summary>
         /// <remarks>
-        /// The EntityQuery must run the queryDesc to calculate the entity count.
+        /// The EntityQuery must run the query to calculate the entity count.
         /// </remarks>
         /// <returns>The number of entities based on the current EntityQuery properties.</returns>
         public int CalculateEntityCountWithoutFiltering()
@@ -449,7 +501,7 @@ namespace Unity.Entities
         /// Calculates the number of chunks that match this EntityQuery.
         /// </summary>
         /// <remarks>
-        /// The EntityQuery must run the queryDesc and apply any filters to calculate the chunk count.
+        /// The EntityQuery must run the query and apply any filters to calculate the chunk count.
         /// </remarks>
         /// <returns>The number of chunks based on the current EntityQuery properties.</returns>
         public int CalculateChunkCount()
@@ -462,7 +514,7 @@ namespace Unity.Entities
         /// Calculates the number of chunks that match this EntityQuery, ignoring any set filters.
         /// </summary>
         /// <remarks>
-        /// The EntityQuery must run the queryDesc to calculate the chunk count.
+        /// The EntityQuery must run the query to calculate the chunk count.
         /// </remarks>
         /// <returns>The number of chunks based on the current EntityQuery properties.</returns>
         public int CalculateChunkCountWithoutFiltering()
@@ -649,6 +701,14 @@ namespace Unity.Entities
 #else
             var componentType = new ArchetypeChunkComponentType<T>(true, _EntityComponentStore->GlobalSystemVersion);
 #endif
+            
+            
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            int typeIndex = TypeManager.GetTypeIndex<T>();
+            int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
+            if (indexInEntityQuery == -1)
+                throw new InvalidOperationException( $"Trying ToComponentDataArrayAsync of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
+#endif
             return ChunkIterationUtility.CreateComponentDataArray(_QueryData->MatchingArchetypes, allocator, componentType, this, ref _Filter, out jobhandle, GetDependency());
         }
 
@@ -674,7 +734,7 @@ namespace Unity.Entities
             int typeIndex = TypeManager.GetTypeIndex<T>();
             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
             if (indexInEntityQuery == -1)
-                throw new InvalidOperationException( $"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityGroup.");
+                throw new InvalidOperationException( $"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
 #endif
 
             JobHandle job;
@@ -689,15 +749,17 @@ namespace Unity.Entities
             int typeIndex = TypeManager.GetTypeIndex<T>();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
-            if (indexInEntityQuery == -1)
-                throw new InvalidOperationException($"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityGroup.");
-
             var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandle(typeIndex, true), true, _EntityComponentStore->GlobalSystemVersion);
 #else
             var componentType = new ArchetypeChunkComponentType<T>(true, _EntityComponentStore->GlobalSystemVersion);
 #endif
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
+            if (indexInEntityQuery == -1)
+                throw new InvalidOperationException( $"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
+#endif
+            
             var matches = _QueryData->MatchingArchetypes;
             var entityCount = ChunkIterationUtility.CalculateEntityCount(matches, ref _Filter);
             T[] res = new T[entityCount];
@@ -740,6 +802,14 @@ namespace Unity.Entities
 #else
             var componentType = new ArchetypeChunkComponentType<T>(false, _EntityComponentStore->GlobalSystemVersion);
 #endif
+            
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            int typeIndex = TypeManager.GetTypeIndex<T>();
+            int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
+            if (indexInEntityQuery == -1)
+                throw new InvalidOperationException( $"Trying CopyFromComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
+#endif
+            
 
             ChunkIterationUtility.CopyFromComponentDataArray(_QueryData->MatchingArchetypes, componentDataArray, componentType, this, ref _Filter, out var job, GetDependency());
             job.Complete();
@@ -759,6 +829,13 @@ namespace Unity.Entities
             var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, _EntityComponentStore->GlobalSystemVersion);
 #else
             var componentType = new ArchetypeChunkComponentType<T>(false, _EntityComponentStore->GlobalSystemVersion);
+#endif
+            
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            int typeIndex = TypeManager.GetTypeIndex<T>();
+            int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
+            if (indexInEntityQuery == -1)
+                throw new InvalidOperationException( $"Trying CopyFromComponentDataArrayAsync of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
 #endif
 
             ChunkIterationUtility.CopyFromComponentDataArray(_QueryData->MatchingArchetypes, componentDataArray, componentType, this, ref _Filter, out jobhandle, GetDependency());

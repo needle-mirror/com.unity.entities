@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mono.Cecil;
-using Unity.IL2CPP.ILPreProcessor;
+using Unity.Cecil.Awesome;
 
 namespace Unity.Entities.BuildUtils
 {

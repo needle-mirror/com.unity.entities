@@ -10,9 +10,7 @@ using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
-using FieldAttributes = Mono.Cecil.FieldAttributes;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
-using MethodBody = Mono.Cecil.Cil.MethodBody;
 
 
 /*
@@ -280,15 +278,14 @@ namespace Unity.Entities.CodeGen
             
             var methodLambdaWasEmittedAs = lambdaJobDescriptionConstruction.MethodLambdaWasEmittedAs;
             
-            if (methodLambdaWasEmittedAs.DeclaringType.TypeReferenceEquals(methodContainingLambdaJob.DeclaringType) && !lambdaJobDescriptionConstruction.AllowReferenceTypes)
+            if (methodLambdaWasEmittedAs.DeclaringType.TypeReferenceEquals(methodContainingLambdaJob.DeclaringType) && 
+                !lambdaJobDescriptionConstruction.AllowReferenceTypes)
             {
                 // Sometimes roslyn emits the lambda as an instance method in the same type of the method that contains the lambda expression.
                 // it does this only in the situation where the lambda captures a field _and_ does not capture any locals. In this case
                 // there's no displayclass being created. We should figure out exactly what instruction caused this behaviour, and tell the user
                 // she can't read a field like that.
-
                 // Here is an example: https://sharplab.io/#v2:D4AQTAjAsAUCDMACciDCiDetE8QMwBsB7AQwBd8BLAUwIBNEBeReAOgAY8BubXXnBMgAsiACoALSgGcA4tQB21AE7lqUgLLUAtgCNlIAKxlKReVIAUASiwwAkLYD0DsZKmICJXXRKIA7pQICRABzBWVVRB8tbT0lfABXeQBjY1NENLJxamQwNFYXbKVqEik06QAuWHsnHABaAvdPHW90+QIAT0QkkgAHMniitx88Gnp8gEkzMmKGIjwu3v6lSnlgxEzpRGoADx6CSiTKMg6AGirHZ1xfbO75ELCVacjEaMyiWbv0MiJEPS3t6hJeLTBgrKTTEh0fi4HAAESIIAgYHMViYAD4bDCsThUKZSgRqKwAOrLabmEa0OiWLiIaEwgC+1LpfBg2JwNQkmw8Xh8/kC90Uj2yURiygSyVSdwyWRyeQaRRKZSklVZbJqiHqEmy3OaPlMHUQRQAjvFKINEAByDZSC2ReQMHolKRqRBHdY/YaJFImeSsZlwhFIlGWdGYtm4eGc1YWa1M1XYxk8eOIelVaGCEAiTmyB6qKQAQVQHikFhDNmqzi1zvWvh+Ou8biyRQF4SePnA+S1huKpTumxK+CIgSIvmV53V9Uy2WdSVMDHrPm6fQGLp8xG6QRI9vW4nIg6USRdU66RC0PQCYu+Wy0R3Hlxw7dyV5IKXiJECnXEQ4Yx/BETmO7akQG53nUgFUEo4KNDyrQGkuSyrlQlJ2j+MqzmeF5xLW8T0Ig8RSG+H6IAAVvhZCgbg2huiKuhingXqSpEbgrOBIyQRQ3TOicvzAogUgrIegHNu+Cp0J00gUQ+sp4EQcQLkM8jtL4JDtNxbp8kE/FngaRT4dkmR7qYhLnPCiLIqijAYucti4mYQ6EiSRzUOSoxUjS/opnG4YeSsFDbEwiDsEm4amUGFlWXY9i2fiDmks5FL0NStKRTZeL2cScXmNsXlsom0Kpsm6YiKFyJmZEKRlgVMLphAABswiIJGkjRuY6BJJVsD0kAA=
-
                 var illegalFieldRead = methodLambdaWasEmittedAs.Body.Instructions.FirstOrDefault(IsIllegalFieldRead);
                 if (illegalFieldRead != null)
                     UserError.DC0001(methodContainingLambdaJob, illegalFieldRead, (FieldReference) illegalFieldRead.Operand).Throw();
@@ -296,13 +293,27 @@ namespace Unity.Entities.CodeGen
                 // Similarly, we could end up here because the lambda captured neither a field nor a local but simply
                 // uses the this-reference. This could be the case if the user calls a function that takes this as a
                 // parameter, either explicitly (static) or implicitly (extension or member method).
-                var illegalInvocation = methodLambdaWasEmittedAs.Body.Instructions.FirstOrDefault(IsIllegalInvocation);
-                if (illegalInvocation != null)
-                    UserError.DC0002(methodContainingLambdaJob, illegalInvocation, (MethodReference)illegalInvocation.Operand, methodLambdaWasEmittedAs.DeclaringType).Throw();
+                var illegalInvocations = methodLambdaWasEmittedAs.Body.Instructions.Where(IsIllegalInvocation).ToArray();
+                if (illegalInvocations.Any())
+                {
+                    foreach (var illegalInvocation in illegalInvocations)
+                    {
+                        if (!IsPermittedIllegalInvocation(illegalInvocation))
+                            UserError.DC0002(methodContainingLambdaJob, illegalInvocation, 
+                                (MethodReference)illegalInvocation.Operand, methodLambdaWasEmittedAs.DeclaringType).Throw();
+                    }
+
+                    // We only had illegal invocations where we were invoking an allowed method on our declaring type.
+                    // This is allowed as we will rewrite these invocations.
+                    // When we clone this method we need to rewrite it correctly to reflect that this is the case.
+                    lambdaJobDescriptionConstruction.HasAllowedMethodInvokedWithThis = true;
+                }
 
                 // This should never hit, but is here to make sure that in case we have a bug in detecting
                 // why roslyn emitted it like this, we can at least report an error, instead of silently generating invalid code.
-                InternalCompilerError.DCICE001(methodContainingLambdaJob).Throw();
+                // We do need to allow this case when we have an allowed method invoked with this that is later replaced with codegen.
+                if (!lambdaJobDescriptionConstruction.HasAllowedMethodInvokedWithThis)
+                    InternalCompilerError.DCICE001(methodContainingLambdaJob).Throw();
 
                 bool IsIllegalFieldRead(Instruction i)
                 {
@@ -315,10 +326,11 @@ namespace Unity.Entities.CodeGen
 
                 bool IsIllegalInvocation(Instruction i)
                 {
-                    if (!i.IsInvocation())
+                    if (!i.IsInvocation(out _))
                         return false;
                     var declaringType = methodContainingLambdaJob.DeclaringType;
                     var method = (MethodReference)i.Operand;
+                    
                     // is it an instance method?
                     var resolvedMethod = method.Resolve();
                     if (declaringType.TypeReferenceEqualsOrInheritsFrom(method.DeclaringType) && !resolvedMethod.IsStatic)
@@ -330,6 +342,39 @@ namespace Unity.Entities.CodeGen
                         if (declaringType.TypeReferenceEqualsOrInheritsFrom(param.ParameterType) || declaringType.TypeImplements(param.ParameterType))
                             return true;
                     }
+                    return false;
+                }
+
+                // Check for permitted illegal invocations
+                // These are due to calling a method that we later stub out with codegen or also can be due to calling
+                // a local method that contains a method that we stub out with codegen.
+                bool IsPermittedIllegalInvocation(Instruction instruction)
+                {
+                    // Check to see if this method is permitted
+                    if (instruction.OpCode == OpCodes.Call || instruction.OpCode == OpCodes.Callvirt)
+                    {
+                        var methodRef = instruction.Operand as MethodReference;
+                        if (JobStructForLambdaJob.IsPermittedMethodToInvokeWithThis(methodRef))
+                            return true;
+                        else
+                        {
+                            // Recurse into methods if they are compiler generated local methods
+                            var methodDef = methodRef.Resolve();
+                            if (methodDef != null && methodDef.CustomAttributes.Any(c => 
+                                c.AttributeType.Name == nameof(CompilerGeneratedAttribute) && 
+                                c.AttributeType.Namespace == typeof(CompilerGeneratedAttribute).Namespace))
+                            {
+                                foreach (var methodInstruction in methodDef.Body.Instructions)
+                                {
+                                    if (IsIllegalInvocation(methodInstruction) && !IsPermittedIllegalInvocation(methodInstruction))
+                                        return false;
+                                }
+
+                                return true;
+                            }
+                        }
+                    }
+
                     return false;
                 }
             }

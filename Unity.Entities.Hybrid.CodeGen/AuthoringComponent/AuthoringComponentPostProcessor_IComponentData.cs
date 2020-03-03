@@ -330,6 +330,10 @@ namespace Unity.Entities.Hybrid.CodeGen
 
             // We're done already!  Easy peasy.
             ilProcessor.Emit(OpCodes.Ret);
+            
+            // Cecil has a bug where it will not emit a method debug information table if no methods have debug information.
+            // This causes a crash in Mono in the rare case where the only methods emitted into a module are from Cecil.
+            convertMethod.DebugInformation.Scope = new ScopeDebugInformation(convertMethod.Body.Instructions.First(), convertMethod.Body.Instructions.Last());
         }
     }
 }

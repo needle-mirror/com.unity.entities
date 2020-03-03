@@ -54,7 +54,7 @@ namespace Unity.Scenes.Editor
             _SceneName = Path.GetFileNameWithoutExtension(AssetDatabase.GUIDToAssetPath(sceneGUID.ToString()));
 
             _LiveLinkEnabled = liveLinkEnabled;
-            _ConvertedWorld = new World($"Converted Scene: '{_SceneName}");
+            _ConvertedWorld = new World($"Converted Scene: '{_SceneName}", WorldFlags.Editor | WorldFlags.Conversion | WorldFlags.Staging);
             _LiveLinkDiffer = new EntityManagerDiffer(_ConvertedWorld.EntityManager, Allocator.Persistent);
             _RequestCleanConversion = true;
 

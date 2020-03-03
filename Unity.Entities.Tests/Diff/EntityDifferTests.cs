@@ -195,6 +195,128 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public unsafe void EntityDiffer_GetChanges_RefCounts_SharedComponents()
+        {
+            int RefCount1 = 0;
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            {
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestSharedCompWithRefCount));
+
+                SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
+                SrcEntityManager.SetSharedComponentData(entity, new EcsTestSharedCompWithRefCount(&RefCount1));
+
+                Assert.AreEqual(1, RefCount1);
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.Temp))
+                {
+                    Assert.AreEqual(2, RefCount1);
+                }
+
+                Assert.AreEqual(1, RefCount1);
+                
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.Temp))
+                {
+                    Assert.AreEqual(3, RefCount1);
+                }
+
+                Assert.AreEqual(2, RefCount1);
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.Temp))
+                {
+                    Assert.AreEqual(2, RefCount1);
+                }
+                
+                Assert.AreEqual(2, RefCount1);
+                
+                SrcEntityManager.RemoveComponent<EcsTestSharedCompWithRefCount>(entity);
+                
+                Assert.AreEqual(1, RefCount1);
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.Temp))
+                {
+                    Assert.AreEqual(1, RefCount1);
+                }
+                
+                Assert.AreEqual(1, RefCount1);
+                
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.IncludeReverseChangeSet, Allocator.Temp))
+                {
+                    Assert.AreEqual(2, RefCount1);
+                }
+                
+                Assert.AreEqual(1, RefCount1);
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.Temp))
+                {
+                    Assert.AreEqual(0, RefCount1);
+                }
+            }            
+            Assert.AreEqual(0, RefCount1);
+        }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [Test]
+        public unsafe void EntityDiffer_GetChanges_Clones_And_Disposes_ManagedComponents()
+        {
+            int RefCount1 = 1;
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            {
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestManagedCompWithRefCount));
+
+                SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
+                SrcEntityManager.SetComponentData(entity, new EcsTestManagedCompWithRefCount(&RefCount1));
+
+                Assert.AreEqual(1, RefCount1);
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.Temp))
+                {
+                    Assert.AreEqual(2, RefCount1);
+                }
+
+                Assert.AreEqual(1, RefCount1);
+                
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.Temp))
+                {
+                    Assert.AreEqual(3, RefCount1);
+                }
+
+                Assert.AreEqual(2, RefCount1);
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.Temp))
+                {
+                    Assert.AreEqual(2, RefCount1);
+                }
+                
+                Assert.AreEqual(2, RefCount1);
+                
+                SrcEntityManager.RemoveComponent<EcsTestManagedCompWithRefCount>(entity);
+                
+                Assert.AreEqual(1, RefCount1);
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.Temp))
+                {
+                    Assert.AreEqual(1, RefCount1);
+                }
+                
+                Assert.AreEqual(1, RefCount1);
+                
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.IncludeReverseChangeSet, Allocator.Temp))
+                {
+                    Assert.AreEqual(2, RefCount1);
+                }
+                
+                Assert.AreEqual(1, RefCount1);
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.Temp))
+                {
+                    Assert.AreEqual(0, RefCount1);
+                }
+            }            
+            Assert.AreEqual(0, RefCount1);
+        }
+#endif
+
+        [Test]
         public void EntityDiffer_GetChanges_DuplicateEntityGuidThrows()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))

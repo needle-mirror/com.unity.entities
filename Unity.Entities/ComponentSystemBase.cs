@@ -13,39 +13,7 @@ namespace Unity.Entities
     /// A system provides behavior in an ECS architecture.
     /// </summary>
     /// <remarks>
-    /// A typical system operates on a set of entities that have specific components. The system identifies
-    /// the components of interest using an <seealso cref="EntityQuery"/> (JobComponentSystem) or
-    /// <seealso cref="EntityQueryBuilder"/> (ComponentSystem). The system then finds the entities matching the query
-    /// and iterates over them, reading and writing data, and performing other entity operations as appropriate. A
-    /// <seealso cref="ComponentSystem"/> is designed to perform its work on the main thread; a
-    /// <seealso cref="JobComponentSystem"/> is designed to work with ECS-specific Jobs, such as
-    /// <see cref="IJobForEach{T0}"/> and <see cref="IJobChunk"/> or with general-purpose
-    /// [C# Jobs](https://docs.unity3d.com/2019.2/Documentation/Manual/JobSystem.html).
-    ///
-    /// You can implement a set of system lifecycle event functions when you implement a system. The ECS invokes these
-    /// functions in the following order:
-    ///
-    /// * <see cref="OnCreate"/> -- called when the system is created.
-    /// * <see cref="OnStartRunning"/> -- before the first OnUpdate and whenever the system resumes running.
-    /// * `OnUpdate` -- every frame as long as the system has work to do (see <see cref="ShouldRunSystem"/>) and the
-    ///    system is <see cref="Enabled"/>. Note that the OnUpdate function is defined in the subclasses of
-    ///    ComponentSystemBase; each system class can define its own update behavior.
-    /// * <see cref="OnStopRunning"/> -- whenever the system stops updating because it finds no entities matching its
-    ///   queries. Also called before OnDestroy.
-    /// * <see cref="OnDestroy"/> -- when the system is destroyed.
-    ///
-    /// All of these functions are executed on the main thread. Note that you can schedule Jobs from the
-    /// <see cref="JobComponentSystem.OnUpdate"/> function of a JobComponentSystem to perform work on
-    /// background threads.
-    ///
-    /// The runtime executes systems in the order determined by their <see cref="ComponentSystemGroup"/>. Place a system
-    /// in a group using <seealso cref="UpdateInGroupAttribute"/>. Use <seealso cref="UpdateBeforeAttribute"/> and
-    /// <seealso cref="UpdateAfterAttribute"/> to specify the execution order within a group.
-    ///
-    /// If you do not explicitly place a system in a specific group, the runtime places it in the Default World
-    /// <see cref="SimulationSystemGroup"/>. By default, all systems are discovered, instantiated, and added to the
-    /// default World. You can use the <seealso cref="DisableAutoCreationAttribute"/> to prevent a system from being
-    /// created automatically.
+    /// System implementations should inherit <see cref="SystemBase"/>, which is a subclass of ComponentSystemBase.
     /// </remarks>
     public abstract unsafe partial class ComponentSystemBase
     {
@@ -133,59 +101,21 @@ namespace Unity.Entities
 
         // ============
 
-#if ENABLE_PROFILER
+    #if ENABLE_PROFILER
         internal Profiling.ProfilerMarker m_ProfilerMarker;
-#endif
+    #endif
 
-#if (!NET_DOTS) && ENABLE_UNITY_COLLECTIONS_CHECKS
-        static HashSet<Type> s_ObsoleteAPICheckedTypes = new HashSet<Type>();
-
-        void CheckForObsoleteAPI()
-        {
-            var type = GetType();
-            while (type != typeof(ComponentSystemBase))
-            {
-                if (s_ObsoleteAPICheckedTypes.Contains(type))
-                {
-                    break;
-                }
-
-                if (type.GetMethod("OnCreateManager", BindingFlags.NonPublic | BindingFlags.Instance)?.DeclaringType != typeof(ComponentSystemBase))
-                {
-                    Debug.LogWarning($"OnCreateManager in {type} is obsolete and shall be renamed to OnCreate. This message will be (RemovedAfter 2020-01-22) and OnCreateManager will no longer be called by Unity");
-                }
-
-                if (type.GetMethod("OnDestroyManager", BindingFlags.NonPublic | BindingFlags.Instance)?.DeclaringType != typeof(ComponentSystemBase))
-                {
-                    Debug.LogWarning($"OnDestroyManager in {type} is obsolete and shall be renamed to OnDestroy. This message will be (RemovedAfter 2020-01-22) and OnDestroyManager will no longer be called by Unity");
-                }
-
-                s_ObsoleteAPICheckedTypes.Add(type);
-
-                type = type.BaseType;
-            }
-        }
-#endif
 
         internal void CreateInstance(World world)
         {
             OnBeforeCreateInternal(world);
             try
             {
-#if (!NET_DOTS) && ENABLE_UNITY_COLLECTIONS_CHECKS
-                CheckForObsoleteAPI();
-#endif
-
-#if !NET_DOTS
-                OnCreateManager();
-#endif
-
                 OnCreateForCompiler();
                 OnCreate();
-
-#if ENABLE_PROFILER
-                m_ProfilerMarker = new Profiling.ProfilerMarker($"{world.Name} {TypeManager.SystemName(GetType())}");
-#endif
+        #if ENABLE_PROFILER
+                m_ProfilerMarker = new Profiling.ProfilerMarker($"{world.Name} {TypeManager.GetSystemName(GetType())}");
+        #endif
             }
             catch
             {
@@ -206,10 +136,6 @@ namespace Unity.Entities
         {
             OnBeforeDestroyInternal();
             OnDestroy();
-
-#if !NET_DOTS
-            OnDestroyManager();
-#endif
             OnAfterDestroyInternal();
         }
 
@@ -224,24 +150,6 @@ namespace Unity.Entities
         protected virtual void OnCreate()
         {
         }
-
-#if !NET_DOTS
-        /// <summary>
-        /// WARNING: OnDestroyManager() is obsolete and should be renamed to OnDestroy. OnDestroyManager will not be called by Unity after 2020-01-22
-        /// </summary>
-        protected virtual void OnDestroyManager()
-        {
-        }
-#endif
-
-#if !NET_DOTS
-        /// <summary>
-        /// WARNING: OnCreateManager() is obsolete and should be renamed to OnCreate. OnCreateManager will not be called by Unity after 2020-01-22
-        /// </summary>
-        protected virtual void OnCreateManager()
-        {
-        }
-#endif
 
         /// <summary>
         /// Called before the first call to OnUpdate and when a system resumes updating after being stopped or disabled.
@@ -287,8 +195,7 @@ namespace Unity.Entities
         /// Executes the system immediately.
         /// </summary>
         /// <remarks>The exact behavior is determined by this system's specific subclass.</remarks>
-        /// <seealso cref="ComponentSystem"/>
-        /// <seealso cref="JobComponentSystem"/>
+        /// <seealso cref="SystemBase"/>
         /// <seealso cref="ComponentSystemGroup"/>
         /// <seealso cref="EntityCommandBufferSystem"/>
         abstract public void Update();

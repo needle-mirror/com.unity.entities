@@ -93,7 +93,6 @@ namespace Unity.Entities.Tests
         
 
         [Test]
-        [StandaloneFixme] // dots runtime doesn't support generic components
         public void TestGenericComponents()
         {
             var index1 = TypeManager.GetTypeIndex<GenericComponent<int>>();
@@ -103,7 +102,6 @@ namespace Unity.Entities.Tests
         }
         
         [Test]
-        [StandaloneFixme] // dots runtime doesn't support generic components
         public void TestGenericComponentsThrowsOnUnregisteredGeneric()
         {
             Assert.Throws<ArgumentException>(() =>

@@ -181,7 +181,7 @@ namespace Unity.Scenes.Editor
                     writer.Add(artifactFileName);
                     
                     int numBytesToRead = (int)fs.Length;
-                    int numBytesRead = writer.Size;
+                    int numBytesRead = writer.Length;
                     while (numBytesToRead > 0)
                     {
                         int n = fs.Read(buffer, numBytesRead, numBytesToRead);
@@ -288,7 +288,7 @@ namespace Unity.Scenes.Editor
                 var writer = new UnsafeAppendBuffer(data, bundleAndHeader.Length);
                 writer.Add(guid);
                 writer.Add(targetHash);
-                stream.Read(bundleAndHeader, writer.Size, (int)assetBundleFileLength);
+                stream.Read(bundleAndHeader, writer.Length, (int)assetBundleFileLength);
             }
 
             stream.Close();

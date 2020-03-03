@@ -183,8 +183,7 @@ namespace Unity.Entities.BuildUtils
                 if (forcedMemoryOrderAttribute != null)
                 {
                     ulong memoryOrder = (ulong)forcedMemoryOrderAttribute.ConstructorArguments
-                        // despite the field being a 'ulong', Mono.Cecil says it's a UInt64. Not a big issue but a possible inconsistency so we check for either
-                        .First(arg => arg.Type.Name == "UInt64" || arg.Type.Name == "ulong")
+                        .First(arg => arg.Type.MetadataType == MetadataType.UInt64)
                         .Value;
 
                     return memoryOrder;

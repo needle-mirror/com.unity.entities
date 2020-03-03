@@ -3,7 +3,7 @@ uid: ecs-jobs
 ---
 # Jobs in ECS
 
-ECS uses the Job system to implement behavior -- the *System* part of ECS. An ECS System is concretely a Job created to transform the data stored in entity components 
+ECS uses the [C# Job System] extensively. Whenever possible, you should use the jobs in your system code. The [SystemBase] class provides [Entities.ForEach] and [Job.WithCode] to help implement your game logic as multithreaded code. In more complex situations, you can use [IJobChunk].
 
 For example, the following system updates positions:
 
@@ -12,33 +12,29 @@ For example, the following system updates positions:
     using Unity.Entities;
     using Unity.Jobs;
     using Unity.Transforms;
-    using UnityEngine;
     
-    public class MovementSpeedSystem : JobComponentSystem
+    public class MovementSpeedSystem : SystemBase
     {
-        [BurstCompile]
-        struct MovementSpeedJob : IJobForEach<Position, MovementSpeed>
-        {
-            public float dT;
-    
-            public void Execute(ref Position Position, [ReadOnly] ref MovementSpeed movementSpeed)
-            {
-                float3 moveSpeed = movementSpeed.Value * dT;
-                Position.Value = Position.Value + moveSpeed;
-            }
-        }
-    
         // OnUpdate runs on the main thread.
-        protected override JobHandle OnUpdate(JobHandle inputDependencies)
+        protected override void OnUpdate()
         {
-            var job = new MovementSpeedJob()
-            {
-                dT = Time.deltaTime
-            };
-    
-            return job.Schedule(this, inputDependencies);
+            Entities
+                .ForEach((ref Translation position, in MovementSpeed speed) =>
+                    {
+                        float3 displacement = speed.Value * dt;
+                        position = new Translation(){
+                                Value = position.Value + displacement
+                            };
+                    })
+                .ScheduleParallel();
         }
     }
 
 
 For more information about systems, see [ECS Systems](ecs_systems.md).
+
+[C# Job System]: https://docs.unity3d.com/Manual/JobSystem.html
+[SystemBase]: xref:Unity.Entities.SystemBase 
+[Entities.ForEach]: ecs_entities_foreach.md
+[Job.WithCode]: ecs_job_withcode.md
+[IJobChunk]: chunk_iteration_job.md

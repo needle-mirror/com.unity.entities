@@ -13,10 +13,10 @@ using Unity.Platforms;
 
 namespace Unity.Scenes.Editor
 {
+#if !UNITY_BUILD_CLASS_BASED_PIPELINES    
     [BuildStep(Name = "Build Resource Catalog", Description = "Build Resource Catalog", Category = "Classic")]
     sealed class BuildStepCreateResourceCatalog : BuildStep
     {
-        const string k_Description = "Build Resource Catalog";
         string SceneInfoPath => $"Assets/StreamingAssets/{SceneSystem.k_SceneInfoFileName}";
 
         TemporaryFileTracker m_TemporaryFileTracker;
@@ -26,11 +26,41 @@ namespace Unity.Scenes.Editor
             typeof(SceneList)
         };
 
-        unsafe public override BuildStepResult RunBuildStep(BuildContext context)
+        public override BuildStepResult RunBuildStep(BuildContext context)
         {
             m_TemporaryFileTracker = new TemporaryFileTracker();
-
+            
             var sceneList = GetRequiredComponent<SceneList>(context);
+            ResourceCatalogBuildCode.WriteCatalogFile(sceneList, m_TemporaryFileTracker.TrackFile(SceneInfoPath));
+
+            return Success();
+        }
+
+        public override BuildStepResult CleanupBuildStep(BuildContext context)
+        {
+            m_TemporaryFileTracker.Dispose();
+            return Success();
+        }
+    }
+#else
+    class ResourceCatalogFilesProvider : AdditionalFilesProviderBase
+    {
+        public override Type[] UsedComponents { get; } = {typeof(SceneList), typeof(ClassicBuildProfile)};
+
+        protected override void OnPrepareAdditionalAssetsBeforeBuild()
+        {
+            var sceneList = (SceneList)GetComponent(typeof(SceneList));
+            var tempFile = WorkingDirectory+"/SceneSystem.k_SceneInfoFileName";
+            ResourceCatalogBuildCode.WriteCatalogFile(sceneList, tempFile);
+            AddFile(tempFile, $"{StreamingAssetsDirectory}/{SceneSystem.k_SceneInfoFileName}");
+        }
+    }
+#endif
+    
+    static class ResourceCatalogBuildCode
+    {
+        public static void WriteCatalogFile(SceneList sceneList, string sceneInfoPath)
+        {
             var sceneInfos = sceneList.GetSceneInfosForBuild();
             var builder = new BlobBuilder(Allocator.Temp);
             ref var root = ref builder.ConstructRoot<ResourceCatalogData>();
@@ -45,20 +75,12 @@ namespace Unity.Scenes.Editor
                 };
             }
 
-            var componentData = builder.Allocate(ref root.paths, sceneInfos.Length);
+            var strings = builder.Allocate(ref root.paths, sceneInfos.Length);
             for (int i = 0; i < sceneInfos.Length; i++)
-                builder.AllocateString(ref componentData[i], sceneInfos[i].Path);
+                builder.AllocateString(ref strings[i], sceneInfos[i].Path);
 
-            BlobAssetReference<ResourceCatalogData>.Write(builder, m_TemporaryFileTracker.TrackFile(SceneInfoPath), ResourceCatalogData.CurrentFileFormatVersion);
+            BlobAssetReference<ResourceCatalogData>.Write(builder, sceneInfoPath, ResourceCatalogData.CurrentFileFormatVersion);
             builder.Dispose();
-
-            return Success();
-        }
-
-        public override BuildStepResult CleanupBuildStep(BuildContext context)
-        {
-            m_TemporaryFileTracker.Dispose();
-            return Success();
         }
     }
 }

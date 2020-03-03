@@ -38,16 +38,15 @@ namespace Unity.Entities.CodeGen
 
         void InjectIntoJobChunkType()
         {
-            _lambdaParameterValueProvidersType = new TypeDefinition("", "LambdaParameterValueProviders", TypeAttributes.NestedPrivate | TypeAttributes.SequentialLayout, _jobChunkType.Module.ImportReference(typeof(ValueType))) {DeclaringType = _jobChunkType};
+            _lambdaParameterValueProvidersType = new TypeDefinition("", "LambdaParameterValueProviders", TypeAttributes.NestedPrivate | TypeAttributes.SequentialLayout | TypeAttributes.Sealed, _jobChunkType.Module.ImportReference(typeof(ValueType))) {DeclaringType = _jobChunkType};
             _jobChunkType.NestedTypes.Add(_lambdaParameterValueProvidersType);
              
             _elementsField = new FieldDefinition("_lambdaParameterValueProviders", FieldAttributes.Private, _lambdaParameterValueProvidersType);
             _jobChunkType.Fields.Add(_elementsField);
-                
-            var burstNoAliasAttributeConstructor = _jobChunkType.Module.ImportReference(typeof(NoAliasAttribute).GetConstructors().Single(c=>!c.GetParameters().Any()));
-            RuntimesType = new TypeDefinition("", "Runtimes", TypeAttributes.NestedPublic | TypeAttributes.SequentialLayout, _jobChunkType.Module.ImportReference(typeof(ValueType))) { DeclaringType = _lambdaParameterValueProvidersType};
-            if (_lambdaJobDescriptionConstruction.UsesBurst && LambdaJobDescriptionConstruction.UsesNoAlias)
-                RuntimesType.CustomAttributes.Add(new CustomAttribute(burstNoAliasAttributeConstructor));
+            
+            RuntimesType = new TypeDefinition("", "Runtimes", TypeAttributes.NestedPublic | TypeAttributes.SequentialLayout | TypeAttributes.Sealed, _jobChunkType.Module.ImportReference(typeof(ValueType))) { DeclaringType = _lambdaParameterValueProvidersType};
+            if (_lambdaJobDescriptionConstruction.UsesBurst && LambdaJobDescriptionConstruction.UsesNoAlias) 
+                RuntimesType.AddNoAliasAttribute();
             _lambdaParameterValueProvidersType.NestedTypes.Add(RuntimesType);
 
             _runtimesField = new FieldDefinition("_runtimes", FieldAttributes.Private,
@@ -76,21 +75,22 @@ namespace Unity.Entities.CodeGen
                     var readOnlyAttributeConstructor = JobStructForLambdaJob.AttributeConstructorReferenceFor(typeof(ReadOnlyAttribute), _jobChunkType.Module);
                     parameterFieldDefinition.CustomAttributes.Add(new CustomAttribute(readOnlyAttributeConstructor));
                 }
-
+                
+                _lambdaParameterValueProvidersType.Fields.Add(parameterFieldDefinition);
                 bool applyBurstAliasAttribute = _lambdaJobDescriptionConstruction.UsesBurst && LambdaJobDescriptionConstruction.UsesNoAlias;
                 if (applyBurstAliasAttribute)
-                    parameterFieldDefinition.CustomAttributes.Add(new CustomAttribute(burstNoAliasAttributeConstructor));
-                _lambdaParameterValueProvidersType.Fields.Add(parameterFieldDefinition);
+                    parameterFieldDefinition.AddNoAliasAttribute();
                     
                 var runtimeFieldDefinition = new FieldDefinition($"runtime_{provider.Name}", FieldAttributes.Public, provider.ProviderRuntime);
-                if (_lambdaJobDescriptionConstruction.UsesBurst && LambdaJobDescriptionConstruction.UsesNoAlias)
-                    runtimeFieldDefinition.CustomAttributes.Add(new CustomAttribute(burstNoAliasAttributeConstructor));
                 RuntimesType.Fields.Add(runtimeFieldDefinition);
-                    
+                if (_lambdaJobDescriptionConstruction.UsesBurst && LambdaJobDescriptionConstruction.UsesNoAlias)
+                    runtimeFieldDefinition.AddNoAliasAttribute();
+
                 _elementProviderToFields.Add(provider, (parameterFieldDefinition, runtimeFieldDefinition));
                     
                 counter++;
             }
+            
 
             MakeScheduleTimeInitializeMethod();
             
@@ -119,7 +119,8 @@ namespace Unity.Entities.CodeGen
             var il = _prepareToExecute.Body.GetILProcessor();
             var resultVariable = new VariableDefinition(RuntimesType);
             _prepareToExecute.Body.Variables.Add(resultVariable);
-                
+            _prepareToExecute.Body.InitLocals = true; // initlocals must be set for verifiable methods with one or more local variables
+
             // Initialize the result object.
             il.Emit(OpCodes.Ldloca, resultVariable);
             il.Emit(OpCodes.Initobj, RuntimesType);
@@ -171,7 +172,8 @@ namespace Unity.Entities.CodeGen
             var il = _prepareToExecute.Body.GetILProcessor();
             var resultVariable = new VariableDefinition(RuntimesType);
             _prepareToExecute.Body.Variables.Add(resultVariable);
-                
+            _prepareToExecute.Body.InitLocals = true; // initlocals must be set for verifiable methods with one or more local variables
+
             //initialize the result object.
             il.Emit(OpCodes.Ldloca, resultVariable);
             il.Emit(OpCodes.Initobj, RuntimesType);
@@ -296,6 +298,8 @@ namespace Unity.Entities.CodeGen
             
             var runtimesVariable = new VariableDefinition(RuntimesType);
             il.Body.Variables.Add(runtimesVariable);
+            executeMethod.Body.InitLocals = true; // initlocals must be set for verifiable methods with one or more local variables
+
             il.Emit(OpCodes.Stloc, runtimesVariable);
             il.Emit(OpCodes.Ldloca, runtimesVariable);
             il.Emit(OpCodes.Conv_U);
@@ -334,6 +338,7 @@ namespace Unity.Entities.CodeGen
             {
                 var tempVariable = new VariableDefinition(provider.RuntimeForMethodReturnType);
                 ilProcessor.Body.Variables.Add(tempVariable);
+                ilProcessor.Body.InitLocals = true; // initlocals must be set for verifiable methods with one or more local variables
                 ilProcessor.Emit(OpCodes.Stloc, tempVariable);
                 ilProcessor.Emit(OpCodes.Ldloca, tempVariable);
             }
@@ -363,6 +368,7 @@ namespace Unity.Entities.CodeGen
 
             var tempVariable = new VariableDefinition(provider.RuntimeForMethodReturnType);
             ilProcessor.Body.Variables.Add(tempVariable);
+            ilProcessor.Body.InitLocals = true; // initlocals must be set for verifiable methods with one or more local variables
             ilProcessor.Emit(OpCodes.Stloc, tempVariable);
 
             return (tempVariable, addressVariable);
