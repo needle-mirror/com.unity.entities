@@ -222,22 +222,22 @@ namespace Unity.Entities.CodeGen
 
         public static DiagnosticMessage DC0034(MethodDefinition containingMethod, string argumentName, TypeReference unsupportedType, Instruction instruction)
         {
-            return MakeError(nameof(DC0034),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithReadOnly)} is called with an argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerAttribute)}].", containingMethod, instruction);
+            return MakeError(nameof(DC0034),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithReadOnly)} is called with an argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerAttribute)}] or a type that has a field marked with [{nameof(NativeContainerAttribute)}].", containingMethod, instruction);
         }
 
         public static DiagnosticMessage DC0035(MethodDefinition containingMethod, string argumentName, TypeReference unsupportedType, Instruction instruction)
         {
-            return MakeError(nameof(DC0035),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithDeallocateOnJobCompletion)} is called with an invalid argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerSupportsDeallocateOnJobCompletionAttribute)}].", containingMethod, instruction);
+            return MakeError(nameof(DC0035),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithDeallocateOnJobCompletion)} is called with an invalid argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerSupportsDeallocateOnJobCompletionAttribute)}] or a type that has a field marked with [{nameof(NativeContainerSupportsDeallocateOnJobCompletionAttribute)}].", containingMethod, instruction);
         }
 
         public static DiagnosticMessage DC0036(MethodDefinition containingMethod, string argumentName, TypeReference unsupportedType, Instruction instruction)
         {
-            return MakeError(nameof(DC0036),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableContainerSafetyRestriction)} is called with an invalid argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerAttribute)}].", containingMethod, instruction);
+            return MakeError(nameof(DC0036),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableContainerSafetyRestriction)} is called with an invalid argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerAttribute)}] or a type that has a field marked with [{nameof(NativeContainerAttribute)}].", containingMethod, instruction);
         }
 
         public static DiagnosticMessage DC0037(MethodDefinition containingMethod, string argumentName, TypeReference unsupportedType, Instruction instruction)
         {
-            return MakeError(nameof(DC0037),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableParallelForRestriction)} is called with an invalid argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerAttribute)}].", containingMethod, instruction);
+            return MakeError(nameof(DC0037),$"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableParallelForRestriction)} is called with an invalid argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerAttribute)}] or a type that has a field marked with [{nameof(NativeContainerAttribute)}].", containingMethod, instruction);
         }
 
         public static DiagnosticMessage DC0038(MethodDefinition containingMethod, FieldDefinition field, LambdaJobDescriptionConstruction.InvokedConstructionMethod constructionMethod)

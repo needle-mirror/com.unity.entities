@@ -64,6 +64,7 @@ namespace Unity.Entities.PerformanceTests
                 }).Run();
             }
 
+#pragma warning disable 618
             [BurstCompile]
             public struct OneDataJob : IJobForEachWithEntity<EcsTestFloatData>
             {
@@ -94,6 +95,7 @@ namespace Unity.Entities.PerformanceTests
                     d3.Value0++;
                 }
             }
+#pragma warning restore 618
             
             public void StructuralChangesWithECB(EntityManager manager)
             {

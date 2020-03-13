@@ -52,15 +52,17 @@ namespace Unity.Scenes.Editor
             return runtimeGlobalObjIDs;
         }
 
-        static void WriteRefGuids(List<ReferencedUnityObjects> referencedUnityObjects, AssetImportContext ctx)
+        static void WriteRefGuids(List<ReferencedUnityObjects> referencedUnityObjects, SceneSectionData[] sectionData, AssetImportContext ctx)
         {
             for (var index = 0; index < referencedUnityObjects.Count; index++)
             {
+                var sectionIndex = sectionData[index].SubSectionIndex;
+                
                 var objRefs = referencedUnityObjects[index];
                 if (objRefs == null)
                     continue;
 
-                var refGuidsPath = ctx.GetResultPath($"{index}.{EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesUnityObjectRefGuids)}");
+                var refGuidsPath = ctx.GetResultPath($"{sectionIndex}.{EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesUnityObjectRefGuids)}");
                 var runtimeGlobalObjectIds = ReferencedUnityObjectsToRuntimeGlobalObjectIds(objRefs);
 
                 using (var refGuidWriter = new StreamBinaryWriter(refGuidsPath))
@@ -114,8 +116,8 @@ namespace Unity.Scenes.Editor
                     settings.AssetImportContext = ctx;
 
                     var sectionRefObjs = new List<ReferencedUnityObjects>();
-                    EditorEntityScenes.WriteEntityScene(scene, settings, sectionRefObjs);
-                    WriteRefGuids(sectionRefObjs, ctx);
+                    var sectionData = EditorEntityScenes.WriteEntityScene(scene, settings, sectionRefObjs);
+                    WriteRefGuids(sectionRefObjs, sectionData, ctx);
                 }
                 finally
                 {

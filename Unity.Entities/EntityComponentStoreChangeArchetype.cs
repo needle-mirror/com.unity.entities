@@ -130,6 +130,82 @@ namespace Unity.Entities
 
             Move(entity, ref archetypeChunkFilter);
         }
+        
+        public bool AddComponentWithValidation(Entity entity, ComponentType componentType)
+        {
+            if (HasComponent(entity, componentType))
+                return false;
+        
+            AssertCanAddComponent(entity, componentType);
+            AddComponent(entity, componentType);
+
+            return true;
+        }
+    
+        public void AddComponentWithValidation(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
+            ComponentType componentType, ComponentDependencyManager* dependencyManager)
+        {
+            AssertCanAddComponent(archetypeList, componentType);
+
+            using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList,
+                Collections.Allocator.TempJob,
+                ref filter, dependencyManager))
+            {
+
+                if (chunks.Length == 0)
+                    return;
+
+                AssertCanAddComponent(chunks, componentType);
+
+
+                //@TODO the fast path for a chunk that contains a single entity is only possible if the chunk doesn't have a Locked Entity Order
+                //but we should still be allowed to add zero sized components to chunks with a Locked Entity Order, even ones that only contain a single entity
+
+                /*
+                if ((chunks.Length == 1) && (chunks[0].Count == 1))
+                {
+                    var entityPtr = (Entity*) chunks[0].m_Chunk->Buffer;
+                    StructuralChange.AddComponentEntity(EntityComponentStore, entityPtr, componentType.TypeIndex);
+                }
+                else
+                {
+                */
+                AddComponent((ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks),
+                    chunks.Length, componentType);
+                /*
+                }
+                */
+            }
+        }
+
+        public bool RemoveComponentWithValidation(Entity entity, ComponentType componentType)
+        {
+            ValidateEntity(entity);
+            AssertCanRemoveComponent(entity, componentType);
+            var removed = RemoveComponent(entity, componentType);
+
+            return removed;
+        }
+
+        public void RemoveComponentWithValidation(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
+            ComponentType componentType, ComponentDependencyManager* dependencyManager)
+        {
+            using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Collections.Allocator.TempJob, ref filter, dependencyManager))
+            {
+
+                RemoveComponentWithValidation(chunks, componentType);
+            }
+        }
+
+        public void RemoveComponentWithValidation(Collections.NativeArray<ArchetypeChunk> chunks, ComponentType componentType)
+        {
+            if (chunks.Length == 0)
+                return;
+
+            AssertCanRemoveComponent(chunks, componentType);
+            RemoveComponent((ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks),
+                chunks.Length, componentType);
+        }
 
         public void SetSharedComponentDataIndex(Entity entity, ComponentType componentType, int dstSharedComponentDataIndex)
         {

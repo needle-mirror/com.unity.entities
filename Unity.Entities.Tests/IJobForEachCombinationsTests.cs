@@ -6,6 +6,7 @@ namespace Unity.Entities.Tests
 {
     class IJobForEachCombinationsTests : ECSTestsFixture
     {
+#pragma warning disable 618
         struct Process1 : IJobForEach<EcsTestData>
         {
             public void Execute(ref EcsTestData value)
@@ -118,6 +119,7 @@ namespace Unity.Entities.Tests
                 v3.value = v4.value1 = v5.value2 = index + entity.Index;
             }
         }
+#pragma warning restore 618
 
         public enum ProcessMode
         {

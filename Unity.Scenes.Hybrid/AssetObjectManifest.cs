@@ -16,13 +16,13 @@ namespace Unity.Scenes
     #if UNITY_EDITOR
     internal class AssetObjectManifestBuilder
     {
-        unsafe static public void BuildManifest(GUID guid, AssetObjectManifest manifest)
+        public static unsafe void BuildManifest(GUID guid, AssetObjectManifest manifest)
         {
             var objects = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(guid.ToString()));
             BuildManifest(objects, manifest);
         }
         
-        unsafe static public void BuildManifest(Object[] objects, AssetObjectManifest manifest)
+        public static unsafe void BuildManifest(Object[] objects, AssetObjectManifest manifest)
         {
             manifest.Objects = objects;
             manifest.GlobalObjectIds = new RuntimeGlobalObjectId[objects.Length];

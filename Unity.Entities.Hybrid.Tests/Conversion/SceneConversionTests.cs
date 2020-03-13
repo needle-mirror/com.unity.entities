@@ -1,3 +1,4 @@
+using System.Linq;
 using NUnit.Framework;
 using Unity.Entities.Conversion;
 using Unity.Mathematics;
@@ -69,7 +70,11 @@ namespace Unity.Entities.Tests.Conversion
             parent.DeclareLinkedEntityGroup = true;
             parent.Value = parent.gameObject;
 
-            using (var conversionWorld = GameObjectConversionUtility.ConvertIncrementalInitialize(SceneManager.GetActiveScene(), new GameObjectConversionSettings(World, conversionFlags)))
+            var settings = new GameObjectConversionSettings(World, conversionFlags)
+            {
+                Systems = TestWorldSetup.GetDefaultInitSystemsFromEntitiesPackage(WorldSystemFilterFlags.GameObjectConversion).ToList()
+            };
+            using (var conversionWorld = GameObjectConversionUtility.ConvertIncrementalInitialize(SceneManager.GetActiveScene(), settings))
             {
                 Entities.ForEach((ref EntityRefTestData data) =>
                     StringAssert.StartsWith("parent", m_Manager.GetName(data.Value)));
@@ -124,7 +129,8 @@ namespace Unity.Entities.Tests.Conversion
             var conversionSettings = new GameObjectConversionSettings
             {
                 DestinationWorld = World,
-                BuildConfiguration = config
+                BuildConfiguration = config,
+                Systems = TestWorldSetup.GetDefaultInitSystemsFromEntitiesPackage(WorldSystemFilterFlags.GameObjectConversion).ToList()
             };
 
             GameObjectConversionUtility.ConvertScene(scene, conversionSettings);

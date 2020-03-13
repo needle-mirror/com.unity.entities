@@ -40,13 +40,35 @@ namespace Unity.Entities.CodeGen {
         static bool IsType(TypeReference typeRef, Type type) => typeRef.Name == type.Name && typeRef.Namespace == type.Namespace;
         static bool HasAttribute(TypeDefinition typeDef, Type attributeType) => typeDef.HasCustomAttributes &&
             typeDef.CustomAttributes.Any(attr => IsType(attr.AttributeType, attributeType));
+
+        static bool HasAttributeOrFieldWithAttribute(this TypeReference type, Type checkAttribute)
+        {
+            var typeDef = type.CheckedResolve();
+            if (HasAttribute(typeDef, checkAttribute))
+                return true;
+
+            return typeDef.Fields.Any(f =>
+            {
+                if (f.IsStatic)
+                    return false;
+                if (f.FieldType.IsPrimitive)
+                    return false;
+                if (f.FieldType is GenericParameter)
+                    return false;
+                if (f.FieldType is PointerType)
+                    return false;
+                if (f.FieldType is ArrayType)
+                    return false;
+                return f.FieldType.HasAttributeOrFieldWithAttribute(checkAttribute);
+            });
+        }
         
         static DiagnosticMessage CheckReadOnly(
             MethodDefinition method,
             LambdaJobDescriptionConstruction.InvokedConstructionMethod constructionMethod,
             FieldDefinition field)
         {
-            if (HasAttribute(field.FieldType.Resolve(), typeof(NativeContainerAttribute)))
+            if (field.FieldType.HasAttributeOrFieldWithAttribute(typeof(NativeContainerAttribute)))
                 return null;
             return UserError.DC0034(method, field.Name, field.FieldType, constructionMethod.InstructionInvokingMethod);
         }
@@ -56,7 +78,7 @@ namespace Unity.Entities.CodeGen {
             LambdaJobDescriptionConstruction.InvokedConstructionMethod constructionMethod,
             FieldDefinition field)
         {
-            if (HasAttribute(field.FieldType.Resolve(), typeof(NativeContainerSupportsDeallocateOnJobCompletionAttribute)))
+            if (field.FieldType.HasAttributeOrFieldWithAttribute(typeof(NativeContainerSupportsDeallocateOnJobCompletionAttribute)))
                 return null;
             return UserError.DC0035(method, field.Name, field.FieldType, constructionMethod.InstructionInvokingMethod);
         }
@@ -66,7 +88,7 @@ namespace Unity.Entities.CodeGen {
             LambdaJobDescriptionConstruction.InvokedConstructionMethod constructionMethod,
             FieldDefinition field)
         {
-            if (HasAttribute(field.FieldType.Resolve(), typeof(NativeContainerAttribute)))
+            if (field.FieldType.HasAttributeOrFieldWithAttribute(typeof(NativeContainerAttribute)))
                 return null;
             return UserError.DC0036(method, field.Name, field.FieldType, constructionMethod.InstructionInvokingMethod);
         }
@@ -76,7 +98,7 @@ namespace Unity.Entities.CodeGen {
             LambdaJobDescriptionConstruction.InvokedConstructionMethod constructionMethod,
             FieldDefinition field)
         {
-            if (HasAttribute(field.FieldType.Resolve(), typeof(NativeContainerAttribute)))
+            if (field.FieldType.HasAttributeOrFieldWithAttribute(typeof(NativeContainerAttribute)))
                 return null;
             return UserError.DC0037(method, field.Name, field.FieldType, constructionMethod.InstructionInvokingMethod);
         }

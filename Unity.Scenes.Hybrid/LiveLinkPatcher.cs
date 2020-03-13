@@ -104,6 +104,7 @@ namespace Unity.Scenes
             _RemovedScenesQuery.Dispose();
         }
 
+#pragma warning disable 618
         struct RemoveLiveLinkSceneState : IJobForEachWithEntity<LiveLinkedSceneState>
         {
             public Hash128 DeleteGuid;
@@ -114,6 +115,7 @@ namespace Unity.Scenes
                     Commands.RemoveComponent<LiveLinkedSceneState>(entity);
             }
         }
+#pragma warning restore 618
 
         public void TriggerLoad(Hash128 sceneGUID)
         {

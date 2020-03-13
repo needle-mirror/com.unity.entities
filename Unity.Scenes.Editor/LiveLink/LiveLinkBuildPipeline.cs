@@ -1,13 +1,13 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Unity.Entities.Serialization;
 using UnityEditor;
 using UnityEditor.Build.Content;
 using UnityEditor.Build.Pipeline;
 using UnityEditor.Build.Pipeline.Interfaces;
 using UnityEditor.Build.Pipeline.Utilities;
 using UnityEditor.Build.Utilities;
+using UnityEditor.Experimental;
 using UnityEngine;
 
 namespace Unity.Scenes.Editor
@@ -90,11 +90,48 @@ namespace Unity.Scenes.Editor
             return *(BuildUsageTagGlobal*)&blob;
         }
 
+        // BuiltinExtra resources are not added to a player build and as such must be referenced and send individually.
+        // To avoid having a very special case and expanding LiveLink to support a GUID and FileIdentifier, we are packing the file ident in the end of the GUID.
+        // This allows us to check if the GUID unpacks into k_UnityBuiltinExtraResources (0000000000000000f000000000000000) and if so, output the fileIdent for building the AssetBundle.
+        // Ideally this will be removed with future improvements, where we stop having builtins packed into a single asset.
+        //
+        // Example packed builtin_extra GUID: 0000000000000000f000000004820000 
+        public static unsafe bool TryRemapBuiltinExtraGuid(ref GUID guid, out long fileIdent)
+        {
+            fixed (void* ptr = &guid)
+            {
+                var asHash = (Entities.Hash128*)ptr;
+                var temp = asHash->Value.w;
+                asHash->Value.w = 0;
+
+                if (guid == k_UnityBuiltinExtraResources)
+                {
+                    fileIdent = temp;
+                    return true;
+                }
+
+                asHash->Value.w = temp;
+            }
+
+            fileIdent = -1;
+            return false;
+        }
+
+        public static unsafe void PackBuiltinExtraWithFileIdent(ref GUID guid, long fileIdent)
+        {
+            fixed (void* ptr = &guid)
+            {
+                var asHash = (Entities.Hash128*)ptr;
+                asHash->Value.w = (uint)fileIdent;
+            }
+        }
+
         public static void RemapBuildInAssetGuid(ref string assetGUID)
         {
-            // Update ADBv2 to allow extra artifacts to be generated for BuiltIn types
-            var path = AssetDatabase.GUIDToAssetPath(assetGUID).ToLower();
-            if (path.StartsWith("library/") || path.StartsWith("resources/") || path.StartsWith("projectsettings/"))
+            var guid = new GUID(assetGUID);
+            TryRemapBuiltinExtraGuid(ref guid, out _);
+
+            if (guid == k_UnityBuiltinResources || guid == k_UnityEditorResources || guid == k_UnityBuiltinExtraResources)
             {
                 var tempPath = $"Assets/TempAssetCache/{assetGUID}.txt";
                 if (!File.Exists(tempPath))
@@ -107,12 +144,22 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        public static void RemapBuildInAssetPath(ref string assetPath)
+        public static long RemapBuildInAssetPath(ref string assetPath)
         {
+            var guid = new GUID(Path.GetFileNameWithoutExtension(assetPath));
+            TryRemapBuiltinExtraGuid(ref guid, out var ident);
+
             // Update ADBv2 to allow extra artifacts to be generated for BuiltIn types
-            var newPath = AssetDatabase.GUIDToAssetPath(Path.GetFileNameWithoutExtension(assetPath));
-            if (!string.IsNullOrEmpty(newPath))
-                assetPath = newPath;
+            if (guid == k_UnityBuiltinResources || guid == k_UnityEditorResources || guid == k_UnityBuiltinExtraResources)
+            {
+                var newPath = AssetDatabase.GUIDToAssetPath(guid.ToString());
+                if (!string.IsNullOrEmpty(newPath))
+                {
+                    assetPath = newPath;
+                }
+            }
+
+            return ident;
         }
 
         public static bool BuildSceneBundle(GUID sceneGuid, string cacheFilePath, BuildTarget target, bool collectDependencies = false, HashSet<Entities.Hash128> dependencies = null, HashSet<System.Type> types = null)
@@ -193,18 +240,34 @@ namespace Unity.Scenes.Editor
                         // TODO: Once we switch to using GlobalObjectId for SBP, we will need a mapping for certain special cases of GUID <> FilePath for Builtin Resources
                         writeParams.referenceMap.AddMapping(obj.filePath, obj.localIdentifierInFile, obj);
                     }
+                    else if (type == typeof(MonoScript))
+                    {
+                        writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj) });
+                        writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName, generator.SerializationIndexFromObjectIdentifier(obj), obj);
+                    }
                     else if (collectDependencies || obj.guid == sceneGuid)
                     {
                         writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj) });
                         writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName, generator.SerializationIndexFromObjectIdentifier(obj), obj);
                     }
+                    else if (obj.guid == k_UnityBuiltinExtraResources)
+                    {
+                        GUID convGUID = obj.guid;
+                        PackBuiltinExtraWithFileIdent(ref convGUID, obj.localIdentifierInFile);
+                        
+                        writeParams.referenceMap.AddMapping(generator.GenerateAssetBundleInternalFileName(convGUID.ToString()), generator.SerializationIndexFromObjectIdentifier(obj), obj);
+                        
+                        dependencies?.Add(convGUID);
+                    }
                     else if (!obj.guid.Empty())
                         writeParams.referenceMap.AddMapping(generator.GenerateAssetBundleInternalFileName(obj.guid.ToString()), generator.SerializationIndexFromObjectIdentifier(obj), obj);
 
                     // This will be solvable after we move SBP into the asset pipeline as importers.
-                    if (!obj.guid.Empty() && obj.guid != sceneGuid)
+                    if (!obj.guid.Empty() && obj.guid != sceneGuid && type != typeof(MonoScript) && obj.guid != k_UnityBuiltinExtraResources)
+                    {
                         dependencies?.Add(obj.guid);
-
+                    }
+                    
                     if (type != null)
                         types?.Add(type);
                 }
@@ -336,10 +399,6 @@ namespace Unity.Scenes.Editor
                         // TODO: Once we switch to using GlobalObjectId for SBP, we will need a mapping for certain special cases of GUID <> FilePath for Builtin Resources
                         writeParams.referenceMap.AddMapping(obj.filePath, obj.localIdentifierInFile, obj);
                     }
-                    /*else if (obj.guid == k_UnityBuiltinExtraResources)
-                    {
-                        writeParams.referenceMap.AddMapping(obj.filePath, obj.localIdentifierInFile, obj);
-                    }*/
                     else if (type == typeof(MonoScript))
                     {
                         writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj) });
@@ -351,8 +410,16 @@ namespace Unity.Scenes.Editor
                             generator.SerializationIndexFromObjectIdentifier(obj), obj);
                     
                     // This will be solvable after we move SBP into the asset pipeline as importers.
-                    if (!obj.guid.Empty())
-                        dependencies?.Add(obj.guid);
+                    if (!obj.guid.Empty() && type != typeof(MonoScript))
+                    {
+                        var convGUID = obj.guid;
+                        if (obj.guid == k_UnityBuiltinExtraResources)
+                        {
+                            PackBuiltinExtraWithFileIdent(ref convGUID, obj.localIdentifierInFile);
+                        }
+                        
+                        dependencies?.Add(convGUID);
+                    }
                 }
 
                 // Write the serialized file
@@ -371,13 +438,24 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        public static bool BuildAssetBundle(string manifestPath, GUID assetGuid, string cacheFilePath, BuildTarget target, bool collectDependencies = false, HashSet<Entities.Hash128> dependencies = null, HashSet<System.Type> types = null)
+        public static bool BuildAssetBundle(string manifestPath, GUID assetGuid, string cacheFilePath, BuildTarget target, bool collectDependencies = false, HashSet<Entities.Hash128> dependencies = null, HashSet<System.Type> types = null, long fileIdent = -1)
         {
             using (new BuildInterfacesWrapper())
             {
                 Directory.CreateDirectory(k_TempBuildPath);
 
-                var asset = assetGuid.ToString();
+                // Used for naming
+                string asset;
+                if (fileIdent != -1)
+                {
+                    GUID convGuid = assetGuid;
+                    PackBuiltinExtraWithFileIdent(ref convGuid, fileIdent);
+                    asset = convGuid.ToString();
+                }
+                else
+                {
+                    asset = assetGuid.ToString();
+                }
 
                 // Deterministic ID Generator
                 var generator = new Unity5PackedIdentifiers();
@@ -481,17 +559,37 @@ namespace Unity.Scenes.Editor
                         // TODO: Once we switch to using GlobalObjectId for SBP, we will need a mapping for certain special cases of GUID <> FilePath for Builtin Resources
                         writeParams.referenceMap.AddMapping(obj.filePath, obj.localIdentifierInFile, obj);
                     }
-                    else if (collectDependencies || obj.guid == assetGuid)
+                    else if (type == typeof(MonoScript))
                     {
                         writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj) });
                         writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName, generator.SerializationIndexFromObjectIdentifier(obj), obj);
+                    }
+                    else if (collectDependencies || obj.guid == assetGuid)
+                    {
+                        // If we are a specific built-in asset, only add the built-in asset
+                        if (fileIdent != -1 && obj.localIdentifierInFile != fileIdent)
+                            continue;
+                        
+                        writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj) });
+                        writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName, generator.SerializationIndexFromObjectIdentifier(obj), obj);
+                    }
+                    else if (obj.guid == k_UnityBuiltinExtraResources)
+                    {
+                        GUID convGUID = obj.guid;
+                        PackBuiltinExtraWithFileIdent(ref convGUID, obj.localIdentifierInFile);
+                        
+                        writeParams.referenceMap.AddMapping(generator.GenerateAssetBundleInternalFileName(convGUID.ToString()), generator.SerializationIndexFromObjectIdentifier(obj), obj);
+                        
+                        dependencies?.Add(convGUID);
                     }
                     else if (!obj.guid.Empty())
                         writeParams.referenceMap.AddMapping(generator.GenerateAssetBundleInternalFileName(obj.guid.ToString()), generator.SerializationIndexFromObjectIdentifier(obj), obj);
 
                     // This will be solvable after we move SBP into the asset pipeline as importers.
-                    if (!obj.guid.Empty() && obj.guid != assetGuid)
+                    if (!obj.guid.Empty() && obj.guid != assetGuid && type != typeof(MonoScript) && obj.guid != k_UnityBuiltinExtraResources)
+                    {
                         dependencies?.Add(obj.guid);
+                    }
 
                     if (type != null)
                         types?.Add(type);
@@ -514,14 +612,14 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        public static Hash128 CalculateTargetHash(GUID guid, BuildTarget target)
+        public static Hash128 CalculateTargetHash(GUID guid, BuildTarget target, AssetDatabaseExperimental.ImportSyncMode syncMode)
         {
-            return LiveLinkBuildImporter.GetHash(guid.ToString(), target);
+            return LiveLinkBuildImporter.GetHash(guid.ToString(), target, syncMode);
         }
 
-        public static void CalculateTargetDependencies(GUID guid, BuildTarget target, out ResolvedAssetID[] dependencies)
+        public static void CalculateTargetDependencies(Entities.Hash128 artifactHash, BuildTarget target, out ResolvedAssetID[] dependencies, AssetDatabaseExperimental.ImportSyncMode syncMode)
         {
-            List<Entities.Hash128> assets = new List<Entities.Hash128>(LiveLinkBuildImporter.GetDependencies(guid.ToString(), target));
+            List<Entities.Hash128> assets = new List<Entities.Hash128>(LiveLinkBuildImporter.GetDependencies(artifactHash));
             List<ResolvedAssetID> resolvedDependencies = new List<ResolvedAssetID>();
 
             HashSet<Entities.Hash128> visited = new HashSet<Entities.Hash128>();
@@ -530,13 +628,17 @@ namespace Unity.Scenes.Editor
                 if (!visited.Add(assets[i]))
                     continue;
 
-                resolvedDependencies.Add(new ResolvedAssetID
+                var resolvedAsset = new ResolvedAssetID
                 {
                     GUID = assets[i],
-                    TargetHash = CalculateTargetHash(assets[i], target),
-                });
+                    TargetHash = CalculateTargetHash(assets[i], target, syncMode),
+                };
+                resolvedDependencies.Add(resolvedAsset);
 
-                assets.AddRange(LiveLinkBuildImporter.GetDependencies(assets[i].ToString(), target));
+                if (resolvedAsset.TargetHash.IsValid)
+                {
+                    assets.AddRange(LiveLinkBuildImporter.GetDependencies(resolvedAsset.TargetHash));
+                }
             }
 
             dependencies = resolvedDependencies.ToArray();

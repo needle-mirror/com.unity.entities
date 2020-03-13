@@ -151,6 +151,7 @@ for(int i=0; i<funcNames.Length; ++i) {
 #>
 #endif // UNITY_DOTSPLAYER
 
+#pragma warning disable 618
 <#
 foreach(var combination in combinations) {
     foreach (var withEntity in new[] { false, true }) {
@@ -299,9 +300,9 @@ foreach(var combination in combinations) {
     }
 }
 #>
-
     }
 }
+#pragma warning restore 618
 
 <#+
 // keep these alphabetical as a general rule
@@ -489,6 +490,7 @@ string Interface( Category[] combination, bool withEntity, string comboString )
 
     interfaceDec.Append(
 $@"
+    [Obsolete(""Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)"")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_{comboString}<{GetUntypedGenericParams(combination)}>))]
     #if UNITY_DOTSPLAYER
     [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_{comboString}<>))]
@@ -515,6 +517,7 @@ string BasicInterface( Category[] combination, bool withEntity, string comboStri
 
     interfaceDec.AppendLine(
     $@"
+    [Obsolete(""Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)"")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_{comboString}<{GetUntypedGenericParams(combination)}>))]
     public interface {name}<{GenericParams(combination)}> : {name}_{comboString}<{GenericParams(combination)}>");
 

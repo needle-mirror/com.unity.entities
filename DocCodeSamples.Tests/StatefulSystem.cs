@@ -51,6 +51,7 @@ public class StatefulSystem : JobComponentSystem
         m_ECBSource = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
     }
 
+#pragma warning disable 618
     struct NewEntityJob : IJobForEachWithEntity<GeneralPurposeComponentA>
     {
         public EntityCommandBuffer.Concurrent ConcurrentECB;
@@ -88,6 +89,7 @@ public class StatefulSystem : JobComponentSystem
             ConcurrentECB.RemoveComponent<StateComponentB>(jobIndex, entity);
         }
     }
+#pragma warning restore 618
 
     protected override JobHandle OnUpdate(JobHandle inputDependencies)
     {

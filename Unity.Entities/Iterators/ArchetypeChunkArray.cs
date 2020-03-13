@@ -209,6 +209,29 @@ namespace Unity.Entities
         {
             return ChangeVersionUtility.DidChange(GetComponentVersion(chunkComponentType), version);
         }
+        
+        /// <summary>
+        /// Reports whether any of IComponentData components in the chunk, of the type identified by
+        /// <paramref name="chunkComponentType"/>, could have changed.
+        /// </summary>
+        /// <remarks>
+        /// Note that for efficiency, the change version applies to whole chunks not individual entities. The change
+        /// version is incremented even when another job or system that has declared write access to a component does
+        /// not actually change the component value.</remarks>
+        /// <param name="chunkComponentType">An object containing type and job safety information. Create this
+        /// object by calling <see cref="Unity.Entities.JobComponentSystem.GetArchetypeChunkComponentTypeDynamic"/> immediately
+        /// before scheduling a job. Pass the object to a job using a public field you define as part of the job struct.
+        /// </param>
+        /// <param name="version">The version to compare. In a system, this parameter should be set to the
+        /// current <see cref="Unity.Entities.ComponentSystemBase.LastSystemVersion"/> at the time the job is run or
+        /// scheduled.</param>
+        /// <typeparam name="T">The component type.</typeparam>
+        /// <returns>True, if the version number stored in the chunk for this component is more recent than the version
+        /// passed to the <paramref name="version"/> parameter.</returns>
+        public bool DidChange(ArchetypeChunkComponentTypeDynamic chunkComponentType, uint version)
+        {
+            return ChangeVersionUtility.DidChange(GetChangeVersion(chunkComponentType), version);
+        }
 
         /// <summary>
         /// Reports whether any of dynamic buffer components in the chunk, of the type identified by
@@ -247,6 +270,23 @@ namespace Unity.Entities
             where T : IComponentData
         {
             var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentType.m_TypeIndex);
+            if (typeIndexInArchetype == -1) return 0;
+            return m_Chunk->GetChangeVersion(typeIndexInArchetype);
+        }
+
+        /// <summary>
+        /// Returns a version number that increases whenever read-write access to the given
+        /// component is requested from this chunk, or 0 if the component doesn't exist in the chunk.
+        /// </summary>
+        /// <param name="chunkComponentType"></param>
+        /// <typeparam name="ArchetypeChunkComponentTypeDynamic"></typeparam>
+        /// <returns>Current version number of the given component</returns>
+        public uint GetChangeVersion(ArchetypeChunkComponentTypeDynamic chunkComponentType)
+        {
+            int cache = chunkComponentType.m_TypeLookupCache;
+            ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentType.m_TypeIndex, ref cache);
+            chunkComponentType.m_TypeLookupCache = (short) cache;
+            int typeIndexInArchetype = cache;
             if (typeIndexInArchetype == -1) return 0;
             return m_Chunk->GetChangeVersion(typeIndexInArchetype);
         }
@@ -377,8 +417,10 @@ namespace Unity.Entities
         /// <returns></returns>
         public bool Has(ArchetypeChunkComponentTypeDynamic chunkComponentType)
         {
-            ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentType.m_TypeIndex, ref chunkComponentType.m_TypeLookupCache);
-            return (chunkComponentType.m_TypeLookupCache != -1);
+            int cache = chunkComponentType.m_TypeLookupCache;
+            ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentType.m_TypeIndex, ref cache);
+            chunkComponentType.m_TypeLookupCache = (short) cache;
+            return (cache != -1);
         }
 
         /// <summary>
@@ -506,8 +548,9 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckReadAndThrow(chunkComponentType.m_Safety);
 #endif
             var archetype = m_Chunk->Archetype;
-            ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentType.m_TypeIndex, ref chunkComponentType.m_TypeLookupCache);
-            var typeIndexInArchetype = chunkComponentType.m_TypeLookupCache;
+            int typeIndexInArchetype = chunkComponentType.m_TypeLookupCache;
+            ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentType.m_TypeIndex, ref typeIndexInArchetype);
+            chunkComponentType.m_TypeLookupCache = (short)typeIndexInArchetype;
             if (typeIndexInArchetype == -1)
             {
                 var emptyResult =
@@ -819,6 +862,7 @@ namespace Unity.Entities
         internal readonly uint m_GlobalSystemVersion;
         internal readonly bool m_IsReadOnly;
         internal readonly bool m_IsZeroSized;
+        public short m_TypeLookupCache;
 
         public uint GlobalSystemVersion => m_GlobalSystemVersion;
         public bool IsReadOnly => m_IsReadOnly;
@@ -831,11 +875,6 @@ namespace Unity.Entities
         internal readonly AtomicSafetyHandle m_Safety;
 #endif
 #pragma warning restore 0414
-
-        /// <summary>
-        ///
-        /// </summary>
-        public int m_TypeLookupCache;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         internal ArchetypeChunkComponentTypeDynamic(ComponentType componentType, AtomicSafetyHandle safety, uint globalSystemVersion)

@@ -967,130 +967,246 @@ namespace Unity.Entities.CodeGen.Tests
                     .Schedule(default);
             }
         }
+        
+        struct StructWithNativeContainer
+        {
+            public NativeArray<int> array;
+        }
+            
+        struct StructWithStructWithNativeContainer
+        {
+            public StructWithNativeContainer innerStruct;
+        }
+        
+        struct StructWithPrimitiveType
+        {
+            public int field;
+        }
 
         [Test]
         public void ReadOnlyWarnsAboutArgumentType()
         {
-            AssertProducesNoError(typeof(CorrectReadOnlyUsage));
-            AssertProducesError(typeof(IncorrectReadOnlyUsage), nameof(UserError.DC0034), "myVar");
+            AssertProducesNoError(typeof(CorrectReadOnlyUsageWithNativeContainer));
+            AssertProducesNoError(typeof(CorrectReadOnlyUsageWithStruct));
+            AssertProducesError(typeof(IncorrectReadOnlyUsageWithStruct), nameof(UserError.DC0034), "structWithPrimitiveType");
+            AssertProducesError(typeof(IncorrectReadOnlyUsageWithPrimitiveType), nameof(UserError.DC0034), "myVar");
         }
 
-        class CorrectReadOnlyUsage : TestJobComponentSystem
+        class CorrectReadOnlyUsageWithNativeContainer : TestJobComponentSystem
         {
             void Test()
             {
                 NativeArray<int> array = default;
-                Entities
-                    .WithReadOnly(array)
-                    .ForEach((ref Translation t) => { t.Value += array[0]; })
-                    .Schedule(default);
+                Entities.WithReadOnly(array).ForEach((ref Translation t) => { t.Value += array[0]; }).Schedule(default);
+            }
+        }
+        
+        class CorrectReadOnlyUsageWithStruct : TestJobComponentSystem
+        {
+            void Test()
+            {
+                StructWithNativeContainer structWithNativeContainer = default;
+                Entities.WithReadOnly(structWithNativeContainer).ForEach((ref Translation t) =>
+                {
+                    t.Value += structWithNativeContainer.array[0];
+                }).Schedule(default);
+                
+                StructWithStructWithNativeContainer structWithStructWithNativeContainer = default;
+                Entities.WithReadOnly(structWithStructWithNativeContainer).ForEach((ref Translation t) =>
+                {
+                    t.Value += structWithStructWithNativeContainer.innerStruct.array[0];
+                }).Schedule(default);
+            }
+        }
+        
+        class IncorrectReadOnlyUsageWithStruct : TestJobComponentSystem
+        {
+            void Test()
+            {
+                StructWithPrimitiveType structWithPrimitiveType = default;
+                Entities.WithReadOnly(structWithPrimitiveType).ForEach((ref Translation t) => { t.Value += structWithPrimitiveType.field; }).Schedule(default);
             }
         }
 
-        class IncorrectReadOnlyUsage : TestJobComponentSystem
+        class IncorrectReadOnlyUsageWithPrimitiveType : TestJobComponentSystem
         {
             void Test()
             {
                 int myVar = 0;
-                Entities
-                    .WithReadOnly(myVar)
-                    .ForEach((ref Translation t) => { t.Value += myVar; })
-                    .Schedule(default);
+                Entities.WithReadOnly(myVar).ForEach((ref Translation t) => { t.Value += myVar; }).Schedule(default);
             }
         }
 
         [Test]
         public void DeallocateOnJobCompletionWarnsAboutArgumentType()
         {
-            AssertProducesNoError(typeof(CorrectDeallocateOnJobCompletionUsage));
-            AssertProducesError(typeof(IncorrectDeallocateOnJobCompletionUsage), nameof(UserError.DC0035), "myVar");
+            AssertProducesNoError(typeof(CorrectDeallocateOnJobCompletionUsageWithNativeContainer));
+            AssertProducesNoError(typeof(CorrectDeallocateOnJobCompletionUsageWithStruct));
+            AssertProducesError(typeof(IncorrectDeallocateOnJobCompletionUsageWithStruct), nameof(UserError.DC0035), "structWithPrimitiveType");
+            AssertProducesError(typeof(IncorrectDeallocateOnJobCompletionUsageWithPrimitiveType), nameof(UserError.DC0035), "myVar");
         }
 
-        class CorrectDeallocateOnJobCompletionUsage : TestJobComponentSystem
+        class CorrectDeallocateOnJobCompletionUsageWithNativeContainer : TestJobComponentSystem
         {
             void Test()
             {
                 NativeArray<int> array = default;
-                Entities
-                    .WithReadOnly(array)
-                    .WithDeallocateOnJobCompletion(array)
-                    .ForEach((ref Translation t) => { t.Value += array[0]; })
-                    .Schedule(default);
+                Entities.WithReadOnly(array).WithDeallocateOnJobCompletion(array).ForEach((ref Translation t) => { t.Value += array[0]; }).Schedule(default);
+            }
+        }
+        
+        class CorrectDeallocateOnJobCompletionUsageWithStruct : TestJobComponentSystem
+        {
+            void Test()
+            {
+                StructWithNativeContainer structWithNativeContainer = default;
+                Entities.WithDeallocateOnJobCompletion(structWithNativeContainer).ForEach((ref Translation t) =>
+                {
+                    t.Value += structWithNativeContainer.array[0];
+                }).Schedule(default);
+                
+                StructWithStructWithNativeContainer structWithStructWithNativeContainer = default;
+                Entities.WithDeallocateOnJobCompletion(structWithStructWithNativeContainer).ForEach((ref Translation t) =>
+                {
+                    t.Value += structWithStructWithNativeContainer.innerStruct.array[0];
+                }).Schedule(default);
+            }
+        }
+        
+        class IncorrectDeallocateOnJobCompletionUsageWithStruct : TestJobComponentSystem
+        {
+            void Test()
+            {
+                StructWithPrimitiveType structWithPrimitiveType = default;
+                structWithPrimitiveType.field = default;
+                Entities.WithDeallocateOnJobCompletion(structWithPrimitiveType).ForEach((ref Translation t) => { t.Value += structWithPrimitiveType.field; }).Schedule(default);
             }
         }
 
-        class IncorrectDeallocateOnJobCompletionUsage : TestJobComponentSystem
+        class IncorrectDeallocateOnJobCompletionUsageWithPrimitiveType : TestJobComponentSystem
         {
             void Test()
             {
                 int myVar = 0;
-                Entities
-                    .WithDeallocateOnJobCompletion(myVar)
-                    .ForEach((ref Translation t) => { t.Value += myVar; })
-                    .Schedule(default);
+                Entities.WithDeallocateOnJobCompletion(myVar).ForEach((ref Translation t) => { t.Value += myVar; }).Schedule(default);
             }
         }
 
         [Test]
         public void DisableContainerSafetyRestrictionWarnsAboutArgumentType()
         {
-            AssertProducesNoError(typeof(CorrectDisableContainerSafetyRestrictionUsage));
-            AssertProducesError(typeof(IncorrectDisableContainerSafetyRestrictionUsage), nameof(UserError.DC0036), "myVar");
+            AssertProducesNoError(typeof(CorrectDisableContainerSafetyRestrictionUsageWithNativeContainer));
+            AssertProducesNoError(typeof(CorrectDisableContainerSafetyRestrictionUsageWithStruct));
+            AssertProducesError(typeof(IncorrectDisableContainerSafetyRestrictionUsageWithStruct), nameof(UserError.DC0036), "structWithPrimitiveType");
+            AssertProducesError(typeof(IncorrectDisableContainerSafetyRestrictionUsageWithPrimitiveType), nameof(UserError.DC0036), "myVar");
         }
 
-        class CorrectDisableContainerSafetyRestrictionUsage : TestJobComponentSystem
+        class CorrectDisableContainerSafetyRestrictionUsageWithNativeContainer : TestJobComponentSystem
         {
             void Test()
             {
                 NativeArray<int> array = default;
-                Entities
-                    .WithReadOnly(array)
-                    .WithNativeDisableContainerSafetyRestriction(array)
-                    .ForEach((ref Translation t) => { t.Value += array[0]; })
-                    .Schedule(default);
+                Entities.WithReadOnly(array).WithNativeDisableContainerSafetyRestriction(array).ForEach((ref Translation t) => { t.Value += array[0]; }).Schedule(default);
+            }
+        }
+        
+        class CorrectDisableContainerSafetyRestrictionUsageWithStruct : TestJobComponentSystem
+        {
+            void Test()
+            {
+                StructWithNativeContainer structWithNativeContainer = default;
+                structWithNativeContainer.array = default;
+                Entities.WithNativeDisableContainerSafetyRestriction(structWithNativeContainer).ForEach((ref Translation t) =>
+                {
+                    t.Value += structWithNativeContainer.array[0];
+                }).Schedule(default);
+                
+                StructWithStructWithNativeContainer structWithStructWithNativeContainer = default;
+                Entities.WithNativeDisableContainerSafetyRestriction(structWithStructWithNativeContainer).ForEach((ref Translation t) =>
+                {
+                    t.Value += structWithStructWithNativeContainer.innerStruct.array[0];
+                }).Schedule(default);
+            }
+        }
+        
+        class IncorrectDisableContainerSafetyRestrictionUsageWithStruct : TestJobComponentSystem
+        {
+            void Test()
+            {
+                StructWithPrimitiveType structWithPrimitiveType = default;
+                structWithPrimitiveType.field = default;
+                Entities.WithNativeDisableContainerSafetyRestriction(structWithPrimitiveType).ForEach((ref Translation t) =>
+                {
+                    t.Value += structWithPrimitiveType.field;
+                }).Schedule(default);
             }
         }
 
-        class IncorrectDisableContainerSafetyRestrictionUsage : TestJobComponentSystem
+        class IncorrectDisableContainerSafetyRestrictionUsageWithPrimitiveType : TestJobComponentSystem
         {
             void Test()
             {
                 int myVar = 0;
-                Entities
-                    .WithNativeDisableContainerSafetyRestriction(myVar)
-                    .ForEach((ref Translation t) => { t.Value += myVar; })
-                    .Schedule(default);
+                Entities.WithNativeDisableContainerSafetyRestriction(myVar).ForEach((ref Translation t) => { t.Value += myVar; }).Schedule(default);
             }
         }
 
         [Test]
         public void DisableParallelForRestrictionWarnsAboutArgumentType()
         {
-            AssertProducesNoError(typeof(CorrectDisableParallelForRestrictionUsage));
-            AssertProducesError(typeof(IncorrectDisableParallelForRestrictionUsage), nameof(UserError.DC0037), "myVar");
+            AssertProducesNoError(typeof(CorrectDisableParallelForRestrictionUsageWithNativeContainer));
+            AssertProducesNoError(typeof(CorrectDisableParallelForRestrictionUsageWithStruct));
+            AssertProducesError(typeof(IncorrectDisableParallelForRestrictionUsageWithStruct), nameof(UserError.DC0037), "structWithPrimitiveType");
+            AssertProducesError(typeof(IncorrectDisableParallelForRestrictionUsageWithPrimitiveType), nameof(UserError.DC0037), "myVar");
         }
 
-        class CorrectDisableParallelForRestrictionUsage : TestJobComponentSystem
+        class CorrectDisableParallelForRestrictionUsageWithNativeContainer : TestJobComponentSystem
         {
-            unsafe void Test()
+            void Test()
             {
                 NativeArray<int> array = default;
-                Entities
-                    .WithNativeDisableParallelForRestriction(array)
-                    .ForEach((ref Translation t) => { t.Value += array[0]; })
-                    .Schedule(default);
+                Entities.WithNativeDisableParallelForRestriction(array).ForEach((ref Translation t) => { t.Value += array[0]; }).Schedule(default);
+            }
+        }
+        
+        class CorrectDisableParallelForRestrictionUsageWithStruct : TestJobComponentSystem
+        {
+            void Test()
+            {
+                StructWithNativeContainer structWithNativeContainer = default;
+                structWithNativeContainer.array = default;
+                Entities.WithNativeDisableParallelForRestriction(structWithNativeContainer).ForEach((ref Translation t) =>
+                {
+                    t.Value += structWithNativeContainer.array[0];
+                }).Schedule(default);
+                
+                StructWithStructWithNativeContainer structWithStructWithNativeContainer = default;
+                Entities.WithNativeDisableParallelForRestriction(structWithStructWithNativeContainer).ForEach((ref Translation t) =>
+                {
+                    t.Value += structWithStructWithNativeContainer.innerStruct.array[0];
+                }).Schedule(default);
             }
         }
 
-        class IncorrectDisableParallelForRestrictionUsage : TestJobComponentSystem
+        class IncorrectDisableParallelForRestrictionUsageWithStruct : TestJobComponentSystem
+        {
+            void Test()
+            {
+                StructWithPrimitiveType structWithPrimitiveType = default;
+                structWithPrimitiveType.field = default;
+                Entities.WithNativeDisableParallelForRestriction(structWithPrimitiveType).ForEach((ref Translation t) =>
+                {
+                    t.Value += structWithPrimitiveType.field;
+                }).Schedule(default);
+            }
+        }
+        
+        class IncorrectDisableParallelForRestrictionUsageWithPrimitiveType : TestJobComponentSystem
         {
             void Test()
             {
                 int myVar = 0;
-                Entities
-                    .WithNativeDisableParallelForRestriction(myVar)
-                    .ForEach((ref Translation t) => { t.Value += myVar; })
-                    .Schedule(default);
+                Entities.WithNativeDisableParallelForRestriction(myVar).ForEach((ref Translation t) => { t.Value += myVar; }).Schedule(default);
             }
         }
 

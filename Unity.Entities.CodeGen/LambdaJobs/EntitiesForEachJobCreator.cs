@@ -863,8 +863,13 @@ namespace Unity.Entities.CodeGen
             var burstCompileAttribute = new CustomAttribute(burstCompileAttributeConstructor);
             var useBurstMethod = LambdaJobDescriptionConstruction.InvokedConstructionMethods.FirstOrDefault(m=>m.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithBurst));
 
-// Temporary workaround for DOTSR-1016
 #if !UNITY_DOTSPLAYER
+            // Adding MonoPInvokeCallbackAttribute needed for IL2CPP to work when burst is disabled
+            var monoPInvokeCallbackAttributeConstructors = typeof(MonoPInvokeCallbackAttribute).GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            var monoPInvokeCallbackAttribute = new CustomAttribute(module.ImportReference(monoPInvokeCallbackAttributeConstructors[0]));
+            monoPInvokeCallbackAttribute.ConstructorArguments.Add(new CustomAttributeArgument(ImportReference(typeof(Type)), ImportReference(ExecuteDelegateType)));
+
+            // Temporary workaround for DOTSR-1016
             CustomAttributeNamedArgument CustomAttributeNamedArgumentFor(string name, Type type, object value)
             {
                 return new CustomAttributeNamedArgument(name,
@@ -881,7 +886,10 @@ namespace Unity.Entities.CodeGen
 
             TypeDefinition.CustomAttributes.Add(burstCompileAttribute);
             RunWithoutJobSystemMethod?.CustomAttributes.Add(burstCompileAttribute);
-            
+#if !UNITY_DOTSPLAYER
+            RunWithoutJobSystemMethod?.CustomAttributes.Add(monoPInvokeCallbackAttribute);
+#endif
+
             // Need to make sure Burst knows the jobs struct doesn't alias with any pointer fields.
             if (LambdaJobDescriptionConstruction.UsesNoAlias)
             {

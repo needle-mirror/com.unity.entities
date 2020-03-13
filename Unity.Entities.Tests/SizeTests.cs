@@ -133,7 +133,7 @@ namespace Unity.Entities.Tests
         public void ThrowsWhenTooLargeAddComponent()
         {
            var entity = m_Manager.CreateEntity();
-           Assert.Throws<ArgumentException>(() =>
+           Assert.Throws<InvalidOperationException>(() =>
            {
                m_Manager.AddComponent<TestTooBig>(entity);
            });

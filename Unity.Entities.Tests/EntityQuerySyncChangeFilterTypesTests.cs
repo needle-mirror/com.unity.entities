@@ -71,6 +71,7 @@ namespace Unity.Entities.Tests
                 Assert.Throws<InvalidOperationException>(code);
         }
 
+#pragma warning disable 618
         public struct SetComponentDataJob_EcsTestData : IJobForEach<EcsTestData>
         {
             public EcsTestData value;
@@ -82,6 +83,7 @@ namespace Unity.Entities.Tests
             public EcsTestData2 value;
             public void Execute(ref EcsTestData2 component) => component = value;
         }
+#pragma warning restore 618
 
         [Test]
         public void CommandBuffer_AddComponentWithEntityQuery_Syncs_ChangeFilterTypes()

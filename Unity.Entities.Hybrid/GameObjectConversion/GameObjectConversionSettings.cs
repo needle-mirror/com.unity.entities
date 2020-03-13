@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 #if UNITY_EDITOR
@@ -27,6 +28,7 @@ namespace Unity.Entities
 
         // not carried forward into a fork
         public Type[]                   ExtraSystems = Array.Empty<Type>();
+        public List<Type>               Systems;
         public byte                     NamespaceID;
         public Action<World>            ConversionWorldCreated;        // get a callback right after the conversion world is created and systems have been added to it (good for tests that want to inject something)
         public Action<World>            ConversionWorldPreDispose;     // get a callback right before the conversion world gets disposed (good for tests that want to validate world contents)
@@ -79,7 +81,6 @@ namespace Unity.Entities
         {
             if (ExtraSystems != null && ExtraSystems.Length > 0)
                 throw new InvalidOperationException($"{nameof(ExtraSystems)} already initialized");
-
             ExtraSystems = extraSystems;
             return this;
         }

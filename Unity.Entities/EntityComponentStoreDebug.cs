@@ -294,7 +294,7 @@ namespace Unity.Entities
             var archetypeInstanceSize = archetype->InstanceSizeWithOverhead + componentInstanceSize;
             var chunkDataSize = Chunk.GetChunkBufferSize();
             if (archetypeInstanceSize > chunkDataSize)
-                throw new ArgumentException($"Entity archetype component data is too large after adding {componentType.ToString()}. Previous archetype size per instance {archetype->InstanceSizeWithOverhead}  bytes. Attempting to add component size {componentInstanceSize} bytes. Maximum chunk size {chunkDataSize}.");
+                throw new InvalidOperationException("Entity archetype component data is too large. Previous archetype size per instance {archetype->InstanceSizeWithOverhead}  bytes. Attempting to add component size {componentInstanceSize} bytes. Maximum chunk size {chunkDataSize}.");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
@@ -308,7 +308,7 @@ namespace Unity.Entities
         public void AssertCanAddComponent(Entity entity, ComponentType componentType)
         {
             if (!Exists(entity))
-                throw new ArgumentException("The entity does not exist");
+                throw new InvalidOperationException("The entity does not exist");
 
             AssertCanAddComponent(GetChunk(entity), componentType);
             AssertCanAddComponent(GetArchetype(entity), componentType);

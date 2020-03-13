@@ -13,10 +13,6 @@ unsafe struct EntityDataAccess : IDisposable
     internal ManagedComponentStore ManagedComponentStore => EntityManager?.ManagedComponentStore;
     internal EntityManager EntityManager => (EntityManager)m_EntityManager.Target;
     
-    internal bool IsMainThread => m_IsMainThread;
-
-    [NativeDisableUnsafePtrRestriction] GCHandle m_EntityManager;
-    
     [NativeDisableUnsafePtrRestriction]
     readonly internal EntityComponentStore*      EntityComponentStore;
     [NativeDisableUnsafePtrRestriction]
@@ -24,10 +20,12 @@ unsafe struct EntityDataAccess : IDisposable
     [NativeDisableUnsafePtrRestriction]
     readonly internal ComponentDependencyManager* DependencyManager;
 
-    
-    EntityArchetype                              m_EntityOnlyArchetype;
-    bool                                         m_IsMainThread;
+    [NativeDisableUnsafePtrRestriction] GCHandle m_EntityManager;
+    internal bool m_IsMainThread;
+    EntityArchetype m_EntityOnlyArchetype;
 
+    internal bool IsMainThread => m_IsMainThread;
+    
     [BurstCompile]
     struct DestroyChunks : IJob
     {
@@ -125,6 +123,44 @@ unsafe struct EntityDataAccess : IDisposable
 
         Profiler.EndSample();
     }
+    
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="archetypeList"></param>
+    /// <param name="filter"></param>
+    /// <exception cref="InvalidOperationException"></exception>
+    public void DestroyEntityDuringStructuralChange(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter)
+    {
+        if (!m_IsMainThread)
+            throw new InvalidOperationException("Must be called from the main thread");
+
+        Profiler.BeginSample("DestroyEntity(EntityQuery entityQueryFilter)");
+
+        Profiler.BeginSample("GetAllMatchingChunks");
+        using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, DependencyManager))
+        {
+            Profiler.EndSample();
+
+            if (chunks.Length != 0)
+            {
+                Profiler.BeginSample("EditorOnlyChecks");
+                EntityComponentStore->AssertCanDestroy(chunks);
+                EntityComponentStore->AssertWillDestroyAllInLinkedEntityGroup(chunks, EntityManager.GetArchetypeChunkBufferType<LinkedEntityGroup>(false));
+                Profiler.EndSample();
+
+                // #todo @macton DestroyEntities should support IJobChunk. But internal writes need to be handled.
+                Profiler.BeginSample("DeleteChunks");
+                new DestroyChunks { EntityComponentStore = EntityComponentStore, Chunks = chunks }.Run();
+                Profiler.EndSample();
+            }
+        }
+
+        Profiler.EndSample();
+    }
 
     internal EntityArchetype CreateArchetype(ComponentType* types, int count)
     {
@@ -157,7 +193,7 @@ unsafe struct EntityDataAccess : IDisposable
         return entityArchetype;
     }
 
-    static int FillSortedArchetypeArray(ComponentTypeInArchetype* dst, ComponentType* requiredComponents, int count)
+    internal static int FillSortedArchetypeArray(ComponentTypeInArchetype* dst, ComponentType* requiredComponents, int count)
     {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         if (count + 1 > 1024)
@@ -172,30 +208,65 @@ unsafe struct EntityDataAccess : IDisposable
 
     public Entity CreateEntity(EntityArchetype archetype)
     {
-        Unity.Entities.EntityComponentStore.AssertValidArchetype(EntityComponentStore, archetype);
-        
-        Entity entity;
         if (m_IsMainThread)
-            BeforeStructuralChange();
-        StructuralChange.CreateEntity(EntityComponentStore, archetype.Archetype, &entity, 1);
-        Assert.IsTrue(EntityComponentStore->ManagedChangesTracker.Empty);
-        
+            EntityManager.BeforeStructuralChange();
+        Entity entity = CreateEntityDuringStructuralChange(archetype);
+        ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+        return entity;
+    }
+    
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="archetype"></param>
+    /// <returns></returns>
+    public Entity CreateEntityDuringStructuralChange(EntityArchetype archetype)
+    {
+        Entity entity = EntityComponentStore->CreateEntityWithValidation(archetype);
         return entity;
     }
 
     internal void CreateEntity(EntityArchetype archetype, Entity* outEntities, int count)
     {
-        Unity.Entities.EntityComponentStore.AssertValidArchetype(EntityComponentStore, archetype);
-        
         if (m_IsMainThread)
             BeforeStructuralChange();
         StructuralChange.CreateEntity(EntityComponentStore, archetype.Archetype, outEntities, count);
         Assert.IsTrue(EntityComponentStore->ManagedChangesTracker.Empty);
     }
+    
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="archetype"></param>
+    /// <param name="outEntities"></param>
+    /// <param name="count"></param>
+    internal void CreateEntityDuringStructuralChange(EntityArchetype archetype, Entity* outEntities, int count)
+    {
+        EntityComponentStore->CreateEntityWithValidation(archetype, outEntities, count);
+    }
 
     public void CreateEntity(EntityArchetype archetype, NativeArray<Entity> entities)
     {
         CreateEntity(archetype, (Entity*) entities.GetUnsafePtr(), entities.Length);
+    }
+    
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="archetype"></param>
+    /// <param name="entities"></param>
+    public void CreateEntityDuringStructuralChange(EntityArchetype archetype, NativeArray<Entity> entities)
+    {
+        CreateEntityDuringStructuralChange(archetype, (Entity*) entities.GetUnsafePtr(), entities.Length);
     }
 
     public bool AddComponent(Entity entity, ComponentType componentType)
@@ -204,28 +275,50 @@ unsafe struct EntityDataAccess : IDisposable
             return false;
 
         EntityComponentStore->AssertCanAddComponent(entity, componentType);
-
+        
         if (m_IsMainThread)
             BeforeStructuralChange();
 
         var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
 
-        StructuralChange.AddComponentEntity(EntityComponentStore, &entity, componentType.TypeIndex);
+        var result = AddComponentDuringStructuralChange(entity, componentType);
 
         EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, EntityQueryManager);
         PlaybackManagedChanges();
 
-        return true;
+        return result;
+    }
+    
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="entity"></param>
+    /// <param name="componentType"></param>
+    /// <returns></returns>
+    public bool AddComponentDuringStructuralChange(Entity entity, ComponentType componentType)
+    {
+        if (HasComponent(entity, componentType))
+            return false;
+        
+        var result = StructuralChange.AddComponentEntity(EntityComponentStore, &entity, componentType.TypeIndex);
+        
+        return result;
     }
 
-    public void AddComponent(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, ComponentType componentType)
+    public void AddComponent(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
+        ComponentType componentType)
     {
         if (!m_IsMainThread)
             throw new InvalidOperationException("Must be called from the main thread");
 
         EntityComponentStore->AssertCanAddComponent(archetypeList, componentType);
 
-        using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, DependencyManager))
+        using (var chunks =
+            ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter,
+                DependencyManager))
         {
             if (chunks.Length == 0)
                 return;
@@ -238,39 +331,67 @@ unsafe struct EntityDataAccess : IDisposable
             //@TODO the fast path for a chunk that contains a single entity is only possible if the chunk doesn't have a Locked Entity Order
             //but we should still be allowed to add zero sized components to chunks with a Locked Entity Order, even ones that only contain a single entity
 
-            /*
-            if ((chunks.Length == 1) && (chunks[0].Count == 1))
-            {
-                var entityPtr = (Entity*) chunks[0].m_Chunk->Buffer;
-                StructuralChange.AddComponentEntity(EntityComponentStore, entityPtr, componentType.TypeIndex);
-            }
-            else
-            {
-            */
-            StructuralChange.AddComponentChunks(EntityComponentStore, (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType.TypeIndex);
-            /*
-            }
-            */
+            EntityComponentStore->AddComponentWithValidation(archetypeList, filter, componentType, DependencyManager);
 
             EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, EntityQueryManager);
-            PlaybackManagedChanges();
+            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+        }
+    }
+
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="archetypeList"></param>
+    /// <param name="filter"></param>
+    /// <param name="componentType"></param>
+    /// <exception cref="InvalidOperationException"></exception>
+    public void AddComponentDuringStructuralChange(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, ComponentType componentType)
+    {
+        if (!m_IsMainThread)
+            throw new InvalidOperationException("Must be called from the main thread");
+
+        using (var chunks =
+            ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter,
+                DependencyManager))
+        {
+            if (chunks.Length == 0)
+                return;
+            
+            StructuralChange.AddComponentChunks(EntityComponentStore, (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType.TypeIndex);
         }
     }
 
     public bool RemoveComponent(Entity entity, ComponentType componentType)
     {
-        EntityComponentStore->ValidateEntity(entity);
-        EntityComponentStore->AssertCanRemoveComponent(entity, componentType);
         if (m_IsMainThread)
             BeforeStructuralChange();
 
         var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
 
-        var removed = StructuralChange.RemoveComponentEntity(EntityComponentStore, &entity, componentType.TypeIndex);
+        var removed = RemoveComponentDuringStructuralChange(entity, componentType);
 
         EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, EntityQueryManager);
         PlaybackManagedChanges();
 
+        return removed;
+    }
+    
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="entity"></param>
+    /// <param name="componentType"></param>
+    /// <returns></returns>
+    public bool RemoveComponentDuringStructuralChange(Entity entity, ComponentType componentType)
+    {
+        var removed = EntityComponentStore->RemoveComponent(entity, componentType);
+        
         return removed;
     }
 
@@ -279,19 +400,37 @@ unsafe struct EntityDataAccess : IDisposable
         if (!m_IsMainThread)
             throw new InvalidOperationException("Must be called from the main thread");
 
-        using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, DependencyManager))
+        using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob,
+            ref filter, DependencyManager))
         {
             RemoveComponent(chunks, componentType);
+        }
+    }
+    
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="archetypeList"></param>
+    /// <param name="filter"></param>
+    /// <param name="componentType"></param>
+    /// <exception cref="InvalidOperationException"></exception>
+    public void RemoveComponentDuringStructuralChange(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, ComponentType componentType)
+    {
+        if (!m_IsMainThread)
+            throw new InvalidOperationException("Must be called from the main thread");
+
+        using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob,
+            ref filter, DependencyManager))
+        {
+            StructuralChange.RemoveComponentChunks(EntityComponentStore, (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType.TypeIndex);
         }
     }
 
     internal void RemoveComponent(NativeArray<ArchetypeChunk> chunks, ComponentType componentType)
     {
-        if (chunks.Length == 0)
-            return;
-
-        EntityComponentStore->AssertCanRemoveComponent(chunks, componentType);
-
         if (m_IsMainThread)
             BeforeStructuralChange();
         var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
@@ -301,6 +440,20 @@ unsafe struct EntityDataAccess : IDisposable
         EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, EntityQueryManager);
         PlaybackManagedChanges();
     }
+    
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="chunks"></param>
+    /// <param name="componentType"></param>
+    internal void RemoveComponentDuringStructuralChange(NativeArray<ArchetypeChunk> chunks, ComponentType componentType)
+    {
+        EntityComponentStore->RemoveComponentWithValidation(chunks, componentType);
+    }
+    
     public bool HasComponent(Entity entity, ComponentType type)
     {
         return EntityComponentStore->HasComponent(entity, type);
@@ -330,21 +483,12 @@ unsafe struct EntityDataAccess : IDisposable
 
     public void* GetComponentDataRawRW(Entity entity, int typeIndex)
     {
-        EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-        return GetComponentDataRawRWEntityHasComponent(entity, typeIndex);
+        return EntityComponentStore->GetComponentDataRawRW(entity, typeIndex);
     }
 
     internal void* GetComponentDataRawRWEntityHasComponent(Entity entity, int typeIndex)
     {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        if (TypeManager.GetTypeInfo(typeIndex).IsZeroSized)
-            throw new System.ArgumentException(
-                $"GetComponentData<{TypeManager.GetType(typeIndex)}> can not be called with a zero sized component.");
-#endif
-
-        var ptr = EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex,
-            EntityComponentStore->GlobalSystemVersion);
-        return ptr;
+        return EntityComponentStore->GetComponentDataRawRWEntityHasComponent(entity, typeIndex);
     }
 
     public void SetComponentData<T>(Entity entity, T componentData) where T : struct, IComponentData
@@ -369,22 +513,10 @@ unsafe struct EntityDataAccess : IDisposable
 
     public void SetComponentDataRaw(Entity entity, int typeIndex, void* data, int size)
     {
-        EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-        SetComponentDataRawEntityHasComponent(entity, typeIndex, data, size);
+        EntityComponentStore->SetComponentDataRawEntityHasComponent(entity, typeIndex, data, size);
     }
 
-    internal void SetComponentDataRawEntityHasComponent(Entity entity, int typeIndex, void* data, int size)
-    {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        if (TypeManager.GetTypeInfo(typeIndex).SizeInChunk != size)
-            throw new System.ArgumentException(
-                $"SetComponentData<{TypeManager.GetType(typeIndex)}> can not be called with a zero sized component and must have same size as sizeof(T).");
-#endif
-
-        var ptr = EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex,
-            EntityComponentStore->GlobalSystemVersion);
-        UnsafeUtility.MemCpy(ptr, data, size);
-    }
+    
 
     public bool AddSharedComponentData<T>(Entity entity, T componentData, ManagedComponentStore managedComponentStore) where T : struct, ISharedComponentData
     {
@@ -393,12 +525,49 @@ unsafe struct EntityDataAccess : IDisposable
         SetSharedComponentData(entity, componentData, managedComponentStore);
         return added;
     }
+    
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="entity"></param>
+    /// <param name="componentData"></param>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    public bool AddSharedComponentDataDuringStructuralChange<T>(Entity entity, T componentData) where T : struct, ISharedComponentData
+    {
+        //TODO: optimize this (no need to move the entity to a new chunk twice)
+        var added = AddComponentDuringStructuralChange(entity, ComponentType.ReadWrite<T>());
+        SetSharedComponentData(entity, componentData, ManagedComponentStore);
+        return added;
+    }
 
     public void AddSharedComponentDataBoxedDefaultMustBeNull(Entity entity, int typeIndex, int hashCode, object componentData, ManagedComponentStore managedComponentStore)
     {
         //TODO: optimize this (no need to move the entity to a new chunk twice)
         AddComponent(entity, ComponentType.FromTypeIndex(typeIndex));
         SetSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData, managedComponentStore);
+    }
+    
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="entity"></param>
+    /// <param name="typeIndex"></param>
+    /// <param name="hashCode"></param>
+    /// <param name="componentData"></param>
+    public bool AddSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(Entity entity, int typeIndex, int hashCode, object componentData, UnsafeList* managedReferenceIndexRemovalCount)
+    {
+        //TODO: optimize this (no need to move the entity to a new chunk twice)
+        var added = AddComponentDuringStructuralChange(entity, ComponentType.FromTypeIndex(typeIndex));
+        SetSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(entity, typeIndex, hashCode, componentData, managedReferenceIndexRemovalCount);
+
+        return added;
     }
 
     public void AddSharedComponentDataBoxedDefaultMustBeNull(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, int typeIndex, int hashCode, object componentData, ManagedComponentStore managedComponentStore)
@@ -420,6 +589,38 @@ unsafe struct EntityDataAccess : IDisposable
         }
     }
 
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// ManagedComponentStore.RemoveReference() must be called after Playback for each newSharedComponentDataIndex added
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="archetypeList"></param>
+    /// <param name="filter"></param>
+    /// <param name="typeIndex"></param>
+    /// <param name="hashCode"></param>
+    /// <param name="componentData"></param>
+    /// <exception cref="InvalidOperationException"></exception>
+    public void AddSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, int typeIndex, int hashCode, object componentData, UnsafeList* managedReferenceIndexRemovalCount)
+    {
+        if (!m_IsMainThread)
+            throw new InvalidOperationException("Must be called from the main thread");
+
+        ComponentType componentType = ComponentType.FromTypeIndex(typeIndex);
+        using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, DependencyManager))
+        {
+            if (chunks.Length == 0)
+                return;
+            var newSharedComponentDataIndex = 0;
+            if (componentData != null) // null means default
+                newSharedComponentDataIndex = ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, componentData);
+
+            AddSharedComponentDataDuringStructuralChange(chunks, newSharedComponentDataIndex, componentType);
+            managedReferenceIndexRemovalCount->Add(newSharedComponentDataIndex);
+        }
+    }
+    
     internal void AddSharedComponentData(NativeArray<ArchetypeChunk> chunks, int sharedComponentIndex, ComponentType componentType)
     {
         Assert.IsTrue(componentType.IsSharedComponent);
@@ -439,6 +640,23 @@ unsafe struct EntityDataAccess : IDisposable
     {
         if (!EntityComponentStore->ManagedChangesTracker.Empty)
             ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+    }
+    
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="chunks"></param>
+    /// <param name="sharedComponentIndex"></param>
+    /// <param name="componentType"></param>
+    internal void AddSharedComponentDataDuringStructuralChange(NativeArray<ArchetypeChunk> chunks, int sharedComponentIndex, ComponentType componentType)
+    {
+        Assert.IsTrue(componentType.IsSharedComponent);
+        EntityComponentStore->AssertCanAddComponent(chunks, componentType);
+
+        StructuralChange.AddSharedComponentChunks(EntityComponentStore, (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType.TypeIndex, sharedComponentIndex);
     }
 
     public T GetSharedComponentData<T>(Entity entity, ManagedComponentStore managedComponentStore) where T : struct, ISharedComponentData
@@ -478,8 +696,43 @@ unsafe struct EntityDataAccess : IDisposable
 
         var componentType = ComponentType.FromTypeIndex(typeIndex);
         EntityComponentStore->SetSharedComponentDataIndex(entity, componentType, newSharedComponentDataIndex);
-        managedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
-        managedComponentStore.RemoveReference(newSharedComponentDataIndex);
+        ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+        ManagedComponentStore.RemoveReference(newSharedComponentDataIndex);
+    }
+    
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// ManagedComponentStore.RemoveReference() must be called after Playback for each newSharedComponentDataIndex added
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="entity"></param>
+    /// <param name="typeIndex"></param>
+    /// <param name="hashCode"></param>
+    /// <param name="componentData"></param>
+    public void SetSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(Entity entity, int typeIndex, int hashCode, object componentData, UnsafeList* managedReferenceIndexRemovalCount)
+    {
+        EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
+
+        var newSharedComponentDataIndex = 0;
+        if (componentData != null) // null means default
+            newSharedComponentDataIndex = ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex,
+                hashCode, componentData);
+        var componentType = ComponentType.FromTypeIndex(typeIndex);
+        EntityComponentStore->SetSharedComponentDataIndex(entity, componentType, newSharedComponentDataIndex);
+
+        managedReferenceIndexRemovalCount->Add(newSharedComponentDataIndex);
+    }
+
+    public static void SetComponentObject(ref EntityDataAccess dataAccess, Entity entity, ComponentType componentType, object componentObject, ManagedComponentStore managedComponentStore)
+    {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        if (!componentType.IsManagedComponent)
+            throw new System.ArgumentException($"SetComponentObject must be called with a managed component type.");
+#endif
+        var ptr = dataAccess.GetManagedComponentIndex(entity, componentType.TypeIndex);
+        managedComponentStore.UpdateManagedComponentValue(ptr, componentObject, ref *dataAccess.EntityComponentStore);
     }
 
     public DynamicBuffer<T> GetBuffer<T>(Entity entity
@@ -517,24 +770,17 @@ unsafe struct EntityDataAccess : IDisposable
 
     public void SetBufferRaw(Entity entity, int componentTypeIndex, BufferHeader* tempBuffer, int sizeInChunk)
     {
-        EntityComponentStore->AssertEntityHasComponent(entity, componentTypeIndex);
-
         if (m_IsMainThread)
             DependencyManager->CompleteReadAndWriteDependency(componentTypeIndex);
 
-        var ptr = EntityComponentStore->GetComponentDataWithTypeRW(entity, componentTypeIndex,
-            EntityComponentStore->GlobalSystemVersion);
-
-        BufferHeader.Destroy((BufferHeader*) ptr);
-
-        UnsafeUtility.MemCpy(ptr, tempBuffer, sizeInChunk);
+        EntityComponentStore->SetBufferRawWithValidation(entity, componentTypeIndex, tempBuffer, sizeInChunk);
     }
 
     public EntityArchetype GetEntityOnlyArchetype()
     {
         if (!m_EntityOnlyArchetype.Valid)
             m_EntityOnlyArchetype = CreateArchetype(null, 0);
-
+        
         return m_EntityOnlyArchetype;
     }
 
@@ -548,6 +794,20 @@ unsafe struct EntityDataAccess : IDisposable
         StructuralChange.InstantiateEntities(EntityComponentStore, &srcEntity, outputEntities, count);
         PlaybackManagedChanges();
     }
+    
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="srcEntity"></param>
+    /// <param name="outputEntities"></param>
+    /// <param name="count"></param>
+    internal void InstantiateInternalDuringStructuralChange(Entity srcEntity, Entity* outputEntities, int count)
+    {
+        EntityComponentStore->InstantiateWithValidation(srcEntity, outputEntities, count);
+    }
 
     internal void DestroyEntityInternal(Entity* entities, int count)
     {
@@ -557,6 +817,19 @@ unsafe struct EntityDataAccess : IDisposable
         EntityComponentStore->AssertCanDestroy(entities, count);
         EntityComponentStore->DestroyEntities(entities, count);
         PlaybackManagedChanges();
+    }
+    
+    /// <summary>
+    /// EntityManager.BeforeStructuralChange must be called before invoking this.
+    /// ManagedComponentStore.Playback must be called after invoking this.
+    /// EntityQueryManager.AddAdditionalArchetypes must be called after invoking this.
+    /// Invoking this must be wrapped in ArchetypeChangeTracking.
+    /// </summary>
+    /// <param name="entities"></param>
+    /// <param name="count"></param>
+    internal void DestroyEntityInternalDuringStructuralChange(Entity* entities, int count)
+    {
+        EntityComponentStore->DestroyEntityWithValidation(entities, count);
     }
 
     public void SwapComponents(ArchetypeChunk leftChunk, int leftIndex, ArchetypeChunk rightChunk, int rightIndex)

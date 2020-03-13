@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -104,6 +105,43 @@ namespace Unity.Entities
 
                 UnsafeUtility.Free(additionalDestroyPtr, Allocator.Persistent);
             }
+        }
+        
+        
+        public Entity CreateEntityWithValidation(EntityArchetype archetype)
+        {
+            Entity entity;
+            AssertValidArchetype((EntityComponentStore*)UnsafeUtility.AddressOf(ref this), archetype);
+            CreateEntities(archetype.Archetype, &entity, 1);
+            return entity;
+        }
+        
+        
+        public void CreateEntityWithValidation(EntityArchetype archetype, Entity* outEntities, int count)
+        {
+            AssertValidArchetype((EntityComponentStore*)UnsafeUtility.AddressOf(ref this), archetype);
+            CreateEntities(archetype.Archetype, outEntities, count);
+        }
+        
+        
+        public void InstantiateWithValidation(Entity srcEntity, Entity* outputEntities, int count)
+        {
+            AssertEntitiesExist(&srcEntity, 1);
+            AssertCanInstantiateEntities(srcEntity, outputEntities, count);
+            InstantiateEntities(srcEntity, outputEntities, count);
+        }
+        
+        
+        public void DestroyEntityWithValidation(Entity entity)
+        {
+            DestroyEntityWithValidation(&entity, 1);
+        }
+        
+        
+        public void DestroyEntityWithValidation(Entity* entities, int count)
+        {
+            AssertCanDestroy(entities, count);
+            DestroyEntities(entities, count);
         }
 
         public void SetChunkCountKeepMetaChunk(Chunk* chunk, int newCount)

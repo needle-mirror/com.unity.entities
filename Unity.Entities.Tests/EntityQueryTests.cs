@@ -531,10 +531,12 @@ namespace Unity.Entities.Tests
         [AlwaysUpdateSystem]
         public class WriteEcsTestDataSystem : JobComponentSystem
         {
+#pragma warning disable 618
             private struct WriteJob : IJobForEach<EcsTestData>
             {
                 public void Execute(ref EcsTestData c0) {}
             }
+#pragma warning restore 618
 
             protected override JobHandle OnUpdate(JobHandle input)
             {
@@ -790,6 +792,7 @@ namespace Unity.Entities.Tests
         [AlwaysUpdateSystem]
         public class CachedSystemQueryTestSystem : JobComponentSystem
         {
+#pragma warning disable 618
             // Creates implicit query (All = {EcsTestData}, None = {}, Any = {}
             private struct ImplicitQueryCreator : IJobForEach<EcsTestData>
             {
@@ -798,6 +801,7 @@ namespace Unity.Entities.Tests
                     c0.value = 10;
                 }
             }
+#pragma warning restore 618
 
             protected override void OnCreate()
             {

@@ -27,7 +27,12 @@ namespace Unity.Entities.Tests.Conversion
         readonly List<UnityObject> m_ObjectsDestroyedByTest = new List<UnityObject>();
         readonly Dictionary<string, int> m_ObjectNames = new Dictionary<string, int>();
 
-        protected GameObjectConversionSettings MakeDefaultSettings() => new GameObjectConversionSettings { DestinationWorld = World, ConversionFlags = GameObjectConversionUtility.ConversionFlags.AssignName };
+        protected GameObjectConversionSettings MakeDefaultSettings() => new GameObjectConversionSettings
+        {
+            DestinationWorld = World,
+            ConversionFlags = GameObjectConversionUtility.ConversionFlags.AssignName,
+            Systems = TestWorldSetup.GetDefaultInitSystemsFromEntitiesPackage(WorldSystemFilterFlags.GameObjectConversion).ToList()
+        };
 
         protected static readonly IEnumerable<Type> k_CommonComponents = new[] { typeof(Translation), typeof(Rotation), typeof(LocalToWorld) };
         protected static readonly IEnumerable<Type> k_RootComponents = k_CommonComponents.Append(typeof(LinkedEntityGroup));

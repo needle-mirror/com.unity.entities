@@ -5,6 +5,7 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
 #pragma warning disable 649
+#pragma warning disable 618
 
 namespace Unity.Entities.Tests
 {

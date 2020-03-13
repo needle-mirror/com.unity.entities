@@ -279,6 +279,7 @@ namespace Unity.Entities
         /// <param name="filter">EntityQueryFilter to use when calculating total number of entities.</param>
         /// <returns>Number of entities</returns>
         [BurstCompile]
+        [MonoPInvokeCallback(typeof(ChunkIterationCalculation))]
         private static int CalculateEntityCountExecute(in UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter)
         {
             var length = 0;
@@ -321,7 +322,8 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="matchingArchetypes">List of matching archetypes.</param>
         /// <returns>Number of chunks in a list of archetypes.</returns>
-        [BurstCompile] 
+        [BurstCompile]
+        [MonoPInvokeCallback(typeof(ChunkIterationCalculation))]
         private static int CalculateChunkCountExecute(in UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter)
         {
             var totalChunkCount = 0;

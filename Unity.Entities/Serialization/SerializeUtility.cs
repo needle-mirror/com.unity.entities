@@ -39,7 +39,7 @@ namespace Unity.Entities.Serialization
             public int ComponentSize;
         }
 
-        public static int CurrentFileFormatVersion = 35;
+        public static int CurrentFileFormatVersion = 36;
 
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, object[] unityObjects = null)
         {
@@ -59,7 +59,7 @@ namespace Unity.Entities.Serialization
             int totalEntityCount;
 
             var archetypes = ReadArchetypes(reader, types, manager, out totalEntityCount);
-            
+
             var numSharedComponents = ReadSharedComponentMetadata(reader, out var sharedComponentArray, out var sharedComponentRecordArray);
             var sharedComponentRemap = new NativeArray<int>(numSharedComponents + 1, Allocator.Temp);
 
@@ -104,7 +104,7 @@ namespace Unity.Entities.Serialization
                     throw new System.ArgumentException("Blobs larger than 2GB are currently not supported");
 
                 reader.ReadBytes(allBlobAssetData, totalBlobAssetSize);
-                
+
                 blobAssetOwner = new BlobAssetOwner(allBlobAssetData, totalBlobAssetSize);
                 blobAssetRefChunks = new NativeList<ArchetypeChunk>(32, Allocator.Temp);
             }
@@ -130,7 +130,7 @@ namespace Unity.Entities.Serialization
                 }
 
                 var remapedSharedComponentValues = stackalloc int[archetype->NumSharedComponents];
-                
+
                 RemapSharedComponentIndices(remapedSharedComponentValues, archetype, sharedComponentRemap, sharedComponentValueArray);
 
                 sharedComponentArraysIndex += numSharedComponentsInArchetype;
@@ -161,7 +161,7 @@ namespace Unity.Entities.Serialization
                     blobAssetRefChunks.Add(new ArchetypeChunk(chunk, manager.EntityComponentStore));
                     PatchBlobAssetsInChunkAfterLoad(chunk, allBlobAssetData);
                 }
-                
+
                 manager.EntityComponentStore->AddExistingChunk(chunk, remapedSharedComponentValues);
                 manager.ManagedComponentStore.Playback(ref manager.EntityComponentStore->ManagedChangesTracker);
 
@@ -170,7 +170,7 @@ namespace Unity.Entities.Serialization
                     chunksWithMetaChunkEntities.Add(new ArchetypeChunk(chunk, manager.EntityComponentStore));
                 }
             }
-            
+
             if (totalBlobAssetSize != 0)
             {
                 manager.AddSharedComponent(blobAssetRefChunks.AsArray(), blobAssetOwner);
@@ -262,7 +262,7 @@ namespace Unity.Entities.Serialization
                 if (archetype->EntityCount > 0)
                     count++;
             }
-            
+
             var archetypes = new UnsafeArchetypePtrList(count, allocator);
             archetypes.Resize(count, NativeArrayOptions.UninitializedMemory);
             count = 0;
@@ -341,7 +341,7 @@ namespace Unity.Entities.Serialization
             writer.WriteArray(sharedComponentArrays);
             sharedComponentArrays.Dispose();
 
-            var sharedComponentsToSerialize = new int[sharedComponentMapping.Length - 1];
+            var sharedComponentsToSerialize = new int[sharedComponentMapping.Count() - 1];
             using (var keyArray = sharedComponentMapping.GetKeyArray(Allocator.Temp))
             {
                 foreach (var key in keyArray)
@@ -604,7 +604,7 @@ namespace Unity.Entities.Serialization
             var buffer = stackalloc byte[tempBufferSize];
 
             sharedComponentRemap[0] = 0;
-            
+
             int sizeRead = 0;
             for (int i = 0; i < sharedComponentRecordArray.Length; ++i)
             {
@@ -637,7 +637,7 @@ namespace Unity.Entities.Serialization
             // 0 index is special and means default shared component value
             // Also see below the offset + 1 indices for the same reason
             sharedComponentRemap[0] = 0;
-            
+
             for (int i = 0; i < sharedComponentRecordArray.Length; ++i)
             {
                 var record = sharedComponentRecordArray[i];
@@ -655,7 +655,7 @@ namespace Unity.Entities.Serialization
                 sharedComponentRemap[i + 1] = sharedComponentIndex;
             }
         }
-        
+
         // True when a component is valid to using in world serialization. A component IsSerializable when it is valid to blit
         // the data across storage media. Thus components containing pointers have an IsSerializable of false as the component
         // is blittable but no longer valid upon deserialization.
@@ -697,8 +697,8 @@ namespace Unity.Entities.Serialization
                     $"reason the pointer field should in fact be serialized, add the [ChunkSerializable] attribute to your type to bypass this error.");
             }
         }
-#endif 
-       
+#endif
+
         static unsafe int ReadSharedComponentMetadata(BinaryReader reader, out NativeArray<int> sharedComponentArrays, out NativeArray<SharedComponentRecord> sharedComponentRecordArray)
         {
             int sharedComponentArraysLength = reader.ReadInt();
@@ -711,7 +711,7 @@ namespace Unity.Entities.Serialization
 
             return sharedComponentRecordArrayLength;
         }
-        
+
 
 
 
@@ -803,7 +803,7 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        private static unsafe void AddBlobAssetRefInfo(byte* componentData, TypeManager.EntityOffsetInfo* blobAssetRefOffsets, int blobAssetRefCount, 
+        private static unsafe void AddBlobAssetRefInfo(byte* componentData, TypeManager.EntityOffsetInfo* blobAssetRefOffsets, int blobAssetRefCount,
             ref NativeHashMap<BlobAssetPtr, int> blobAssetMap, ref NativeList<BlobAssetPtr> blobAssets)
         {
             for (int i = 0; i < blobAssetRefCount; ++i)
@@ -1039,7 +1039,7 @@ namespace Unity.Entities.Serialization
                 if(numSharedComponents==0)
                     continue;
                 var sharedComponentIndexRemap = stackalloc int[numSharedComponents];
-                
+
                 FillSharedComponentIndexRemap(sharedComponentIndexRemap, archetype);
                 for (int iChunk = 0; iChunk < archetype->Chunks.Count; ++iChunk)
                 {
@@ -1113,7 +1113,7 @@ namespace Unity.Entities.Serialization
             for (int a = 0; a < archetypeArray.Length; ++a)
             {
                 var archetype = archetypeArray.Ptr[a];
-                
+
                 writer.Write(archetype->EntityCount);
                 writer.Write(archetype->TypesCount - 1);
                 for (int i = 1; i < archetype->TypesCount; ++i)
@@ -1179,8 +1179,8 @@ namespace Unity.Entities.Serialization
             {
                 if (obj is UnityEngine.Object uobj) 
                     AppendObject(uobj);
-
-                BoxedProperties.WriteBoxedType(obj, this);
+                else
+                    BoxedProperties.WriteBoxedType(obj, this);
             }
         }
 #endif

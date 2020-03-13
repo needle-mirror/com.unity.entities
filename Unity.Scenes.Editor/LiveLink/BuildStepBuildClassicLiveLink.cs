@@ -18,7 +18,7 @@ namespace Unity.Scenes.Editor
     {
         const string k_Description = "Build LiveLink Player";
 
-        const string k_BootstrapPath = "Assets/StreamingAssets/" + SceneSystem.k_BootstrapFileName;
+        const string k_BootstrapPath = "Assets/StreamingAssets/" + LiveLinkRuntimeSystemGroup.k_BootstrapFileName;
         const string k_EmptyScenePath = "Packages/com.unity.entities/Unity.Scenes.Editor/LiveLink/Assets/empty.unity";
 
         TemporaryFileTracker m_TempFileTracker;
@@ -109,7 +109,13 @@ namespace Unity.Scenes.Editor
 
             var settings = BuildContextInternals.GetBuildConfiguration(context);
             if (AssetDatabase.TryGetGUIDAndLocalFileIdentifier(settings, out var guid, out long _))
-                File.WriteAllText(m_TempFileTracker.TrackFile(k_BootstrapPath), guid);
+            {
+                using (var stream = new StreamWriter(m_TempFileTracker.TrackFile(k_BootstrapPath)))
+                {
+                    stream.WriteLine(guid);
+                    stream.WriteLine(EditorAnalyticsSessionInfo.id);
+                }
+            }
 
             var report = UnityEditor.BuildPipeline.BuildPlayer(buildPlayerOptions);
             var result = new BuildStepResult(this, report);

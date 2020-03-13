@@ -115,7 +115,7 @@ namespace Unity.Scenes
             Entities.With(m_ResolvedScenes).ForEach((Entity sceneEntity, ref SceneReference scene, ref ResolvedSceneHash resolvedScene) =>
             {
                 var subSceneGUID = new SubSceneGUID(scene.SceneGUID, buildConfigurationGUID);
-                if (liveLinkPlayerAssetRefreshSystem._TrackedSubScenes[subSceneGUID] != resolvedScene.ArtifactHash)
+                if (liveLinkPlayerAssetRefreshSystem.TrackedSubScenes[subSceneGUID] != resolvedScene.ArtifactHash)
                 {
                     if (sceneEntity != Entity.Null && !EntityManager.HasComponent<DisableSceneResolveAndLoad>(sceneEntity))
                     {
@@ -142,7 +142,7 @@ namespace Unity.Scenes
             {
                 var subSceneGUID = new SubSceneGUID(scene.SceneGUID, buildConfigurationGUID);
 
-                liveLinkPlayerAssetRefreshSystem._TrackedSubScenes[subSceneGUID] = new Hash128();
+                liveLinkPlayerAssetRefreshSystem.TrackedSubScenes[subSceneGUID] = new Hash128();
                 var archetype = EntityManager.CreateArchetype(typeof(SubSceneGUID));
                 var entity = EntityManager.CreateEntity(archetype);
                 EntityManager.SetComponentData(entity, new SubSceneGUID

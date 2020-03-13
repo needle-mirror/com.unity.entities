@@ -5,6 +5,8 @@ using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Transforms;
 
+#pragma warning disable 618
+
 namespace Unity.Entities.Tests
 {
     public class IJobForEachTests :ECSTestsFixture
@@ -393,3 +395,5 @@ namespace Unity.Entities.Tests
         }
     }
 }
+
+#pragma warning restore 618

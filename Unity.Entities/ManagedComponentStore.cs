@@ -98,7 +98,7 @@ namespace Unity.Entities
             m_HashLookup.Clear();
             m_SharedComponentData.Clear();
             m_SharedComponentInfo.Clear();
-            
+
             m_SharedComponentData.Add(null);
             m_SharedComponentInfo.Add(new SharedComponentInfo { RefCount = 1, ComponentType = -1, Version = 1, HashCode = 0});
             m_FreeListIndex = -1;
@@ -227,7 +227,7 @@ namespace Unity.Entities
             {
                 SharedComponentInfoPtr[index].RefCount++;
             }
-    
+
             return index;
         }
 
@@ -252,7 +252,7 @@ namespace Unity.Entities
                 ComponentType = typeIndex,
                 HashCode = hashCode
             };
-            
+
             if (m_FreeListIndex != -1)
             {
                 var infos = SharedComponentInfoPtr;
@@ -281,7 +281,7 @@ namespace Unity.Entities
         {
             SharedComponentInfoPtr[index].Version++;
         }
-        
+
         public int GetSharedComponentVersion<T>(T sharedData) where T : struct
         {
             var index = FindSharedComponentIndex(TypeManager.GetTypeIndex<T>(), sharedData);
@@ -328,7 +328,7 @@ namespace Unity.Entities
                 return;
 
             var infos = SharedComponentInfoPtr;
-            
+
             var newCount = infos[index].RefCount -= numRefs;
             Assert.IsTrue(newCount >= 0);
 
@@ -360,7 +360,7 @@ namespace Unity.Entities
                 }
                 while (m_HashLookup.TryGetNextValue(out itemIndex, ref iter));
             }
-            
+
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
             throw new System.InvalidOperationException("shared component couldn't be removed due to internal state corruption");
             #endif
@@ -376,7 +376,7 @@ namespace Unity.Entities
                 if (m_SharedComponentData[i] != null)
                 {
                     refcount++;
-                    
+
                     var hashCode = infos[i].HashCode;
 
                     bool found = false;
@@ -396,7 +396,7 @@ namespace Unity.Entities
                 }
             }
 
-            Assert.AreEqual(refcount, m_HashLookup.Length);
+            Assert.AreEqual(refcount, m_HashLookup.Count());
         }
 
         public bool IsEmpty()
@@ -418,12 +418,12 @@ namespace Unity.Entities
             if (m_SharedComponentData[0] != null)
                 return false;
 
-            if (m_HashLookup.Length != 0)
+            if (m_HashLookup.Count() != 0)
                 return false;
 
             return true;
         }
-        
+
         public void CopySharedComponents(ManagedComponentStore srcManagedComponents, int* sharedComponentIndices, int sharedComponentIndicesCount)
         {
             var srcInfos = srcManagedComponents.SharedComponentInfoPtr;
@@ -510,12 +510,12 @@ namespace Unity.Entities
                 var sharedComponentValues = chunk->SharedComponentValues;
                 for (int sharedComponentIndex = 0; sharedComponentIndex < archetype->NumSharedComponents; ++sharedComponentIndex)
                     remapPtr[sharedComponentValues[sharedComponentIndex]]++;
-            }        
+            }
 
             remap[0] = 0;
 
             // Move all shared components that are being referenced
-            // remap will have a remap table of src SharedComponentDataIndex -> dst SharedComponentDataIndex 
+            // remap will have a remap table of src SharedComponentDataIndex -> dst SharedComponentDataIndex
             var srcInfos = srcManagedComponents.SharedComponentInfoPtr;
             for (int srcIndex = 1; srcIndex < remap.Length; ++srcIndex)
             {
@@ -531,7 +531,7 @@ namespace Unity.Entities
                 // * remove refcount based on refcount table
                 // * -1 because InsertSharedComponentAssumeNonDefault above adds 1 refcount
                 int srcRefCount = remapPtr[srcIndex];
-                SharedComponentInfoPtr[dstIndex].RefCount += srcRefCount - 1; 
+                SharedComponentInfoPtr[dstIndex].RefCount += srcRefCount - 1;
                 srcManagedComponents.RemoveReference(srcIndex, srcRefCount);
                 SharedComponentInfoPtr[dstIndex].Version++;
 
@@ -697,7 +697,7 @@ namespace Unity.Entities
                         }
                     }
                     break;
-                    
+
                     case (ManagedDeferredCommands.Command.FreeManagedComponents):
                     {
                         var count = reader.ReadNext<int>();
@@ -770,7 +770,7 @@ namespace Unity.Entities
                     m_ManagedComponentData[dstArray[i]] = CloneManagedComponent(sourceComponent);
                 dstArray += instanceCount;
             }
-        }        
+        }
 
         internal void SetManagedComponentValue(int index, object componentObject)
         {
@@ -788,7 +788,7 @@ namespace Unity.Entities
             int newCapacity = entityComponentStore.GrowManagedComponentCapacity(count-freeCount);
             SetManagedComponentCapacity(newCapacity);
         }
-        
+
         public void UpdateManagedComponentValue(int* index, object value, ref EntityComponentStore entityComponentStore)
         {
             entityComponentStore.AssertNoQueuedManagedDeferredCommands();
@@ -814,7 +814,7 @@ namespace Unity.Entities
             }
             m_ManagedComponentData[iManagedComponent] = value;
         }
-        
+
         public void CloneManagedComponentsFromDifferentWorld(int* indices, int count, ManagedComponentStore srcManagedComponentStore, ref EntityComponentStore dstEntityComponentStore)
         {
             dstEntityComponentStore.AssertNoQueuedManagedDeferredCommands();

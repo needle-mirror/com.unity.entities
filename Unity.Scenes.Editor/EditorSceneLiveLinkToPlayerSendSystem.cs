@@ -35,6 +35,11 @@ namespace Unity.Scenes.Editor
             msg.Dispose();
         }
 
+        void RequestSessionHandshake(MessageEventArgs args)
+        {
+            EditorConnection.instance.Send(LiveLinkMsg.ResponseSessionHandshake, EditorAnalyticsSessionInfo.id, args.playerId);
+        }
+
         void ConnectLiveLink(MessageEventArgs args)
         {
             LiveLinkMsg.LogReceived("ConnectLiveLink");
@@ -46,7 +51,7 @@ namespace Unity.Scenes.Editor
             //system.World.GetExistingSystem<EditorSubSceneLiveLinkSystem>().CleanupAllScenes();
 
             //@TODO: How does this work with multiple connections?
-            LiveLinkAssetBundleBuildSystem.instance.ClearUsedAssetsTargetHash();
+            LiveLinkAssetBundleBuildSystem.instance.ClearTrackedAssets();
             if (_Connections.TryGetValue(player, out var connection))
                 connection.Dispose();
 
@@ -117,7 +122,7 @@ namespace Unity.Scenes.Editor
             if (_Connections.Count == 0)
             {
                 TimeBasedCallbackInvoker.ClearCallback(DetectSceneChanges);
-                LiveLinkAssetBundleBuildSystem.instance.ClearUsedAssetsTargetHash();
+                LiveLinkAssetBundleBuildSystem.instance.ClearTrackedAssets();
                 return;
             }
 
@@ -158,6 +163,7 @@ namespace Unity.Scenes.Editor
             _UnloadScenes = new NativeList<Hash128>(Allocator.Persistent);
             _LoadScenes = new NativeList<Hash128>(Allocator.Persistent);
 
+            EditorConnection.instance.Register(LiveLinkMsg.RequestSessionHandshake, RequestSessionHandshake);
             EditorConnection.instance.Register(LiveLinkMsg.RequestConnectLiveLink, ConnectLiveLink);
             EditorConnection.instance.Register(LiveLinkMsg.SetLoadedScenes, SetLoadedScenes);
             EditorConnection.instance.RegisterConnection(OnPlayerConnected);
@@ -171,6 +177,7 @@ namespace Unity.Scenes.Editor
 
         void OnDisable()
         {
+            EditorConnection.instance.Unregister(LiveLinkMsg.RequestSessionHandshake, RequestSessionHandshake);
             EditorConnection.instance.Unregister(LiveLinkMsg.RequestConnectLiveLink, ConnectLiveLink);
             EditorConnection.instance.Unregister(LiveLinkMsg.SetLoadedScenes, SetLoadedScenes);
             EditorConnection.instance.UnregisterConnection(OnPlayerConnected);

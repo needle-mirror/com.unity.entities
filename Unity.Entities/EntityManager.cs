@@ -161,6 +161,7 @@ namespace Unity.Entities
         {
             TypeManager.Initialize();
             StructuralChange.Initialize();
+            EntityCommandBuffer.Initialize();
 
             m_World = world;
 

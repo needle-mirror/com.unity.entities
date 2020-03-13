@@ -1221,7 +1221,7 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(m_Manager.Exists(e));
         }
 
-        [Test]
+        [Test, Ignore("Leaks string allocs in Burst")]
         public void DestroyInvalidEntity()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -1239,11 +1239,7 @@ namespace Unity.Entities.Tests
             cmds2.DestroyEntity(savedEntity);
 
             // savedEntity is invalid, so playing back this ECB should throw an exception
-#if !NET_DOTS
-            Assert.Throws<UnityEngine.Assertions.AssertionException>(() =>
-#else
-            Assert.Throws<NullReferenceException>(() =>
-#endif
+            Assert.Throws<InvalidOperationException>(() =>
             {
                 cmds2.Playback(m_Manager);
             });
@@ -1599,7 +1595,7 @@ namespace Unity.Entities.Tests
             cmds.Dispose();
         }
 
-        [Test]
+        [Test, Ignore("Leaks string allocs in Burst")]
         public void AddBuffer_OnEntityFromOtherWorld_Fails()
         {
             var e = m_Manager.CreateEntity();
@@ -1607,7 +1603,7 @@ namespace Unity.Entities.Tests
             {
                 DynamicBuffer<EcsIntElement> buffer = cmds.AddBuffer<EcsIntElement>(e);
                 buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
-                Assert.Throws<ArgumentException>(() => cmds.Playback(m_Manager2));
+                Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager2));
 
                 using (var allEntities = m_Manager.GetAllEntities())
                 {
@@ -1718,7 +1714,6 @@ namespace Unity.Entities.Tests
         }
 
         [BurstCompile(CompileSynchronously = true)]
-        [RuntimeMainThread]
         struct BufferCopyJob : IJobParallelFor
         {
             public EntityCommandBuffer.Concurrent CommandBuffer;
@@ -1739,6 +1734,9 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        // TODO runtime doesn't have range patching yet: https://unity3d.atlassian.net/browse/DOTSR-282
+        // which is needed for the parallel write to succeed.
+        [StandaloneFixme]
         public void BufferCopyFromDoesNotThrowInJob()
         {
             var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>());
@@ -1765,7 +1763,7 @@ namespace Unity.Entities.Tests
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        [Test]
+        [Test, Ignore("Leaks string allocs in Burst")]
         public void EntityCommandBufferSystemPlaybackExceptionIsolation()
         {
             var entityCommandBufferSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
@@ -2470,7 +2468,7 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(m_Manager.Exists(e));
         }
 
-        [Test]
+        [Test, Ignore("Leaks string allocs in Burst")]
         public void DestroyInvalidEntity_ManagedComponents()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -2488,11 +2486,7 @@ namespace Unity.Entities.Tests
             cmds2.DestroyEntity(savedEntity);
 
             // savedEntity is invalid, so playing back this ECB should throw an exception
-#if !NET_DOTS
-            Assert.Throws<UnityEngine.Assertions.AssertionException>(() =>
-#else
-            Assert.Throws<NullReferenceException>(() =>
-#endif
+            Assert.Throws<System.InvalidOperationException>(() =>
             {
                 cmds2.Playback(m_Manager);
             });

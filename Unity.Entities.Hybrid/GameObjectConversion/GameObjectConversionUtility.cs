@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using JetBrains.Annotations;
 using Unity.Collections;
 using Unity.Entities.Conversion;
@@ -42,17 +43,9 @@ namespace Unity.Entities
                 var gameObjectWorld = new World($"GameObject -> Entity Conversion '{settings.DebugConversionName}'", WorldFlags.Live | WorldFlags.Conversion | WorldFlags.Staging);
                 gameObjectWorld.CreateSystem<GameObjectConversionMappingSystem>(settings);
 
-                var systemTypes = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.GameObjectConversion);
-                if (settings.ExtraSystems.Length > 0)
-                {
-                    var systems = new List<Type>(systemTypes.Count + settings.ExtraSystems.Length);
-                    systems.AddRange(systemTypes);
-                    systems.AddRange(settings.ExtraSystems);
-                    systemTypes = systems;
-                }
-
+                var systemTypes = settings.Systems ?? DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.GameObjectConversion);
                 var includeExport = settings.GetType() != typeof(GameObjectConversionSettings);
-                AddConversionSystems(gameObjectWorld, systemTypes, includeExport);
+                AddConversionSystems(gameObjectWorld, systemTypes.Concat(settings.ExtraSystems), includeExport);
 
                 settings.ConversionWorldCreated?.Invoke(gameObjectWorld);
 

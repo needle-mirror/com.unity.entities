@@ -1,11 +1,40 @@
 # Change log
 
+## [0.8.0] - 2020-03-13
+
+### Added
+
+* Added missing dynamic component version API: `ArchetypeChunk.GetComponentVersion(ArchetypeChunkComponentTypeDynamic)`
+* Added missing dynamic component has API: `ArchetypeChunk.Has(ArchetypeChunkComponentTypeDynamic)`
+* `EntityArchetype` didn't expose whether it was Prefab or not. Added bool `EntityArchetype.Prefab`. This is needed for meta entity queries, because meta entity queries don't avoid Prefabs.
+* Added Build Configurations and Build Pipelines for Linux
+* LiveLink now gives an error if a LiveLink player attempts to connect to the wrong Editor, and advises the user on how to correct this.
+
+### Changed
+
+* Optimized `ArchetypeChunkComponentTypeDynamic` memory layout. 48->40 bytes.
+* LiveLink: Editor no longer freezes when sending LiveLink assets to a LiveLinked player.
+* LiveLink: No longer includes every Asset from builtin_extra to depend on a single Asset, and sends only what is used. This massively speeds up the first-time LiveLink to a Player.
+* Upgraded Burst to fix multiple issues and introduced native debugging feature.
+
+### Deprecated
+
+* Types that implement `IJobForEach` interfaces have been deprecated.  Use `IJobChunk` and `Entities.ForEach` for these jobs.
+
+### Fixed
+
+* Fixed LiveLinking with SubScene Sections indices that were not contiguous (0, 1, 2..). Now works with whatever index you use.
+* Fixed warning when live converting disabled GameObjects.
+* Allow usage of `Entities.WithReadOnly`, `Entities.WithDeallocateOnJobCompletion`, `Entities.WithNativeDisableContainerSafetyRestriction`, and `Entities.WithNativeDisableParallelForRestriction` on types that contain valid NativeContainers.
+
+
 ## [0.7.0] - 2020-03-03
 
 ### Added
 
 * Added `HasComponent`/`GetComponent`/`SetComponent` methods that streamline access to components through entities when using the `SystemBase` class.  These methods call through to `EntityManager` methods when in OnUpdate code and codegen access through `ComponentDataFromEntity` when inside of `Entities.ForEach`.
 * `SubScene` support for hybrid components, allowing Editor LiveLink (Player LiveLink is not supported yet).
+* Added `GameObjectConversionSettings.Systems` to allow users to explicitly specify what systems should be included in the conversion
 
 ### Changed
 
@@ -55,7 +84,13 @@
 * `Entities.ForEach` now throws a correct error message when it is used with a delegate stored in a variable, field or returned from a method.
 * Fix IL2CPP compilation error with `Entities.ForEach` that uses a tag component and `WithStructuralChanges`.
 * `Entities.ForEach` now marshals lambda parameters for DOTS Runtime when the lambda is burst compiled and has collection checks enabled. Previously using `EntityCommandBuffer` or other types with a `DisposeSentinel` field as part of your lambda function (when using DOTS Runtime) may have resulted in memory access violation.
+* `.Run()` on `IJobChunk` may have dereferenced null or invalid chunk on filtered queries.
+
+
+### Security
+
 * Throw correct error message if accessing `ToComponentDataArrayAsync` `CopyFromComponentDataArray` or `CopyFromComponentDataArrayAsync` from an unrelated query.
+
 
 
 ## [0.6.0] - 2020-02-17
@@ -70,6 +105,7 @@
 * The `SceneSystem` API now also loads `GameObject` scenes via `LoadSceneAsync` API.
 * Added new build component for LiveLink settings in `Unity.Scenes.Editor` to control how initial scenes are handled (LiveLink all, embed all, embed first).
 * Users can now inspect post-procssed IL code inside Unity Editor: `DOTS` -> `DOTS Compiler` -> `Open Inspector`
+* `GetAssignableComponentTypes()` can now be called with or without a List&lt;Type&gt; argument to collect the data. When omitted, the list will be allocated, which is the same behavior as before.
 
 ### Changed
 

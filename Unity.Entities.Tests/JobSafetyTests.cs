@@ -296,6 +296,7 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
         }
 
+#pragma warning disable 618
         struct BufferSafetyJobA : IJobForEach_B<EcsIntElement>
         {
             public void Execute(DynamicBuffer<EcsIntElement> b0)
@@ -322,6 +323,7 @@ namespace Unity.Entities.Tests
                 var total = buffer[3].Value;
             }
         }
+#pragma warning restore 618
 
         public void SetupDynamicBufferJobTestEnvironment()
         {
@@ -353,6 +355,7 @@ namespace Unity.Entities.Tests
             jobBHandle.Complete();
         }
         
+#pragma warning disable 618
         struct BufferSafetyJob_TwoReadOnly : IJobForEachWithEntity_EB<EcsIntElement>
         {
             [ReadOnly]
@@ -366,6 +369,7 @@ namespace Unity.Entities.Tests
                 var totalB = bufferB[0] + bufferB[1] + bufferB[2];
             }
         }
+#pragma warning restore 618
         
         [Test]
         public void SingleJobUsingSameReadOnlyDynamicBuffer()
@@ -381,6 +385,7 @@ namespace Unity.Entities.Tests
             job.Run(query); 
         }
         
+#pragma warning disable 618
         struct BufferSafetyJob_OneRead_OneWrite : IJobForEachWithEntity_EB<EcsIntElement>
         {
             public BufferFromEntity<EcsIntElement> BuffersFromEntity;
@@ -394,6 +399,7 @@ namespace Unity.Entities.Tests
                 bufferB[3] = new EcsIntElement {Value = totalB};
             }
         }
+#pragma warning restore 618
         
         [Test]
         public void SingleJobUsingSameReadOnlyAndReadWriteDynamicBufferThrows()
@@ -412,6 +418,7 @@ namespace Unity.Entities.Tests
             });
         }
 
+#pragma warning disable 618
         unsafe struct BufferSafetyJob_GetUnsafePtrReadWrite : IJobForEach_BCC<EcsIntElement, EcsTestData, EcsTestData2>
         {
             public void Execute(DynamicBuffer<EcsIntElement> b0, [ReadOnly]ref EcsTestData c1, [ReadOnly]ref EcsTestData2 c2)
@@ -419,6 +426,7 @@ namespace Unity.Entities.Tests
                 b0.GetUnsafePtr();
             }
         }
+#pragma warning restore 618
 
         [Test]
         public void DynamicBufferUnsafePtrDoesntThrowWhenReadWrite()

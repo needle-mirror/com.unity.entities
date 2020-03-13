@@ -25,7 +25,7 @@ namespace Unity.Entities.Editor
             StartDecompilationProcesses(TypeReference typeReference, DecompiledLanguage decompiledLanguage)
         {
             var assemblyDefinition = typeReference.Module.Assembly;
-
+            
             var tempFolder = Path.GetTempPath();
             var fileName = $@"{tempFolder}TestAssembly.dll";
             var fileNamePdb = $@"{tempFolder}TestAssembly.pdb";

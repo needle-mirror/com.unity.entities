@@ -11,6 +11,7 @@ public unsafe class BurstDelegateTest
     delegate void DoThingDelegate(ref int value);
 
     [BurstCompile]
+    [AOT.MonoPInvokeCallback(typeof(DoThingDelegate))]
     static void DoThing(ref int value)
     {
         value++;

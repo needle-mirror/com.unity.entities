@@ -241,21 +241,36 @@ namespace Unity.Entities
         // allows collection checks enabled code to still burst compile.
         struct JobMarshalFnLookup<T> where T : struct, IJobBase
         {
-            static IntPtr MarshalFn;
+            static IntPtr MarshalToBurstFn;
+            static IntPtr MarshalFromBurstFn;
 
-            public static IntPtr GetMarshalFn()
+            public static IntPtr GetMarshalToBurstFn()
             {
-                if(MarshalFn == IntPtr.Zero)
+                if(MarshalToBurstFn == IntPtr.Zero)
                 {
                     var job = default(T);
-                    var fn = job.GetMarshalMethod_Gen();
+                    var fn = job.GetMarshalToBurstMethod_Gen();
                     // Pin the delegate so it can be used for the lifetime of the app. Never de-alloc
-                    var handle = GCHandle.Alloc(fn); 
-                    MarshalFn = Marshal.GetFunctionPointerForDelegate(fn);
+                    var handle = GCHandle.Alloc(fn);
+                    MarshalToBurstFn = Marshal.GetFunctionPointerForDelegate(fn);
                 }
-                return MarshalFn;
+                return MarshalToBurstFn;
+            }
+
+            public static IntPtr GetMarshalFromBurstFn()
+            {
+                if (MarshalFromBurstFn == IntPtr.Zero)
+                {
+                    var job = default(T);
+                    var fn = job.GetMarshalFromBurstMethod_Gen();
+                    // Pin the delegate so it can be used for the lifetime of the app. Never de-alloc
+                    var handle = GCHandle.Alloc(fn);
+                    MarshalFromBurstFn = Marshal.GetFunctionPointerForDelegate(fn);
+                }
+                return MarshalFromBurstFn;
             }
         }
+
         public static unsafe void RunIJob<T>(ref T jobData, JobRunWithoutJobSystemDelegate functionPointer) where T : unmanaged, IJob, IJobBase
         {
             var managedJobDataPtr = UnsafeUtility.AddressOf(ref jobData);
@@ -268,18 +283,24 @@ namespace Unity.Entities
                 byte* alignedUnmanagedJobData = (byte*)((UInt64)(unmanagedJobData + kAlignment - 1) & ~(UInt64)(kAlignment - 1));
 
                 // DOTS Runtime job marshalling code assumes the job is wrapped so create the wrapper and assign the jobData
-                IJobExtensions.JobStruct<T> jobStructData = default;
+
+                IJobExtensions.JobProducer<T> jobStructData = default;
                 jobStructData.JobData = jobData;
                 byte* jobStructDataPtr = (byte*)UnsafeUtility.AddressOf(ref jobStructData);
 
                 byte* dst = (byte*)alignedUnmanagedJobData;
                 byte* src = (byte*)jobStructDataPtr;
-                var marshalFnPtr = JobMarshalFnLookup<T>.GetMarshalFn();
-                UnsafeUtility.CallFunctionPtr_pp(marshalFnPtr.ToPointer(), dst, src);
+                var marshalToBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalToBurstFn();
+                UnsafeUtility.CallFunctionPtr_pp(marshalToBurstFnPtr.ToPointer(), dst, src);
 
                 // In the case of JobStruct we know the jobwrapper doesn't add 
                 // anything to the jobData so just pass it along, no offset required unlike JobChunk
                 functionPointer(alignedUnmanagedJobData);
+
+                // Since Run can capture locals for write back, we must write back the marshalled jobData after the job executes
+                var marshalFromBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalFromBurstFn();
+                UnsafeUtility.CallFunctionPtr_pp(marshalFromBurstFnPtr.ToPointer(), src, dst);
+                jobData = jobStructData.JobData;
             }
             else
             {
@@ -305,14 +326,14 @@ namespace Unity.Entities
                     byte* alignedUnmanagedJobData = (byte*)((UInt64)(unmanagedJobData + kAlignment - 1) & ~(UInt64)(kAlignment - 1));
 
                     // DOTS Runtime job marshalling code assumes the job is wrapped so create the wrapper and assign the jobData
-                    JobChunkExtensions.JobChunkData<T> jobChunkData = default;
-                    jobChunkData.Data = jobData;
-                    byte* jobChunkDataPtr = (byte*)UnsafeUtility.AddressOf(ref jobChunkData);
+                    JobChunkExtensions.JobChunkWrapper<T> jobChunkWrapper = default;
+                    jobChunkWrapper.JobData = jobData;
+                    byte* jobChunkDataPtr = (byte*)UnsafeUtility.AddressOf(ref jobChunkWrapper);
 
                     byte* dst = (byte*)alignedUnmanagedJobData;
                     byte* src = (byte*)jobChunkDataPtr;
-                    var marshalFnPtr = JobMarshalFnLookup<T>.GetMarshalFn();
-                    UnsafeUtility.CallFunctionPtr_pp(marshalFnPtr.ToPointer(), dst, src);
+                    var marshalToBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalToBurstFn();
+                    UnsafeUtility.CallFunctionPtr_pp(marshalToBurstFnPtr.ToPointer(), dst, src);
 
                     // Since we are running inline, normally the outer job scheduling code would
                     // reference jobWrapper.Data however we can't do that since if we are in this code it means
@@ -322,8 +343,13 @@ namespace Unity.Entities
                     // since we are burst compiled) our JobChunkData contains a safety field as its first member. Skipping over this will
                     // provide the necessary offset to jobChunkData.Data
                     var DataOffset = UnsafeUtility.SizeOf<JobChunkExtensions.EntitySafetyHandle>();
-                    Assertions.Assert.AreEqual(jobChunkData.safety.GetType(), typeof(JobChunkExtensions.EntitySafetyHandle));
+                    Assertions.Assert.AreEqual(jobChunkWrapper.safety.GetType(), typeof(JobChunkExtensions.EntitySafetyHandle));
                     functionPointer(&myIterator, alignedUnmanagedJobData + DataOffset);
+
+                    // Since Run can capture locals for write back, we must write back the marshalled jobData after the job executes
+                    var marshalFromBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalFromBurstFn();
+                    UnsafeUtility.CallFunctionPtr_pp(marshalFromBurstFnPtr.ToPointer(), src, dst);
+                    jobData = jobChunkWrapper.JobData;
                 }
                 else
                 {

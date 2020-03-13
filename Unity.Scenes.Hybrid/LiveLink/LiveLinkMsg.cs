@@ -13,6 +13,9 @@ namespace Unity.Scenes
 {
     internal static class LiveLinkMsg
     {
+        public static readonly Guid RequestSessionHandshake = new Guid("ee3b9ac439304c98838dcd0245b8b9b1");
+        public static readonly Guid ResponseSessionHandshake = new Guid("212ce8fe16a043428cd4bfbfc081701a");
+        
         public static readonly Guid ReceiveEntityChangeSet = new Guid("34d9b47f923142ff847c0d1f8b0554d9");
         public static readonly Guid UnloadScenes = new Guid("c34a0cb23efa4fae81f9f78d755cee10");
         public static readonly Guid LoadScenes = new Guid("0d0fd642461447a59c45321269cb392d");
@@ -24,21 +27,18 @@ namespace Unity.Scenes
         public static readonly Guid SetLoadedScenes = new Guid("f58c350900c24b1e99e150338fa407b6");
         public static readonly Guid ResetGame = new Guid("16a2408ca08e48758af41c5f2919d3e4");
         
-        public static readonly Guid RequestAssetBundleTargetHash = new Guid("a56c8732319341c18daae030959993f4");
-        public static readonly Guid ResponseAssetBundleTargetHash = new Guid("4c8f736a115f435cb576b92a6f30bd1f");
+        public static readonly Guid RequestAssetTargetHash = new Guid("a56c8732319341c18daae030959993f4");
+        public static readonly Guid ResponseAssetTargetHash = new Guid("4c8f736a115f435cb576b92a6f30bd1f");
         
-        public static readonly Guid RequestAssetBundleForGUID = new Guid("e078f4ebc7f24e328615ba69bcde0d48");
-        public static readonly Guid ResponseAssetBundleForGUID = new Guid("68163744fe0540468d671f081cbf25cc");
+        public static readonly Guid RequestAssetByGUID = new Guid("e078f4ebc7f24e328615ba69bcde0d48");
+        public static readonly Guid ResponseAssetByGUID = new Guid("68163744fe0540468d671f081cbf25cc");
         
         public static readonly Guid RequestSubSceneTargetHash = new Guid("5220998d5fdd4c45ab945774d0ea5583");
         public static readonly Guid ResponseSubSceneTargetHash = new Guid("decb387da44e4d9e8d7b54ee13c72bf5");
-        public static readonly Guid RequestSubSceneForGUID = new Guid("bc3b54dbbbb140c3aff95f6130326ebc");
-        public static readonly Guid ResponseSubSceneForGUIDHeader = new Guid("d5c6d4819b9a4c29b7fbbc2a38f45807");
-        public static readonly Guid ResponseSubSceneForGUID = new Guid("d081fac1-6fa9-461e-a65d-fa60808d92eb");
+        public static readonly Guid RequestSubSceneByGUID = new Guid("bc3b54dbbbb140c3aff95f6130326ebc");
+        public static readonly Guid ResponseSubSceneByGUID = new Guid("d081fac1-6fa9-461e-a65d-fa60808d92eb");
 
         public static readonly Guid SendBuildArtifact = new Guid("9d5dbe09-f86d-4a0e-a1c9-ffb55dbffb15");
-        public static readonly Guid ResponseSubSceneForGUIDRefs = new Guid("19d609a62dea42e58cb3db2f52892d05");
-        public static readonly Guid ResponseSubSceneForGUIDEntityBinaryFile = new Guid("4facc070bbc54bbdaaa8baf7723093f0");
 
         public static bool IsDebugLogging
         {

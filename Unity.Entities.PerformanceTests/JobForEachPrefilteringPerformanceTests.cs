@@ -10,6 +10,7 @@ namespace Unity.Entities.PerformanceTests
     [Category("Performance")]
     public sealed class JobForEachPrefilteringPerformanceTests : EntityPerformanceTestFixture
     {
+#pragma warning disable 618
         struct ProcessJob : IJobForEach<EcsTestData>
         {
             public void Execute(ref EcsTestData c0)
@@ -17,6 +18,7 @@ namespace Unity.Entities.PerformanceTests
                 c0 = new EcsTestData {value = 10};
             }
         }
+#pragma warning restore 618
         
         [Test, Performance]
         public void Prefiltering_SingleArchetype_SingleChunk_Unfiltered()

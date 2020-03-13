@@ -147,20 +147,30 @@ namespace Unity.Entities
         /// <remarks>Assignable components include those with the same compile-time type and those that
         /// inherit from the same compile-time type.</remarks>
         /// <param name="interfaceType">The type to check.</param>
-        /// <returns>A new List object containing the System.Types that can be assigned to `interfaceType`.</returns>
-        public List<Type> GetAssignableComponentTypes(Type interfaceType)
+        /// <param name="listOut">The list to receive the output.</param>
+        /// <returns>The list that was passed in, containing the System.Types that can be assigned to `interfaceType`.</returns>
+        public List<Type> GetAssignableComponentTypes(Type interfaceType, List<Type> listOut)
         {
             // #todo Cache this. It only can change when TypeManager.GetTypeCount() changes
             var componentTypeCount = TypeManager.GetTypeCount();
-            var assignableTypes = new List<Type>();
             for (var i = 0; i < componentTypeCount; i++)
             {
                 var type = TypeManager.GetType(i);
-                if (interfaceType.IsAssignableFrom(type)) assignableTypes.Add(type);
+                if (interfaceType.IsAssignableFrom(type)) listOut.Add(type);
             }
 
-            return assignableTypes;
+            return listOut;
         }
+
+        /// <summary>
+        /// Gets a list of the types of components that can be assigned to the specified component.
+        /// </summary>
+        /// <remarks>Assignable components include those with the same compile-time type and those that
+        /// inherit from the same compile-time type.</remarks>
+        /// <param name="interfaceType">The type to check.</param>
+        /// <returns>A new List object containing the System.Types that can be assigned to `interfaceType`.</returns>
+        public List<Type> GetAssignableComponentTypes(Type interfaceType)
+            => GetAssignableComponentTypes(interfaceType, new List<Type>());
 
         // ----------------------------------------------------------------------------------------------------------
         // INTERNAL

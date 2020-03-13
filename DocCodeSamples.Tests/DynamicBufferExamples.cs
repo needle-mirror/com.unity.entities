@@ -110,6 +110,7 @@ namespace Doc.CodeSamples.Tests
 
         #region add-in-job
 
+#pragma warning disable 618
         struct DataSpawnJob : IJobForEachWithEntity<DataToSpawn>
         {
             // A command buffer marshals structural changes to the data
@@ -141,6 +142,7 @@ namespace Doc.CodeSamples.Tests
                 CommandBuffer.DestroyEntity(index, spawnEntity);
             }
         }
+#pragma warning restore 618
 
         #endregion
 

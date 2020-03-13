@@ -7,6 +7,12 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
+    [AttributeUsage(AttributeTargets.Method)]
+    internal class MonoPInvokeCallbackAttribute : Attribute
+    {
+        internal MonoPInvokeCallbackAttribute(Type type) {}
+    }
+
     [BurstCompile]
     unsafe struct StructuralChange
     {
@@ -71,66 +77,77 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
+        [MonoPInvokeCallback(typeof(AddComponentEntitiesBatchDelegate))]
         static void AddComponentEntitiesBatchExecute(EntityComponentStore* entityComponentStore, UnsafeList* entityBatchList, int typeIndex)
         {
             entityComponentStore->AddComponent(entityBatchList, ComponentType.FromTypeIndex(typeIndex), 0);
         }
 
         [BurstCompile]
+        [MonoPInvokeCallback(typeof(AddComponentEntityDelegate))]
         static bool AddComponentEntityExecute(EntityComponentStore* entityComponentStore, Entity* entity, int typeIndex)
         {
             return entityComponentStore->AddComponent(*entity, ComponentType.FromTypeIndex(typeIndex));
         }
 
         [BurstCompile]
+        [MonoPInvokeCallback(typeof(AddComponentChunksDelegate))]
         static void AddComponentChunksExecute(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int typeIndex)
         {
             entityComponentStore->AddComponent(chunks, chunkCount, ComponentType.FromTypeIndex(typeIndex));
         }
 
         [BurstCompile]
+        [MonoPInvokeCallback(typeof(RemoveComponentEntityDelegate))]
         static bool RemoveComponentEntityExecute(EntityComponentStore* entityComponentStore, Entity* entity, int typeIndex)
         {
             return entityComponentStore->RemoveComponent(*entity, ComponentType.FromTypeIndex(typeIndex));
         }
 
         [BurstCompile]
+        [MonoPInvokeCallback(typeof(RemoveComponentEntitiesBatchDelegate))]
         static void RemoveComponentEntitiesBatchExecute(EntityComponentStore* entityComponentStore, UnsafeList* entityBatchList, int typeIndex)
         {
             entityComponentStore->RemoveComponent(entityBatchList, ComponentType.FromTypeIndex(typeIndex));
         }
 
         [BurstCompile]
+        [MonoPInvokeCallback(typeof(RemoveComponentChunksDelegate))]
         static void RemoveComponentChunksExecute(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int typeIndex)
         {
             entityComponentStore->RemoveComponent(chunks, chunkCount, ComponentType.FromTypeIndex(typeIndex));
         }
 
         [BurstCompile]
+        [MonoPInvokeCallback(typeof(AddSharedComponentChunksDelegate))]
         static void AddSharedComponentChunksExecute(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int componentTypeIndex, int sharedComponentIndex)
         {
             entityComponentStore->AddComponent(chunks, chunkCount, ComponentType.FromTypeIndex(componentTypeIndex), sharedComponentIndex);
         }
 
         [BurstCompile]
+        [MonoPInvokeCallback(typeof(MoveEntityArchetypeDelegate))]
         static void MoveEntityArchetypeExecute(EntityComponentStore* entityComponentStore, Entity* entity, void* dstArchetype)
         {
             entityComponentStore->Move(*entity, (Archetype*) dstArchetype);
         }
         
         [BurstCompile]
+        [MonoPInvokeCallback(typeof(SetChunkComponentDelegate))]
         static void SetChunkComponentExecute(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, void* componentData, int componentTypeIndex)
         {
             entityComponentStore->SetChunkComponent(chunks, chunkCount, componentData, componentTypeIndex);
         }
+
         [BurstCompile]
+        [MonoPInvokeCallback(typeof(CreateEntityDelegate))]
         static void CreateEntityExecute(EntityComponentStore* entityComponentStore, void* archetype, Entity* outEntities, int count)
         {
             entityComponentStore->CreateEntities((Archetype*)archetype, outEntities, count);
         }
         
-                
         [BurstCompile]
+        [MonoPInvokeCallback(typeof(InstantiateEntitiesDelegate))]
         static void InstantiateEntitiesExecute(EntityComponentStore* entityComponentStore, Entity* srcEntity, Entity* outputEntities, int instanceCount)
         {
             entityComponentStore->InstantiateEntities(*srcEntity, outputEntities, instanceCount);

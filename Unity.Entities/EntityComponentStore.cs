@@ -793,6 +793,50 @@ namespace Unity.Entities
             return ChunkDataUtility.GetComponentDataWithTypeRW(entityChunk, entityIndexInChunk, typeIndex,
                 globalVersion, ref typeLookupCache);
         }
+        
+        public void* GetComponentDataRawRW(Entity entity, int typeIndex)
+        {
+            AssertEntityHasComponent(entity, typeIndex);
+            return GetComponentDataRawRWEntityHasComponent(entity, typeIndex);
+        }
+
+        internal void* GetComponentDataRawRWEntityHasComponent(Entity entity, int typeIndex)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (TypeManager.GetTypeInfo(typeIndex).IsZeroSized)
+                throw new System.ArgumentException(
+                    "GetComponentData() can not be called with a zero sized component.");
+#endif
+
+            var ptr = GetComponentDataWithTypeRW(entity, typeIndex, GlobalSystemVersion);
+            return ptr;
+        }
+        
+        public void SetComponentDataRawEntityHasComponent(Entity entity, int typeIndex, void* data, int size)
+        {
+            AssertEntityHasComponent(entity, typeIndex);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (TypeManager.GetTypeInfo(typeIndex).SizeInChunk != size)
+                throw new System.ArgumentException(
+                    "SetComponentData can not be called with a zero sized component and must have same size as sizeof(T).");
+#endif
+
+            var ptr = GetComponentDataWithTypeRW(entity, typeIndex,
+                GlobalSystemVersion);
+            UnsafeUtility.MemCpy(ptr, data, size);
+        }
+        
+        public void SetBufferRawWithValidation(Entity entity, int componentTypeIndex, BufferHeader* tempBuffer, int sizeInChunk)
+        {
+            AssertEntityHasComponent(entity, componentTypeIndex);
+
+            var ptr = GetComponentDataWithTypeRW(entity, componentTypeIndex,
+                GlobalSystemVersion);
+
+            BufferHeader.Destroy((BufferHeader*) ptr);
+
+            UnsafeUtility.MemCpy(ptr, tempBuffer, sizeInChunk);
+        }
 
         public int GetSharedComponentDataIndex(Entity entity, int typeIndex)
         {
@@ -1198,7 +1242,7 @@ namespace Unity.Entities
             return capacity;
         }
 
-        Archetype* CreateArchetype(ComponentTypeInArchetype* types, int count)
+        internal Archetype* CreateArchetype(ComponentTypeInArchetype* types, int count)
         {
             AssertArchetypeComponents(types, count);
 

@@ -78,7 +78,7 @@ namespace Unity.Entities
         /// The number of elements the buffer can hold.
         /// </summary>
         /// <remarks>
-        /// <paramref name="Capacity"/> can not be set lower than <see cref="Length"/> - this will raise an exception. 
+        /// <paramref name="Capacity"/> can not be set lower than <see cref="Length"/> - this will raise an exception.
         /// If <paramref name="Capacity"/> grows greater than the internal capacity of the DynamicBuffer, memory external to the DynamicBuffer will be allocated.
         /// If <paramref name="Capacity"/> shrinks to the internal capacity of the DynamicBuffer or smaller, memory external to the DynamicBuffer will be freed.
         /// No effort is made to avoid costly reallocations when <paramref name="Capacity"/> changes slightly;
@@ -203,7 +203,7 @@ namespace Unity.Entities
         /// <example>
         /// <code source="../../DocCodeSamples.Tests/DynamicBufferExamples.cs" language="csharp" region="dynamicbuffer.reserve"/>
         /// </example>
-        /// <param name="length">The buffer capacity is ensured to be at least this big.</param> 
+        /// <param name="length">The buffer capacity is ensured to be at least this big.</param>
         public void EnsureCapacity(int length)
         {
             CheckWriteAccessAndInvalidateArrayAliases();
@@ -236,7 +236,7 @@ namespace Unity.Entities
             BufferHeader.EnsureCapacity(m_Buffer, length, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, false, 0);
 #endif
         }
-        
+
         /// <summary>
         /// Sets the buffer length to zero.
         /// </summary>
@@ -445,7 +445,7 @@ namespace Unity.Entities
         {
             CheckReadAccess();
 
-            var shadow = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(BufferHeader.GetElementPointer(m_Buffer), Length, Allocator.Invalid);
+            var shadow = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(BufferHeader.GetElementPointer(m_Buffer), Length, Allocator.None);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var handle = m_Safety1;
             AtomicSafetyHandle.UseSecondaryVersion(ref handle);

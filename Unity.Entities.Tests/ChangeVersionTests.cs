@@ -11,6 +11,7 @@ namespace Unity.Entities.Tests
         {
             public EntityQuery m_Group;
 
+#pragma warning disable 618
             struct UpdateData : IJobForEach<EcsTestData, EcsTestData2>
             {
                 public void Execute(ref EcsTestData data, ref EcsTestData2 data2)
@@ -32,6 +33,7 @@ namespace Unity.Entities.Tests
                     ComponentType.ReadWrite<EcsTestData2>());
             }
         }
+#pragma warning restore 618
 #endif
 
         class BumpVersionSystem : ComponentSystem

@@ -384,7 +384,7 @@ namespace Unity.Entities
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
             DependencyManager->CompleteReadAndWriteDependency(typeIndex);
 
-            m_EntityDataAccess.SetComponentDataRawEntityHasComponent(entity, typeIndex, data, size);
+            EntityComponentStore->SetComponentDataRawEntityHasComponent(entity, typeIndex, data, size);
         }
 
         internal void* GetComponentDataRawRW(Entity entity, int typeIndex)

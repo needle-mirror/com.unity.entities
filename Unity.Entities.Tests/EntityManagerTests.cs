@@ -126,6 +126,19 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void FoundComponentInterfaceNonAllocating()
+        {
+            var list = new List<Type>();
+            var fooTypes = m_Manager.GetAssignableComponentTypes(typeof(IEcsFooInterface), list);
+            Assert.AreEqual(1, fooTypes.Count);
+            Assert.AreEqual(typeof(EcsFooTest), fooTypes[0]);
+
+            list.Clear();
+            var barTypes = m_Manager.GetAssignableComponentTypes(typeof(IEcsNotUsedInterface), list);
+            Assert.AreEqual(0, barTypes.Count);
+        }
+
+        [Test]
         public void VersionIsConsistent()
         {
             Assert.AreEqual(0, m_Manager.Version);

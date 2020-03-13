@@ -10,6 +10,7 @@
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests")]
 [assembly: InternalsVisibleTo("Unity.DOTS.Editor")]
+[assembly: InternalsVisibleTo("Unity.DOTS.Editor.Tests")]
 [assembly: InternalsVisibleTo("Unity.Authoring")]
 [assembly: InternalsVisibleTo("Unity.Tiny.IO")]
 [assembly: InternalsVisibleTo("Unity.Tiny.Scenes")]

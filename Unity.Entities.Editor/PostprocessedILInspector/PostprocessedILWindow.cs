@@ -1,10 +1,10 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using UnityEditor;
@@ -22,26 +22,27 @@ namespace Unity.Entities.Editor
             IL
         }
 
-        private static readonly Dictionary<TypeDefinition, string[]> _generatedTypesAndDecompiledCSharpCode = new Dictionary<TypeDefinition, string[]>();
-        private static readonly Dictionary<TypeDefinition, string[]> _generatedTypesAndDecompiledILCode = new Dictionary<TypeDefinition, string[]>();
+        private static readonly Dictionary<Type, string[]> GeneratedTypesAndDecompiledCSharpCode = new Dictionary<Type, string[]>();
+        private static readonly Dictionary<Type, string[]> GeneratedTypesAndDecompiledIlCode = new Dictionary<Type, string[]>();
+        private static readonly Dictionary<Type, TypeDefinition> TypesToTypeDefinitions = new Dictionary<Type, TypeDefinition>();
+        
+        private static readonly Type[] AllDOTSCompilerGeneratedTypes;
+        private static readonly List<Type> FilteredTypes;
 
-        private static TypeDefinition[] _allDOTSCompilerGeneratedTypes;
-        private static TypeDefinition[] _dotsCompilerGeneratedTypesToDisplay;
+        private static DisplayLanguage s_currentDisplayLanguage = DisplayLanguage.CSharp;
+        private static Type s_currentlySelectedType;
+        private static string[] s_currentlyDisplayedDecompiledCode;
+        
+        private static Process s_decompilationProcess;
+        private static ListView s_decompiledCodeField;
+        private static Label s_decompilationStatusLabel;
+        
+        private static bool s_userMadeAtLeastOneSelection;
+        
+        private static DecompilationStatus s_currentDecompilationStatus;
+        private static int s_decompilationDurationSoFar;
 
-        private DisplayLanguage _currentDisplayLanguage = DisplayLanguage.CSharp;
-        private TypeDefinition _currentlySelectedTypeDefinition;
-        private string[] _currentlyDisplayedDecompiledCode;
-        
-        private Process _decompilationProcess;
-        private ListView _decompiledCodeField;
-        private Label _decompilationStatusLabel;
-        
-        private bool _userMadeAtLeastOneSelection;
-        
-        private DecompilationStatus _currentDecompilationStatus;
-        private int _decompilationDurationSoFar;
-        
-        private const int EstimatedNumFramesNeededForDecompilationToFinish = 100;
+        private const int EstimatedNumFramesNeededForDecompilationToFinish = 15;
 
         private enum DecompilationStatus
         {
@@ -50,345 +51,267 @@ namespace Unity.Entities.Editor
         }
 
         [MenuItem("DOTS/DOTS Compiler/Open Inspector...")]
-        private static void PostprocessedILInspector()
+        private static void ShowWindow()
         {
-            GetWindow<PostprocessedILWindow>().Show();
+            var window = GetWindow<PostprocessedILWindow>();
+            window.titleContent = new GUIContent("Postprocessed IL code");
+        }
+        
+        static PostprocessedILWindow()
+        {
+            AllDOTSCompilerGeneratedTypes =
+                TypeCache.GetTypesWithAttribute<DOTSCompilerGeneratedAttribute>()
+                         .OrderBy(t => t.GetUserFriendlyName())
+                         .ToArray();
+            FilteredTypes = new List<Type>(AllDOTSCompilerGeneratedTypes);
         }
 
-        private void OnGUI()
-        {
-            if (!_userMadeAtLeastOneSelection)
-            {
-                return;
-            }
-            
-            switch (_currentDecompilationStatus)
-            {
-                case DecompilationStatus.Complete:
-                {
-                    _decompilationStatusLabel.text =
-                        $"Currently displaying decompiled {(_currentDisplayLanguage == DisplayLanguage.CSharp ? "C#" : "IL")} code.";
-                    Repaint();
-                
-                    return;
-                }
-                case DecompilationStatus.InProgress when _decompilationDurationSoFar < EstimatedNumFramesNeededForDecompilationToFinish:
-                {
-                    _decompilationStatusLabel.text = "Decompilation in progress. Please be patient...";
-                    _decompilationDurationSoFar++;
-                
-                    Repaint();
-                
-                    return;
-                }
-                default:
-                {
-                    switch (_currentDisplayLanguage)
-                    {
-                        case DisplayLanguage.CSharp:
-                        {
-                            _generatedTypesAndDecompiledCSharpCode.Add(
-                                _currentlySelectedTypeDefinition,
-                                _decompilationProcess.StandardOutput.ReadToEnd().Split(new[] {Environment.NewLine}, StringSplitOptions.None));
-                    
-                            DisplayDecompiledCode(DisplayLanguage.CSharp);
-                            break;
-                        }
-
-                        case DisplayLanguage.IL:
-                        {
-                            _generatedTypesAndDecompiledILCode.Add(
-                                _currentlySelectedTypeDefinition,
-                                _decompilationProcess.StandardOutput.ReadToEnd().Split(new[] {Environment.NewLine}, StringSplitOptions.None));
-                    
-                            DisplayDecompiledCode(DisplayLanguage.IL);
-                            break;
-                        }
-                    }
-
-                    _decompilationDurationSoFar = 0;
-                    break;
-                }
-            }
-        }
-
-        private void OnEnable()
+        public void OnEnable()
         {
             this.minSize = new Vector2(1500f, 400f);
 
-            if (_allDOTSCompilerGeneratedTypes == null)
-            {
-                _allDOTSCompilerGeneratedTypes =
-                    _dotsCompilerGeneratedTypesToDisplay =
-                        TypeCache.GetTypesWithAttribute<DOTSCompilerGeneratedAttribute>()
-                                 .Select(GetTypeDefinition)
-                                 .Where(t => t != null)
-                                 .OrderBy(t => t.GetUserFriendlyName())
-                                 .ToArray();
-            }
+            ImportVisualTree();
+            ImportStyleSheet();
+            CacheElements();
+            RegisterCallbacks();
+        }
 
-            VisualElement searchBarAndGeneratedTypeListView = new VisualElement
+        private void ImportVisualTree()
+        {
+            VisualTreeAsset visualTree =
+                AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Packages/com.unity.entities/Unity.Entities.Editor/PostprocessedILInspector/ILPostProcessorWindow.uxml");
+            visualTree.CloneTree(rootVisualElement);
+        }
+
+        private void ImportStyleSheet()
+        {
+            StyleSheet styleSheet = 
+                AssetDatabase.LoadAssetAtPath<StyleSheet>("Packages/com.unity.entities/Unity.Entities.Editor/PostprocessedILInspector/ILPostProcessorWindow.uss");
+            rootVisualElement.styleSheets.Add(styleSheet);
+        }
+
+        private void RegisterCallbacks()
+        {
+            Button copyCodeButton = rootVisualElement.Q<Button>("Copy Code");
+            copyCodeButton.clicked += () =>
             {
-                style = {width = new StyleLength(new Length(20, LengthUnit.Percent))},
-                name = "Search bar and list view for DOTS compiler-generated types"
+                EditorGUIUtility.systemCopyBuffer =
+                    string.Join(Environment.NewLine, (string[]) s_decompiledCodeField.itemsSource);
             };
 
-            ListView generatedTypesListView =
-                new ListView(
-                    itemsSource: _dotsCompilerGeneratedTypesToDisplay,
-                    itemHeight: 15,
-                    makeItem: () => new Label {style = {color = new Color(0.71f, 1f, 0f)}},
-                    bindItem: (element, index) =>
-                    {
-                        ((Label) element).text = _dotsCompilerGeneratedTypesToDisplay[index].GetUserFriendlyName();
-                    })
-                {
-                    style =
-                    {
-                        width = new StyleLength(new Length(100, LengthUnit.Percent)),
-                        height = new StyleLength(new Length(98, LengthUnit.Percent)),
-                        top = new StyleLength(new Length(10, LengthUnit.Pixel))
-                    },
-                    name = "List view for DOTS compiler-generated types"
-                };
-            var searchFieldToolbar = new Toolbar
+            var generatedTypesListView = rootVisualElement.Q<ListView>("Scripts ListView");
+            SetupListView(generatedTypesListView, FilteredTypes, 15, MakeScriptLabel, BindScriptLabel);
+            generatedTypesListView.selectionType = SelectionType.Single;
+#if UNITY_2020_1_OR_NEWER
+            generatedTypesListView.onSelectionChange += OnScriptSelected;
+#else
+            generatedTypesListView.onSelectionChanged += OnScriptSelected;
+#endif
+
+            var searchField = rootVisualElement.Q<ToolbarSearchField>("Script Search Field");
+            searchField.RegisterCallback<ChangeEvent<string>, ListView>(OnFilter, generatedTypesListView);
+    
+            SetupListView(s_decompiledCodeField, s_currentlyDisplayedDecompiledCode, 15, MakeScriptLineLabel, BindScriptLineLabel);
+            
+            var language = rootVisualElement.Q<EnumField>("Language Popup");
+            language.Init(defaultValue: DisplayLanguage.CSharp);
+            language.RegisterValueChangedCallback(changeEvent =>
             {
-                style =
-                {
-                    width = new StyleLength(new Length(100, LengthUnit.Percent)),
-                    flexGrow = 0
-                }
-            };
-            var searchField = new ToolbarSearchField
-            {
-                style = {width = new StyleLength(new Length(98, LengthUnit.Percent))},
-                name = "Search bar for DOTS compiler-generated types"
-            };
-            searchField.RegisterValueChangedCallback(changeEvent =>
-            {
-                _dotsCompilerGeneratedTypesToDisplay =
-                    string.IsNullOrWhiteSpace(changeEvent.newValue)
-                        ? _allDOTSCompilerGeneratedTypes
-                        : _allDOTSCompilerGeneratedTypes
-                            .Where(t => IsFilteredType(t, changeEvent.newValue))
-                            .ToArray();
-                
-                generatedTypesListView.itemsSource = _dotsCompilerGeneratedTypesToDisplay;
+                s_currentDisplayLanguage = (DisplayLanguage)changeEvent.newValue;
+                StartDecompilationOrDisplayDecompiledCode();
             });
-            searchFieldToolbar.Add(searchField);
             
-            searchBarAndGeneratedTypeListView.style.flexDirection = FlexDirection.Column;
-            searchBarAndGeneratedTypeListView.Add(searchFieldToolbar);
-            searchBarAndGeneratedTypeListView.Add(generatedTypesListView);
-
-            var canvasForOtherContents = new VisualElement
+            var fontSizes = new PopupField<int>(
+                choices: Enumerable.Range(start: 12, count: 7).ToList(),
+                defaultIndex: 0,
+                formatSelectedValueCallback: GetFontSizeHeader,
+                formatListItemCallback: GetFontSize
+            );
+            fontSizes.RegisterValueChangedCallback(changeEvent =>
             {
-                style = {width = new StyleLength(new Length(80, LengthUnit.Percent))},
-                name = "Canvas for: Font selection tool bar; copy buttons; displaying decompiled code"
-            };
-
-            var canvasForDisplayingDecompiledCode = new VisualElement
-            {
-                style =
-                {
-                    width = new StyleLength(new Length(100, LengthUnit.Percent)),
-                    height = new StyleLength(new Length(95, LengthUnit.Percent))
-                },
-                name = "Canvas for displaying decompiled code"
-            };
-
-            _decompiledCodeField = new ListView(
-                itemsSource: _currentlyDisplayedDecompiledCode,
-                itemHeight: 15,
-                makeItem: () => new Label {style = {color = Color.white}},
-                bindItem: (element, i) => ((Label) element).text = $"{i}\t{_currentlyDisplayedDecompiledCode[i]}"
-            )
-            {
-                style =
-                {
-                    width = new StyleLength(new Length(100, LengthUnit.Percent)),
-                    height = new StyleLength(new Length(100, LengthUnit.Percent)),
-                    borderLeftWidth = new StyleFloat(5f),
-                    borderLeftColor = new StyleColor(Color.grey)
-                },
-                name = "List view for decompiled code. (A regular text field cannot display that much text.)"
-            };
-          
-            _decompilationStatusLabel = new Label
-            {
-                style =
-                {
-                    height = new StyleLength(new Length(100, LengthUnit.Percent)),
-                    width = new StyleLength(new Length(600, LengthUnit.Pixel)),
-                    unityTextAlign = new StyleEnum<TextAnchor>(TextAnchor.MiddleRight),
-                    color = new Color(0.71f, 1f, 0f)
-                }
-            };
-
-            #if UNITY_2020
-            generatedTypesListView.onSelectionChange += o =>
-            {
-                _currentlySelectedTypeDefinition = (TypeDefinition)o.Single();
-                _userMadeAtLeastOneSelection = true;
-                StartDecompilationOrDisplayDecompiledCode();
-            };
-            #else
-            generatedTypesListView.onSelectionChanged += o =>
-            {
-                _currentlySelectedTypeDefinition = (TypeDefinition)o.Single();
-                _userMadeAtLeastOneSelection = true;
-                StartDecompilationOrDisplayDecompiledCode();
-            };
-            #endif
+                s_decompiledCodeField.style.fontSize = changeEvent.newValue;
+                s_decompiledCodeField.itemHeight = Mathf.CeilToInt(changeEvent.newValue * 1.5f);
+            });
             
-            canvasForDisplayingDecompiledCode.style.flexDirection = FlexDirection.Row;
-            canvasForDisplayingDecompiledCode.Add(_decompiledCodeField);
-            
-            var toolBar = new Toolbar
-            {
-                style =
-                {
-                    flexGrow = 0,
-                    height = new StyleLength(new Length(20, LengthUnit.Pixel)),
-                    width = new StyleLength(new Length(100, LengthUnit.Percent))
-                },
-                name = "Canvas for: font size selector; copy button"
-            };
+            VisualElement fontSizeRoot = rootVisualElement.Q("Fontsize Popup");
+            fontSizeRoot.Add(fontSizes);
 
-            var fontSizeSelector = new ToolbarMenu
-            {
-                style =
-                {
-                    height = new StyleLength(new Length(100, LengthUnit.Percent)),
-                    width = new StyleLength(new Length(80, LengthUnit.Pixel))
-                },
-                text = "Font size",
-                name = "Font size selection toolbar"
-            };
+            s_decompilationStatusLabel.binding = new DecompilationStatusLabelBinding();
+        }
+        
+        private static string GetFontSizeHeader(int size)
+        {
+            return "Font size: " + size;
+        }
 
-            foreach (int i in Enumerable.Range(start: 12, count: 7))
+        private static string GetFontSize(int size)
+        {
+            return size.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private static void OnScriptSelected(IEnumerable<object> o)
+        {
+            s_currentlySelectedType = (Type)o.Single();
+            s_userMadeAtLeastOneSelection = true;
+            StartDecompilationOrDisplayDecompiledCode();
+        }
+
+        private static void OnFilter(ChangeEvent<string> changeEvent, ListView listView)
+        {
+            FilteredTypes.Clear();
+
+            if (string.IsNullOrEmpty(changeEvent.newValue))
             {
-                fontSizeSelector.menu.AppendAction(actionName: $"{i}", action =>
-                {
-                    _decompiledCodeField.style.fontSize = i;
-                    _decompiledCodeField.itemHeight = Mathf.CeilToInt(i * 1.5f);
-                });
+                FilteredTypes.AddRange(AllDOTSCompilerGeneratedTypes);    
+            }
+            else
+            {
+                FilteredTypes.AddRange(
+                    AllDOTSCompilerGeneratedTypes.Where(t => 
+                        CultureInfo.InvariantCulture.CompareInfo.IndexOf(
+                            t.GetUserFriendlyName(), changeEvent.newValue, CompareOptions.IgnoreCase) >= 0));
             }
             
-            var decompiledLanguageSelector = new ToolbarMenu
+            listView.Refresh();
+        }
+
+        private static void SetupListView(ListView listView, IList source, int itemHeight, Func<VisualElement> makeItem, Action<VisualElement, int> bindItem)
+        {
+            listView.itemsSource = source;
+            listView.itemHeight = itemHeight;
+            listView.makeItem = makeItem;
+            listView.bindItem = bindItem;
+        }
+
+        private void CacheElements()
+        {
+             s_decompiledCodeField = rootVisualElement.Q<ListView>("Decompiled Script ListView");
+             s_decompilationStatusLabel = rootVisualElement.Q<Label>(className:"status-label");
+        }
+
+        private static VisualElement MakeScriptLabel()
+        {
+            var label = new Label();
+            label.AddToClassList("script-label");
+            
+            return label;
+        }
+
+        private static void BindScriptLabel(VisualElement element, int index)
+        {
+            if (element is Label label)
             {
-                style =
-                {
-                    height = new StyleLength(new Length(100, LengthUnit.Percent)),
-                    width = new StyleLength(new Length(80, LengthUnit.Pixel))
-                },
-                text = "Language",
-                name = "Decompiled language selection toolbar"
-            };
-            decompiledLanguageSelector.menu.AppendAction(
-                "C#", 
-                action =>
-                {
-                    _currentDisplayLanguage = DisplayLanguage.CSharp;
-                    StartDecompilationOrDisplayDecompiledCode();
-                });
-            decompiledLanguageSelector.menu.AppendAction(
-                "IL", 
-                action =>
-                {
-                    _currentDisplayLanguage = DisplayLanguage.IL;
-                    StartDecompilationOrDisplayDecompiledCode();
-                });
-            
-            var copyDecompiledCodeButton = new ToolbarButton
-            {
-                style =
-                {
-                    height = new StyleLength(new Length(100, LengthUnit.Percent)),
-                    width = new StyleLength(new Length(150, LengthUnit.Pixel)),
-                    unityTextAlign = new StyleEnum<TextAnchor>(TextAnchor.MiddleCenter)
-                },
-                text = "Copy decompiled code",
-                name = "Button to copy decompiled code"
-            };
-            copyDecompiledCodeButton.clicked += () =>
-                EditorGUIUtility.systemCopyBuffer = string.Join(Environment.NewLine, (string[])_decompiledCodeField.itemsSource);
-            
-            toolBar.style.flexDirection = FlexDirection.RowReverse;
-            toolBar.Add(fontSizeSelector);
-            toolBar.Add(decompiledLanguageSelector);
-            toolBar.Add(copyDecompiledCodeButton);
-            toolBar.Add(_decompilationStatusLabel);
-            
-            canvasForOtherContents.style.flexDirection = FlexDirection.Column;
-            canvasForOtherContents.Add(toolBar);
-            canvasForOtherContents.Add(canvasForDisplayingDecompiledCode);
-            
-            rootVisualElement.style.flexDirection = FlexDirection.Row;
-            rootVisualElement.Add(searchBarAndGeneratedTypeListView);
-            rootVisualElement.Add(canvasForOtherContents);
-            
-            bool IsFilteredType(TypeDefinition typeDefinition, string userSpecifiedTypeName)
-            {
-                return CultureInfo.InvariantCulture.CompareInfo.IndexOf(
-                           typeDefinition.GetUserFriendlyName(),
-                           userSpecifiedTypeName, 
-                           CompareOptions.IgnoreCase) >= 0;
+                label.text = FilteredTypes[index].GetUserFriendlyName();
             }
         }
 
-        private void StartDecompilationOrDisplayDecompiledCode()
+        private static VisualElement MakeScriptLineLabel()
         {
-            switch (_currentDisplayLanguage)
+            var label = new Label();
+            label.AddToClassList("script-line-label");
+            
+            return label;
+        }
+        
+        private static void BindScriptLineLabel(VisualElement element, int index)
+        {
+            if (element is Label label)
+            {
+                label.text = $"{index}\t{s_currentlyDisplayedDecompiledCode[index]}";
+            }
+        }
+
+        private static void StartDecompilationOrDisplayDecompiledCode()
+        {
+            TypeDefinition typeDefinition = GetTypeDefinition(s_currentlySelectedType);
+            switch (s_currentDisplayLanguage)
             {
                 case DisplayLanguage.CSharp:
                 {
-                    if (_generatedTypesAndDecompiledCSharpCode.ContainsKey(_currentlySelectedTypeDefinition))
+                    if (GeneratedTypesAndDecompiledCSharpCode.ContainsKey(s_currentlySelectedType))
                     {
                         DisplayDecompiledCode(DisplayLanguage.CSharp);
                         break;
                     }
-                    _decompilationProcess = 
-                        Decompiler.StartDecompilationProcesses(_currentlySelectedTypeDefinition, DecompiledLanguage.CSharpOnly).DecompileIntoCSharpProcess;
-                    _currentDecompilationStatus = DecompilationStatus.InProgress;
-
+                    s_decompilationProcess = 
+                        Decompiler.StartDecompilationProcesses(typeDefinition, DecompiledLanguage.CSharpOnly)
+                            .DecompileIntoCSharpProcess;
+                    s_currentDecompilationStatus = DecompilationStatus.InProgress;
                     break;
                 }
                 case DisplayLanguage.IL:
                 {
-                    if (_generatedTypesAndDecompiledILCode.ContainsKey(_currentlySelectedTypeDefinition))
+                    if (GeneratedTypesAndDecompiledIlCode.ContainsKey(s_currentlySelectedType))
                     {
                         DisplayDecompiledCode(DisplayLanguage.IL);
                         break;
                     }
-                    _decompilationProcess = 
-                        Decompiler.StartDecompilationProcesses(_currentlySelectedTypeDefinition, DecompiledLanguage.ILOnly).DecompileIntoILProcess;
-                    _currentDecompilationStatus = DecompilationStatus.InProgress;
-
+                    s_decompilationProcess = 
+                        Decompiler.StartDecompilationProcesses(typeDefinition, DecompiledLanguage.ILOnly)
+                            .DecompileIntoILProcess;
+                    s_currentDecompilationStatus = DecompilationStatus.InProgress;
                     break;
                 }
             }
         }
 
-
-        private void DisplayDecompiledCode(DisplayLanguage displayLanguage)
+        private static void DisplayDecompiledCode(DisplayLanguage displayLanguage)
         {
-            _currentlyDisplayedDecompiledCode =
+            s_currentlyDisplayedDecompiledCode =
                 displayLanguage == DisplayLanguage.CSharp
-                    ? _generatedTypesAndDecompiledCSharpCode[_currentlySelectedTypeDefinition]
-                    : _generatedTypesAndDecompiledILCode[_currentlySelectedTypeDefinition];
+                    ? GeneratedTypesAndDecompiledCSharpCode[s_currentlySelectedType]
+                    : GeneratedTypesAndDecompiledIlCode[s_currentlySelectedType];
             
-            _decompiledCodeField.itemsSource = _currentlyDisplayedDecompiledCode;
-            _currentDecompilationStatus = DecompilationStatus.Complete;
+            s_decompiledCodeField.itemsSource = s_currentlyDisplayedDecompiledCode;
+            s_currentDecompilationStatus = DecompilationStatus.Complete;
         }
 
         private static TypeDefinition GetTypeDefinition(Type type)
         {
-            return CreateAssemblyDefinitionFor(type)
-                       .MainModule
-                       .GetType(type.FullName?.Replace("+", "/"));
-        }
+            if (TypesToTypeDefinitions.ContainsKey(type))
+            {
+                return TypesToTypeDefinitions[type];
+            }
+            
+            ModuleDefinition moduleDefinition = CreateAssemblyDefinitionFor(type).MainModule;
 
+            string fullName = type.FullName?.Replace(oldValue: "+", "/");
+            TypeDefinition typeDefinition =
+                moduleDefinition.GetType(fullName) ?? moduleDefinition.GetType(GetCorrectedTypeName(fullName));
+            
+            TypesToTypeDefinitions.Add(type, typeDefinition);
+            
+            return typeDefinition;
+        }
+        
+        /*
+         * Previously, selecting the Samples.Boids.BoidSchoolSpawnSystem/<>c__DisplayClass_OnUpdate_LambdaJob0 type for decompilation
+         * causes a NullReferenceException to be thrown, because its corresponding TypeDefinition could not be found inside the module
+         * that supposedly contains it. It turns out that the module stores the type as:
+         * 
+         *     Samples.Boids.BoidSchoolSpawnSystem/Samples.Boids.<>c__DisplayClass_OnUpdate_LambdaJob0 (notice the Samples.Boids. infix)
+         *
+         * instead of:
+         *
+         *     Samples.Boids.BoidSchoolSpawnSystem/<>c__DisplayClass_OnUpdate_LambdaJob0.
+         *
+         * Several other types throw the same exception. This method is intended correct the type name so that it can be found inside the
+         * module that contains it.
+         * 
+         */
+        static string GetCorrectedTypeName(string name)
+        {
+            // An example that requires correction is: Samples.Boids.BoidSchoolSpawnSystem/<>c__DisplayClass_OnUpdate_LambdaJob0
+            string[] splitName = name.Split('/');
+            (string parentTypeName, string nestedTypeName) = (splitName[0], splitName[1]);
+            
+            // Retrieve the namespace ("Samples.Boids.") from the parentTypeName ("Samples.Boids.BoidSchoolSpawnSystem")
+            string nameSpace = string.Concat(parentTypeName.Reverse().SkipWhile(c => c != '.').Reverse());
+            
+            // Correct it to: Samples.Boids.BoidSchoolSpawnSystem/Samples.Boids.<>c__DisplayClass_OnUpdate_LambdaJob0 
+            return $"{parentTypeName}/{nameSpace}{nestedTypeName}";
+        }
+        
         private static AssemblyDefinition CreateAssemblyDefinitionFor(Type type)
         {
             var assemblyLocation = type.Assembly.Location;
@@ -433,14 +356,82 @@ namespace Unity.Entities.Editor
 
             public AssemblyDefinition Resolve(AssemblyNameReference name, ReaderParameters parameters)
             {
-                Assembly targetAssembly = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == name.Name);
-                string assemblyLocation = targetAssembly.Location;
+                string assemblyLocation = 
+                    AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == name.Name).Location;
                 
                 parameters.AssemblyResolver = this;
                 parameters.SymbolStream = CreatePdbStreamFor(assemblyLocation);
 
-                return AssemblyDefinition.ReadAssembly(new MemoryStream(File.ReadAllBytes(assemblyLocation)), parameters);
+                return AssemblyDefinition.ReadAssembly(
+                    new MemoryStream(File.ReadAllBytes(assemblyLocation)), parameters);
             }
+        }
+
+        private class DecompilationStatusLabelBinding : IBinding
+        {
+             public void PreUpdate()
+             {
+             }
+     
+             public void Update()
+             {
+                if (!s_userMadeAtLeastOneSelection)
+                {
+                    return;
+                }
+            
+                switch (s_currentDecompilationStatus)
+                {
+                    case DecompilationStatus.Complete:
+                    {
+                        s_decompilationStatusLabel.text =
+                            $"Currently displaying decompiled {(s_currentDisplayLanguage == DisplayLanguage.CSharp ? "C#" : "IL")} code.";
+                        return;
+                    }
+                    case DecompilationStatus.InProgress when s_decompilationDurationSoFar < EstimatedNumFramesNeededForDecompilationToFinish:
+                    {
+                        s_decompilationStatusLabel.text = "Decompilation in progress. Please be patient...";
+                        s_decompilationDurationSoFar++;
+                        return;
+                    }
+                    default:
+                    {
+                        switch (s_currentDisplayLanguage)
+                        {
+                            case DisplayLanguage.CSharp:
+                            {
+                                GeneratedTypesAndDecompiledCSharpCode.Add(
+                                    s_currentlySelectedType,
+                                    s_decompilationProcess.StandardOutput
+                                                         .ReadToEnd()
+                                                         .Split(new[] {Environment.NewLine}, StringSplitOptions.None));
+                        
+                                DisplayDecompiledCode(DisplayLanguage.CSharp);
+                                break;
+                            }
+
+                            case DisplayLanguage.IL:
+                            {
+                                GeneratedTypesAndDecompiledIlCode.Add(
+                                    s_currentlySelectedType,
+                                    s_decompilationProcess.StandardOutput
+                                                         .ReadToEnd()
+                                                         .Split(new[] {Environment.NewLine}, StringSplitOptions.None));
+                        
+                                DisplayDecompiledCode(DisplayLanguage.IL);
+                                break;
+                            }
+                        }
+
+                        s_decompilationDurationSoFar = 0;
+                        break;
+                    }
+                }
+             }
+             
+             public void Release()
+             {
+             }
         }
     }
 }

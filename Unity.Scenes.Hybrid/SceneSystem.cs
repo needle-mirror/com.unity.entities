@@ -18,13 +18,7 @@ namespace Unity.Scenes
     [UpdateInGroup(typeof(SceneSystemGroup))]
     public class SceneSystem : ComponentSystem
     {
-        public const string k_BootstrapFileName = "livelink-bootstrap.txt";
         public const string k_SceneInfoFileName = "catalog.bin";
-
-        static internal string GetBootStrapPath()
-        {
-            return Path.Combine(Application.streamingAssetsPath, k_BootstrapFileName);
-        }
 
         static internal string GetSceneInfoPath()
         {
@@ -65,17 +59,8 @@ namespace Unity.Scenes
         {
             sceneLoadRequestArchetype = EntityManager.CreateArchetype(typeof(GameObjectSceneLoadRequest));
             sceneLoadRequestQuery = GetEntityQuery(new EntityQueryDesc { All = new[] { ComponentType.ReadWrite<GameObjectSceneLoadRequest>() } });
-
-            var isLiveLinkActive = false;
-            var bootstrapFilePath = GetBootStrapPath();
-            if (File.Exists(bootstrapFilePath))
-            {
-                using (var rdr = File.OpenText(bootstrapFilePath))
-                {
-                    BuildConfigurationGUID = new Hash128(rdr.ReadLine());
-                    isLiveLinkActive = true;
-                }
-            }
+            
+            var liveLinkEnabled = World.GetExistingSystem<LiveLinkRuntimeSystemGroup>()?.Enabled ?? false;
 
             var sceneInfoPath = GetSceneInfoPath();
             if (File.Exists(sceneInfoPath))
@@ -87,7 +72,7 @@ namespace Unity.Scenes
                 }
 
                 //if running in LiveLink mode, the initial scenes list is sent from the editor.  otherwise use the flags in the scene data.
-                if (!isLiveLinkActive)
+                if (!liveLinkEnabled)
                 {
                     for (int i = 1; i < catalogData.Value.resources.Length; i++)
                     {

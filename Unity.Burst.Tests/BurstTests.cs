@@ -4,6 +4,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Burst;
 using NUnit.Framework;
+using static Unity.Burst.CompilerServices.Aliasing;
 
 public class BurstTests
 {
@@ -54,6 +55,7 @@ public class BurstTests
 			output[i] = i + value + input[i];
 		}
 	}
+
     [Test]
     public void SimpleFloatArrayAssignForEach()
     {
@@ -75,7 +77,6 @@ public class BurstTests
         job.output.Dispose();
     }
 
-
 	[BurstCompile(CompileSynchronously = true)]
 	struct MallocTestJob : IJob
 	{
@@ -84,7 +85,6 @@ public class BurstTests
 			void* allocated = UnsafeUtility.Malloc(UnsafeUtility.SizeOf<int>() * 100, 4, Allocator.Persistent);
 			UnsafeUtility.Free(allocated, Allocator.Persistent);
 		}
-
 	}
 
 	[Test]
@@ -94,7 +94,6 @@ public class BurstTests
 		jobData.Run();
 	}
 
-
 	[BurstCompile(CompileSynchronously = true)]
 	struct ListCapacityJob : IJob
 	{
@@ -103,7 +102,6 @@ public class BurstTests
 		{
             list.Capacity = 100;
 		}
-
 	}
 
 	[Test]
@@ -118,7 +116,6 @@ public class BurstTests
         jobData.list.Dispose();
 	}
 
-
 	[BurstCompile(CompileSynchronously = true)]
 	struct NativeListAssignValue : IJob
 	{
@@ -126,19 +123,21 @@ public class BurstTests
 
 		public void Execute()
 		{
-			list[0] = 1;
+			list[0] = list[1];
 		}
 	}
+
 	[Test]
 	public void AssignValue()
 	{
 		var jobData = new NativeListAssignValue() { list = new NativeList<int>(Allocator.TempJob) };
 		jobData.list.Add(5);
+		jobData.list.Add(42);
 
 		jobData.Run();
 
-		Assert.AreEqual(1, jobData.list.Length);
-		Assert.AreEqual(1, jobData.list[0]);
+		Assert.AreEqual(2, jobData.list.Length);
+		Assert.AreEqual(jobData.list[0], jobData.list[1]);
 
 		jobData.list.Dispose();
 	}
@@ -154,6 +153,7 @@ public class BurstTests
 			list.Add(2);
 		}
 	}
+
 	[Test]
 	public void AddValue()
 	{
@@ -169,7 +169,60 @@ public class BurstTests
 		Assert.AreEqual(2, jobData.list[2]);
 
 		jobData.list.Dispose();
-	}
+    }
+
+    private struct SomeStruct
+    {
+        public int a;
+        public int b;
+    }
+
+    [BurstCompile(CompileSynchronously = true)]
+    private struct NativeListAliasingJob : IJob
+    {
+        public NativeArray<float> a0;
+
+        public NativeList<int> l0;
+
+        public NativeList<SomeStruct> l1;
+
+        [NativeDisableContainerSafetyRestriction]
+        public NativeList<int> l2;
+
+        public unsafe void Execute()
+        {
+            // The three [NativeContainer]'s do not alias with each other.
+            ExpectNotAliased(a0.GetUnsafePtr(), l0.GetUnsafePtr());
+            ExpectNotAliased(a0.GetUnsafePtr(), l1.GetUnsafePtr());
+            ExpectNotAliased(l0.GetUnsafePtr(), l1.GetUnsafePtr());
+
+            // But they can all alias with l2 since it has the container safety disabled.
+            ExpectAliased(a0.GetUnsafePtr(), l2.GetUnsafePtr());
+            ExpectAliased(l0.GetUnsafePtr(), l2.GetUnsafePtr());
+            ExpectAliased(l1.GetUnsafePtr(), l2.GetUnsafePtr());
+        }
+    }
+
+    [Test]
+    public void NativeListAliasing()
+    {
+        var jobData = new NativeListAliasingJob()
+        {
+            a0 = new NativeArray<float>(1, Allocator.Persistent),
+            l0 = new NativeList<int>(1, Allocator.Persistent),
+            l1 = new NativeList<SomeStruct>(1, Allocator.Persistent),
+            l2 = new NativeList<int>(1, Allocator.Persistent),
+        };
+
+        jobData.l1.Add(new SomeStruct { a = 42, b = 13 });
+
+        jobData.Run();
+
+        jobData.a0.Dispose();
+        jobData.l0.Dispose();
+        jobData.l1.Dispose();
+        jobData.l2.Dispose();
+    }
 
     unsafe struct ConditionalTestStruct
     {
@@ -193,7 +246,7 @@ public class BurstTests
 	public unsafe void PointerConditionalDoesntCrash()
 	{
 	    ConditionalTestStruct dummy;
-        dummy.a = (void*) 0x1122334455667788;
+        dummy.a = (void*)0x1122334455667788;
         dummy.b = null;
         var jobData = new PointerConditional { t = &dummy };
         jobData.Schedule().Complete();

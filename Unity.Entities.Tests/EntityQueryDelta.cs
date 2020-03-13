@@ -199,6 +199,7 @@ namespace Unity.Entities.Tests
 
         public class DeltaProcessComponentSystem : JobComponentSystem
         {
+#pragma warning disable 618
             struct DeltaJob : IJobForEach<EcsTestData, EcsTestData2>
             {
                 public void Execute([ChangedFilter][ReadOnly]ref EcsTestData input, ref EcsTestData2 output)
@@ -206,6 +207,7 @@ namespace Unity.Entities.Tests
                     output.value0 += input.value + 100;
                 }
             }
+#pragma warning restore 618
 
             protected override JobHandle OnUpdate(JobHandle deps)
             {
@@ -245,6 +247,7 @@ namespace Unity.Entities.Tests
 
         public class DeltaProcessComponentSystemUsingRun : ComponentSystem
         {
+#pragma warning disable 618
             struct DeltaJob : IJobForEach<EcsTestData, EcsTestData2>
             {
                 public void Execute([ChangedFilter][ReadOnly]ref EcsTestData input, ref EcsTestData2 output)
@@ -252,6 +255,7 @@ namespace Unity.Entities.Tests
                     output.value0 += input.value + 100;
                 }
             }
+#pragma warning restore 618
 
             protected override void OnUpdate()
             {
@@ -310,6 +314,7 @@ namespace Unity.Entities.Tests
             public EntityQuery m_Group;
             public EcsTestSharedComp m_sharedComp;
 
+#pragma warning disable 618
             struct DeltaJob : IJobForEach<EcsTestData>
             {
                 public void Execute(ref EcsTestData data)
@@ -317,6 +322,7 @@ namespace Unity.Entities.Tests
                     data = new EcsTestData(100);
                 }
             }
+#pragma warning restore 618
 
             protected override JobHandle OnUpdate(JobHandle deps)
             {
@@ -333,6 +339,7 @@ namespace Unity.Entities.Tests
 
         public class DeltaModifyComponentSystem1Comp : JobComponentSystem
         {
+#pragma warning disable 618
             struct DeltaJobFirstRunAfterCreation : IJobForEach<EcsTestData>
             {
                 public void Execute([ChangedFilter]ref EcsTestData output)
@@ -347,6 +354,7 @@ namespace Unity.Entities.Tests
                     output.value += 150;
                 }
             }
+#pragma warning restore 618
 
             protected override JobHandle OnUpdate(JobHandle deps)
             {
@@ -401,6 +409,7 @@ namespace Unity.Entities.Tests
             public EntityQuery m_Group;
             public EcsTestSharedComp m_sharedComp;
 
+#pragma warning disable 618
             struct DeltaJob : IJobForEach<EcsTestData, EcsTestData2>
             {
                 public void Execute(ref EcsTestData data, ref EcsTestData2 data2)
@@ -408,6 +417,7 @@ namespace Unity.Entities.Tests
                     data = new EcsTestData(100);
                     data2 = new EcsTestData2(102);                }
             }
+#pragma warning restore 618
 
             protected override JobHandle OnUpdate(JobHandle deps)
             {
@@ -425,6 +435,7 @@ namespace Unity.Entities.Tests
 
         public class DeltaModifyComponentSystem2Comp : JobComponentSystem
         {
+#pragma warning disable 618
             struct DeltaJobFirstRunAfterCreation : IJobForEach<EcsTestData, EcsTestData2>
             {
                 public void Execute(ref EcsTestData output, ref EcsTestData2 output2)
@@ -451,6 +462,7 @@ namespace Unity.Entities.Tests
                     output2.value0 += 152;
                 }
             }
+#pragma warning restore 618
 
             public enum Variant
             {
@@ -525,6 +537,7 @@ namespace Unity.Entities.Tests
             public EntityQuery m_Group;
             public EcsTestSharedComp m_sharedComp;
 
+#pragma warning disable 618
             struct DeltaJob : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>
             {
                 public void Execute(ref EcsTestData data, ref EcsTestData2 data2, ref EcsTestData3 data3)
@@ -533,6 +546,7 @@ namespace Unity.Entities.Tests
                     data2 = new EcsTestData2(102);
                     data3 = new EcsTestData3(103);                }
             }
+#pragma warning restore 618
 
             protected override JobHandle OnUpdate(JobHandle deps)
             {
@@ -551,6 +565,7 @@ namespace Unity.Entities.Tests
 
         public class DeltaModifyComponentSystem3Comp : JobComponentSystem
         {
+#pragma warning disable 618
             struct DeltaJobChanged0 : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>
             {
                 public void Execute([ChangedFilter]ref EcsTestData output, ref EcsTestData2 output2, ref EcsTestData3 output3)
@@ -580,6 +595,7 @@ namespace Unity.Entities.Tests
                     output3.value0 += 153;
                 }
             }
+#pragma warning restore 618
 
             public enum Variant
             {
@@ -645,6 +661,7 @@ namespace Unity.Entities.Tests
 
         class ChangeFilter1TestSystem : JobComponentSystem
         {
+#pragma warning disable 618
             struct ChangedFilterJob : IJobForEach<EcsTestData, EcsTestData2>
             {
                 public void Execute(ref EcsTestData output, [ChangedFilter]ref EcsTestData2 output2)
@@ -652,6 +669,7 @@ namespace Unity.Entities.Tests
                     output.value = output2.value0;
                 }
             }
+#pragma warning restore 618
 
 
             protected override JobHandle OnUpdate(JobHandle inputDeps)
@@ -690,6 +708,7 @@ namespace Unity.Entities.Tests
 
         class ChangeFilter2TestSystem : JobComponentSystem
         {
+#pragma warning disable 618
             struct ChangedFilterJob : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>
             {
                 public void Execute(ref EcsTestData output, [ChangedFilter]ref EcsTestData2 output2, [ChangedFilter]ref EcsTestData3 output3)
@@ -697,6 +716,7 @@ namespace Unity.Entities.Tests
                     output.value = output2.value0 + output3.value0;
                 }
             }
+#pragma warning restore 618
 
 
             protected override JobHandle OnUpdate(JobHandle inputDeps)

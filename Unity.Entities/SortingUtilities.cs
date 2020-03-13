@@ -356,8 +356,7 @@ namespace Unity.Entities
             var rawIndices =
                 ((int*) NativeArrayUnsafeUtility.GetUnsafeBufferPointerWithoutChecks(
                     m_SourceIndexBySortedSourceIndex)) + sortedSourceIndex;
-            var arr = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<int>(rawIndices, sharedValueIndexCount,
-                Allocator.Invalid);
+            var arr = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<int>(rawIndices, sharedValueIndexCount, Allocator.None);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             SharedValueIndicesSetSafetyHandle(ref arr);
 #endif

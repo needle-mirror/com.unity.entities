@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using NUnit.Framework;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
@@ -378,6 +379,7 @@ namespace Unity.Entities.Tests
             result.Dispose();
         }
 
+        [BurstCompile] 
         public struct HashWriterParallelFor : IJobParallelFor
         {
             [WriteOnly]
@@ -390,13 +392,6 @@ namespace Unity.Entities.Tests
             {
                 result.TryAdd(i, 17);
                 threadMap.TryAdd(threadMap.m_ThreadIndex, true);
-
-#if UNITY_DOTSPLAYER    // Don't have the library in the editor that grants access.
-                AssertOnThread(result.m_Safety.IsAllowedToWrite());
-                AssertOnThread(!result.m_Safety.IsAllowedToRead());
-                AssertOnThread(threadMap.m_Safety.IsAllowedToWrite());
-                AssertOnThread(!threadMap.m_Safety.IsAllowedToRead());
-#endif
             }
         }
 
@@ -421,18 +416,6 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(17, map[i]);
             }
-
-#if UNITY_DOTSPLAYER   // DOTS-Runtime has (currently) very tight rules around # threads & no range stealing.
-#if !UNITY_SINGLETHREADED_JOBS
-            if (JobsUtility.JobWorkerCount > 1)
-                Assert.That(threadMap.Length == JobsUtility.JobWorkerCount); // should have run in parallel, and used different thread indices
-            else
-                Assert.That(threadMap.Length == 1);
-#else
-            Assert.IsTrue(threadMap.Length == 1);    // only have one thread.
-            Assert.IsTrue(threadMap[0] == true);     // and it should be job index 0
-#endif
-#endif
 
             map.Dispose();
             threadMap.Dispose();

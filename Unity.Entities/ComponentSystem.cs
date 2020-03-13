@@ -24,7 +24,8 @@ namespace Unity.Entities
         /// destroying entities, adding or removing components, and changing the value of shared components.
         ///
         /// Instead, add structural change commands to this PostUpdateCommands command buffer. The system executes
-        /// commands added to this command buffer in order after this system's <see cref="OnUpdate"/> function returns.</remarks>
+        /// commands added to this command buffer in order after this system's <see cref="OnUpdate"/> function returns.
+        /// PostUpdateCommands are created with a PlaybackPolicy.SinglePlayback and RecordingMode.Managed.</remarks>
         public EntityCommandBuffer PostUpdateCommands => m_DeferredEntities;
 
         /// <summary>

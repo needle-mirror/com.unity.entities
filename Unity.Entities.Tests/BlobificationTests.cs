@@ -173,6 +173,7 @@ public class BlobTests : ECSTestsFixture
         new ConstructAccessAndDisposeBlobData().Schedule().Complete();
     }
 
+#pragma warning disable 618
     [BurstCompile(CompileSynchronously = true)]
     struct AccessAndDisposeBlobDataBurst : IJobForEach<ComponentWithBlobData>
     {
@@ -183,6 +184,7 @@ public class BlobTests : ECSTestsFixture
             data.DidSucceed = true;
         }
     }
+#pragma warning restore 618
 
     [Test]
     public  void ReadAndDestroyBlobDataFromBurstJob()
@@ -198,6 +200,7 @@ public class BlobTests : ECSTestsFixture
         }
     }
 
+#pragma warning disable 618
     struct ValidateBlobInComponentJob : IJobForEach<ComponentWithBlobData>
     {
         public bool ExpectException;
@@ -217,6 +220,7 @@ public class BlobTests : ECSTestsFixture
             component.DidSucceed = true;
         }
     }
+#pragma warning restore 618
 
 
     [Test]

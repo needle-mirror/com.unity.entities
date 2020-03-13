@@ -68,11 +68,16 @@ namespace Unity.Scenes
         EntityQuery                                        m_Resources;
         LiveLinkSceneChangeTracker                         m_LiveLinkSceneChange;
         bool                                               m_DidRequestConnection;
+        
+        static double                                      kSessionHandshakeTimeout = 5;
+        double                                             m_SessionHandshakeTimeoutTimstamp;
+        bool                                               m_SessionHandshake; 
 
         protected override void OnStartRunning()
         {
             Debug.Log("Initializing live link");
             
+            PlayerConnection.instance.Register(LiveLinkMsg.ResponseSessionHandshake, ResponseSessionHandshake);
             PlayerConnection.instance.Register(LiveLinkMsg.ReceiveEntityChangeSet, ReceiveEntityChangeSet);
             PlayerConnection.instance.Register(LiveLinkMsg.UnloadScenes, ReceiveUnloadScenes);
             PlayerConnection.instance.Register(LiveLinkMsg.LoadScenes, ReceiveLoadScenes);
@@ -88,16 +93,35 @@ namespace Unity.Scenes
             m_Patcher = new LiveLinkPatcher(World);
             
             m_LiveLinkSceneChange = new LiveLinkSceneChangeTracker(EntityManager);
+            
+            // Send handshake and set timeout
+            PlayerConnection.instance.Send(LiveLinkMsg.RequestSessionHandshake, new byte[0]);
+            m_SessionHandshakeTimeoutTimstamp = Time.ElapsedTime + kSessionHandshakeTimeout;
+            m_SessionHandshake = false;
         }
 
         protected override void OnStopRunning()
         {
             m_LiveLinkSceneChange.Dispose();
+            PlayerConnection.instance.Unregister(LiveLinkMsg.ResponseSessionHandshake, ResponseSessionHandshake);
             PlayerConnection.instance.Unregister(LiveLinkMsg.ResponseConnectLiveLink, ReceiveInitialScenes);
             PlayerConnection.instance.Unregister(LiveLinkMsg.ReceiveEntityChangeSet, ReceiveEntityChangeSet);
             PlayerConnection.instance.Unregister(LiveLinkMsg.UnloadScenes, ReceiveUnloadScenes);
             PlayerConnection.instance.Unregister(LiveLinkMsg.LoadScenes, ReceiveLoadScenes);
             PlayerConnection.instance.Unregister(LiveLinkMsg.ResetGame, ReceiveResetGame);
+        }
+        
+        void ResponseSessionHandshake(MessageEventArgs args)
+        {
+            var editorSessionId = args.Receive<long>();
+            if (editorSessionId != LiveLinkRuntimeSystemGroup.LiveLinkSessionId)
+            {
+                Debug.LogError("Editor returned invalid session ID. We are probably connected to the wrong Editor or the Editor was relaunched since building the player. Close extra editors and build and run livelink again.");
+                World.GetExistingSystem<LiveLinkRuntimeSystemGroup>().Enabled = false;
+                return;
+            }
+
+            m_SessionHandshake = true;
         }
 
         void SendSetLoadedScenes()
@@ -182,6 +206,7 @@ namespace Unity.Scenes
             }
         }
 
+#pragma warning disable 618
         [BurstCompile]
         struct BuildResourceMapJob : IJobForEachWithEntity<ResourceGUID>
         {
@@ -196,6 +221,7 @@ namespace Unity.Scenes
                 GuidResourceReady[guid] = (byte)(ResourceLoaded.HasComponent(entity) ? 1 : 0);
             }
         }
+#pragma warning restore 618
         
         public bool IsResourceReady(NativeArray<RuntimeGlobalObjectId> resourceGuids)
         {
@@ -244,6 +270,17 @@ namespace Unity.Scenes
             // So we delay connecting live link until first OnUpdate
             if (!m_DidRequestConnection)
             {
+                if (!m_SessionHandshake)
+                {
+                    if (m_SessionHandshakeTimeoutTimstamp < Time.ElapsedTime)
+                    {
+                        Debug.LogError("LiveLink handshake timed out. This may be because your player connection is connected to an AssetWorker process or incorrect Editor.");
+                        World.GetExistingSystem<LiveLinkRuntimeSystemGroup>().Enabled = false;
+                    }
+
+                    return;
+                }
+                
                 m_DidRequestConnection = true;
                 LiveLinkMsg.LogSend("ConnectLiveLink");
                 PlayerConnection.instance.Send(LiveLinkMsg.RequestConnectLiveLink, World.GetExistingSystem<SceneSystem>().BuildConfigurationGUID);

@@ -112,7 +112,7 @@ namespace Unity.Entities.Tests
         {
             var destroyedEntity = m_Manager.CreateEntity();
             m_Manager.DestroyEntity(destroyedEntity);
-            Assert.Throws<System.ArgumentException>(() => { m_Manager.AddComponentData(destroyedEntity, new EcsTestData(1)); });
+            Assert.Throws<System.InvalidOperationException>(() => { m_Manager.AddComponentData(destroyedEntity, new EcsTestData(1)); });
         }
 
 	    [Test]
@@ -151,7 +151,7 @@ namespace Unity.Entities.Tests
 	    {
 	        var notYetCreatedEntitySameVersion = new Entity() {Index = 0, Version = 1};
 	        Assert.IsFalse(m_Manager.Exists(notYetCreatedEntitySameVersion));
-	        Assert.Throws<ArgumentException>(() => m_Manager.AddComponentData(notYetCreatedEntitySameVersion , new EcsTestData()));
+	        Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponentData(notYetCreatedEntitySameVersion , new EcsTestData()));
 	    }
 
 	    [Test]

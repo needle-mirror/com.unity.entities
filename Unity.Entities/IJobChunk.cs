@@ -29,7 +29,7 @@ namespace Unity.Entities
     /// <code source="../DocCodeSamples.Tests/ChunkIterationJob.cs" region="basic-ijobchunk" title="IJobChunk Example"/>
     /// </example>
     /// </remarks>
-    [JobProducerType(typeof(JobChunkExtensions.JobChunk_Process<>))]
+    [JobProducerType(typeof(JobChunkExtensions.JobChunkProducer<>))]
     public interface IJobChunk
     {
         // firstEntityIndex refers to the index of the first entity in the current chunk within the EntityQuery the job was scheduled with
@@ -59,14 +59,14 @@ namespace Unity.Entities
             internal AtomicSafetyHandle m_Safety;
         }
 #endif
-        internal struct JobChunkData<T> where T : struct
+        internal struct JobChunkWrapper<T> where T : struct
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
 #pragma warning disable 414
             [ReadOnly] public EntitySafetyHandle safety;
 #pragma warning restore
 #endif
-            public T Data;
+            public T JobData;
 
             [NativeDisableContainerSafetyRestriction]
             [DeallocateOnJobCompletion]
@@ -136,7 +136,7 @@ namespace Unity.Entities
         public static unsafe void Run<T>(this T jobData, EntityQuery query)
             where T : struct, IJobChunk
         {
-            ScheduleInternal(ref jobData, query, default(JobHandle), ScheduleMode.Run);
+            ScheduleInternal(ref jobData, query, default(JobHandle), ScheduleMode.Run, false);
         }
         
         /// <summary>
@@ -169,7 +169,7 @@ namespace Unity.Entities
                 out NativeArray<byte> prefilterData,
                 out void* deferredCountData);
 
-            JobChunkData<T> fullData = new JobChunkData<T>
+            JobChunkWrapper<T> jobChunkWrapper = new JobChunkWrapper<T>
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 // All IJobChunk jobs have a EntityManager safety handle to ensure that BeforeStructuralChange throws an error if
@@ -177,14 +177,14 @@ namespace Unity.Entities
                 safety = new EntitySafetyHandle{m_Safety = query.SafetyHandles->GetEntityManagerSafetyHandle()},
 #endif
 
-                Data = jobData,
+                JobData = jobData,
                 PrefilterData = prefilterData,
-                IsParallel = isParallel ? 1 : 0 
+                IsParallel = isParallel ? 1 : 0
             };
 
             var scheduleParams = new JobsUtility.JobScheduleParameters(
-                UnsafeUtility.AddressOf(ref fullData),
-                isParallel ? JobChunk_Process<T>.InitializeParallel() : JobChunk_Process<T>.InitializeSingle(),
+                UnsafeUtility.AddressOf(ref jobChunkWrapper),
+                isParallel ? JobChunkProducer<T>.InitializeParallel() : JobChunkProducer<T>.InitializeSingle(),
                 prefilterHandle,
                 mode);
 
@@ -214,42 +214,42 @@ namespace Unity.Entities
 #endif
         }
 
-        internal struct JobChunk_Process<T>
+        internal struct JobChunkProducer<T>
             where T : struct, IJobChunk
         {
-            static IntPtr jobReflectionDataParallel;
-            static IntPtr jobReflectionDataSingle;
+            static IntPtr s_JobReflectionDataParallel;
+            static IntPtr s_JobReflectionDataSingle;
 
             public static IntPtr InitializeSingle()
             {
-                if (jobReflectionDataSingle == IntPtr.Zero)
-                    jobReflectionDataSingle = JobsUtility.CreateJobReflectionData(typeof(JobChunkData<T>), 
+                if (s_JobReflectionDataSingle == IntPtr.Zero)
+                    s_JobReflectionDataSingle = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>),
                         typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
 
-                return jobReflectionDataSingle;
+                return s_JobReflectionDataSingle;
             }
             
             public static IntPtr InitializeParallel()
             {
-                if (jobReflectionDataParallel == IntPtr.Zero)
-                    jobReflectionDataParallel = JobsUtility.CreateJobReflectionData(typeof(JobChunkData<T>), 
+                if (s_JobReflectionDataParallel == IntPtr.Zero)
+                    s_JobReflectionDataParallel = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>),
                         typeof(T), JobType.ParallelFor, (ExecuteJobFunction) Execute);
 
-                return jobReflectionDataParallel;
+                return s_JobReflectionDataParallel;
             }
             
-            public delegate void ExecuteJobFunction(ref JobChunkData<T> data, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
+            public delegate void ExecuteJobFunction(ref JobChunkWrapper<T> jobWrapper, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
 
-            public static void Execute(ref JobChunkData<T> jobData, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
+            public static void Execute(ref JobChunkWrapper<T> jobWrapper, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ExecuteInternal(ref jobData, ref ranges, jobIndex);
+                ExecuteInternal(ref jobWrapper, ref ranges, jobIndex);
             }
 
-            internal unsafe static void ExecuteInternal(ref JobChunkData<T> jobData, ref JobRanges ranges, int jobIndex)
+            internal unsafe static void ExecuteInternal(ref JobChunkWrapper<T> jobWrapper, ref JobRanges ranges, int jobIndex)
             {
-                ChunkIterationUtility.UnpackPrefilterData(jobData.PrefilterData, out var filteredChunks, out var entityIndices, out var chunkCount);
+                ChunkIterationUtility.UnpackPrefilterData(jobWrapper.PrefilterData, out var filteredChunks, out var entityIndices, out var chunkCount);
 
-                bool isParallel = jobData.IsParallel == 1;
+                bool isParallel = jobWrapper.IsParallel == 1;
                 while (true)
 				{
                     int beginChunkIndex = 0;
@@ -268,7 +268,7 @@ namespace Unity.Entities
                     {
                         var chunk = filteredChunks[chunkIndex];
                         var entityOffset = entityIndices[chunkIndex];
-                        jobData.Data.Execute(chunk, chunkIndex, entityOffset);
+                        jobWrapper.JobData.Execute(chunk, chunkIndex, entityOffset);
                     }
                     
                     // If we are not running in parallel, our job is done.

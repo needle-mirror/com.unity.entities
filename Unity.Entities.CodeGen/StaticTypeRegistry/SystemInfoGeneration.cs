@@ -38,6 +38,7 @@ namespace Unity.Entities.CodeGen
                 AssemblyDefinition.MainModule.ImportReference(typeof(Type))));
 
             createSystemsFunction.Body.InitLocals = true;
+            createSystemsFunction.Body.SimplifyMacros();
 
             var bc = createSystemsFunction.Body.Instructions;
 
@@ -129,6 +130,9 @@ namespace Unity.Entities.CodeGen
                                             .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
             bc.Add(Instruction.Create(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(arguementExceptionCtor)));
             bc.Add(Instruction.Create(OpCodes.Throw));
+
+            createSystemsFunction.Body.OptimizeMacros();
+
             return createSystemsFunction;
         }
 

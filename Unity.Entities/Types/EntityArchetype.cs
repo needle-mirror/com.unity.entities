@@ -127,6 +127,19 @@ namespace Unity.Entities
         /// <value>Capacity is determined by the fixed, 16KB size of the memory blocks allocated by the ECS framework
         /// and the total storage size of all the component types in the archetype.</value>
         public int ChunkCapacity => Archetype->ChunkCapacity;
+        
+        /// <summary>
+        /// Reports whether this EntityArchetype instance describes a Prefab.
+        /// </summary>
+        /// <value>True, if the archetype is a prefab archetype.</value>
+        public bool Prefab => Archetype->Prefab;
+
+        /// <summary>
+        /// Reports whether this EntityArchetype instance contains disabled entities.
+        /// </summary>
+        /// <value>True, if the archetype is a disabled archetype.</value>
+        public bool Disabled => Archetype->Disabled;
+
     }
 
 }

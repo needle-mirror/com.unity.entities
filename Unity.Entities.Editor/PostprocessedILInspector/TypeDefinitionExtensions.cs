@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Mono.Cecil;
 
 namespace Unity.Entities.Editor
@@ -6,9 +7,9 @@ namespace Unity.Entities.Editor
     internal static class TypeDefinitionExtensions
     {
         private const string ClosureClassPrefix = "<>c__DisplayClass_";
-        private static readonly Dictionary<TypeDefinition, string> TypeDefinitionsToUserFriendlyNames = new Dictionary<TypeDefinition, string>();
+        private static readonly Dictionary<Type, string> TypeDefinitionsToUserFriendlyNames = new Dictionary<Type, string>();
         
-        public static string GetUserFriendlyName(this TypeDefinition typeDefinition)
+        public static string GetUserFriendlyName(this Type typeDefinition)
         {
             if (!TypeDefinitionsToUserFriendlyNames.ContainsKey(typeDefinition))
             {

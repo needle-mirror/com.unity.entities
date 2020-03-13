@@ -192,6 +192,7 @@ namespace Unity.Entities.Tests
         [UpdateInGroup(typeof(PresentationSystemGroup))]
         private class ChunkBoundsUpdateSystem : JobComponentSystem
         {
+#pragma warning disable 618
             struct UpdateChunkBoundsJob : IJobForEach<ChunkBoundsComponent, ChunkHeader>
             {
                 [ReadOnly] public ArchetypeChunkComponentType<BoundsComponent> chunkComponentType;
@@ -216,6 +217,7 @@ namespace Unity.Entities.Tests
                 return job.Schedule(this, inputDeps);
             }
         }
+#pragma warning restore 618
 
         [Test]
         public void SystemProcessMetaChunkComponent()

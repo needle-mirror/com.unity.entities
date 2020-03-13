@@ -981,7 +981,50 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        Debug.LogWarning($"Tried to add a child to a linked entity group, but no such prefab exists in destination world.");
+                        // At this point we are dealing with a non-prefab linked entity group
+                        // This can happen for disabled entities during conversion.
+                        
+                        var hasRootEntity = entityGuidToEntity.TryGetFirstValue(linkedEntityGroupAddition.RootEntityGuid, out var rootEntity, out var rootIterator);
+                        var hasChildEntity = entityGuidToEntity.TryGetFirstValue(linkedEntityGroupAddition.ChildEntityGuid, out var childEntityToLink, out var childIterator);
+
+                        if (!hasRootEntity)
+                        {
+                            Debug.LogWarning("Failed to add a linked child. The specified root entity was not found in the destination world.");
+                            continue;
+                        }
+                        
+                        if (!hasChildEntity)
+                        {
+                            Debug.LogWarning("Failed to add a linked child. The specified child entity was not found in the destination world.");
+                            continue;
+                        }
+                        
+                        var multipleRootEntities = entityGuidToEntity.TryGetNextValue(out _, ref rootIterator);
+                        var multipleChildEntities = entityGuidToEntity.TryGetNextValue(out _, ref childIterator);
+                        
+                        if (multipleRootEntities)
+                        {
+                            Debug.LogWarning("Failed to add a linked child. Multiple instances of the root entity were found in the destination world.");
+                            continue;
+                        }
+                        
+                        if (multipleChildEntities)
+                        {
+                            Debug.LogWarning("Failed to add a linked child. Multiple instances of the child entity were found in the destination world.");
+                            continue;
+                        }
+
+                        if (rootEntity == childEntityToLink)
+                        {
+                            // While this is actually valid and the intended way to use LinkedEntityGroup.
+                            // We should never receive change set with this change.
+                            // Instead we automatically add the root when adding the LinkedEntityGroup component.
+                            Debug.LogWarning("Failed to add a linked child. Unable to link the root as a child.");
+                            continue;
+                        }
+
+                        entityManager.GetBuffer<LinkedEntityGroup>(rootEntity).Add(childEntityToLink);
+                        entityToLinkedEntityGroupRoot.TryAdd(childEntityToLink, rootEntity);
                     }
                 }
 

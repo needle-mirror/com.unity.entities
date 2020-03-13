@@ -344,18 +344,18 @@ namespace Unity.Entities.Tests
             {
                 m_Manager.DestroyEntity(e);
                 Assert.IsFalse(m_Manager.HasComponent<EcsTestData>(e));
-                Assert.Throws<ArgumentException>(() => m_Manager.AddComponentData(e, new EcsTestData2(22)));
+                Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponentData(e, new EcsTestData2(22)));
                 Assert.Throws<ArgumentException>(() => m_Manager.Instantiate(e));
                 Assert.Throws<ArgumentException>(() => m_Manager.SetComponentData(e, new EcsTestData(1)));
                 Assert.IsFalse(m_Manager.HasComponent<EcsTestData>(e));
-                Assert.Throws<ArgumentException>(() =>
+                Assert.Throws<InvalidOperationException>(() =>
                     m_Manager.AddSharedComponentData(e, new EcsTestSharedComp(1)));
                 Assert.Throws<ArgumentException>(() => m_Manager.GetSharedComponentData<EcsTestSharedComp>(e));
                 Assert.Throws<ArgumentException>(() =>
                     m_Manager.SetSharedComponentData(e, new EcsTestSharedComp(1)));
                 Assert.IsFalse(m_Manager.HasComponent<EcsTestSharedComp>(e));
 
-                Assert.Throws<ArgumentException>(() => m_Manager.AddBuffer<EcsIntElement>(e));
+                Assert.Throws<InvalidOperationException>(() => m_Manager.AddBuffer<EcsIntElement>(e));
                 Assert.IsFalse(m_Manager.HasComponent<EcsIntElement>(e));
                 Assert.Throws<ArgumentException>(() => m_Manager.Instantiate(e));
                 m_Manager.RemoveComponent<EcsIntElement>(e);

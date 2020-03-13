@@ -32,6 +32,7 @@ namespace Unity.Transforms
             }
         }
 
+#pragma warning disable 618
         [BurstCompile]
         struct CopyTransforms : IJobForEachWithEntity<LocalToWorld>
         {
@@ -52,6 +53,7 @@ namespace Unity.Transforms
                 };
             }
         }
+#pragma warning restore 618
 
         struct RemoveCopyInitialTransformFromGameObjectComponent : IJob
         {

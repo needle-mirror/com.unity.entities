@@ -351,7 +351,7 @@ namespace Unity.Entities.Tests
             var invalidEnt = m_Manager.CreateEntity();
             m_Manager.DestroyEntity(invalidEnt);
             Assert.That(() => { m_Manager.AddComponent<EcsTestData>(invalidEnt); },
-                Throws.ArgumentException.With.Message.Contains("entity does not exist"));
+                Throws.InvalidOperationException.With.Message.Contains("entity does not exist"));
         }
 
         [Test]
@@ -369,7 +369,7 @@ namespace Unity.Entities.Tests
 
             entities[0] = invalidEnt;
             Assert.That(() => { m_Manager.AddComponent<EcsTestData>(entities); },
-                Throws.ArgumentException.With.Message.Contains("entity does not exist"));
+                Throws.InvalidOperationException.With.Message.Contains("entity does not exist"));
             entities.Dispose();
         }
 

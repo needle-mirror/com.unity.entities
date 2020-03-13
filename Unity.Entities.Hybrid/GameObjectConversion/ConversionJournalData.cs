@@ -72,7 +72,7 @@ namespace Unity.Entities.Conversion
         {
             if (!m_HeadIdIndices.TryGetValue(objectInstanceId, out var headIdIndex))
             {
-                headIdIndex = m_HeadIdIndices.Length;
+                headIdIndex = m_HeadIdIndices.Count();
                 m_HeadIdIndices.Add(objectInstanceId, headIdIndex);
 
                 var headIdsCapacity = headIdIndex + 1;
