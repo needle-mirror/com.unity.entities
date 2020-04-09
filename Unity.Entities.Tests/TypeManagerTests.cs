@@ -143,43 +143,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(typeof(Entity), entityType.GetManagedType());
         }
 
-#if !NET_DOTS
-        [Test]
-        public void TestCreateTypeIndexFor()
-        {
-#pragma warning disable 618
-            int typeIndex = TypeManager.CreateTypeIndexForComponent<EcsTestData>();
-            Assert.Greater(typeIndex, 1);
-
-            typeIndex = TypeManager.CreateTypeIndexForComponent<EcsTestTag>();
-            Assert.Greater(typeIndex, 1);
-            Assert.IsTrue(TypeManager.IsZeroSized(typeIndex));
-
-            typeIndex = TypeManager.CreateTypeIndexForComponent<EcsStateTag1>();
-            Assert.Greater(typeIndex, 1);
-            Assert.IsTrue(TypeManager.IsZeroSized(typeIndex));
-            Assert.IsTrue(TypeManager.IsSystemStateComponent(typeIndex));
-
-            typeIndex = TypeManager.CreateTypeIndexForComponent<EcsTestDataEntity>();
-            Assert.Greater(typeIndex, 1);
-            Assert.IsTrue(TypeManager.HasEntityReferences(typeIndex));
-
-            typeIndex = TypeManager.CreateTypeIndexForBufferElement<EcsIntElement>();
-            Assert.Greater(typeIndex, 1);
-            Assert.IsTrue(TypeManager.IsBuffer(typeIndex));
-
-            typeIndex = TypeManager.CreateTypeIndexForBufferElement<EcsIntStateElement>();
-            Assert.Greater(typeIndex, 1);
-            Assert.IsTrue(TypeManager.IsBuffer(typeIndex));
-            Assert.IsTrue(TypeManager.IsSystemStateComponent(typeIndex));
-
-            typeIndex = TypeManager.CreateTypeIndexForSharedComponent<EcsTestSharedComp>();
-            Assert.Greater(typeIndex, 1);
-            Assert.IsTrue(TypeManager.IsSharedComponent(typeIndex));
-        }
-#pragma warning restore 618
-#endif
-
         [Test]
         public void TestAlignUp_Align0ToPow2()
         {
@@ -536,42 +499,44 @@ namespace Unity.Entities.Tests
                 AddTypeInfoToCache(ti);
             }
 
-            World w = new World("AddNewComponentsTestWorld");
-            w.GetOrCreateSystem<TestSystem>();
-
-            // Ensure all the Types in the TypeManager match what we think they are
-            foreach (var ti in TypeManager.AllTypes)
-                EnsureMatch(typeInfoMap[ti.TypeIndex], ti);
-
-            
-            Assert.Throws<ArgumentException>(() => TypeManager.GetTypeIndex(typeToAdd));
-            TypeManager.AddNewComponentTypes(new Type[] { typeToAdd });
-
-            // Now that we added a new type, again ensure all the Types in the TypeManager match what we think they are
-            // to ensure adding the new type didn't change any other type info
-            foreach (var ti in TypeManager.AllTypes)
+            using (World w = new World("AddNewComponentsTestWorld"))
             {
-                if (typeInfoMap.ContainsKey(ti.TypeIndex))
+                w.GetOrCreateSystem<TestSystem>();
+
+                // Ensure all the Types in the TypeManager match what we think they are
+                foreach (var ti in TypeManager.AllTypes)
                     EnsureMatch(typeInfoMap[ti.TypeIndex], ti);
-                else
+
+
+                Assert.Throws<ArgumentException>(() => TypeManager.GetTypeIndex(typeToAdd));
+                TypeManager.AddNewComponentTypes(new Type[] { typeToAdd });
+
+                // Now that we added a new type, again ensure all the Types in the TypeManager match what we think they are
+                // to ensure adding the new type didn't change any other type info
+                foreach (var ti in TypeManager.AllTypes)
                 {
-                    // We should only enter this case for 'UnregisteredComponent'
-                    Assert.AreEqual(ti.Type, typeof(UnregisteredComponent));
-                    AddTypeInfoToCache(ti);
+                    if (typeInfoMap.ContainsKey(ti.TypeIndex))
+                        EnsureMatch(typeInfoMap[ti.TypeIndex], ti);
+                    else
+                    {
+                        // We should only enter this case for 'UnregisteredComponent'
+                        Assert.AreEqual(ti.Type, typeof(UnregisteredComponent));
+                        AddTypeInfoToCache(ti);
+                    }
                 }
+
+                var e2 = w.EntityManager.CreateEntity(typeof(Translation), typeToAdd);
+
+                // If adding the type did not succeed we might throw for many different reasons
+                // stemming from bad type information. In fact even succeeding could cause issues if someone caches the
+                // internal SharedStatic pointers (which is done, and now handled for, in the EntityComponentStore)
+                Assert.DoesNotThrow(() => w.Update());
+                Assert.DoesNotThrow(() => w.EntityManager.CreateEntity(typeof(Translation), typeToAdd));
+                Assert.DoesNotThrow(() => TypeManager.GetTypeIndex(typeToAdd));
+
+                // We do not allow anyone to re-add the same type so ensure we throw
+                Assert.Throws<ArgumentException>(() => TypeManager.AddNewComponentTypes(new Type[] { typeToAdd }));
             }
-
-            var e2 = w.EntityManager.CreateEntity(typeof(Translation), typeToAdd);
-
-            // If adding the type did not succeed we might throw for many different reasons
-            // stemming from bad type information. In fact even succeeding could cause issues if someone caches the
-            // internal SharedStatic pointers (which is done, and now handled for, in the EntityComponentStore) 
-            Assert.DoesNotThrow(()=> w.Update());
-            Assert.DoesNotThrow(() => w.EntityManager.CreateEntity(typeof(Translation), typeToAdd));
-            Assert.DoesNotThrow(() => TypeManager.GetTypeIndex(typeToAdd));
-
-            // We do not allow anyone to re-add the same type so ensure we throw
-            Assert.Throws<ArgumentException>(()=>TypeManager.AddNewComponentTypes(new Type[] { typeToAdd }));
         }
 #endif
 
@@ -607,17 +572,7 @@ namespace Unity.Entities.Tests
             );
         }
 
-        [Test]
-        public void TestCreateTypeIndexFor_ManagedComponents()
-        {
-#pragma warning disable 618
-            int typeIndex = TypeManager.CreateTypeIndexForComponent<EcsTestManagedComponent>();
-#pragma warning restore 618
-            Assert.Greater(typeIndex, 1);
-            Assert.IsTrue(TypeManager.IsManagedComponent(typeIndex));
-        }
-        
-#pragma warning disable 649
+    #pragma warning disable 649
         class TestScriptableObjectWithFields : UnityEngine.ScriptableObject
         {
             public int Value;

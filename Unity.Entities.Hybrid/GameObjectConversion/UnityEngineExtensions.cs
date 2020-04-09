@@ -127,12 +127,23 @@ namespace Unity.Entities.Conversion
                     LogWarning($"The referenced script is missing on {@this.name}", @this);
                 else if (!component.IsComponentDisabled() && !(component is GameObjectEntity))
                 {
-                    componentsCache[outputIndex] = component;
+                    var componentType =
+                        (component as ComponentDataProxyBase)?.GetComponentType() ?? component.GetType();
 
-                    if (component is ComponentDataProxyBase componentDataProxy)
-                        componentTypes[outputIndex] = componentDataProxy.GetComponentType();
-                    else
-                        componentTypes[outputIndex] = component.GetType();
+                    var isUniqueType = true;
+                    for (var j = 0; j < outputIndex; ++j)
+                    {
+                        if (componentTypes[j].Equals(componentType))
+                        {
+                            isUniqueType = false;
+                            break;
+                        }
+                    }
+                    if (!isUniqueType)
+                        continue;
+
+                    componentsCache[outputIndex] = component;
+                    componentTypes[outputIndex] = componentType;
 
                     outputIndex++;
                 }

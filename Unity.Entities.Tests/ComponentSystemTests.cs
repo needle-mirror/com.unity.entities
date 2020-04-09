@@ -172,6 +172,10 @@ namespace Unity.Entities.Tests
         public void CreateNonSystemThrows()
         {
             Assert.Throws<ArgumentException>(() => { World.CreateSystem(typeof(Entity)); });
+
+            #pragma warning disable 618
+            Assert.Throws<ArgumentException>(() => { World.CreateSystem(typeof(Entity), 5); });
+            #pragma warning restore 618 
         }
 #endif
         
@@ -429,6 +433,8 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate() {}
         }
 
+
+#pragma warning disable 618
         [Test]
         public void CreateSystemInvalidParameters()
         {
@@ -454,6 +460,8 @@ namespace Unity.Entities.Tests
                 World.DestroySystem(system);
             });
         }
+#pragma warning restore 618
+        
 #endif
 
     }

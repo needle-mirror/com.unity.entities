@@ -789,6 +789,7 @@ namespace Unity.Entities.Tests
             Assert.True(queryMask.Matches(entity));
         }
         
+#if !UNITY_DOTSPLAYER
         [AlwaysUpdateSystem]
         public class CachedSystemQueryTestSystem : JobComponentSystem
         {
@@ -844,6 +845,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(queryA, queryB);
 
         }
+#endif // !UNITY_DOTSPLAYER
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         private class ManagedComponent : IComponentData

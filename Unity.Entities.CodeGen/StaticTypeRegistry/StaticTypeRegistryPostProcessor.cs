@@ -82,7 +82,7 @@ namespace Unity.Entities.CodeGen
         /// 
         /// </summary>
         /// <returns></returns>
-        protected override bool PostProcessImpl()
+        protected override bool PostProcessImpl(TypeDefinition[] componentSystemTypes)
         {
             bool madeChange = false;
             

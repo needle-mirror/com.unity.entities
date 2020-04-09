@@ -256,11 +256,53 @@ namespace Unity.Entities.Tests.Conversion
             gameObject.AddComponent<EntityRefTestDataAuthoring>();
             gameObject.AddComponent<EntityRefTestDataAuthoring>();
 
-            Assert.DoesNotThrow(() => ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings()));
+            var convertedEntity = ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings());
+            
+            EntitiesAssert.ContainsOnly(m_Manager,
+                EntityMatch.Exact<EntityRefTestData>(convertedEntity, k_RootComponents));
+        }
 
-            LogAssert.Expect(LogType.Warning, new Regex(@"Missing entity for root GameObject"));
+        [UpdateInGroup(typeof(GameObjectAfterConversionGroup))]
+        internal class TestConversionCleanup : GameObjectConversionSystem
+        {
+            protected override void OnUpdate()
+            {
+                Entities.ForEach((Transform transform) =>
+                {
+                    var entity = GetPrimaryEntity(transform);
+                    if (DstEntityManager.HasComponent<Parent>(entity))
+                        DstEntityManager.DestroyEntity(entity);
+                });
+            }
+        }
 
-            EntitiesAssert.IsEmpty(m_Manager);
+        [Test]
+        public void DeletingEntitiesOfConvertedPrefab_DoesNotThrow()
+        {
+            var prefabEntity = Entity.Null;
+
+            var settings = MakeDefaultSettings();
+
+            settings.ConversionWorldCreated = CreateSystem;
+            settings.ConversionWorldPreDispose = DestroySystem;
+
+            Assert.DoesNotThrow(() => prefabEntity = ConvertGameObjectHierarchy(LoadPrefab("Prefab_Hierarchy"), settings));
+
+            Assert.DoesNotThrow(() => m_Manager.Instantiate(prefabEntity));
+
+            void CreateSystem(World world)
+            {
+                var gameObjectAfterConversionGroup = world.GetExistingSystem<GameObjectAfterConversionGroup>();
+                var testConversionCleanup = world.GetOrCreateSystem<TestConversionCleanup>();
+
+                gameObjectAfterConversionGroup.AddSystemToUpdateList(testConversionCleanup);
+            }
+
+            void DestroySystem(World world)
+            {
+                var testConversionCleanup = world.GetOrCreateSystem<TestConversionCleanup>();
+                world.DestroySystem(testConversionCleanup);
+            }
         }
     }
 }

@@ -15,7 +15,7 @@ namespace Unity.Entities
         {
             ulong lhs = (ulong) Chunk;
             ulong rhs = (ulong) other.Chunk;
-            int chunkCompare = (int)(lhs - rhs);
+            int chunkCompare = lhs < rhs ? -1 : 1;
             int indexCompare = IndexInChunk - other.IndexInChunk;
             return (lhs != rhs) ? chunkCompare : indexCompare;
         }

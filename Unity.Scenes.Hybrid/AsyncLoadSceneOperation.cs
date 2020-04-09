@@ -352,7 +352,7 @@ namespace Unity.Scenes
         void ScheduleSceneRead(ReferencedUnityObjects objRefs)
         {
             var transaction = _EntityManager.BeginExclusiveEntityTransaction();
-            SerializeUtilityHybrid.DeserializeObjectReferences(_EntityManager, objRefs, _ScenePath, out var objectReferences);
+            SerializeUtilityHybrid.DeserializeObjectReferences(objRefs, out var objectReferences);
 
             var loadJob = new AsyncLoadSceneJob
             {

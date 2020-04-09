@@ -4,6 +4,7 @@ using Unity.Collections;
 
 namespace Unity.Entities.Tests
 {
+#if !UNITY_DOTSPLAYER
     class IJobForEachCombinationsTests : ECSTestsFixture
     {
 #pragma warning disable 618
@@ -666,4 +667,5 @@ namespace Unity.Entities.Tests
         }
 #endif
     }
+#endif //  UNITY_DOTSPLAYER
 }

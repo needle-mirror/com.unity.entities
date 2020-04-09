@@ -437,8 +437,6 @@ namespace Unity.Entities.Editor
                 Name = Path.GetFileNameWithoutExtension(assetPath);
 
                 Asset = BuildConfiguration.LoadAsset(assetPath);
-                Asset.OnEnable();
-
                 Target = Asset.TryGetComponent(out ClassicBuildProfile classicBuildProfile) ? classicBuildProfile.Target : BuildTarget.NoTarget;
                 OutputBuildDirectory = Asset.GetOutputBuildDirectory();
 
@@ -471,7 +469,6 @@ namespace Unity.Entities.Editor
                 var pipeline = Asset.GetBuildPipeline();
                 if (pipeline != null)
                 {
-                    pipeline.OnEnable();
                     return EnumerateBuildSteps(pipeline).Any(s => s is BuildStepBuildClassicLiveLink);
                 }
                 else

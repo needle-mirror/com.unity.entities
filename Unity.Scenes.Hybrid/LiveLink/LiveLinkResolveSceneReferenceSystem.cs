@@ -1,12 +1,8 @@
 //#define LOG_RESOLVING
 
 using System.Diagnostics;
-using System.IO;
-using Unity.Collections;
 using Unity.Entities;
-using Unity.Entities.Serialization;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes
@@ -45,16 +41,10 @@ namespace Unity.Scenes
             EntityManager.AddComponentData(sceneEntity, new ResolvedSceneHash { ArtifactHash = artifactHash });
 
             var sceneHeaderPath = EntityScenesPaths.GetLiveLinkCachePath(artifactHash, EntityScenesPaths.PathType.EntitiesHeader, -1);
-
-            if (!File.Exists(sceneHeaderPath))
-            {
-                Debug.LogError($"Loading Entity Scene failed because the entity header file could not be found: {scene.SceneGUID}\n{sceneHeaderPath}");
-                return;
-            }
             
             if (!BlobAssetReference<SceneMetaData>.TryRead(sceneHeaderPath, SceneMetaDataSerializeUtility.CurrentFileFormatVersion, out var sceneMetaDataRef))
             {
-                Debug.LogError("Loading Entity Scene failed because the entity header file was an old version: " + scene.SceneGUID);
+                Debug.LogError("Loading Entity Scene failed because the entity header file was an old version or doesn't exist: " + scene.SceneGUID);
                 return;
             }
 
@@ -103,15 +93,16 @@ namespace Unity.Scenes
 
         protected override void OnUpdate()
         {
-            var liveLinkEnabled = World.GetExistingSystem<LiveLinkRuntimeSystemGroup>()?.Enabled ?? false;
-            Enabled = liveLinkEnabled;
+            Enabled = LiveLinkUtility.LiveLinkEnabled;
             if (!Enabled)
                 return;
 
-            var buildConfigurationGUID = World.GetExistingSystem<SceneSystem>().BuildConfigurationGUID;
-            var liveLinkPlayerAssetRefreshSystem = World.GetExistingSystem<LiveLinkPlayerAssetRefreshSystem>();
             var sceneSystem = World.GetExistingSystem<SceneSystem>();
+            var buildConfigurationGUID = sceneSystem.BuildConfigurationGUID;
+            var liveLinkPlayerAssetRefreshSystem = World.GetExistingSystem<LiveLinkPlayerAssetRefreshSystem>();
 
+            // For each resolved scene, check whether the hash has changed. If so, return the scene to the 'not yet
+            // requested' state.
             Entities.With(m_ResolvedScenes).ForEach((Entity sceneEntity, ref SceneReference scene, ref ResolvedSceneHash resolvedScene) =>
             {
                 var subSceneGUID = new SubSceneGUID(scene.SceneGUID, buildConfigurationGUID);
@@ -125,6 +116,8 @@ namespace Unity.Scenes
                 }
             });
             
+            // For each scene that we are waiting for, check whether we have received all data from the editor. Then
+            // mark it as resolved and start streaming it in.
             Entities.With(m_WaitingForEditorScenes).ForEach((Entity sceneEntity, ref SceneReference scene, ref RequestSceneLoaded requestSceneLoaded) =>
             {
                 var subSceneGUID = new SubSceneGUID(scene.SceneGUID, buildConfigurationGUID);
@@ -137,7 +130,8 @@ namespace Unity.Scenes
                 }
             });
 
-            // We are seeing this scene for the first time, so we need to schedule a request.
+            // We are seeing this scene for the first time, so we need to schedule a request. This moves the scene into
+            // the 'waiting for editor' state.
             Entities.With(m_NotYetRequestedScenes).ForEach((Entity sceneEntity, ref SceneReference scene, ref RequestSceneLoaded requestSceneLoaded) =>
             {
                 var subSceneGUID = new SubSceneGUID(scene.SceneGUID, buildConfigurationGUID);
@@ -145,20 +139,24 @@ namespace Unity.Scenes
                 liveLinkPlayerAssetRefreshSystem.TrackedSubScenes[subSceneGUID] = new Hash128();
                 var archetype = EntityManager.CreateArchetype(typeof(SubSceneGUID));
                 var entity = EntityManager.CreateEntity(archetype);
-                EntityManager.SetComponentData(entity, new SubSceneGUID
-                {
-                    Guid = scene.SceneGUID,
-                    BuildConfigurationGuid = buildConfigurationGUID
-                });
-                EntityManager.AddComponentData(sceneEntity, new WaitingForEditor());
+                EntityManager.SetComponentData(entity, subSceneGUID);
             });
+            EntityManager.AddComponent<WaitingForEditor>(m_NotYetRequestedScenes);
         }
 
         protected override void OnCreate()
         {
+            // Each scene is in one of three states:
+            //  * not yet requested
+            //  * waiting for update from editor
+            //  * resolved
+            // The OnUpdate method handles the transition between these three states.
+            // A new scene starts as 'not yet requested'
+            
             m_NotYetRequestedScenes = GetEntityQuery(ComponentType.ReadWrite<SceneReference>(),
                 ComponentType.ReadOnly<EditorTriggeredLoad>(),
                 ComponentType.ReadWrite<RequestSceneLoaded>(),
+                
                 ComponentType.Exclude<ResolvedSectionEntity>(),
                 ComponentType.Exclude<WaitingForEditor>(),
                 ComponentType.Exclude<DisableSceneResolveAndLoad>());
@@ -167,6 +165,7 @@ namespace Unity.Scenes
                 ComponentType.ReadOnly<EditorTriggeredLoad>(),
                 ComponentType.ReadWrite<RequestSceneLoaded>(),
                 ComponentType.ReadWrite<WaitingForEditor>(),
+                
                 ComponentType.Exclude<ResolvedSectionEntity>(),
                 ComponentType.Exclude<DisableSceneResolveAndLoad>());
 
@@ -175,6 +174,7 @@ namespace Unity.Scenes
                 ComponentType.ReadWrite<RequestSceneLoaded>(),
                 ComponentType.ReadWrite<ResolvedSectionEntity>(),
                 ComponentType.ReadWrite<ResolvedSceneHash>(),
+                
                 ComponentType.Exclude<DisableSceneResolveAndLoad>());
         }
     }

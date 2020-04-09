@@ -74,6 +74,24 @@ public class CompanionGameObjectUpdateTransformSystem : JobComponentSystem
 
             m_TransformAccessArray.SetTransforms(transforms);
         }
+        else
+        {
+            m_ExistingQuery.SetChangedVersionFilter(typeof(CompanionLink));
+            var iterator = m_ExistingQuery.GetArchetypeChunkIterator();
+            var indexInEntityQuery = m_ExistingQuery.GetIndexInEntityQuery(TypeManager.GetTypeIndex<CompanionLink>());
+
+            var entityCounter = 0;
+            while (iterator.MoveNext())
+            {
+                var chunk = iterator.CurrentArchetypeChunk;
+                for (int entityIndex = 0; entityIndex < chunk.Count; ++entityIndex)
+                {
+                    var link = (CompanionLink) iterator.GetManagedObject(EntityManager.ManagedComponentStore, indexInEntityQuery, entityIndex);
+                    m_TransformAccessArray[entityCounter++] = link.Companion.transform;
+                }
+            }
+            m_ExistingQuery.ResetFilter();
+        }
 
         return new CopyTransformJob
         {

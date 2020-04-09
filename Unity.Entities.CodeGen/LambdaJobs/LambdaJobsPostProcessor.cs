@@ -168,21 +168,11 @@ namespace Unity.Entities.CodeGen
 {
     internal class LambdaJobsPostProcessor : EntitiesILPostProcessor
     {
-        private const string OnCreateForCompilerName = nameof(ComponentSystemBase.OnCreateForCompiler);
-
-        protected override bool PostProcessImpl()
+        protected override bool PostProcessImpl(TypeDefinition[] componentSystemTypes)
         {
-            var mainModuleTypes = AssemblyDefinition.MainModule.GetAllTypes().Where(TypeDefinitionExtensions.IsComponentSystem).ToArray();
-
             bool madeChange = false;
 
-            foreach (var systemType in mainModuleTypes)
-            {
-                InjectOnCreateForCompiler(systemType);
-                madeChange = true;
-            }
-            
-            foreach (var m in mainModuleTypes.SelectMany(m => m.Methods).ToList())
+            foreach (var m in componentSystemTypes.SelectMany(m => m.Methods).ToList())
             {
                 LambdaJobDescriptionConstruction[] lambdaJobDescriptionConstructions;
                 try
@@ -191,7 +181,7 @@ namespace Unity.Entities.CodeGen
                     foreach (var description in lambdaJobDescriptionConstructions)
                     {
                         madeChange = true;
-                        var (jobStructForLambdaJob, rewriteDiagnosticMessages) = Rewrite(m, description);
+                        var (_, rewriteDiagnosticMessages) = Rewrite(m, description);
                         _diagnosticMessages.AddRange(rewriteDiagnosticMessages);
                     }
                 }
@@ -208,7 +198,7 @@ namespace Unity.Entities.CodeGen
                     var seq = m.DebugInformation.SequencePoints.FirstOrDefault();
                     AddDiagnostic(new DiagnosticMessage
                     {
-                        MessageData = $"Unexpected error while post-processing {m.DeclaringType.FullName}:{m.Name}. Please report this error.{Environment.NewLine}{ex.Message}{Environment.NewLine}{ex.StackTrace}",
+                        MessageData = $"Unexpected error while post-processing lambdas in {m.DeclaringType.FullName}:{m.Name}. Please report this error.{Environment.NewLine}{ex.Message}{Environment.NewLine}{ex.StackTrace}",
                         DiagnosticType = DiagnosticType.Error,
                         Line = seq?.StartLine ?? 0,
                         Column = seq?.StartColumn ?? 0,
@@ -217,44 +207,6 @@ namespace Unity.Entities.CodeGen
             }
 
             return madeChange;
-        }
-
-        private static MethodDefinition InjectOnCreateForCompiler(TypeDefinition typeDefinition)
-        {
-            // Turns out it's not trivial to inject some code that has to be run OnCreate of the system.
-            // We cannot just create an OnCreate() method, because there might be a deriving class that also implements it.
-            // That child method is probably not calling base.OnCreate(), but even when it is (!!) the c# compiler bakes base.OnCreate()
-            // into a direct reference to whatever is the first baseclass to have OnCreate() at the time of compilation.  So if we go
-            // and inject an OnCreate() in this class later on,  the child's base.OnCreate() call will actually bypass it.
-            //
-            // Instead what we do is add OnCreateForCompiler,  hide it from intellisense, give you an error if wanna be that guy that goes
-            // and implement it anyway,  and then we inject a OnCreateForCompiler method into each and every ComponentSystem.  The reason we have to emit it in
-            // each and every system, and not just the ones where we have something to inject,  is that when we emit these method, we need
-            // to also emit base.OnCreateForCompiler().  However, when we are processing an user system type,  we do not know yet if its baseclass
-            // also needs an OnCreateForCompiler().   So we play it safe, and assume it does.  So every OnCreateForCompiler() that we emit,
-            // will assume its basetype also has an implementation and invoke that.
-            
-            if (typeDefinition.Name == nameof(ComponentSystemBase) && typeDefinition.Namespace == "Unity.Entities")
-                return null;
-            
-            var preExistingMethod = typeDefinition.Methods.FirstOrDefault(m => m.Name == OnCreateForCompilerName);
-            if (preExistingMethod != null)
-                UserError.DC0026($"It's not allowed to implement {OnCreateForCompilerName}'", preExistingMethod).Throw();
-
-            var typeSystemVoid = typeDefinition.Module.TypeSystem.Void;
-            var newMethod = new MethodDefinition(OnCreateForCompilerName,MethodAttributes.FamORAssem | MethodAttributes.Virtual | MethodAttributes.HideBySig, typeSystemVoid);
-            typeDefinition.Methods.Add(newMethod);
-
-            var ilProcessor = newMethod.Body.GetILProcessor();
-            ilProcessor.Emit(OpCodes.Ldarg_0);
-            ilProcessor.Emit(OpCodes.Call, new MethodReference(OnCreateForCompilerName, typeSystemVoid, typeDefinition.BaseType) { HasThis = true});
-            ilProcessor.Emit(OpCodes.Ret);
-            return newMethod;
-        }
-        
-        public static MethodDefinition GetOrMakeOnCreateForCompilerMethod(TypeDefinition userSystemType)
-        {
-            return userSystemType.Methods.SingleOrDefault(m => m.Name == OnCreateForCompilerName) ?? InjectOnCreateForCompiler(userSystemType);
         }
 
         private static bool keepUnmodifiedVersionAroundForDebugging = false;
@@ -675,8 +627,6 @@ namespace Unity.Entities.CodeGen
             var scheduleInstructions = InstructionsToReplaceScheduleInvocationWith().ToList();
             ilProcessor.InsertAfter(lambdaJobDescriptionConstruction.ScheduleOrRunInvocationInstruction, scheduleInstructions);
             lambdaJobDescriptionConstruction.ScheduleOrRunInvocationInstruction.MakeNOP();
-
-            var codegenInitializeMethod = GetOrMakeOnCreateForCompilerMethod(lambdaJobDescriptionConstruction.ContainingMethod.DeclaringType);
 
             return (generatedJobStruct, diagnosticMessages);
         }

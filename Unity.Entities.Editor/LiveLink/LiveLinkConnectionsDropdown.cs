@@ -67,7 +67,7 @@ namespace Unity.Entities.Editor
         }
 
         void OnPlayerDisconnected(int playerId)
-            => m_LinkConnections.Remove(m_LinkConnections.Single(x => x.PlayerId == playerId));
+            => m_LinkConnections.Remove(m_LinkConnections.SingleOrDefault(x => x.PlayerId == playerId));
 
         public void DrawDropdown()
         {

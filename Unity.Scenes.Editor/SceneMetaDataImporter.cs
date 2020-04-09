@@ -4,7 +4,6 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Scenes;
 using UnityEditor;
-using UnityEditor.Experimental;
 using UnityEditor.Experimental.AssetImporters;
 using UnityEditor.SceneManagement;
 
@@ -19,10 +18,10 @@ class SceneMetaDataImporter : ScriptedImporter
         public BlobArray<Hash128> SubScenes;
     }
 
-    public unsafe static Hash128[] GetSubSceneGuids(string guid)
+    public static Hash128[] GetSubSceneGuids(string guid)
     {
-        var hash = AssetDatabaseExperimental.GetArtifactHash(guid, typeof(SceneMetaDataImporter), AssetDatabaseExperimental.ImportSyncMode.Block);
-        AssetDatabaseExperimental.GetArtifactPaths(hash, out string[] paths);
+        var hash = AssetDatabaseCompatibility.GetArtifactHash(guid, typeof(SceneMetaDataImporter), ImportMode.Synchronous);
+        AssetDatabaseCompatibility.GetArtifactPaths(hash, out string[] paths);
 
         var metaPath = paths.First(o => o.EndsWith("scenemeta"));
 

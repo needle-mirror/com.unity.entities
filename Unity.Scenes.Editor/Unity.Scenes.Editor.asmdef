@@ -13,7 +13,8 @@
         "Unity.Build.Internals",
         "Unity.Scenes.Hybrid",
         "Unity.ScriptableBuildPipeline.Editor",
-        "Unity.Properties"
+        "Unity.Properties",
+        "Unity.Serialization"
     ],
     "includePlatforms": [
         "Editor"

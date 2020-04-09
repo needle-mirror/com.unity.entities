@@ -170,6 +170,23 @@ namespace Unity.Entities.Tests
                 Entities.ForEach((ref EcsTestData td) => { td.value = systemField.GetComponent<EcsTestDataEntity>(entity).value0; }).Schedule();
                 Dependency.Complete();
             }
+            
+            public void ComponentAccessInEntitiesForEachWithNestedCaptures_ComponentAccessWorks()
+            {
+                var outerCapture = 2;
+                {
+                    var innerCapture = 10;
+                    Entities
+                        .ForEach((Entity entity, in EcsTestDataEntity tde) =>
+                        {
+                            if (HasComponent<EcsTestDataEntity>(entity))
+                                outerCapture = 10;
+                            
+                            var val = GetComponent<EcsTestData>(tde.value1).value;
+                            SetComponent(entity, new EcsTestData(val * innerCapture * outerCapture));
+                        }).Run();
+                }
+            }
         }
 
         [Test]
@@ -292,6 +309,13 @@ namespace Unity.Entities.Tests
         {
             TestSystem.GetComponentOnOtherSystemInField_GetsValue(TestEntity2);
             Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
+        }
+        
+        [Test]
+        public void ComponentAccessInEntitiesForEachWithNestedCaptures_ComponentAccessWorks()
+        {
+            TestSystem.ComponentAccessInEntitiesForEachWithNestedCaptures_ComponentAccessWorks();
+            Assert.AreEqual(200, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
         }
     }
 }

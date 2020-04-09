@@ -9,6 +9,7 @@ using Unity.Transforms;
 
 namespace Unity.Entities.Tests
 {
+#if !UNITY_DOTSPLAYER
     public class IJobForEachTests :ECSTestsFixture
     {
         const int TEST_VALUE = 42;
@@ -394,6 +395,7 @@ namespace Unity.Entities.Tests
         {
         }
     }
+#endif // !UNITY_DOTSPLAYER
 }
 
 #pragma warning restore 618

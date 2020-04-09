@@ -82,19 +82,6 @@ namespace Unity.Entities
             DefaultWorldDestroyed?.Invoke();
         }
 
-        static ComponentSystemBase GetOrCreateManagerAndLogException(World world, Type type)
-        {
-            try
-            {
-                return world.GetOrCreateSystem(type);
-            }
-            catch (Exception e)
-            {
-                Debug.LogException(e);
-                return null;
-            }
-        }
-
         /// <summary>
         /// Initializes the default world or runs ICustomBootstrap if one is available. 
         /// </summary>
@@ -116,27 +103,37 @@ namespace Unity.Entities
 
             var systems = GetAllSystems(WorldSystemFilterFlags.Default, editorWorld);
 
-            AddSystemsToRootLevelSystemGroups(world, systems);
+            AddSystemsToRootLevelSystemGroups(world, systems.ToArray());
             ScriptBehaviourUpdateOrder.UpdatePlayerLoop(world);
 
             DefaultWorldInitialized?.Invoke(world);
         }
 
+        public static void AddSystemsToRootLevelSystemGroups(World world, IEnumerable<Type> systemTypes)
+        {
+            AddSystemsToRootLevelSystemGroups(world, systemTypes.ToArray());
+        } 
+        
         /// <summary>
         /// Adds the collection of systems to the world by injecting them into the root level system groups
         /// (InitializationSystemGroup, SimulationSystemGroup and PresentationSystemGroup)
         /// </summary>
-        public static void AddSystemsToRootLevelSystemGroups(World world, IEnumerable<Type> systems)
+        public static void AddSystemsToRootLevelSystemGroups(World world, params Type[] systemTypes) 
         {
-            // create presentation system and simulation system
             var initializationSystemGroup = world.GetOrCreateSystem<InitializationSystemGroup>();
             var simulationSystemGroup = world.GetOrCreateSystem<SimulationSystemGroup>();
             var presentationSystemGroup = world.GetOrCreateSystem<PresentationSystemGroup>();
 
+            var systems = world.GetOrCreateSystemsAndLogException(systemTypes.ToArray()); 
+            
             // Add systems to their groups, based on the [UpdateInGroup] attribute.
-            foreach (var type in systems)
+            foreach (var system in systems)
             {
+                if (system == null)
+                    continue;
+                
                 // Skip the built-in root-level system groups
+                var type = system.GetType();
                 if (type == typeof(InitializationSystemGroup) ||
                     type == typeof(SimulationSystemGroup) ||
                     type == typeof(PresentationSystemGroup))
@@ -144,10 +141,10 @@ namespace Unity.Entities
                     continue;
                 }
 
-                var groups = type.GetCustomAttributes(typeof(UpdateInGroupAttribute), true);
+                var groups = TypeManager.GetSystemAttributes(system.GetType(), typeof(UpdateInGroupAttribute));
                 if (groups.Length == 0)
                 {
-                    simulationSystemGroup.AddSystemToUpdateList(GetOrCreateManagerAndLogException(world, type));
+                    simulationSystemGroup.AddSystemToUpdateList(system);
                 }
 
                 foreach (var g in groups)
@@ -156,31 +153,33 @@ namespace Unity.Entities
                     if (group == null)
                         continue;
 
-                    if (!(typeof(ComponentSystemGroup)).IsAssignableFrom(group.GroupType))
+                    if (!TypeManager.IsSystemAGroup(group.GroupType))
                     {
                         Debug.LogError($"Invalid [UpdateInGroup] attribute for {type}: {group.GroupType} must be derived from ComponentSystemGroup.");
                         continue;
                     }
 
-                    // Warn against unexpected behaviour combining DisableAutoCreation and UpdateInGroup
-                    var parentDisableAutoCreation = group.GroupType.GetCustomAttribute<DisableAutoCreationAttribute>() != null;
-                    if (parentDisableAutoCreation)
-                    {
-                        Debug.LogWarning($"A system {type} wants to execute in {group.GroupType} but this group has [DisableAutoCreation] and {type} does not.");
-                    }
-
-                    var groupMgr = GetOrCreateManagerAndLogException(world, group.GroupType);
+                    var groupMgr = world.GetExistingSystem(group.GroupType);
                     if (groupMgr == null)
                     {
-                        Debug.LogWarning(
-                            $"Skipping creation of {type} due to errors creating the group {group.GroupType}. Fix these errors before continuing.");
+                        // Warn against unexpected behaviour combining DisableAutoCreation and UpdateInGroup
+                        var parentDisableAutoCreation = TypeManager.GetSystemAttributes(group.GroupType, typeof(DisableAutoCreationAttribute)).Length > 0;
+                        if (parentDisableAutoCreation)
+                        {
+                            Debug.LogWarning($"A system {type} wants to execute in {group.GroupType} but this group has [DisableAutoCreation] and {type} does not. The system will not be added to any group and thus not update.");
+                        }
+                        else
+                        {
+                            Debug.LogWarning(
+                                $"A system {type} could not be added to group {group.GroupType}, because the group was not created. Fix these errors before continuing. The system will not be added to any group and thus not update.");
+                        }
                         continue;
                     }
 
                     var groupSys = groupMgr as ComponentSystemGroup;
                     if (groupSys != null)
                     {
-                        groupSys.AddSystemToUpdateList(GetOrCreateManagerAndLogException(world, type));
+                        groupSys.AddSystemToUpdateList(system);
                     }
                 }
             }

@@ -150,12 +150,9 @@ namespace Unity.Entities
             m_AlwaysSynchronizeSystem = GetType().GetCustomAttributes(typeof(AlwaysSynchronizeSystemAttribute), true).Length != 0;
 #else
             m_AlwaysSynchronizeSystem = false;
-            var attrs = TypeManager.GetSystemAttributes(GetType());
-            foreach (var attr in attrs)
-            {
-                if (attr.GetType() == typeof(AlwaysSynchronizeSystemAttribute))
-                    m_AlwaysSynchronizeSystem = true;
-            }
+            var attrs = TypeManager.GetSystemAttributes(GetType(), typeof(AlwaysSynchronizeSystemAttribute));
+            if (attrs.Length > 0)
+                m_AlwaysSynchronizeSystem = true;
 #endif
         }
 

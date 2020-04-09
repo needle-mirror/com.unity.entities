@@ -8,8 +8,6 @@
         "Unity.Jobs",
         "Unity.Burst",
         "Unity.Collections",
-        "Unity.Entities.Properties",
-        "Unity.Entities.Properties.Tests",
         "Unity.Entities.Tests"
     ],
     "optionalUnityReferences": [

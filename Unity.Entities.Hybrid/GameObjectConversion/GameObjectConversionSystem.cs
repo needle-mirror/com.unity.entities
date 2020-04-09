@@ -98,14 +98,35 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     public void DeclareLinkedEntityGroup(GameObject gameObject)
         => m_MappingSystem.DeclareLinkedEntityGroup(gameObject);
 
+    /// <summary>
+    /// Declares that the conversion result of the target GameObject depends on another GameObject. Any changes to the
+    /// dependency should trigger a reconversion of the dependent GameObject.
+    /// </summary>
+    /// <param name="target">The GameObject that has a dependency.</param>
+    /// <param name="dependsOn">The GameObject that the target depends on.</param>
     public void DeclareDependency(GameObject target, GameObject dependsOn) =>
-        m_MappingSystem.DeclareDependency(target, dependsOn);
+        m_MappingSystem.Dependencies.DependOnGameObject(target, dependsOn);
 
+    /// <summary>
+    /// Declares that the conversion result of the target Component depends on another component. Any changes to the
+    /// dependency should trigger a reconversion of the dependent component.
+    /// </summary>
+    /// <param name="target">The Component that has a dependency.</param>
+    /// <param name="dependsOn">The Component that the target depends on.</param>
     public void DeclareDependency(Component target, Component dependsOn)
     {
         if (target != null && dependsOn != null)
-            m_MappingSystem.DeclareDependency(target.gameObject, dependsOn.gameObject);
+            m_MappingSystem.Dependencies.DependOnGameObject(target.gameObject, dependsOn.gameObject);
     }
+
+    /// <summary>
+    /// Declares that the conversion result of the target GameObject depends on a source asset. Any changes to the
+    /// source asset should trigger a reconversion of the dependent GameObject.
+    /// </summary>
+    /// <param name="target">The GameObject that has a dependency.</param>
+    /// <param name="dependsOn">The Object that the target depends on. This must be an asset.</param>
+    public void DeclareAssetDependency(GameObject target, UnityObject dependsOn) =>
+        m_MappingSystem.Dependencies.DependOnAsset(target, dependsOn);
 
     // ** CONVERSION **
 

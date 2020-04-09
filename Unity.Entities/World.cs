@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Reflection;
 using Unity.Core;
 using UnityEngine.Assertions;
 
@@ -129,6 +128,62 @@ namespace Unity.Entities
 
         protected EntityQuery m_TimeSingletonQuery;
 
+        public World(string name) : this(name, WorldFlags.Simulation)
+        { }
+
+        internal World(string name, WorldFlags flags)
+        {
+            Systems = new NoAllocReadOnlyCollection<ComponentSystemBase>(m_Systems);
+            m_SequenceNumber = ms_NextSequenceNumber;
+            ms_NextSequenceNumber++;
+
+            // Debug.LogError("Create World "+ name + " - " + GetHashCode());
+            Name = name;
+            Flags = flags;
+            s_AllWorlds.Add(this);
+
+            m_EntityManager = new EntityManager(this);
+            m_TimeSingletonQuery = EntityManager.CreateEntityQuery(ComponentType.ReadWrite<WorldTime>(),
+                ComponentType.ReadWrite<WorldTimeQueue>());
+        }
+
+        public void Dispose()
+        {
+            if (!IsCreated)
+                throw new ArgumentException("The World has already been Disposed.");
+            // Debug.LogError("Dispose World "+ Name + " - " + GetHashCode());
+
+            m_EntityManager.PreDisposeCheck();
+            s_AllWorlds.Remove(this);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_AllowGetSystem = false;
+#endif
+            DestroyAllSystemsAndLogException();
+            
+            // Destroy EntityManager last
+            m_EntityManager.DestroyInstance();
+            m_EntityManager = null;
+
+#if !UNITY_DOTSPLAYER
+            m_SystemLookup.Clear();
+            m_SystemLookup = null;
+#endif
+
+            if (DefaultGameObjectInjectionWorld == this)
+                DefaultGameObjectInjectionWorld = null;
+        }
+
+        public static void DisposeAllWorlds()
+        {
+            while (s_AllWorlds.Count != 0)
+            {
+                s_AllWorlds[0].Dispose();
+            }
+        }
+
+        // Time management
+
         protected Entity TimeSingleton
         {
             get
@@ -171,77 +226,47 @@ namespace Unity.Entities
             SetTime(prevTime.Time);
         }
 
-        public World(string name) : this(name, WorldFlags.Simulation)
-        { }
+        // Internal system management
 
-        internal World(string name, WorldFlags flags)
+        ComponentSystemBase CreateSystemInternal(Type type)
         {
-            Systems = new NoAllocReadOnlyCollection<ComponentSystemBase>(m_Systems);
-            m_SequenceNumber = ms_NextSequenceNumber;
-            ms_NextSequenceNumber++;
-
-            // Debug.LogError("Create World "+ name + " - " + GetHashCode());
-            Name = name;
-            Flags = flags;
-            s_AllWorlds.Add(this);
-
-            m_EntityManager = new EntityManager(this);
-            m_TimeSingletonQuery = EntityManager.CreateEntityQuery(ComponentType.ReadWrite<WorldTime>(),
-                ComponentType.ReadWrite<WorldTimeQueue>());
+            var system = AllocateSystemInternal(type);
+            AddSystem_Add_Internal(system);
+            AddSystem_OnCreate_Internal(system);
+            return system;
         }
 
-        public void Dispose()
+        ComponentSystemBase AllocateSystemInternal(Type type)
         {
-            if (!IsCreated)
-                throw new ArgumentException("The World has already been Disposed.");
-            // Debug.LogError("Dispose World "+ Name + " - " + GetHashCode());
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (!m_AllowGetSystem)
+                throw new ArgumentException(
+                    "During destruction of a system you are not allowed to create more systems.");
+#endif
+            return TypeManager.ConstructSystem(type);
+        }
 
-            m_EntityManager.PreDisposeCheck();
-            s_AllWorlds.Remove(this);
-
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            m_AllowGetSystem = false;
-        #endif
-            // Destruction should happen in reverse order to construction
-            for (int i = m_Systems.Count - 1; i >= 0; --i)
+        ComponentSystemBase GetExistingSystemInternal(Type type)
+        {
+#if NET_DOTS
+            for (int i = 0; i < m_Systems.Count; ++i)
             {
-                try
-                {
-                    m_Systems[i].DestroyInstance();
-                }
-                catch (Exception e)
-                {
-                    Debug.LogException(e);
-                }
+                var mgr = m_Systems[i];
+                if (type.IsAssignableFrom(mgr.GetType()))
+                    return mgr;
             }
+#else
+            ComponentSystemBase system;
+            if (m_SystemLookup.TryGetValue(type, out system))
+                return system;
+#endif 
 
-            // Destroy EntityManager last
-            m_EntityManager.DestroyInstance();
-            m_EntityManager = null;
-
-            m_Systems.Clear();
-            m_Systems = null;
-
-        #if !UNITY_DOTSPLAYER
-            m_SystemLookup.Clear();
-            m_SystemLookup = null;
-        #endif
-
-            if (DefaultGameObjectInjectionWorld == this)
-                DefaultGameObjectInjectionWorld = null;
+            return null;
         }
 
-        public static void DisposeAllWorlds()
+        void AddTypeLookupInternal(Type type, ComponentSystemBase system)
         {
-            while (s_AllWorlds.Count != 0)
-            {
-                s_AllWorlds[0].Dispose();
-            }
-        }
-
-        void AddTypeLookup(Type type, ComponentSystemBase system)
-        {
-        #if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSPLAYER
             while (type != typeof(ComponentSystemBase))
             {
                 if (!m_SystemLookup.ContainsKey(type))
@@ -249,217 +274,17 @@ namespace Unity.Entities
 
                 type = type.BaseType;
             }
-        #endif
+#endif
         }
 
-
-    #if UNITY_DOTSPLAYER
-        private ComponentSystemBase CreateSystemInternal<T>() where T : new()
+        void AddSystem_Add_Internal(ComponentSystemBase system)
         {
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (!m_AllowGetSystem)
-                throw new ArgumentException(
-                    "During destruction of a system you are not allowed to create more systems.");
-
-            m_AllowGetSystem = true;
-        #endif
-            ComponentSystemBase system;
-            try
-            {
-        #if !NET_DOTS
-                system = new T() as ComponentSystemBase;
-        #else
-                system = TypeManager.ConstructSystem(typeof(T));
-        #endif
-            }
-            catch
-            {
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                m_AllowGetSystem = false;
-        #endif
-                throw;
-            }
-
-            return AddSystem(system);
-        }
-
-        private ComponentSystemBase GetExistingSystemInternal<T>()
-        {
-            return GetExistingSystem(typeof(T));
-        }
-
-        private ComponentSystemBase GetExistingSystemInternal(Type type)
-        {
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (!IsCreated)
-                throw new ArgumentException("During destruction ");
-            if (!m_AllowGetSystem)
-                throw new ArgumentException(
-                    "During destruction of a system you are not allowed to get or create more systems.");
-        #endif
-
-            for (int i = 0; i < m_Systems.Count; ++i) {
-                var mgr = m_Systems[i];
-                if (type.IsAssignableFrom(mgr.GetType()))
-                    return mgr;
-            }
-
-            return null;
-        }
-
-        private ComponentSystemBase GetOrCreateSystemInternal<T>() where T : new()
-        {
-            var system = GetExistingSystemInternal<T>();
-            return system ?? CreateSystemInternal<T>();
-        }
-
-        public T CreateSystem<T>() where T : ComponentSystemBase, new()
-        {
-            return (T) CreateSystemInternal<T>();
-        }
-
-        public T GetOrCreateSystem<T>() where T : ComponentSystemBase, new()
-        {
-            return (T) GetOrCreateSystemInternal<T>();
-        }
-
-        public ComponentSystemBase GetOrCreateSystem(Type type)
-        {
-            CheckGetOrCreateSystem();
-
-            var system = GetExistingSystem(type);
-            return system ?? TypeManager.ConstructSystem(type);
-        }
-    #else
-        ComponentSystemBase CreateSystemInternal(Type type, object[] constructorArguments)
-        {
-            if (!typeof(ComponentSystemBase).IsAssignableFrom(type))
-            {
-                throw new ArgumentException($"Type {type} must be derived from ComponentSystem or JobComponentSystem.");
-            }
-
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
-
-            if (constructorArguments != null && constructorArguments.Length != 0)
-            {
-                var constructors =
-                    type.GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-                if (constructors.Length == 1 && constructors[0].IsPrivate)
-                    throw new MissingMethodException(
-                        $"Constructing {type} failed because the constructor was private, it must be public.");
-            }
-
-            m_AllowGetSystem = false;
-        #endif
-            ComponentSystemBase system;
-            try
-            {
-                system = Activator.CreateInstance(type, constructorArguments) as ComponentSystemBase;
-            }
-            catch (MissingMethodException mme)
-            {
-                throw new MissingMethodException($"Constructing {type} failed because CreateSystem " +
-                                $"parameters did not match its constructor.  [Job]ComponentSystem {type} must " +
-                                "be mentioned in a link.xml file, or annotated with a [Preserve] attribute to " +
-                                "prevent its constructor from being stripped.  See " +
-                                "https://docs.unity3d.com/Manual/ManagedCodeStripping.html for more information.", mme);
-            }
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            finally
-            {
-                m_AllowGetSystem = true;
-            }
-        #endif
-            return AddSystem(system);
-        }
-
-        ComponentSystemBase GetExistingSystemInternal(Type type)
-        {
-            return m_SystemLookup.TryGetValue(type, out var system) ? system : null;
-        }
-
-        ComponentSystemBase GetOrCreateSystemInternal(Type type)
-        {
-            var system = GetExistingSystemInternal(type);
-
-            return system ?? CreateSystemInternal(type, null);
-        }
-
-        public ComponentSystemBase CreateSystem(Type type, params object[] constructorArguments)
-        {
-            CheckGetOrCreateSystem();
-
-            return CreateSystemInternal(type, constructorArguments);
-        }
-
-        public T CreateSystem<T>(params object[] constructorArguments) where T : ComponentSystemBase
-        {
-            CheckGetOrCreateSystem();
-
-            return (T) CreateSystemInternal(typeof(T), constructorArguments);
-        }
-
-        public T GetOrCreateSystem<T>() where T : ComponentSystemBase
-        {
-            CheckGetOrCreateSystem();
-
-            return (T) GetOrCreateSystemInternal(typeof(T));
-        }
-
-        public ComponentSystemBase GetOrCreateSystem(Type type)
-        {
-            CheckGetOrCreateSystem();
-
-            return GetOrCreateSystemInternal(type);
-        }
-    #endif
-
-        void RemoveSystemInternal(ComponentSystemBase system)
-        {
-            if (!m_Systems.Remove(system))
-                throw new ArgumentException($"System does not exist in the world");
-            ++Version;
-
-        #if !UNITY_DOTSPLAYER
-            var type = system.GetType();
-            while (type != typeof(ComponentSystemBase))
-            {
-                if (m_SystemLookup[type] == system)
-                {
-                    m_SystemLookup.Remove(type);
-
-                    foreach (var otherSystem in m_Systems)
-                        if (otherSystem.GetType().IsSubclassOf(type))
-                            AddTypeLookup(otherSystem.GetType(), otherSystem);
-                }
-
-                type = type.BaseType;
-            }
-        #endif
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        void CheckGetOrCreateSystem()
-        {
-            if (!IsCreated)
-            {
-                throw new ArgumentException("The World has already been Disposed.");
-            }
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (!m_AllowGetSystem)
-            {
-                throw new ArgumentException("You are not allowed to get or create more systems during destruction and constructor of a system.");
-            }
-        #endif
-        }
-
-        public T AddSystem<T>(T system) where T : ComponentSystemBase
-        {
-            CheckGetOrCreateSystem();
-
             m_Systems.Add(system);
-            AddTypeLookup(system.GetType(), system);
+            AddTypeLookupInternal(system.GetType(), system);
+        }
 
+        void AddSystem_OnCreate_Internal(ComponentSystemBase system)
+        {
             try
             {
                 system.CreateInstance(this);
@@ -470,8 +295,89 @@ namespace Unity.Entities
                 throw;
             }
             ++Version;
+        }
+
+        void RemoveSystemInternal(ComponentSystemBase system)
+        {
+            if (!m_Systems.Remove(system))
+                throw new ArgumentException($"System does not exist in the world");
+            ++Version;
+
+#if !UNITY_DOTSPLAYER
+            var type = system.GetType();
+            while (type != typeof(ComponentSystemBase))
+            {
+                if (m_SystemLookup[type] == system)
+                {
+                    m_SystemLookup.Remove(type);
+
+                    foreach (var otherSystem in m_Systems)
+                        if (otherSystem.GetType().IsSubclassOf(type))
+                            AddTypeLookupInternal(otherSystem.GetType(), otherSystem);
+                }
+
+                type = type.BaseType;
+            }
+#endif
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        void CheckGetOrCreateSystem()
+        {
+            if (!IsCreated)
+            {
+                throw new ArgumentException("The World has already been Disposed.");
+            }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (!m_AllowGetSystem)
+            {
+                throw new ArgumentException("You are not allowed to get or create more systems during destruction of a system.");
+            }
+#endif
+        }
+
+        // Public system management
+
+        public T GetOrCreateSystem<T>() where T : ComponentSystemBase
+        {
+            CheckGetOrCreateSystem();
+
+            var system = GetExistingSystemInternal(typeof(T));
+            return (T)(system ?? CreateSystemInternal(typeof(T)));
+        }
+
+        public ComponentSystemBase GetOrCreateSystem(Type type)
+        {
+            CheckGetOrCreateSystem();
+
+            var system = GetExistingSystemInternal(type);
+            return system ?? CreateSystemInternal(type);
+        }
+
+        public T CreateSystem<T>() where T : ComponentSystemBase, new()
+        {
+            CheckGetOrCreateSystem();
+
+            return (T)CreateSystemInternal(typeof(T));
+        }
+        public ComponentSystemBase CreateSystem(Type type)
+        {
+            CheckGetOrCreateSystem();
+
+            return CreateSystemInternal(type);
+        }
+
+        public T AddSystem<T>(T system) where T : ComponentSystemBase
+        {
+            CheckGetOrCreateSystem();
+            if (GetExistingSystemInternal(system.GetType()) != null)
+                throw new Exception($"Attempting to add system '{TypeManager.GetSystemName(system.GetType())}' which has already been added to world '{Name}'");
+
+            AddSystem_Add_Internal(system);
+            AddSystem_OnCreate_Internal(system);
             return system;
         }
+
 
         public T GetExistingSystem<T>() where T : ComponentSystemBase
         {
@@ -493,6 +399,98 @@ namespace Unity.Entities
 
             RemoveSystemInternal(system);
             system.DestroyInstance();
+        }
+
+        public void DestroyAllSystemsAndLogException()
+        {
+            if (m_Systems == null)
+                return;
+            
+            // Systems are destroyed in reverse order from construction, in three phases:
+            // 1. Stop all systems from running (if they weren't already stopped), to ensure OnStopRunning() is called.
+            // 2. Call each system's OnDestroy() method
+            // 3. Actually destroy each system
+            for (int i = m_Systems.Count - 1; i >= 0; --i)
+            {
+                try
+                {
+                    m_Systems[i].OnBeforeDestroyInternal();
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
+            }
+            for (int i = m_Systems.Count - 1; i >= 0; --i)
+            {
+                try
+                {
+                    m_Systems[i].OnDestroy_Internal();
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
+            }
+            for (int i = m_Systems.Count - 1; i >= 0; --i)
+            {
+                try
+                {
+                    m_Systems[i].OnAfterDestroyInternal();
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
+            }
+            m_Systems.Clear();
+            m_Systems = null;
+        }
+
+        public ComponentSystemBase[] GetOrCreateSystemsAndLogException(Type[] types)
+        {
+            CheckGetOrCreateSystem();
+
+            var toInitSystems = new ComponentSystemBase[types.Length];
+            for (int i = 0; i != types.Length; i++)
+            {
+                try
+                {
+                    if (GetExistingSystemInternal(types[i]) != null)
+                        continue;
+
+                    var system = AllocateSystemInternal(types[i]);
+                    if (system == null)
+                        continue;
+
+                    toInitSystems[i] = system;
+                    AddSystem_Add_Internal(system);
+                }
+                catch (Exception exc)
+                {
+                    Debug.LogException(exc);
+                }
+            }
+
+            for (int i = 0; i != types.Length; i++)
+            {
+                if (toInitSystems[i] != null)
+                {
+                    try
+                    {
+                        AddSystem_OnCreate_Internal(toInitSystems[i]);
+                    }
+                    catch (Exception exc)
+                    {
+                        Debug.LogException(exc);
+                    }
+                }
+            }
+
+            for (int i = 0; i != types.Length; i++)
+                toInitSystems[i] = GetExistingSystemInternal(types[i]);
+
+            return toInitSystems;
         }
 
         internal static int AllocateSystemID()

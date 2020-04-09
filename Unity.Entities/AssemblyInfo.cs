@@ -21,3 +21,4 @@
 [assembly: InternalsVisibleTo("Unity.Entities.Determinism")]
 [assembly: InternalsVisibleTo("Unity.DataFlowGraph")]
 [assembly: InternalsVisibleTo("Unity.DataFlowGraph.Tests")]
+[assembly: InternalsVisibleTo("Unity.Transforms.Hybrid")]

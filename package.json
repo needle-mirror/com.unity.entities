@@ -1,19 +1,20 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "0.8.0-preview.8",
+  "version": "0.9.0-preview.6",
   "unity": "2019.3",
   "unityRelease": "0f1",
   "dependencies": {
-    "com.unity.burst": "1.3.0-preview.5",
-    "com.unity.properties": "0.10.4-preview",
+    "com.unity.burst": "1.3.0-preview.7",
+    "com.unity.collections": "0.7.1-preview.3",
+    "com.unity.properties": "1.1.0-preview",
     "com.unity.mathematics": "1.1.0",
-    "com.unity.serialization": "0.6.4-preview",
     "com.unity.test-framework.performance": "1.3.3-preview",
+    "com.unity.serialization": "1.1.0-preview",
     "nuget.mono-cecil": "0.1.5-preview",
-    "com.unity.jobs": "0.2.7-preview.11",
+    "com.unity.jobs": "0.2.8-preview.3",
     "com.unity.scriptablebuildpipeline": "1.6.4-preview",
-    "com.unity.platforms": "0.2.1-preview.4"
+    "com.unity.platforms": "0.2.2-preview.7"
   },
   "description": "The Entities package provides a modern Entity Component System (ECS) implementation with a basic set of systems and components made for Unity.",
   "keywords": [
@@ -22,9 +23,9 @@
     "unity"
   ],
   "repository": {
-    "footprint": "5a2829bd4669af0ce6efc62215f18a7e8239e921",
+    "footprint": "96d9219d24ffbdbd6fdd584b2948eed1d956c8a0",
     "type": "git",
     "url": "https://github.com/Unity-Technologies/dots.git",
-    "revision": "6148cff74b025eff8e62722060b8470c6361f09a"
+    "revision": "238434967773104ec03f53058b653695f1d9aeec"
   }
 }

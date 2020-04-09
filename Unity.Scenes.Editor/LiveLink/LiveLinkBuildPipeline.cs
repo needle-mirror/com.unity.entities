@@ -7,7 +7,6 @@ using UnityEditor.Build.Pipeline;
 using UnityEditor.Build.Pipeline.Interfaces;
 using UnityEditor.Build.Pipeline.Utilities;
 using UnityEditor.Build.Utilities;
-using UnityEditor.Experimental;
 using UnityEngine;
 
 namespace Unity.Scenes.Editor
@@ -612,14 +611,14 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        public static Hash128 CalculateTargetHash(GUID guid, BuildTarget target, AssetDatabaseExperimental.ImportSyncMode syncMode)
+        internal static Hash128 CalculateTargetHash(GUID guid, BuildTarget target, ImportMode importMode)
         {
-            return LiveLinkBuildImporter.GetHash(guid.ToString(), target, syncMode);
+            return LiveLinkBuildImporter.GetHash(guid.ToString(), target, importMode);
         }
 
-        public static void CalculateTargetDependencies(Entities.Hash128 artifactHash, BuildTarget target, out ResolvedAssetID[] dependencies, AssetDatabaseExperimental.ImportSyncMode syncMode)
+        internal static void CalculateTargetDependencies(Entities.Hash128 artifactHash, BuildTarget target, out ResolvedAssetID[] dependencies, ImportMode syncMode)
         {
-            List<Entities.Hash128> assets = new List<Entities.Hash128>(LiveLinkBuildImporter.GetDependencies(artifactHash));
+            List<Entities.Hash128> assets = new List<Entities.Hash128>(LiveLinkBuildImporter.GetDependenciesInternal(artifactHash));
             List<ResolvedAssetID> resolvedDependencies = new List<ResolvedAssetID>();
 
             HashSet<Entities.Hash128> visited = new HashSet<Entities.Hash128>();
@@ -637,7 +636,7 @@ namespace Unity.Scenes.Editor
 
                 if (resolvedAsset.TargetHash.IsValid)
                 {
-                    assets.AddRange(LiveLinkBuildImporter.GetDependencies(resolvedAsset.TargetHash));
+                    assets.AddRange(LiveLinkBuildImporter.GetDependenciesInternal(resolvedAsset.TargetHash));
                 }
             }
 

@@ -48,7 +48,7 @@ namespace Unity.Entities.Editor.Tests
 
             base.TearDown();
 
-            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(null);
+            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(m_PreviousWorld);
         }
 
         [Test]

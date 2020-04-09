@@ -27,7 +27,7 @@ namespace Unity.Entities.Hybrid.CodeGen
                    HasGenerateAuthoringComponentAttribute(typeDefinition);
         }
 
-        protected override bool PostProcessImpl()
+        protected override bool PostProcessImpl(TypeDefinition[] componentSystemTypes)
         {
             var mainModule = AssemblyDefinition.MainModule;
 

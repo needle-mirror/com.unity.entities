@@ -215,29 +215,6 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Increases the buffer capacity without increasing its length.
-        /// </summary>
-        /// <remarks>If <paramref name="length"/> is greater than the current <see cref="Capacity"/>
-        /// of this buffer and greater than the capacity reserved with
-        /// <see cref="InternalBufferCapacityAttribute"/>, this function allocates a new memory block
-        /// and copies the current buffer to it. The number of elements in the buffer remains
-        /// unchanged.</remarks>
-        /// <example>
-        /// <code source="../../DocCodeSamples.Tests/DynamicBufferExamples.cs" language="csharp" region="dynamicbuffer.reserve"/>
-        /// </example>
-        /// <param name="length">The new buffer capacity.</param>
-        [Obsolete("Reserve has been deprecated in favor of setting the Capacity property. This method will be (RemovedAfter 2020-03-05)")]
-        public void Reserve(int length)
-        {
-            CheckWriteAccessAndInvalidateArrayAliases();
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            BufferHeader.EnsureCapacity(m_Buffer, length, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, m_useMemoryInitPattern, m_memoryInitPattern);
-#else
-            BufferHeader.EnsureCapacity(m_Buffer, length, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, false, 0);
-#endif
-        }
-
-        /// <summary>
         /// Sets the buffer length to zero.
         /// </summary>
         /// <remarks>The capacity of the buffer remains unchanged. Buffer memory

@@ -747,5 +747,52 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(m_Manager.UniversalQuery);
             Assert.AreEqual(0, m_Manager.UniversalQuery.CalculateEntityCount());
         }
+        
+        [Test]
+        public void GetCreatedAndDestroyedEntities()
+        {
+            using(var state = new NativeList<int>(Allocator.TempJob))
+            using(var created = new NativeList<Entity>(Allocator.TempJob))
+            using(var destroyed = new NativeList<Entity>(Allocator.TempJob))
+            {
+                // Create e0 & e1
+                var e0 = m_Manager.CreateEntity();
+                var e1 = m_Manager.CreateEntity();
+                m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
+                Assert.AreEqual(new[] { e0, e1 }, created.ToArray());
+                Assert.AreEqual(0, destroyed.Length);
+
+                // Create e3, destroy e0
+                var e3 = m_Manager.CreateEntity();
+                m_Manager.DestroyEntity(e0);
+                m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
+                Assert.AreEqual(new[] { e3 }, created.ToArray());
+                Assert.AreEqual(new[] { e0 }, destroyed.ToArray());
+                
+                // Change nothing
+                m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
+                Assert.AreEqual(0, created.Length);
+                Assert.AreEqual(0, destroyed.Length);
+
+                // Destroy e2 and e3
+                m_Manager.DestroyEntity(e1);
+                m_Manager.DestroyEntity(e3);
+                m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
+                Assert.AreEqual(0, created.Length);
+                Assert.AreEqual(new[] { e1, e3 }, destroyed.ToArray());
+                
+                // Create e4
+                var e4 = m_Manager.CreateEntity();
+                m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
+                Assert.AreEqual(new[] { e4 }, created.AsArray());
+                Assert.AreEqual(0, destroyed.Length);
+                
+                // Create & Destroy
+                m_Manager.DestroyEntity(m_Manager.CreateEntity());;
+                m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
+                Assert.AreEqual(0, created.Length);
+                Assert.AreEqual(0, destroyed.Length);
+            }
+        }
 	}
 }

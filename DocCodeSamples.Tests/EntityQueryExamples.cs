@@ -12,6 +12,11 @@ namespace Doc.CodeSamples.Tests
         public int Value;
     }
     #endregion
+    //Types used in examples below
+    public struct Melee : IComponentData { }
+    public struct Ranger : IComponentData { }
+    public struct Player : IComponentData { }
+    public struct Position : IComponentData { }
 
     public class EntityQueryExamples : SystemBase
     {
@@ -39,6 +44,30 @@ namespace Doc.CodeSamples.Tests
                 }
             };
             EntityQuery query = GetEntityQuery(description);
+
+            #endregion
+        }
+
+        protected override void OnCreate()
+        {
+
+            #region query-description
+
+            EntityQueryDesc description = new EntityQueryDesc
+            {
+                Any = new ComponentType[] { typeof(Melee), typeof(Ranger) },
+                None = new ComponentType[] { typeof(Player) },
+                All = new ComponentType[] { typeof(Position), typeof(Rotation) }
+            };
+
+            #endregion
+            var query = GetEntityQuery(description);
+            Entity entity = Entity.Null;
+            #region entity-query-mask
+
+            var mask = EntityManager.GetEntityQueryMask(query);
+            bool doesMatch = mask.Matches(entity);
+
             #endregion
         }
 
@@ -47,9 +76,12 @@ namespace Doc.CodeSamples.Tests
             var queryForSingleton = EntityManager.CreateEntityQuery(typeof(Singlet));
             var entityManager = EntityManager;
             #region create-singleton
+
             Entity singletonEntity = entityManager.CreateEntity(typeof(Singlet));
             entityManager.SetComponentData(singletonEntity, new Singlet { Value = 1 });
+
             #endregion
+
 
             #region set-singleton
             queryForSingleton.SetSingleton<Singlet>(new Singlet {Value = 1});

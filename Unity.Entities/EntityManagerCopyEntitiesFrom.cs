@@ -6,6 +6,47 @@ namespace Unity.Entities
 {
     public sealed unsafe partial class EntityManager
     {
+        struct IsolateCopiedEntities : IComponentData { }
+
+        /// <summary>
+        /// Instantiates / Copies all entities from srcEntityManager and copies them into this EntityManager.
+        /// Entity references on components that are being cloned to entities inside the srcEntities set are remapped to the instantiated entities.
+        /// </summary>
+        public void CopyEntitiesFrom(EntityManager srcEntityManager, NativeArray<Entity> srcEntities, NativeArray<Entity> outputEntities = default)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (outputEntities.IsCreated && outputEntities.Length != srcEntities.Length)
+                throw  new ArgumentException("outputEntities.Length must match srcEntities.Length");
+#endif
+            
+            using (var srcManagerInstances = new NativeArray<Entity>(srcEntities.Length, Allocator.Temp))
+            {
+                srcEntityManager.CopyEntities(srcEntities, srcManagerInstances);
+                srcEntityManager.AddComponent(srcManagerInstances, ComponentType.ReadWrite<IsolateCopiedEntities>());
+
+                var instantiated = srcEntityManager.CreateEntityQuery(new EntityQueryDesc
+                {
+                    All = new ComponentType[] { typeof(IsolateCopiedEntities) },
+                    Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
+                });
+
+                using (var entityRemapping = srcEntityManager.CreateEntityRemapArray(Allocator.TempJob))
+                {
+                    MoveEntitiesFromInternalQuery(srcEntityManager, instantiated, entityRemapping);
+                    
+                    EntityRemapUtility.GetTargets(out var output, entityRemapping);
+                    RemoveComponent(output, ComponentType.ReadWrite<IsolateCopiedEntities>());
+                    output.Dispose();
+
+                    if (outputEntities.IsCreated)
+                    {
+                        for (int i = 0; i != outputEntities.Length; i++)
+                            outputEntities[i] = entityRemapping[srcManagerInstances[i].Index].Target;
+                    }
+                }
+            }
+        }
+
         /// <summary>
         /// Copies all entities from srcEntityManager and replaces all entities in this EntityManager
         /// </summary>

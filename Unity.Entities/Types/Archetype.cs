@@ -57,7 +57,8 @@ namespace Unity.Entities
 
         public ArchetypeFlags Flags;
 
-        public Archetype* InstantiableArchetype;
+        public Archetype* CopyArchetype; // Removes system state components
+        public Archetype* InstantiateArchetype; // Removes system state components & prefabs 
         public Archetype* SystemStateResidueArchetype;
         public Archetype* MetaChunkArchetype;
 

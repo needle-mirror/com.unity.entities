@@ -290,149 +290,60 @@ namespace Unity.Entities
 #if !NET_DOTS
         internal static void PatchEntityInBoxedType(object container, EntityRemapInfo* remapInfo)
         {
-            var visitor = new EntityRemappingVisitor(remapInfo);
-            var changeTracker = new ChangeTracker();
-            var type = container.GetType();
-
-            var resolved = PropertyBagResolver.Resolve(type);
-            if (resolved != null)
-            {
-                resolved.Accept(ref container, ref visitor, ref changeTracker);
-            }
-            else
-                throw new ArgumentException($"Type '{type.FullName}' not supported for visiting.");
+            PropertyContainer.Visit(container, new EntityRemappingVisitor(remapInfo));
         }
 
         internal static void PatchEntityForPrefabInBoxedType(object container, Entity* remapSrc, Entity* remapDst, int remapInfoCount)
         {
-            var visitor = new EntityRemappingVisitor(remapSrc, remapDst, remapInfoCount);
-            var changeTracker = new ChangeTracker();
-            var type = container.GetType();
-
-            var resolved = PropertyBagResolver.Resolve(type);
-            if (resolved != null)
-            {
-                resolved.Accept(ref container, ref visitor, ref changeTracker);
-            }
-            else
-                throw new ArgumentException($"Type '{type.FullName}' not supported for visiting.");
+            PropertyContainer.Visit(container, new EntityRemappingVisitor(remapSrc, remapDst, remapInfoCount));
         }
 
-        internal unsafe class EntityRemappingVisitor : PropertyVisitor
+        class EntityRemappingVisitor : PropertyVisitor
         {
-            protected EntityRemappingAdapter _EntityRemapAdapter { get; }
-            protected EntityRemappingForPrefabAdapter _EntityRemapForPrefabAdapter { get; }
-
-            public EntityRemappingVisitor(EntityRemapUtility.EntityRemapInfo* remapInfo)
+            public EntityRemappingVisitor(EntityRemapInfo* remapInfo)
             {
-                _EntityRemapAdapter = new EntityRemappingAdapter(remapInfo);
-                AddAdapter(_EntityRemapAdapter);
+                AddAdapter(new EntityRemappingAdapter(remapInfo));
             }
 
             public EntityRemappingVisitor(Entity* remapSrc, Entity* remapDst, int remapInfoCount)
             {
-                _EntityRemapForPrefabAdapter = new EntityRemappingForPrefabAdapter(remapSrc, remapDst, remapInfoCount);
-                AddAdapter(_EntityRemapForPrefabAdapter);
+                AddAdapter(new EntityRemappingForPrefabAdapter(remapSrc, remapDst, remapInfoCount));
             }
         }
 
-        internal unsafe class EntityRemappingAdapter : IPropertyVisitorAdapter
-            , IVisitAdapter<Entity>
-            , IVisitAdapter
-            , IVisitCollectionAdapter
-            , IVisitContainerAdapter
+        class EntityRemappingAdapter : Properties.Adapters.IVisit<Entity>
         {
-            protected EntityRemapUtility.EntityRemapInfo* RemapInfo { get; }
+            EntityRemapInfo* _EntityRemapInfo { get; }
 
-            unsafe public EntityRemappingAdapter(EntityRemapUtility.EntityRemapInfo* remapInfo)
+            public EntityRemappingAdapter(EntityRemapInfo* entityRemapInfo)
             {
-                RemapInfo = remapInfo;
+                _EntityRemapInfo = entityRemapInfo;
             }
-
-            unsafe public VisitStatus Visit<TProperty, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref Entity value, ref ChangeTracker changeTracker)
-                where TProperty : IProperty<TContainer, Entity>
+            
+            public VisitStatus Visit<TContainer>(Property<TContainer, Entity> property, ref TContainer container, ref Entity value)
             {
-                value = EntityRemapUtility.RemapEntity(RemapInfo, value);
-                return VisitStatus.Handled;
-            }
-
-            public VisitStatus Visit<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
-            {
-                return VisitStatus.Unhandled;
-            }
-
-            public VisitStatus BeginCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
-            {
-                if (value == null)
-                    return VisitStatus.Override;
-                return VisitStatus.Unhandled;
-            }
-
-            public void EndCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
-            {
-            }
-
-            public VisitStatus BeginContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
-            {
-                if (value == null)
-                    return VisitStatus.Override;
-                return VisitStatus.Unhandled;
-            }
-
-            public void EndContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
-            {
+                value = RemapEntity(_EntityRemapInfo, value);
+                return VisitStatus.Stop;
             }
         }
 
-        internal unsafe class EntityRemappingForPrefabAdapter : IPropertyVisitorAdapter
-            , IVisitAdapter<Entity>
-            , IVisitAdapter
-            , IVisitCollectionAdapter
-            , IVisitContainerAdapter
+        class EntityRemappingForPrefabAdapter : Properties.Adapters.IVisit<Entity>
         {
-            protected Entity* RemapSource { get; }
-            protected Entity* RemapDestination { get; }
-            protected int RemapInfoCount { get; }
+            Entity* _RemapSrc { get; }
+            Entity* _RemapDst { get; }
+            int _RemapInfoCount { get; }
 
-            unsafe public EntityRemappingForPrefabAdapter(Entity* remapSrc, Entity* remapDst, int remapInfoCount)
+            public EntityRemappingForPrefabAdapter(Entity* remapSrc, Entity* remapDst, int remapInfoCount)
             {
-                RemapSource = remapSrc;
-                RemapDestination = remapDst;
-                RemapInfoCount = remapInfoCount;
-            }
-
-            unsafe public VisitStatus Visit<TProperty, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref Entity value, ref ChangeTracker changeTracker)
-                where TProperty : IProperty<TContainer, Entity>
-            {
-                value = EntityRemapUtility.RemapEntityForPrefab(RemapSource, RemapDestination, RemapInfoCount, value);
-                return VisitStatus.Handled;
-            }
-
-            public VisitStatus Visit<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
-            {
-                return VisitStatus.Unhandled;
+                _RemapSrc = remapSrc;
+                _RemapDst = remapDst;
+                _RemapInfoCount = remapInfoCount;
             }
             
-            public VisitStatus BeginCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
+            public VisitStatus Visit<TContainer>(Property<TContainer, Entity> property, ref TContainer container, ref Entity value)
             {
-                if (value == null)
-                    return VisitStatus.Override;
-                return VisitStatus.Unhandled;
-            }
-
-            public void EndCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
-            {
-            }
-            
-            public VisitStatus BeginContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
-            {
-                if (value == null)
-                    return VisitStatus.Override;
-                return VisitStatus.Unhandled;
-            }
-
-            public void EndContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
-            {
+                value = RemapEntityForPrefab(_RemapSrc, _RemapDst, _RemapInfoCount, value);
+                return VisitStatus.Stop;
             }
         }
 #endif

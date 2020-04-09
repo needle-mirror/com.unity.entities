@@ -8,10 +8,22 @@ namespace Unity.Entities.Tests
         [Test]
         public void GetSetSingleton()
         {
-            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.CreateEntity(typeof(EcsTestData));
 
             EmptySystem.SetSingleton(new EcsTestData(10));
             Assert.AreEqual(10, EmptySystem.GetSingleton<EcsTestData>().value);
+        }
+        
+        [Test]
+        public void GetSetSingletonMultipleComponents()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestData), typeof(EcsTestData2));
+
+            m_Manager.SetComponentData(entity, new EcsTestData(10));
+            Assert.AreEqual(10, EmptySystem.GetSingleton<EcsTestData>().value);
+                
+            EmptySystem.SetSingleton(new EcsTestData2(100));
+            Assert.AreEqual(100, m_Manager.GetComponentData<EcsTestData2>(entity).value0);
         }
 
         [Test]
@@ -67,20 +79,31 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void HasSingletonThrowsMultiple()
+        public void HasSingleton_ReturnsTrueWithEntityWithOnlyComponent()
         {
             Assert.IsFalse(EmptySystem.HasSingleton<EcsTestData>());
+                
             m_Manager.CreateEntity(typeof(EcsTestData));
             Assert.IsTrue(EmptySystem.HasSingleton<EcsTestData>());
+                
             m_Manager.CreateEntity(typeof(EcsTestData));
             Assert.IsFalse(EmptySystem.HasSingleton<EcsTestData>());
+        }
+        
+        [Test]
+        public void GetSingletonEntityWorks()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+
+            var singletonEntity = EmptySystem.GetSingletonEntity<EcsTestData>();
+            Assert.AreEqual(entity, singletonEntity);
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         public void GetSetSingleton_ManagedComponents()
         {
-            var entity = m_Manager.CreateEntity(typeof(EcsTestManagedComponent));
+            m_Manager.CreateEntity(typeof(EcsTestManagedComponent));
 
             const string kTestVal = "SomeString";
             EmptySystem.SetSingleton(new EcsTestManagedComponent() { value = kTestVal });

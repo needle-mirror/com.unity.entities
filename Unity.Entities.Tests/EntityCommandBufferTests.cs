@@ -1734,9 +1734,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        // TODO runtime doesn't have range patching yet: https://unity3d.atlassian.net/browse/DOTSR-282
-        // which is needed for the parallel write to succeed.
-        [StandaloneFixme]
         public void BufferCopyFromDoesNotThrowInJob()
         {
             var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>());

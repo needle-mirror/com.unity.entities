@@ -19,6 +19,7 @@ using System;
 
 namespace Unity.Entities
 {
+#if !UNITY_DOTSPLAYER        // DOTS-Runtime doesn't support IJobForEach
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_C<,>))]
@@ -137,9 +138,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_C<,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_C<>))]
-    #endif
     public interface IJobForEach_C<T0> : JobForEachExtensions.IBaseJobForEach_C
 		where T0 : struct, IComponentData
 	{
@@ -149,9 +147,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EC<,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EC<>))]
-    #endif
     public interface IJobForEachWithEntity_EC<T0> : JobForEachExtensions.IBaseJobForEach_EC
 		where T0 : struct, IComponentData
 	{
@@ -161,9 +156,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_B<,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_B<>))]
-    #endif
     public interface IJobForEach_B<T0> : JobForEachExtensions.IBaseJobForEach_B
 		where T0 : struct, IBufferElementData
 	{
@@ -173,9 +165,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EB<,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EB<>))]
-    #endif
     public interface IJobForEachWithEntity_EB<T0> : JobForEachExtensions.IBaseJobForEach_EB
 		where T0 : struct, IBufferElementData
 	{
@@ -185,9 +174,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CC<,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_CC<>))]
-    #endif
     public interface IJobForEach_CC<T0, T1> : JobForEachExtensions.IBaseJobForEach_CC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
@@ -198,9 +184,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECC<,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_ECC<>))]
-    #endif
     public interface IJobForEachWithEntity_ECC<T0, T1> : JobForEachExtensions.IBaseJobForEach_ECC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
@@ -211,9 +194,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BC<,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BC<>))]
-    #endif
     public interface IJobForEach_BC<T0, T1> : JobForEachExtensions.IBaseJobForEach_BC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
@@ -224,9 +204,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBC<,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBC<T0, T1> : JobForEachExtensions.IBaseJobForEach_EBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
@@ -237,9 +214,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BB<,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BB<>))]
-    #endif
     public interface IJobForEach_BB<T0, T1> : JobForEachExtensions.IBaseJobForEach_BB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -250,9 +224,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBB<,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBB<>))]
-    #endif
     public interface IJobForEachWithEntity_EBB<T0, T1> : JobForEachExtensions.IBaseJobForEach_EBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -263,9 +234,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCC<,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_CCC<>))]
-    #endif
     public interface IJobForEach_CCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_CCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
@@ -277,9 +245,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCC<,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_ECCC<>))]
-    #endif
     public interface IJobForEachWithEntity_ECCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_ECCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
@@ -291,9 +256,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCC<,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BCC<>))]
-    #endif
     public interface IJobForEach_BCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_BCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
@@ -305,9 +267,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCC<,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBCC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBCC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_EBCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
@@ -319,9 +278,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBC<,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BBC<>))]
-    #endif
     public interface IJobForEach_BBC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_BBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -333,9 +289,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBC<,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBBC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBBC<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_EBBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -347,9 +300,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBB<,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BBB<>))]
-    #endif
     public interface IJobForEach_BBB<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_BBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -361,9 +311,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBB<,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBBB<>))]
-    #endif
     public interface IJobForEachWithEntity_EBBB<T0, T1, T2> : JobForEachExtensions.IBaseJobForEach_EBBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -375,9 +322,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCC<,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_CCCC<>))]
-    #endif
     public interface IJobForEach_CCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_CCCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
@@ -390,9 +334,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCC<,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_ECCCC<>))]
-    #endif
     public interface IJobForEachWithEntity_ECCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_ECCCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
@@ -405,9 +346,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCCC<,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BCCC<>))]
-    #endif
     public interface IJobForEach_BCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
@@ -420,9 +358,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCCC<,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBCCC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBCCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
@@ -435,9 +370,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBCC<,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BBCC<>))]
-    #endif
     public interface IJobForEach_BBCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BBCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -450,9 +382,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBCC<,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBBCC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBBCC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBBCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -465,9 +394,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBC<,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BBBC<>))]
-    #endif
     public interface IJobForEach_BBBC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BBBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -480,9 +406,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBC<,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBBBC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBBBC<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBBBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -495,9 +418,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBB<,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BBBB<>))]
-    #endif
     public interface IJobForEach_BBBB<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_BBBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -510,9 +430,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBB<,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBBBB<>))]
-    #endif
     public interface IJobForEachWithEntity_EBBBB<T0, T1, T2, T3> : JobForEachExtensions.IBaseJobForEach_EBBBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -525,9 +442,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCCC<,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_CCCCC<>))]
-    #endif
     public interface IJobForEach_CCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_CCCCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
@@ -541,9 +455,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCCC<,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_ECCCCC<>))]
-    #endif
     public interface IJobForEachWithEntity_ECCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_ECCCCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
@@ -557,9 +468,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCCCC<,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BCCCC<>))]
-    #endif
     public interface IJobForEach_BCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BCCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
@@ -573,9 +481,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCCCC<,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBCCCC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBCCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBCCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
@@ -589,9 +494,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBCCC<,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BBCCC<>))]
-    #endif
     public interface IJobForEach_BBCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -605,9 +507,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBCCC<,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBBCCC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBBCCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -621,9 +520,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBCC<,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BBBCC<>))]
-    #endif
     public interface IJobForEach_BBBCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBBCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -637,9 +533,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBCC<,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBBBCC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBBBCC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBBCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -653,9 +546,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBC<,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BBBBC<>))]
-    #endif
     public interface IJobForEach_BBBBC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBBBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -669,9 +559,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBC<,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBBBBC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBBBBC<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBBBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -685,9 +572,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBB<,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BBBBB<>))]
-    #endif
     public interface IJobForEach_BBBBB<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_BBBBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -701,9 +585,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBB<,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBBBBB<>))]
-    #endif
     public interface IJobForEachWithEntity_EBBBBB<T0, T1, T2, T3, T4> : JobForEachExtensions.IBaseJobForEach_EBBBBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -717,9 +598,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_CCCCCC<,,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_CCCCCC<>))]
-    #endif
     public interface IJobForEach_CCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_CCCCCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
@@ -734,9 +612,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_ECCCCCC<,,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_ECCCCCC<>))]
-    #endif
     public interface IJobForEachWithEntity_ECCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_ECCCCCC
 		where T0 : struct, IComponentData
 		where T1 : struct, IComponentData
@@ -751,9 +626,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BCCCCC<,,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BCCCCC<>))]
-    #endif
     public interface IJobForEach_BCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BCCCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
@@ -768,9 +640,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBCCCCC<,,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBCCCCC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBCCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBCCCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IComponentData
@@ -785,9 +654,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBCCCC<,,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BBCCCC<>))]
-    #endif
     public interface IJobForEach_BBCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBCCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -802,9 +668,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBCCCC<,,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBBCCCC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBBCCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBCCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -819,9 +682,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBCCC<,,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BBBCCC<>))]
-    #endif
     public interface IJobForEach_BBBCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -836,9 +696,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBCCC<,,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBBBCCC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBBBCCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBCCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -853,9 +710,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBCC<,,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BBBBCC<>))]
-    #endif
     public interface IJobForEach_BBBBCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBBCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -870,9 +724,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBCC<,,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBBBBCC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBBBBCC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBBCC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -887,9 +738,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBBC<,,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BBBBBC<>))]
-    #endif
     public interface IJobForEach_BBBBBC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBBBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -904,9 +752,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBBC<,,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBBBBBC<>))]
-    #endif
     public interface IJobForEachWithEntity_EBBBBBC<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBBBC
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -921,9 +766,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_BBBBBB<,,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_BBBBBB<>))]
-    #endif
     public interface IJobForEach_BBBBBB<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_BBBBBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -938,9 +780,6 @@ namespace Unity.Entities
 
     [Obsolete("Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_EBBBBBB<,,,,,,>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_EBBBBBB<>))]
-    #endif
     public interface IJobForEachWithEntity_EBBBBBB<T0, T1, T2, T3, T4, T5> : JobForEachExtensions.IBaseJobForEach_EBBBBBB
 		where T0 : struct, IBufferElementData
 		where T1 : struct, IBufferElementData
@@ -958,7 +797,6 @@ namespace Unity.Entities
         public static JobHandle Schedule<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
             where T : struct, IBaseJobForEach
         {
-#if !UNITY_DOTSPLAYER        
             var typeT = typeof(T);
             if (typeof(IBaseJobForEach_C).IsAssignableFrom(typeT))
                 return ScheduleInternal_C(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
@@ -1068,13 +906,11 @@ namespace Unity.Entities
                 return ScheduleInternal_BBBBBB(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
             if (typeof(IBaseJobForEach_EBBBBBB).IsAssignableFrom(typeT))
                 return ScheduleInternal_EBBBBBB(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-#endif
             throw new System.ArgumentException("Not supported");
         }
         public static JobHandle ScheduleSingle<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
             where T : struct, IBaseJobForEach
         {
-#if !UNITY_DOTSPLAYER        
             var typeT = typeof(T);
             if (typeof(IBaseJobForEach_C).IsAssignableFrom(typeT))
                 return ScheduleInternal_C(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
@@ -1184,13 +1020,11 @@ namespace Unity.Entities
                 return ScheduleInternal_BBBBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
             if (typeof(IBaseJobForEach_EBBBBBB).IsAssignableFrom(typeT))
                 return ScheduleInternal_EBBBBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-#endif
             throw new System.ArgumentException("Not supported");
         }
         public static JobHandle Run<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
             where T : struct, IBaseJobForEach
         {
-#if !UNITY_DOTSPLAYER        
             var typeT = typeof(T);
             if (typeof(IBaseJobForEach_C).IsAssignableFrom(typeT))
                 return ScheduleInternal_C(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
@@ -1300,14 +1134,12 @@ namespace Unity.Entities
                 return ScheduleInternal_BBBBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
             if (typeof(IBaseJobForEach_EBBBBBB).IsAssignableFrom(typeT))
                 return ScheduleInternal_EBBBBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-#endif
             throw new System.ArgumentException("Not supported");
         }
 
         public static JobHandle Schedule<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IBaseJobForEach
         {
-#if !UNITY_DOTSPLAYER        
             var typeT = typeof(T);
             if (typeof(IBaseJobForEach_C).IsAssignableFrom(typeT))
                 return ScheduleInternal_C(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
@@ -1417,13 +1249,11 @@ namespace Unity.Entities
                 return ScheduleInternal_BBBBBB(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
             if (typeof(IBaseJobForEach_EBBBBBB).IsAssignableFrom(typeT))
                 return ScheduleInternal_EBBBBBB(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-#endif // !UNITY_DOTSPLAYER
             throw new System.ArgumentException("Not supported");
         }
         public static JobHandle ScheduleSingle<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IBaseJobForEach
         {
-#if !UNITY_DOTSPLAYER        
             var typeT = typeof(T);
             if (typeof(IBaseJobForEach_C).IsAssignableFrom(typeT))
                 return ScheduleInternal_C(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
@@ -1533,13 +1363,11 @@ namespace Unity.Entities
                 return ScheduleInternal_BBBBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
             if (typeof(IBaseJobForEach_EBBBBBB).IsAssignableFrom(typeT))
                 return ScheduleInternal_EBBBBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-#endif // !UNITY_DOTSPLAYER
             throw new System.ArgumentException("Not supported");
         }
         public static JobHandle Run<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IBaseJobForEach
         {
-#if !UNITY_DOTSPLAYER        
             var typeT = typeof(T);
             if (typeof(IBaseJobForEach_C).IsAssignableFrom(typeT))
                 return ScheduleInternal_C(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
@@ -1649,1660 +1477,23 @@ namespace Unity.Entities
                 return ScheduleInternal_BBBBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
             if (typeof(IBaseJobForEach_EBBBBBB).IsAssignableFrom(typeT))
                 return ScheduleInternal_EBBBBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-#endif // !UNITY_DOTSPLAYER
             throw new System.ArgumentException("Not supported");
         }
-
-#if UNITY_DOTSPLAYER
-        internal static JobHandle Schedule_To_System_C<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_C(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_C<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_C(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_B<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_B(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EB(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_B<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_B(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EB(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_CC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_ECC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_CC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_ECC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BB(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBB(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BB(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBB(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_CCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_ECCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_CCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_ECCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBB(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBB(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBB(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBB(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_CCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_ECCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_CCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_ECCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBB(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBB(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBB(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBB(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_CCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_ECCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_CCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_ECCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBB(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBB(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBB(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBB(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_CCCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_ECCCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_CCCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_ECCCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BCCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBCCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BCCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBCCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BBCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBBCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BBCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBBCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BBBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBBBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBCCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BBBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBBBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBCCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BBBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBBBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBCC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BBBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBBBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBCC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BBBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBBC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBBBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBBC(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BBBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBBC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBBBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBBC(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_BBBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBBB(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_System_EBBBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBBB(ref jobData, system, null, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_BBBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBBB(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Schedule_To_Query_EBBBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBBB(ref jobData, null, query, 1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_C<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_C(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_C<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_C(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_B<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_B(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_B<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_B(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_CC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_ECC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_CC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_ECC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_CCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_ECCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_CCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_ECCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_CCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_ECCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_CCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_ECCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_CCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_ECCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_CCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_ECCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_CCCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_ECCCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_CCCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_ECCCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BCCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBCCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BCCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBCCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BBCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBBCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BBCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBBCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BBBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBBBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BBBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBBBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BBBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBBBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BBBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBBBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BBBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBBBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BBBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBBBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_BBBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_System_EBBBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_BBBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle ScheduleSingle_To_Query_EBBBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Batched);
-        }
-        internal static JobHandle Run_To_System_C<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_C(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_C<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_C(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_B<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_B(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_B<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_B(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_CC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_ECC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_CC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_ECC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_CCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_ECCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_CCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_ECCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_CCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_ECCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_CCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_ECCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_CCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_ECCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_CCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_ECCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_CCCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_ECCCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_CCCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_CCCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_ECCCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_ECCCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BCCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBCCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BCCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BCCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBCCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBCCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BBCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBBCCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BBCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBBCCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBCCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BBBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBBBCCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBCCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BBBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBBBCCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBCCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BBBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBBBBCC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBCC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BBBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBBBBCC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBCC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BBBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBBBBBC<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBBC(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BBBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBBBBBC<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBBC(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_BBBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_System_EBBBBBB<T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBBB(ref jobData, system, null, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_BBBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_BBBBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-        internal static JobHandle Run_To_Query_EBBBBBB<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_EBBBBBB(ref jobData, null, query, -1, dependsOn, ScheduleMode.Run);
-        }
-#endif // UNITY_DOTSPLAYER
 
 #pragma warning disable 618
         internal static unsafe JobHandle ScheduleInternal_C<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_C<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_C<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_C<,>), isParallelFor, ref JobStruct_ProcessInfer_C<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_C<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_C<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_C<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -3333,16 +1524,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_C<T, T0>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_C<T, T0>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_C<T, T0> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -3388,30 +1573,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EC<,>), isParallelFor, ref JobStruct_ProcessInfer_EC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -3442,16 +1614,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EC<T, T0>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EC<T, T0>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EC<T, T0> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -3498,30 +1664,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_B<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_B<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_B<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_B<,>), isParallelFor, ref JobStruct_ProcessInfer_B<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_B<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_B<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_B<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -3552,16 +1705,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_B<T, T0>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_B<T, T0>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_B<T, T0> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -3617,30 +1764,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EB<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EB<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EB<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EB<,>), isParallelFor, ref JobStruct_ProcessInfer_EB<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EB<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EB<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EB<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -3671,16 +1805,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EB<T, T0>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EB<T, T0>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EB<T, T0> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -3737,30 +1865,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_CC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_CC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_CC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_CC<,,>), isParallelFor, ref JobStruct_ProcessInfer_CC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_CC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_CC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_CC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -3792,16 +1907,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_CC<T, T0, T1>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_CC<T, T0, T1>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_CC<T, T0, T1> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -3850,30 +1959,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_ECC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_ECC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_ECC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_ECC<,,>), isParallelFor, ref JobStruct_ProcessInfer_ECC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_ECC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_ECC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_ECC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -3905,16 +2001,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_ECC<T, T0, T1>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_ECC<T, T0, T1>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_ECC<T, T0, T1> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -3964,30 +2054,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BC<,,>), isParallelFor, ref JobStruct_ProcessInfer_BC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -4019,16 +2096,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BC<T, T0, T1>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BC<T, T0, T1>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BC<T, T0, T1> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -4087,30 +2158,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBC<,,>), isParallelFor, ref JobStruct_ProcessInfer_EBC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -4142,16 +2200,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBC<T, T0, T1>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBC<T, T0, T1>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBC<T, T0, T1> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -4211,30 +2263,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BB<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BB<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BB<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BB<,,>), isParallelFor, ref JobStruct_ProcessInfer_BB<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BB<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BB<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BB<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -4266,16 +2305,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BB<T, T0, T1>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BB<T, T0, T1>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BB<T, T0, T1> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -4336,30 +2369,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBB<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBB<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBB<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBB<,,>), isParallelFor, ref JobStruct_ProcessInfer_EBB<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBB<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBB<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBB<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -4391,16 +2411,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBB<T, T0, T1>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBB<T, T0, T1>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBB<T, T0, T1> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -4462,30 +2476,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_CCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_CCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_CCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_CCC<,,,>), isParallelFor, ref JobStruct_ProcessInfer_CCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_CCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_CCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_CCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -4518,16 +2519,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_CCC<T, T0, T1, T2>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_CCC<T, T0, T1, T2>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_CCC<T, T0, T1, T2> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -4579,30 +2574,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_ECCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_ECCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_ECCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_ECCC<,,,>), isParallelFor, ref JobStruct_ProcessInfer_ECCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_ECCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_ECCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_ECCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -4635,16 +2617,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_ECCC<T, T0, T1, T2>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_ECCC<T, T0, T1, T2>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_ECCC<T, T0, T1, T2> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -4697,30 +2673,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BCC<,,,>), isParallelFor, ref JobStruct_ProcessInfer_BCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -4753,16 +2716,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BCC<T, T0, T1, T2>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BCC<T, T0, T1, T2>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BCC<T, T0, T1, T2> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -4824,30 +2781,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBCC<,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -4880,16 +2824,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBCC<T, T0, T1, T2>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBCC<T, T0, T1, T2>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBCC<T, T0, T1, T2> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -4952,30 +2890,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BBC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BBC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BBC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBC<,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BBC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -5008,16 +2933,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBC<T, T0, T1, T2>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBC<T, T0, T1, T2>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BBC<T, T0, T1, T2> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -5081,30 +3000,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBBC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBBC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBBC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBC<,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBBC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -5137,16 +3043,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBC<T, T0, T1, T2>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBC<T, T0, T1, T2>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBBC<T, T0, T1, T2> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -5211,30 +3111,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BBB<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BBB<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BBB<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBB<,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBB<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBB<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BBB<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBB<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -5267,16 +3154,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBB<T, T0, T1, T2>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBB<T, T0, T1, T2>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BBB<T, T0, T1, T2> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -5342,30 +3223,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBBB<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBBB<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBBB<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBB<,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBB<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBB<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBBB<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -5398,16 +3266,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBB<T, T0, T1, T2>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBB<T, T0, T1, T2>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBBB<T, T0, T1, T2> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -5474,30 +3336,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_CCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_CCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_CCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_CCCC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_CCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_CCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_CCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_CCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -5531,16 +3380,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_CCCC<T, T0, T1, T2, T3>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_CCCC<T, T0, T1, T2, T3>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_CCCC<T, T0, T1, T2, T3> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -5595,30 +3438,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_ECCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_ECCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_ECCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_ECCCC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_ECCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_ECCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_ECCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_ECCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -5652,16 +3482,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_ECCCC<T, T0, T1, T2, T3>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_ECCCC<T, T0, T1, T2, T3>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_ECCCC<T, T0, T1, T2, T3> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -5717,30 +3541,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BCCC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -5774,16 +3585,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BCCC<T, T0, T1, T2, T3>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BCCC<T, T0, T1, T2, T3>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BCCC<T, T0, T1, T2, T3> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -5848,30 +3653,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBCCC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -5905,16 +3697,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBCCC<T, T0, T1, T2, T3>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBCCC<T, T0, T1, T2, T3>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBCCC<T, T0, T1, T2, T3> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -5980,30 +3766,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BBCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BBCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BBCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBCC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BBCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -6037,16 +3810,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBCC<T, T0, T1, T2, T3>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBCC<T, T0, T1, T2, T3>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BBCC<T, T0, T1, T2, T3> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -6113,30 +3880,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBBCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBBCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBBCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBCC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBBCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -6170,16 +3924,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBCC<T, T0, T1, T2, T3>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBCC<T, T0, T1, T2, T3>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBBCC<T, T0, T1, T2, T3> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -6247,30 +3995,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BBBC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BBBC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BBBC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BBBC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -6304,16 +4039,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBC<T, T0, T1, T2, T3>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBC<T, T0, T1, T2, T3>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BBBC<T, T0, T1, T2, T3> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -6382,30 +4111,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBBBC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBBBC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBBBC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBC<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBBBC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -6439,16 +4155,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBC<T, T0, T1, T2, T3>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBC<T, T0, T1, T2, T3>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBBBC<T, T0, T1, T2, T3> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -6518,30 +4228,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BBBB<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BBBB<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BBBB<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBB<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBB<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBB<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BBBB<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -6575,16 +4272,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBB<T, T0, T1, T2, T3>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBB<T, T0, T1, T2, T3>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BBBB<T, T0, T1, T2, T3> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -6655,30 +4346,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBBBB<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBBBB<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBBBB<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBB<,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBB<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBB<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBBBB<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -6712,16 +4390,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBB<T, T0, T1, T2, T3>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBB<T, T0, T1, T2, T3>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBBBB<T, T0, T1, T2, T3> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -6793,30 +4465,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_CCCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_CCCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_CCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_CCCCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_CCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_CCCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_CCCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_CCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -6851,16 +4510,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_CCCCC<T, T0, T1, T2, T3, T4>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_CCCCC<T, T0, T1, T2, T3, T4>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_CCCCC<T, T0, T1, T2, T3, T4> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -6918,30 +4571,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_ECCCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_ECCCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_ECCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_ECCCCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_ECCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_ECCCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_ECCCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_ECCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -6976,16 +4616,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_ECCCCC<T, T0, T1, T2, T3, T4>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_ECCCCC<T, T0, T1, T2, T3, T4>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_ECCCCC<T, T0, T1, T2, T3, T4> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -7044,30 +4678,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BCCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BCCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BCCCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BCCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BCCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -7102,16 +4723,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BCCCC<T, T0, T1, T2, T3, T4>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BCCCC<T, T0, T1, T2, T3, T4>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BCCCC<T, T0, T1, T2, T3, T4> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -7179,30 +4794,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBCCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBCCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBCCCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBCCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBCCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -7237,16 +4839,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBCCCC<T, T0, T1, T2, T3, T4>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBCCCC<T, T0, T1, T2, T3, T4>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBCCCC<T, T0, T1, T2, T3, T4> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -7315,30 +4911,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BBCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BBCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BBCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBCCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BBCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -7373,16 +4956,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBCCC<T, T0, T1, T2, T3, T4>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBCCC<T, T0, T1, T2, T3, T4>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BBCCC<T, T0, T1, T2, T3, T4> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -7452,30 +5029,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBBCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBBCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBBCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBCCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBBCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -7510,16 +5074,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBCCC<T, T0, T1, T2, T3, T4>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBCCC<T, T0, T1, T2, T3, T4>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBBCCC<T, T0, T1, T2, T3, T4> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -7590,30 +5148,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BBBCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BBBCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BBBCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BBBCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -7648,16 +5193,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBCC<T, T0, T1, T2, T3, T4>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBCC<T, T0, T1, T2, T3, T4>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BBBCC<T, T0, T1, T2, T3, T4> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -7729,30 +5268,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBBBCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBBBCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBBBCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBCC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBBBCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -7787,16 +5313,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBCC<T, T0, T1, T2, T3, T4>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBCC<T, T0, T1, T2, T3, T4>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBBBCC<T, T0, T1, T2, T3, T4> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -7869,30 +5389,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BBBBC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BBBBC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BBBBC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBBC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBBC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBBC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BBBBC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -7927,16 +5434,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBBC<T, T0, T1, T2, T3, T4>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBBC<T, T0, T1, T2, T3, T4>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BBBBC<T, T0, T1, T2, T3, T4> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -8010,30 +5511,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBBBBC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBBBBC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBBBBC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBBC<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBBC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBBC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBBBBC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -8068,16 +5556,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBBC<T, T0, T1, T2, T3, T4>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBBC<T, T0, T1, T2, T3, T4>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBBBBC<T, T0, T1, T2, T3, T4> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -8152,30 +5634,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BBBBB<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BBBBB<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BBBBB<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBBB<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBBB<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBBB<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BBBBB<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -8210,16 +5679,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBBB<T, T0, T1, T2, T3, T4>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBBB<T, T0, T1, T2, T3, T4>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BBBBB<T, T0, T1, T2, T3, T4> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -8295,30 +5758,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBBBBB<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBBBBB<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBBBBB<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBBB<,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBBB<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBBB<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBBBBB<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -8353,16 +5803,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBBB<T, T0, T1, T2, T3, T4>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBBB<T, T0, T1, T2, T3, T4>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBBBBB<T, T0, T1, T2, T3, T4> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -8439,30 +5883,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_CCCCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_CCCCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_CCCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_CCCCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_CCCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_CCCCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_CCCCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_CCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -8498,16 +5929,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_CCCCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_CCCCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_CCCCCC<T, T0, T1, T2, T3, T4, T5> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -8568,30 +5993,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_ECCCCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_ECCCCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_ECCCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_ECCCCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_ECCCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_ECCCCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_ECCCCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_ECCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -8627,16 +6039,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_ECCCCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_ECCCCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_ECCCCCC<T, T0, T1, T2, T3, T4, T5> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -8698,30 +6104,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BCCCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BCCCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BCCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BCCCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BCCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BCCCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BCCCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -8757,16 +6150,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BCCCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BCCCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BCCCCC<T, T0, T1, T2, T3, T4, T5> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -8837,30 +6224,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBCCCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBCCCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBCCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBCCCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBCCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBCCCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBCCCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -8896,16 +6270,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBCCCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBCCCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBCCCCC<T, T0, T1, T2, T3, T4, T5> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -8977,30 +6345,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BBCCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BBCCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BBCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBCCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBCCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BBCCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -9036,16 +6391,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBCCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBCCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BBCCCC<T, T0, T1, T2, T3, T4, T5> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -9118,30 +6467,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBBCCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBBCCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBBCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBCCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBCCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBCCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBBCCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -9177,16 +6513,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBCCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBCCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBBCCCC<T, T0, T1, T2, T3, T4, T5> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -9260,30 +6590,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BBBCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BBBCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BBBCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BBBCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -9319,16 +6636,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BBBCCC<T, T0, T1, T2, T3, T4, T5> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -9403,30 +6714,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBBBCCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBBBCCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBBBCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBCCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBCCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBCCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBBBCCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -9462,16 +6760,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBCCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBBBCCC<T, T0, T1, T2, T3, T4, T5> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -9547,30 +6839,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BBBBCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BBBBCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BBBBCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBBCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBBCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBBCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BBBBCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -9606,16 +6885,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBBCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBBCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BBBBCC<T, T0, T1, T2, T3, T4, T5> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -9692,30 +6965,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBBBBCC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBBBBCC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBBBBCC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBBCC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBBCC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBBCC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBBBBCC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -9751,16 +7011,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBBCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBBCC<T, T0, T1, T2, T3, T4, T5>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBBBBCC<T, T0, T1, T2, T3, T4, T5> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -9838,30 +7092,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BBBBBC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BBBBBC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BBBBBC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBBBC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBBBC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBBBC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BBBBBC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -9897,16 +7138,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBBBC<T, T0, T1, T2, T3, T4, T5>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBBBC<T, T0, T1, T2, T3, T4, T5>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BBBBBC<T, T0, T1, T2, T3, T4, T5> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -9985,30 +7220,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBBBBBC<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBBBBBC<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBBBBBC<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBBBC<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBBBC<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBBBC<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBBBBBC<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -10044,16 +7266,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBBBC<T, T0, T1, T2, T3, T4, T5>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBBBC<T, T0, T1, T2, T3, T4, T5>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBBBBBC<T, T0, T1, T2, T3, T4, T5> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -10133,30 +7349,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_BBBBBB<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_BBBBBB<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_BBBBBB<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_BBBBBB<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_BBBBBB<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBBBB<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_BBBBBB<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_BBBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -10192,16 +7395,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBBBB<T, T0, T1, T2, T3, T4, T5>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_BBBBBB<T, T0, T1, T2, T3, T4, T5>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_BBBBBB<T, T0, T1, T2, T3, T4, T5> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -10282,30 +7479,17 @@ namespace Unity.Entities
         }
         internal static unsafe JobHandle ScheduleInternal_EBBBBBB<T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_EBBBBBB<T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_EBBBBBB<T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_EBBBBBB<,,,,,,>), isParallelFor, ref JobStruct_ProcessInfer_EBBBBBB<T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBBBB<T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_EBBBBBB<T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_EBBBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -10341,16 +7525,10 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBBBB<T, T0, T1, T2, T3, T4, T5>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_EBBBBBB<T, T0, T1, T2, T3, T4, T5>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_EBBBBBB<T, T0, T1, T2, T3, T4, T5> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -10431,6 +7609,7 @@ namespace Unity.Entities
             }
         }
     }
+#endif // !UNITY_DOTSPLAYER
 }
 #pragma warning restore 618
 

@@ -81,33 +81,6 @@ public class SharedComponentSerializeTests
         srcData.NullObj = null;
         return srcData;
     }
-
-    
-    [Test]
-    unsafe public void ReadWriteObjectTableIndex()
-    {
-        var srcData = ConfigureStruct();
-
-        // Write to stream
-        var buffer = new UnsafeAppendBuffer(0, 16, Allocator.Persistent);
-        var writer = new PropertiesBinaryWriter(&buffer);
-
-        PropertyContainer.Visit(ref srcData, writer);
-
-        var objectTable = writer.GetObjectTable();    
-        
-        // Read from stream
-        var readStream = writer.Buffer.AsReader();
-        var reader = new PropertiesBinaryReader(&readStream, objectTable);
-        
-        var readData = new TestStruct();
-        PropertyContainer.Visit(ref readData, reader);
-
-        // Check same
-        TestStruct.AreEqual(srcData, readData);
-        
-        buffer.Dispose();
-    }
     
     [Test]
     unsafe public void ReadWriteBoxed()
@@ -116,18 +89,18 @@ public class SharedComponentSerializeTests
 
         // Write to stream
         var buffer = new UnsafeAppendBuffer(0, 16, Allocator.Persistent);
-        var writer = new PropertiesBinaryWriter(&buffer);
+        var writer = new ManagedObjectBinaryWriter(&buffer);
 
-        var boxedSrcData = (object)srcData;
-        BoxedProperties.WriteBoxedType(boxedSrcData, writer);
+        var boxedSrcData = (object) srcData;
+        writer.WriteObject(boxedSrcData);
 
         var objectTable = writer.GetObjectTable();    
         
         // Read from stream
-        var readStream = writer.Buffer.AsReader();
-        var reader = new PropertiesBinaryReader(&readStream, objectTable);
+        var readStream = buffer.AsReader();
+        var reader = new ManagedObjectBinaryReader(&readStream, objectTable);
         
-        var boxedRead = BoxedProperties.ReadBoxedStruct(typeof(TestStruct), reader);
+        var boxedRead = reader.ReadObject(typeof(TestStruct));
 
         // Check same
         TestStruct.AreEqual(srcData, (TestStruct)boxedRead);
@@ -163,18 +136,18 @@ public class SharedComponentSerializeTests
 
         // Write to stream
         var buffer = new UnsafeAppendBuffer(0, 16, Allocator.Persistent);
-        var writer = new PropertiesBinaryWriter(&buffer);
+        var writer = new ManagedObjectBinaryWriter(&buffer);
 
         var boxedSrcData = (object)srcData;
-        BoxedProperties.WriteBoxedType(boxedSrcData, writer);
+        writer.WriteObject(boxedSrcData);
 
         var objectTable = writer.GetObjectTable();    
         
         // Read from stream
-        var readStream = writer.Buffer.AsReader();
-        var reader = new PropertiesBinaryReader(&readStream, objectTable);
+        var readStream = buffer.AsReader();
+        var reader = new ManagedObjectBinaryReader(&readStream, objectTable);
         
-        var boxedRead = BoxedProperties.ReadBoxedClass(typeof(ComponentWithStringArray), reader);
+        var boxedRead = reader.ReadObject(typeof(ComponentWithStringArray));
 
         // Check same
         ComponentWithStringArray.AreEqual(srcData, (ComponentWithStringArray)boxedRead);

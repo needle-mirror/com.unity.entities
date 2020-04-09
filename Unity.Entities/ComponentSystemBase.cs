@@ -191,6 +191,11 @@ namespace Unity.Entities
         {
         }
 
+        internal void OnDestroy_Internal()
+        {
+            OnDestroy();
+        }
+
         /// <summary>
         /// Executes the system immediately.
         /// </summary>
@@ -304,12 +309,9 @@ namespace Unity.Entities
             m_AlwaysUpdateSystem = Attribute.IsDefined(GetType(), typeof(AlwaysUpdateSystemAttribute), true);
 #else
             m_AlwaysUpdateSystem = false;
-            var attrs = TypeManager.GetSystemAttributes(GetType());
-            foreach (var attr in attrs)
-            {
-                if (attr.GetType() == typeof(AlwaysUpdateSystemAttribute))
-                    m_AlwaysUpdateSystem = true;
-            }
+            var attrs = TypeManager.GetSystemAttributes(GetType(), typeof(AlwaysUpdateSystemAttribute));
+            if (attrs.Length > 0)
+                m_AlwaysUpdateSystem = true;
 #endif
         }
 
@@ -684,7 +686,7 @@ namespace Unity.Entities
     public static unsafe class ComponentSystemBaseManagedComponentExtensions
     {
         /// <summary>
-        /// Checks whether a singelton component of the specified type exists.
+        /// Checks whether a singleton component of the specified type exists.
         /// </summary>
         /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
         /// <returns>True, if a singleton of the specified type exists in the current <see cref="World"/>.</returns>

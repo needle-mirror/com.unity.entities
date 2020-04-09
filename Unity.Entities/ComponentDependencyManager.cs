@@ -293,7 +293,7 @@ namespace Unity.Entities
 #endif
         }
 
-        void CompleteWriteDependencyNoChecks(int type)
+        internal void CompleteWriteDependencyNoChecks(int type)
         {
             var withoutFlags = type & TypeManager.ClearFlagsMask;
             var arrayIndex = m_TypeArrayIndices[withoutFlags];
@@ -475,6 +475,11 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Safety.CompleteReadAndWriteDependency(type);
 #endif
+        }
+
+        internal void CompleteWriteDependencyNoChecks(int type)
+        {
+            m_Dependency.Complete();
         }
 
         public void BeginExclusiveTransaction()

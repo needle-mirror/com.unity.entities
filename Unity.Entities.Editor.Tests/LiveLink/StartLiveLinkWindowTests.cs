@@ -1,16 +1,18 @@
+using NUnit.Framework;
 using System;
 using System.IO;
-using NUnit.Framework;
 using Unity.Build;
 using Unity.Build.Classic;
 using Unity.Build.Common;
 using UnityEditor;
 using UnityEditor.UIElements;
+using UnityEngine;
 using UnityEngine.UIElements;
+using BuildPipeline = Unity.Build.BuildPipeline;
 
 namespace Unity.Entities.Editor.Tests
 {
-    
+
     [TestFixture]
     class StartLiveLinkWindowTests
     {
@@ -89,14 +91,22 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void ConfigurationViewModel_DetectWhenNotLiveLinkCompatible()
         {
-            var liveLinkPipeline = Build.BuildPipeline.LoadAsset(StartLiveLinkWindow.kDefaultLiveLinkBuildPipelineAssetPath);
-            var liveLinkMetaPipeline = Build.BuildPipeline.LoadAsset(StartLiveLinkWindow.kWinLiveLinkBuildPipelineAssetPath);
-            var nonLiveLinkPipeline = Build.BuildPipeline.LoadAsset("Packages/com.unity.entities/Unity.Entities.Hybrid/Assets/Hybrid.buildpipeline");
+            var liveLinkPipeline = BuildPipeline.LoadAsset(StartLiveLinkWindow.kDefaultLiveLinkBuildPipelineAssetPath);
+            var liveLinkMetaPipeline = BuildPipeline.LoadAsset(StartLiveLinkWindow.kWinLiveLinkBuildPipelineAssetPath);
+            var nonLiveLinkPipeline = BuildPipeline.LoadAsset("Packages/com.unity.entities/Unity.Entities.Hybrid/Assets/Hybrid.buildpipeline");
             var liveLink = new StartLiveLinkWindow.BuildConfigurationViewModel(CreateBuildConfiguration("LiveLink", configuration =>
             {
                 configuration.SetComponent(new GeneralSettings());
                 configuration.SetComponent(new SceneList { BuildCurrentScene = true });
-                configuration.SetComponent(new ClassicBuildProfile { Pipeline = liveLinkPipeline, Target = BuildTarget.Android });
+                configuration.SetComponent(new ClassicBuildProfile
+                {
+#if UNITY_2020_1_OR_NEWER
+                    Pipeline = new LazyLoadReference<BuildPipeline> { asset = liveLinkPipeline },
+#else
+                    Pipeline = liveLinkPipeline,
+#endif
+                    Target = BuildTarget.Android
+                });
                 configuration.SetComponent(new OutputBuildDirectory { OutputDirectory = "Builds" });
                 configuration.SetComponent(new ClassicScriptingSettings());
             }));
@@ -104,7 +114,15 @@ namespace Unity.Entities.Editor.Tests
             {
                 configuration.SetComponent(new GeneralSettings());
                 configuration.SetComponent(new SceneList { BuildCurrentScene = true });
-                configuration.SetComponent(new ClassicBuildProfile { Pipeline = liveLinkMetaPipeline, Target = BuildTarget.Android });
+                configuration.SetComponent(new ClassicBuildProfile
+                {
+#if UNITY_2020_1_OR_NEWER
+                    Pipeline = new LazyLoadReference<BuildPipeline> { asset = liveLinkMetaPipeline },
+#else
+                    Pipeline = liveLinkMetaPipeline,
+#endif
+                    Target = BuildTarget.Android
+                });
                 configuration.SetComponent(new OutputBuildDirectory { OutputDirectory = "Builds" });
                 configuration.SetComponent(new ClassicScriptingSettings());
             }));
@@ -112,7 +130,15 @@ namespace Unity.Entities.Editor.Tests
             {
                 configuration.SetComponent(new GeneralSettings());
                 configuration.SetComponent(new SceneList { BuildCurrentScene = true });
-                configuration.SetComponent(new ClassicBuildProfile { Pipeline = nonLiveLinkPipeline, Target = BuildTarget.Android });
+                configuration.SetComponent(new ClassicBuildProfile
+                {
+#if UNITY_2020_1_OR_NEWER
+                    Pipeline = new LazyLoadReference<BuildPipeline> { asset = nonLiveLinkPipeline },
+#else
+                    Pipeline = nonLiveLinkPipeline,
+#endif
+                    Target = BuildTarget.Android
+                });
                 configuration.SetComponent(new OutputBuildDirectory { OutputDirectory = "Builds" });
                 configuration.SetComponent(new ClassicScriptingSettings());
             }));
@@ -125,11 +151,20 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void ConfigurationViewModel_CheckIfActionIsAllowed()
         {
+            var pipeline = BuildPipeline.LoadAsset(StartLiveLinkWindow.kDefaultLiveLinkBuildPipelineAssetPath);
             var viewModel = new StartLiveLinkWindow.BuildConfigurationViewModel(CreateBuildConfiguration("Config", configuration =>
             {
                 configuration.SetComponent(new GeneralSettings());
                 configuration.SetComponent(new SceneList { BuildCurrentScene = true });
-                configuration.SetComponent(new ClassicBuildProfile { Pipeline = Build.BuildPipeline.LoadAsset(StartLiveLinkWindow.kDefaultLiveLinkBuildPipelineAssetPath), Target = BuildTarget.Android });
+                configuration.SetComponent(new ClassicBuildProfile
+                {
+#if UNITY_2020_1_OR_NEWER
+                    Pipeline = new LazyLoadReference<BuildPipeline> { asset = pipeline },
+#else
+                    Pipeline = pipeline,
+#endif
+                    Target = BuildTarget.Android
+                });
                 configuration.SetComponent(new OutputBuildDirectory { OutputDirectory = "TestConfigurationBuilds" });
                 configuration.SetComponent(new ClassicScriptingSettings());
             }));
@@ -150,7 +185,7 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(viewModel.IsActionAllowed(StartLiveLinkWindow.StartMode.RunLatestBuild, out _), Is.False);
         }
 #endif
-        
+
         string CreateBuildConfiguration(string assetName = "TestConfiguration", Action<BuildConfiguration> mutator = null)
         {
             var cfg = BuildConfiguration.CreateAsset(Path.Combine(m_TestDirectoryPath, assetName + BuildConfiguration.AssetExtension), mutator);

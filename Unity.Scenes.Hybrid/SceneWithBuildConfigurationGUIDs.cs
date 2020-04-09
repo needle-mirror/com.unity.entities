@@ -1,4 +1,5 @@
 ﻿#if UNITY_EDITOR
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Unity.Entities;
@@ -13,6 +14,10 @@ namespace Unity.Scenes
     {
         public Hash128 SceneGUID;
         public Hash128 BuildConfiguration;
+        
+        // Currently used to allow us to force subscenes to reimport
+        // TODO: Remove this when we have the ability to solve this with the asset database
+        public long DirtyValue;
             
         static HashSet<Hash128> s_BuildConfigurationCreated = new HashSet<Hash128>();
         private static long s_AssetRefreshCounter = 0;
@@ -34,6 +39,43 @@ namespace Unity.Scenes
             
             s_AssetRefreshCounter = refreshDelta;
         }
+
+        public static string GetSceneWithBuildSettingsPath(ref Hash128 guid)
+        {
+            return $"{k_SceneDependencyCachePath}/{guid}.sceneWithBuildSettings";
+        }
+
+        public static Hash128 Dirty(Hash128 sceneGUID, Hash128 buildConfigurationGUID)
+        {
+            var guid = ComputeBuildConfigurationGUID(sceneGUID, buildConfigurationGUID);
+            var fileName = GetSceneWithBuildSettingsPath(ref guid);
+
+            if (File.Exists(fileName))
+            {
+                var sceneWithBuildConfigurationGUIDs = new SceneWithBuildConfigurationGUIDs { SceneGUID = sceneGUID, BuildConfiguration = buildConfigurationGUID, DirtyValue = DateTime.UtcNow.Ticks};
+                WriteSceneWithBuildSettings(ref guid, ref sceneWithBuildConfigurationGUIDs, fileName);
+            }
+
+            return guid;
+        }
+
+        private static unsafe void WriteSceneWithBuildSettings(ref Hash128 guid, ref SceneWithBuildConfigurationGUIDs sceneWithBuildConfigurationGUIDs, string path)
+        {
+            Directory.CreateDirectory(k_SceneDependencyCachePath);
+            using(var writer = new StreamBinaryWriter(path))
+            {
+                fixed (void* vp = &sceneWithBuildConfigurationGUIDs)
+                {
+                    writer.WriteBytes(vp, sizeof(SceneWithBuildConfigurationGUIDs));
+                }
+            }
+            File.WriteAllText(path + ".meta",
+                $"fileFormatVersion: 2\nguid: {guid}\nDefaultImporter:\n  externalObjects: {{}}\n  userData:\n  assetBundleName:\n  assetBundleVariant:\n");
+        
+            // Refresh is necessary because it appears the asset pipeline
+            // can't depend on an asset on disk that has not yet been refreshed.
+            AssetDatabase.Refresh();
+        }
         
         public static unsafe Hash128 EnsureExistsFor(Hash128 sceneGUID, Hash128 buildConfigurationGUID)
         {
@@ -42,25 +84,15 @@ namespace Unity.Scenes
             if (s_BuildConfigurationCreated.Contains(guid))
                 return guid;
             
-            var guids = new SceneWithBuildConfigurationGUIDs { SceneGUID = sceneGUID, BuildConfiguration = buildConfigurationGUID};
-        
-            var fileName = $"{k_SceneDependencyCachePath}/{guid}.sceneWithBuildSettings";
+            var sceneWithBuildConfigurationGUIDs = new SceneWithBuildConfigurationGUIDs { SceneGUID = sceneGUID, BuildConfiguration = buildConfigurationGUID, DirtyValue = 0};
+
+            var fileName = GetSceneWithBuildSettingsPath(ref guid);
             if (!File.Exists(fileName))
             {
-                Directory.CreateDirectory(k_SceneDependencyCachePath);
-                using(var writer = new StreamBinaryWriter(fileName))
-                {
-                    writer.WriteBytes(&guids, sizeof(SceneWithBuildConfigurationGUIDs));
-                }
-                File.WriteAllText(fileName + ".meta",
-                    $"fileFormatVersion: 2\nguid: {guid}\nDefaultImporter:\n  externalObjects: {{}}\n  userData:\n  assetBundleName:\n  assetBundleVariant:\n");
-            
-                // Refresh is necessary because it appears the asset pipeline
-                // can't depend on an asset on disk that has not yet been refreshed.
-                AssetDatabase.Refresh();
+                WriteSceneWithBuildSettings(ref guid, ref sceneWithBuildConfigurationGUIDs, fileName);
             }
 
-            s_BuildConfigurationCreated.Add(guid);
+        s_BuildConfigurationCreated.Add(guid);
             
             return guid;
         }
@@ -68,7 +100,7 @@ namespace Unity.Scenes
         public static unsafe SceneWithBuildConfigurationGUIDs ReadFromFile(string path)
         {
             SceneWithBuildConfigurationGUIDs sceneWithBuildConfiguration = default;
-            using (var reader = new StreamBinaryReader(path, sizeof(SceneWithBuildConfigurationGUIDs)))
+            using (var reader = new StreamBinaryReader(path))
             {
                 reader.ReadBytes(&sceneWithBuildConfiguration, sizeof(SceneWithBuildConfigurationGUIDs));
             }

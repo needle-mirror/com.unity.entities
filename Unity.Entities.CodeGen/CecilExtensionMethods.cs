@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Unity.Burst;
 using Unity.Collections;
+using MethodAttributes = Mono.Cecil.MethodAttributes;
+using MethodBody = Mono.Cecil.Cil.MethodBody;
 
 namespace Unity.Entities.CodeGen
 {
@@ -200,12 +203,17 @@ namespace Unity.Entities.CodeGen
         public static bool HasReadOnlyAttribute(this FieldDefinition fieldDefinition) =>
             fieldDefinition.CustomAttributes.Any(ca => ca.AttributeType.Name == nameof(ReadOnlyAttribute) && ca.AttributeType.Namespace == typeof(ReadOnlyAttribute).Namespace);
         
-        public static void AddReadOnlyAttribute(this FieldDefinition fieldDefinition)
+        public static void AddReadOnlyAttribute(this FieldDefinition fieldDefinition, ModuleDefinition module)
         {
-            var readOnlyAttribute = fieldDefinition.Module.ImportReference(typeof(ReadOnlyAttribute).GetConstructors().Single(c => !c.GetParameters().Any()));
+            var readOnlyAttribute = module.ImportReference(typeof(ReadOnlyAttribute).GetConstructors().Single(c => !c.GetParameters().Any()));
             fieldDefinition.CustomAttributes.Add(new CustomAttribute(readOnlyAttribute));
         }
         
+        public static void AddReadOnlyAttribute(this FieldDefinition fieldDefinition)
+        {
+            fieldDefinition.AddReadOnlyAttribute(fieldDefinition.Module);
+        }
+
         public static void RemoveReadOnlyAttribute(this FieldDefinition fieldDefinition)
         {
             foreach (var attribute in fieldDefinition.CustomAttributes)
@@ -218,10 +226,15 @@ namespace Unity.Entities.CodeGen
             }
         }
         
-        public static void AddNoAliasAttribute(this FieldDefinition fieldDefinition)
+        public static void AddNoAliasAttribute(this FieldDefinition fieldDefinition, ModuleDefinition module)
         {
             var noAliasAttribute = fieldDefinition.Module.ImportReference(typeof(NoAliasAttribute).GetConstructors().Single(c => !c.GetParameters().Any()));
             fieldDefinition.CustomAttributes.Add(new CustomAttribute(noAliasAttribute));
+        }
+        
+        public static void AddNoAliasAttribute(this FieldDefinition fieldDefinition)
+        {
+            fieldDefinition.AddNoAliasAttribute(fieldDefinition.Module);
         }
     }
 
@@ -229,6 +242,25 @@ namespace Unity.Entities.CodeGen
     {
         public static bool IsDelegate(this TypeDefinition typeDefinition) =>
             typeDefinition.BaseType?.Name == nameof(MulticastDelegate);
+        
+        public static bool IsSystemBase(this TypeDefinition arg)
+        {
+            var baseTypeRef = arg.BaseType;
+
+            if (baseTypeRef == null)
+                return false;
+
+            if (baseTypeRef.Namespace == "Unity.Entities" && baseTypeRef.Name == nameof(SystemBase))
+                return true;
+
+            if (baseTypeRef.Name == "Object" && baseTypeRef.Namespace == "System")
+                return false;
+
+            if (baseTypeRef.Name == "ValueType" && baseTypeRef.Namespace == "System")
+                return false;
+
+            return IsSystemBase(baseTypeRef.Resolve());
+        }
 
         public static bool IsComponentSystem(this TypeDefinition arg)
         {

@@ -392,6 +392,12 @@ namespace Unity.Entities
             return chunk->Buffer + archetype->Offsets[indexInArchetype];
         }
 
+        internal static void* GetChunkComponentDataROPtr(Chunk* chunk, int indexInArchetype)
+        {
+            var archetype = chunk->Archetype;
+            return chunk->Buffer + archetype->Offsets[indexInArchetype];
+        }
+
         internal static JobHandle PreparePrefilteredChunkLists(int unfilteredChunkCount, UnsafeMatchingArchetypePtrList archetypes, EntityQueryFilter filter, JobHandle dependsOn, ScheduleMode mode, out NativeArray<byte> prefilterDataArray, out void* deferredCountData)
         {
             // Allocate one buffer for all prefilter data and distribute it

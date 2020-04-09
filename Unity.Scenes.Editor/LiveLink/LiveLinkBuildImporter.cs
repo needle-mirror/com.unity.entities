@@ -66,22 +66,49 @@ namespace Unity.Scenes.Editor
             public BlobArray<Hash128> Dependencies;
         }
 
+        [Obsolete("LiveLinkBuildImporter.GetHash has been deprecated. It will not be supported in the future. (RemovedAfter 2020-06-13).")]
         public static Hash128 GetHash(string guid, BuildTarget target, AssetDatabaseExperimental.ImportSyncMode syncMode)
+        {
+            ImportMode importMode;
+            switch (syncMode)
+            {
+                case AssetDatabaseExperimental.ImportSyncMode.Block:
+                    importMode = ImportMode.Synchronous;
+                    break;
+                case AssetDatabaseExperimental.ImportSyncMode.Poll:
+                    importMode = ImportMode.NoImport;
+                    break;
+                case AssetDatabaseExperimental.ImportSyncMode.Queue:
+                    importMode = ImportMode.Asynchronous;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(syncMode), $"Invalid enum value encountered: {syncMode}");
+            }
+
+            return GetHash(guid, target, importMode);
+        }
+
+        internal static Hash128 GetHash(string guid, BuildTarget target, ImportMode importMode)
         {
             LiveLinkBuildPipeline.RemapBuildInAssetGuid(ref guid);
             AssetBundleTypeCache.RegisterMonoScripts();
 
             // TODO: GetArtifactHash needs to take BuildTarget so we can get Artifacts for other than the ActiveBuildTarget
-            return AssetDatabaseExperimental.GetArtifactHash(guid, typeof(LiveLinkBuildImporter), syncMode);
+            return AssetDatabaseCompatibility.GetArtifactHash(guid, typeof(LiveLinkBuildImporter), importMode);
         }
 
+        [Obsolete("LiveLinkBuildImport.GetDependencies has been deprecated. It will not be supported in the future. (RemovedAfter 2020-06-13).")]
+        public static Hash128[] GetDependencies(Hash128 artifactHash) => GetDependenciesInternal(artifactHash);
+
         // Recursive until new SBP APIs land in 2020.1
-        public unsafe static Hash128[] GetDependencies(Hash128 artifactHash)
+        internal static Hash128[] GetDependenciesInternal(Hash128 artifactHash)
         {
             try
             {
-                AssetDatabaseExperimental.GetArtifactPaths(artifactHash, out string[] paths);
+                AssetDatabaseCompatibility.GetArtifactPaths(artifactHash, out string[] paths);
                 var metaPath = paths.First(o => o.EndsWith(k_DependenciesExtension));
+                if (metaPath == null)
+                    return Array.Empty<Hash128>();
 
                 BlobAssetReference<BuildMetaData> buildMetaData;
                 if (!BlobAssetReference<BuildMetaData>.TryRead(metaPath, k_CurrentFileFormatVersion, out buildMetaData))
@@ -97,12 +124,15 @@ namespace Unity.Scenes.Editor
             }
             return new Hash128[0];
         }
-        
-        public static string GetBundlePath(Hash128 artifactHash, GUID guid)
+
+        [Obsolete("LiveLinkBuildImport.GetBundlePath has been deprecated. It will not be supported in the future. (RemovedAfter 2020-06-13).")]
+        public static string GetBundlePath(Hash128 artifactHash, GUID guid) => GetBundlePathInternal(artifactHash, guid);
+
+        internal static string GetBundlePathInternal(Hash128 artifactHash, GUID guid)
         {
             try
             {
-                AssetDatabaseExperimental.GetArtifactPaths(artifactHash, out string[] paths);
+                AssetDatabaseCompatibility.GetArtifactPaths(artifactHash, out string[] paths);
                 return paths.First(o => o.EndsWith(k_BundleExtension));
             }
             catch (Exception e)

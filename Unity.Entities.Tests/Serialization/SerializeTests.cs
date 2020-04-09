@@ -1080,8 +1080,8 @@ namespace Unity.Entities.Tests
             var writer = new TestBinaryWriter();
             SerializeUtility.SerializeWorld(m_Manager, writer);
             using (var reader = new TestBinaryReader(writer))
+            using (var deserializedWorld = new World("SerializeEntities_HandlesNullManagedComponents Test World"))
             {
-                var deserializedWorld = new World("SerializeEntities_HandlesNullManagedComponents Test World");
                 var entityManager = deserializedWorld.EntityManager;
 
                 SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader);

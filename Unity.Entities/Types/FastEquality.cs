@@ -290,8 +290,8 @@ namespace Unity.Entities
             int hash = 0;
             using (var buffer = new UnsafeAppendBuffer(16, 16, Allocator.Temp))
             {
-                var writer = new PropertiesBinaryWriter(&buffer);
-                BoxedProperties.WriteBoxedType(lhs, writer);
+                var writer = new ManagedObjectBinaryWriter(&buffer);
+                writer.WriteObject(lhs);
 
                 var remainder = buffer.Length & (sizeof(int) - 1);
                 var alignedSize = buffer.Length - remainder;
@@ -377,10 +377,11 @@ namespace Unity.Entities
             using (var bufferLHS = new UnsafeAppendBuffer(512, 16, Allocator.Temp))
             using (var bufferRHS = new UnsafeAppendBuffer(512, 16, Allocator.Temp))
             {
-                var writerLHS = new PropertiesBinaryWriter(&bufferLHS);
-                BoxedProperties.WriteBoxedType(lhs, writerLHS);
-                var writerRHS = new PropertiesBinaryWriter(&bufferRHS);
-                BoxedProperties.WriteBoxedType(rhs, writerRHS);
+                var writerLHS = new ManagedObjectBinaryWriter(&bufferLHS);
+                writerLHS.WriteObject(lhs);
+                
+                var writerRHS = new ManagedObjectBinaryWriter(&bufferRHS);
+                writerRHS.WriteObject(rhs);
 
                 if (UnsafeUtility.MemCmp(bufferLHS.Ptr, bufferRHS.Ptr, bufferLHS.Length) != 0)
                     return false;

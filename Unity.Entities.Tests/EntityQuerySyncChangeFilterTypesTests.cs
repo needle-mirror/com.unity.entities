@@ -7,6 +7,7 @@ using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
+#if !UNITY_DOTSPLAYER
     [TestFixture("CompleteAllJobs")]
     [TestFixture("CompleteJob1")]
     [TestFixture("CompleteJob2")]
@@ -155,4 +156,5 @@ namespace Unity.Entities.Tests
             AssertThrowsIfAnyJobNotCompleted(() =>m_Manager.AddSharedComponentData(entityQuery, new EcsTestSharedComp(7)));
         }
     }
+#endif // !UNITY_DOTSPLAYER
 }

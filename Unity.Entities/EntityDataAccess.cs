@@ -788,7 +788,6 @@ unsafe struct EntityDataAccess : IDisposable
     {
         if (m_IsMainThread)
             BeforeStructuralChange();
-
         EntityComponentStore->AssertEntitiesExist(&srcEntity, 1);
         EntityComponentStore->AssertCanInstantiateEntities(srcEntity, outputEntities, count);
         StructuralChange.InstantiateEntities(EntityComponentStore, &srcEntity, outputEntities, count);
@@ -809,6 +808,22 @@ unsafe struct EntityDataAccess : IDisposable
         EntityComponentStore->InstantiateWithValidation(srcEntity, outputEntities, count);
     }
 
+    internal void InstantiateInternal(Entity* srcEntities, Entity* outputEntities, int count, int outputCount, bool removePrefab)
+    {
+        if (m_IsMainThread)
+            EntityManager.BeforeStructuralChange();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        if (count != outputCount)
+            throw new System.ArgumentException($"srcEntities.Length ({count}) and outputEntities.Length (({outputCount})) must be the same.");
+#endif
+        
+        EntityComponentStore->AssertEntitiesExist(srcEntities, count);
+        EntityComponentStore->AssertCanInstantiateEntities(srcEntities, count, removePrefab);
+        EntityComponentStore->InstantiateEntities(srcEntities, outputEntities, count, removePrefab);
+        ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+    }
+    
     internal void DestroyEntityInternal(Entity* entities, int count)
     {
         if (m_IsMainThread)

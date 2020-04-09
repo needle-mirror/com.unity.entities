@@ -1,8 +1,10 @@
 using System;
 using System.Runtime.CompilerServices;
 using Unity.Assertions;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace Unity.Entities
@@ -243,14 +245,18 @@ namespace Unity.Entities
                 var entityPtr = (Entity*)BufferHeader.GetElementPointer(header);
                 var entityCount = header->Length;
 
-                InstantiateEntitiesGroup(entityPtr, entityCount, outputEntities, instanceCount);
+                InstantiateEntitiesGroup(entityPtr, entityCount, outputEntities, true, instanceCount, true);
             }
             else
             {
-                InstantiateEntitiesOne(srcEntity, outputEntities, instanceCount, null, 0);
+                InstantiateEntitiesOne(srcEntity, outputEntities, instanceCount, null, 0, true);
             }
         }
 
+        public void InstantiateEntities(Entity* srcEntity, Entity* outputEntities, int entityCount, bool removePrefab)
+        {
+            InstantiateEntitiesGroup(srcEntity, entityCount, outputEntities, false, 1, removePrefab);
+        }
         // ----------------------------------------------------------------------------------------------------------
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------
@@ -408,11 +414,12 @@ namespace Unity.Entities
             FreeChunk(chunk);
         }
 
-        int InstantiateEntitiesOne(Entity srcEntity, Entity* outputEntities, int instanceCount, InstantiateRemapChunk* remapChunks, int remapChunksCount)
+        int InstantiateEntitiesOne(Entity srcEntity, Entity* outputEntities, int instanceCount, InstantiateRemapChunk* remapChunks, int remapChunksCount, bool removePrefab)
         {
             var src = GetEntityInChunk(srcEntity);
             var srcArchetype = src.Chunk->Archetype;
-            var dstArchetype = srcArchetype->InstantiableArchetype;
+            
+            var dstArchetype = removePrefab ? srcArchetype->InstantiateArchetype : srcArchetype->CopyArchetype;
 
             var archetypeChunkFilter = new ArchetypeChunkFilter();
             archetypeChunkFilter.Archetype = dstArchetype;
@@ -469,8 +476,7 @@ namespace Unity.Entities
             return remapChunksCount;
         }
 
-        void InstantiateEntitiesGroup(Entity* srcEntities, int srcEntityCount,
-            Entity* outputRootEntities, int instanceCount)
+        void InstantiateEntitiesGroup(Entity* srcEntities, int srcEntityCount, Entity* outputRootEntities, bool outputRootEntityOnly, int instanceCount, bool removePrefab)
         {
             int totalCount = srcEntityCount * instanceCount;
 
@@ -500,8 +506,7 @@ namespace Unity.Entities
             {
                 var srcEntity = srcEntities[i];
 
-                remapChunksCount = InstantiateEntitiesOne(srcEntity,
-                    outputEntities, instanceCount, remapChunks, remapChunksCount);
+                remapChunksCount = InstantiateEntitiesOne(srcEntity, outputEntities, instanceCount, remapChunks, remapChunksCount, removePrefab);
 
                 for (int r = 0; r != instanceCount; r++)
                 {
@@ -509,10 +514,18 @@ namespace Unity.Entities
                     *ptr = outputEntities[r];
                 }
 
-                if (i == 0)
+                if (outputRootEntityOnly)
+                {
+                    if (i == 0)
+                    {
+                        for (int r = 0; r != instanceCount; r++)
+                            outputRootEntities[r] = outputEntities[r];
+                    }
+                }
+                else
                 {
                     for (int r = 0; r != instanceCount; r++)
-                        outputRootEntities[r] = outputEntities[r];
+                        outputRootEntities[r * srcEntityCount + i] = outputEntities[r];
                 }
             }
 
@@ -685,6 +698,64 @@ namespace Unity.Entities
                 Count = batchCount,
                 StartIndex = indexInChunk
             };
+        }
+
+        public JobHandle GetCreatedAndDestroyedEntities(NativeList<int> state, NativeList<Entity> createdEntities, NativeList<Entity> destroyedEntities)
+        {
+            return new GetOrCreateDestroyedEntitiesJob
+            {
+                State = state,
+                CreatedEntities = createdEntities,
+                DestroyedEntities = destroyedEntities,
+                Capacity = m_EntitiesCapacity,
+                VersionByEntity = m_VersionByEntity,
+                EntityInChunkByEntity = m_EntityInChunkByEntity
+            }.Schedule();
+        }
+
+        [BurstCompile]
+        struct GetOrCreateDestroyedEntitiesJob : IJob
+        {
+            public NativeList<int>    State; 
+            public NativeList<Entity> CreatedEntities;
+            public NativeList<Entity> DestroyedEntities;
+
+            public int Capacity;
+                
+            [NativeDisableUnsafePtrRestriction]
+            public int* VersionByEntity;
+        
+            [NativeDisableUnsafePtrRestriction]
+            public EntityInChunk* EntityInChunkByEntity;
+
+            public void Execute()
+            {
+                CreatedEntities.Clear();
+                DestroyedEntities.Clear();
+                State.Resize(Capacity, NativeArrayOptions.ClearMemory);
+
+                var state = State.AsArray();
+                
+                for (int i = 0; i != state.Length;i++)
+                {
+                    if (state[i] == VersionByEntity[i])
+                        continue;
+
+                    // Was a valid entity but version was incremented, thus destroyed
+                    if (state[i] != 0)
+                    {
+                        DestroyedEntities.Add(new Entity { Index = i, Version = state[i] });
+                        state[i] = 0;
+                    }
+                    
+                    // It is now a valid entity, but version has changed
+                    if (EntityInChunkByEntity[i].Chunk != null)
+                    {
+                        CreatedEntities.Add(new Entity { Index = i, Version = VersionByEntity[i] });
+                        state[i] = VersionByEntity[i];
+                    }
+                }
+            }
         }
     }
 }

@@ -27,6 +27,7 @@ using System;
 
 namespace Unity.Entities
 {
+#if !UNITY_DOTSPLAYER        // DOTS-Runtime doesn't support IJobForEach
 <#
 var basicCombinations = GenCombinations();
 foreach(var combination in basicCombinations) {
@@ -70,7 +71,6 @@ for(int i=0; i<funcNames.Length; ++i) {
         public static JobHandle <#=funcNames[i]#><T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
             where T : struct, IBaseJobForEach
         {
-#if !UNITY_DOTSPLAYER        
             var typeT = typeof(T);
 <#
     foreach(var combination in combinations) {
@@ -84,7 +84,6 @@ for(int i=0; i<funcNames.Length; ++i) {
 <#
     }
 #>
-#endif
             throw new System.ArgumentException("Not supported");
         }
 <#
@@ -97,7 +96,6 @@ for(int i=0; i<funcNames.Length; ++i) {
         public static JobHandle <#=groupFuncNames[i]#><T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IBaseJobForEach
         {
-#if !UNITY_DOTSPLAYER        
             var typeT = typeof(T);
 <#
     foreach(var combination in combinations) {
@@ -111,45 +109,11 @@ for(int i=0; i<funcNames.Length; ++i) {
 <#
     }
 #>
-#endif // !UNITY_DOTSPLAYER
             throw new System.ArgumentException("Not supported");
         }
 <#
 }
 #>
-
-#if UNITY_DOTSPLAYER
-<#
-for(int i=0; i<funcNames.Length; ++i) {
-    foreach(var combination in combinations) {
-        var comboStringD = GetComboString(false, combination);
-        var comboStringE = GetComboString(true, combination);
-#>
-        internal static JobHandle <#=funcNames[i]#>_To_System_<#=comboStringD#><T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_<#=comboStringD#>(ref jobData, system, null, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode[i]#>);
-        }
-        internal static JobHandle <#=funcNames[i]#>_To_System_<#=comboStringE#><T>(this T jobData, ComponentSystemBase system, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_<#=comboStringE#>(ref jobData, system, null, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode[i]#>);
-        }
-        internal static JobHandle <#=funcNames[i]#>_To_Query_<#=comboStringD#><T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_<#=comboStringD#>(ref jobData, null, query, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode[i]#>);
-        }
-        internal static JobHandle <#=funcNames[i]#>_To_Query_<#=comboStringE#><T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
-            where T : struct, IBaseJobForEach
-        {
-            return ScheduleInternal_<#=comboStringE#>(ref jobData, null, query, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode[i]#>);
-        }
-<#
-    }
-}
-#>
-#endif // UNITY_DOTSPLAYER
 
 #pragma warning disable 618
 <#
@@ -181,30 +145,17 @@ foreach(var combination in combinations) {
 #>
         internal static unsafe JobHandle ScheduleInternal_<#=comboString#><T>(ref T jobData, ComponentSystemBase system, EntityQuery query, int innerloopBatchCount, JobHandle dependsOn, ScheduleMode mode)
             where T : struct
-#if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
-#endif                    
         {
             JobStruct_ProcessInfer_<#=comboString#><T> fullData;
             fullData.Data = jobData;
 
-#if UNITY_DOTSPLAYER
-            var isParallelFor = false;
-            Initialize(system, query, typeof(T), typeof(T), isParallelFor, ref JobStruct_ProcessInfer_<#=comboString#><T>.Cache, out fullData.Iterator, ref jobData);
-#else            
             var isParallelFor = innerloopBatchCount != -1;
             Initialize(system, query, typeof(T), typeof(JobStruct_Process_<#=comboString#><<#=untypedGenericParams#>>), isParallelFor, ref JobStruct_ProcessInfer_<#=comboString#><T>.Cache, out fullData.Iterator, ref jobData);
-#endif
 
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_<#=comboString#><T>.Cache.EntityQuery;
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, resolvedQuery._QueryData->MatchingArchetypes, resolvedQuery._Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-#if UNITY_DOTSPLAYER
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData), JobStruct_ProcessInfer_<#=comboString#><T>.Cache.JobReflectionData, prefilterHandle, mode);
-            return JobsUtility.Schedule(ref scheduleParams);
-#else
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_<#=comboString#><T>.Cache, deferredCountData, prefilterHandle, mode);
-#endif            
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -241,16 +192,10 @@ foreach(var combination in combinations) {
             [NativeDisableContainerSafetyRestriction]
             public NativeArray<byte> PrefilterData;
 
-#if !UNITY_DOTSPLAYER
             [Preserve]
-#endif            
             public static IntPtr Initialize(JobType jobType)
             {
-#if UNITY_DOTSPLAYER
-                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_<#=comboString#><T, <#=genericParams#>>), typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
-#else
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_<#=comboString#><T, <#=genericParams#>>), typeof(T), jobType, (ExecuteJobFunction) Execute);
-#endif                
             }
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_<#=comboString#><T, <#=genericParams#>> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
@@ -301,6 +246,7 @@ foreach(var combination in combinations) {
 }
 #>
     }
+#endif // !UNITY_DOTSPLAYER
 }
 #pragma warning restore 618
 
@@ -492,9 +438,6 @@ string Interface( Category[] combination, bool withEntity, string comboString )
 $@"
     [Obsolete(""Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)"")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_{comboString}<{GetUntypedGenericParams(combination)}>))]
-    #if UNITY_DOTSPLAYER
-    [JobInferredType(typeof(JobForEachExtensions.JobStruct_ProcessInfer_{comboString}<>))]
-    #endif
     public interface {name}<{GenericParams(combination)}> : JobForEachExtensions.IBaseJobForEach_{comboString}
 ");
 

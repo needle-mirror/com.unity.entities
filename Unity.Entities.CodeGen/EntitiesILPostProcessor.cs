@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.CompilationPipeline.Common.ILPostProcessing;
 
@@ -32,16 +33,23 @@ namespace Unity.Entities.CodeGen
         {
             if (!WillProcess(compiledAssembly))
                 return null;
-
+            
+            bool madeAnyChange = false;
             Defines = compiledAssembly.Defines;
             var assemblyDefinition = AssemblyDefinitionFor(compiledAssembly);
             var postProcessors = FindAllEntitiesILPostProcessors();
+            
+            var componentSystemTypes = assemblyDefinition.MainModule.GetAllTypes().Where(TypeDefinitionExtensions.IsComponentSystem).ToArray();
+            foreach (var systemType in componentSystemTypes)
+            {
+                InjectOnCreateForCompiler(systemType);
+                madeAnyChange = true;
+            }
 
-            var diagnostics = new List<DiagnosticMessage>(); 
-            bool madeAnyChange = false;
+            var diagnostics = new List<DiagnosticMessage>();
             foreach (var postProcessor in postProcessors)
             {
-                diagnostics.AddRange(postProcessor.PostProcess(assemblyDefinition, out var madeChange));
+                diagnostics.AddRange(postProcessor.PostProcess(assemblyDefinition, componentSystemTypes, out var madeChange));
                 madeAnyChange |= madeChange;
             };
 
@@ -57,6 +65,31 @@ namespace Unity.Entities.CodeGen
             
             assemblyDefinition.Write(pe, writerParameters);
             return new ILPostProcessResult(new InMemoryAssembly(pe.ToArray(), pdb.ToArray()), diagnostics);
+        }
+        
+        static void InjectOnCreateForCompiler(TypeDefinition typeDefinition)
+        {
+            // Turns out it's not trivial to inject some code that has to be run OnCreate of the system.
+            // We cannot just create an OnCreate() method, because there might be a deriving class that also implements it.
+            // That child method is probably not calling base.OnCreate(), but even when it is (!!) the c# compiler bakes base.OnCreate()
+            // into a direct reference to whatever is the first baseclass to have OnCreate() at the time of compilation.  So if we go
+            // and inject an OnCreate() in this class later on,  the child's base.OnCreate() call will actually bypass it.
+            //
+            // Instead what we do is add OnCreateForCompiler,  hide it from intellisense, give you an error if wanna be that guy that goes
+            // and implement it anyway,  and then we inject a OnCreateForCompiler method into each and every ComponentSystem.  The reason we have to emit it in
+            // each and every system, and not just the ones where we have something to inject,  is that when we emit these method, we need
+            // to also emit base.OnCreateForCompiler().  However, when we are processing an user system type,  we do not know yet if its baseclass
+            // also needs an OnCreateForCompiler().   So we play it safe, and assume it does.  So every OnCreateForCompiler() that we emit,
+            // will assume its basetype also has an implementation and invoke that.
+            
+            if (typeDefinition.Name == nameof(ComponentSystemBase) && typeDefinition.Namespace == "Unity.Entities") return;
+
+            var onCreateForCompilerName = EntitiesILHelpers.GetOnCreateForCompilerName();
+            var preExistingMethod = typeDefinition.Methods.FirstOrDefault(m => m.Name == onCreateForCompilerName);
+            if (preExistingMethod != null)
+                UserError.DC0026($"It's not allowed to implement {onCreateForCompilerName}'", preExistingMethod).Throw();
+
+            EntitiesILHelpers.GetOrMakeOnCreateForCompilerMethodFor(typeDefinition);
         }
 
         public override ILPostProcessor GetInstance()
@@ -223,12 +256,12 @@ namespace Unity.Entities.CodeGen
 
         protected List<DiagnosticMessage> _diagnosticMessages = new List<DiagnosticMessage>();
 
-        public IEnumerable<DiagnosticMessage> PostProcess(AssemblyDefinition assemblyDefinition, out bool madeAChange)
+        public IEnumerable<DiagnosticMessage> PostProcess(AssemblyDefinition assemblyDefinition, TypeDefinition[] componentSystemTypes, out bool madeAChange)
         {
             AssemblyDefinition = assemblyDefinition;
             try
             {
-                madeAChange = PostProcessImpl();
+                madeAChange = PostProcessImpl(componentSystemTypes);
             }
             catch (FoundErrorInUserCodeException e)
             {
@@ -239,7 +272,7 @@ namespace Unity.Entities.CodeGen
             return _diagnosticMessages;
         }
         
-        protected abstract bool PostProcessImpl();
+        protected abstract bool PostProcessImpl(TypeDefinition[] componentSystemTypes);
 
         protected void AddDiagnostic(DiagnosticMessage diagnosticMessage)
         {

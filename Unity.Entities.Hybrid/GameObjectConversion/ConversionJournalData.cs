@@ -248,8 +248,8 @@ namespace Unity.Entities.Conversion
             m_HybridTypes.Add(index, type);
         }
 
-        public MultiListEnumerator<Type> HybridTypes(int headId) =>
-            m_HybridTypes.SelectListAt(headId);
+        public MultiListEnumerator<Type> HybridTypes(int headIdIndex) =>
+            m_HybridTypes.SelectList(headIdIndex);
 
         public IEnumerable<(int objectInstanceId, LogEventData eventData)> SelectLogEventsFast() =>
             SelectJournalData(m_LogEvents);

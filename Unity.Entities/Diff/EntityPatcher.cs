@@ -1139,49 +1139,32 @@ namespace Unity.Entities
 
             return count;
         }
-        internal static void PatchEntitiesInObject(object obj, NativeMultiHashMap<EntityComponentPair, OffsetEntityPair>.Enumerator patches)
+        
+        static void PatchEntitiesInObject(object obj, NativeMultiHashMap<EntityComponentPair, OffsetEntityPair>.Enumerator patches)
         {
 #if !NET_DOTS
-            var visitor = new EntityDiffPatcher(patches);
-            var changeTracker = new ChangeTracker();
-            var type = obj.GetType();
-
-            var resolved = PropertyBagResolver.Resolve(type);
-            if (resolved != null)
-            {
-                resolved.Accept(ref obj, ref visitor, ref changeTracker);
-            }
-            else
-                throw new ArgumentException($"Type '{type.FullName}' not supported for visiting.");
+            PropertyContainer.Visit(obj, new EntityDiffPatcher(patches));
 #endif
         }
 
 #if !NET_DOTS
-        internal unsafe class EntityDiffPatcher : PropertyVisitor
+        class EntityDiffPatcher : PropertyVisitor
         {
-            protected EntityPatchAdapter _EntityPatchAdapter { get; }
-
             public EntityDiffPatcher(NativeMultiHashMap<EntityComponentPair, OffsetEntityPair>.Enumerator patches)
             {
-                _EntityPatchAdapter = new EntityPatchAdapter(patches);
-                AddAdapter(_EntityPatchAdapter);
+                AddAdapter(new EntityPatchAdapter(patches));
             }
 
-            internal unsafe class EntityPatchAdapter : IPropertyVisitorAdapter
-                , IVisitAdapter<Entity>
-                , IVisitAdapter
-                , IVisitCollectionAdapter
-                , IVisitContainerAdapter
+            class EntityPatchAdapter : Properties.Adapters.IVisit<Entity>
             {
-                NativeMultiHashMap<EntityComponentPair, OffsetEntityPair>.Enumerator Patches;
+                readonly NativeMultiHashMap<EntityComponentPair, OffsetEntityPair>.Enumerator Patches;
 
-                public unsafe EntityPatchAdapter(NativeMultiHashMap<EntityComponentPair, OffsetEntityPair>.Enumerator patches)
+                public EntityPatchAdapter(NativeMultiHashMap<EntityComponentPair, OffsetEntityPair>.Enumerator patches)
                 {
                     Patches = patches;
                 }
-
-                public unsafe VisitStatus Visit<TProperty, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref Entity value, ref ChangeTracker changeTracker)
-                    where TProperty : IProperty<TContainer, Entity>
+                
+                public VisitStatus Visit<TContainer>(Property<TContainer, Entity> property, ref TContainer container, ref Entity value)
                 {
                     // Make a copy for we can re-use the enumerator
                     var patches = Patches;
@@ -1194,34 +1177,7 @@ namespace Unity.Entities
                         }
                     }
 
-                    return VisitStatus.Handled;
-                }
-
-                public VisitStatus Visit<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
-                {
-                    return VisitStatus.Unhandled;
-                }
-                
-                public VisitStatus BeginCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
-                {
-                    if (value == null)
-                        return VisitStatus.Override;
-                    return VisitStatus.Unhandled;
-                }
-
-                public void EndCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
-                {
-                }
-
-                public VisitStatus BeginContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
-                {
-                    if (value == null)
-                        return VisitStatus.Override;
-                    return VisitStatus.Unhandled;
-                }
-
-                public void EndContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
-                {
+                    return VisitStatus.Stop;
                 }
             }
         }

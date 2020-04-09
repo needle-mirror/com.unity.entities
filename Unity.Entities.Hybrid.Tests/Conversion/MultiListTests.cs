@@ -358,5 +358,35 @@ namespace Unity.Entities.Tests.Conversion
                 Assert.That(e.MoveNext(), Is.False);
             }
         }
+
+        [Test]
+        public void EnumeratorIterationFromHeadIdIndices_WithItems_ReturnsItems()
+        {
+            m_MultiList.Add(0, "0a");
+            m_MultiList.Add(0, "0b");
+            m_MultiList.Add(1, "1a");
+            m_MultiList.Add(0, "0c");
+            m_MultiList.Add(1, "1b");
+
+            using (var enumerator = m_MultiList.SelectList(0))
+            {
+                Assert.That(enumerator, Is.EqualTo(new[] { "0a", "0c", "0b" }));
+            }
+
+            using (var enumerator = m_MultiList.SelectListAt(m_MultiList.HeadIds[0]))
+            {
+                Assert.That(enumerator, Is.EqualTo(new[] { "0a", "0c", "0b" }));
+            }
+
+            using (var enumerator = m_MultiList.SelectList(1))
+            {
+                Assert.That(enumerator, Is.EqualTo(new[] { "1a", "1b" }));
+            }
+
+            using (var enumerator = m_MultiList.SelectListAt(m_MultiList.HeadIds[1]))
+            {
+                Assert.That(enumerator, Is.EqualTo(new[] { "1a", "1b" }));
+            }
+        }
     }
 }

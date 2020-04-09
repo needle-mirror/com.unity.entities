@@ -26,7 +26,6 @@ namespace Unity.Entities.Tests
             World.DefaultGameObjectInjectionWorld = m_PreviousWorld;
         }
 
-
         [Test]
         public void ActiveWorldResets()
         {
@@ -104,19 +103,6 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate() { }
         }
-        [Test]
-        [StandaloneFixme]
-        public void AddWorldDuringConstructorThrows ()
-        {
-            var world = new World("WorldX");
-            World.DefaultGameObjectInjectionWorld = world;
-            // Adding a manager during construction is not allowed
-            Assert.Throws<TargetInvocationException>(() => world.CreateSystem<AddWorldDuringConstructorThrowsSystem>());
-            // The manager will not be added to the list of managers if throws
-            Assert.AreEqual(0, world.Systems.Count);
-
-            world.Dispose();
-        }
 
         class SystemThrowingInOnCreateIsRemovedSystem : ComponentSystem
         {
@@ -140,28 +126,6 @@ namespace Unity.Entities.Tests
 
             world.Dispose();
         }
-
-#if !NET_DOTS
-        class SystemWithNonDefaultConstructor : ComponentSystem
-        {
-            public int data;
-
-            public SystemWithNonDefaultConstructor(int param)
-            {
-                data = param;
-            }
-
-            protected override void OnUpdate() { }
-        }
-        [Test]
-        public void SystemWithNonDefaultConstructorThrows()
-        {
-            var world = new World("WorldX");
-            Assert.That(() => { world.CreateSystem<SystemWithNonDefaultConstructor>(); },
-                Throws.TypeOf<MissingMethodException>().With.InnerException.TypeOf<MissingMethodException>());
-            world.Dispose();
-        }
-#endif
 
         class SystemIsAccessibleDuringOnCreateManagerSystem : ComponentSystem
         {
@@ -267,58 +231,57 @@ namespace Unity.Entities.Tests
         [Test]
         public void WorldSimulationFixedStep()
         {
-            var world = new World("World A");
-            var sim = world.GetOrCreateSystem<SimulationSystemGroup>();
-            var uc = world.GetOrCreateSystem<UpdateCountSystem>();
-            sim.AddSystemToUpdateList(uc);
+            using (var world = new World("World A")) {
+                var sim = world.GetOrCreateSystem<SimulationSystemGroup>();
+                var uc = world.GetOrCreateSystem<UpdateCountSystem>();
+                sim.AddSystemToUpdateList(uc);
 
-            // Unity.Core.Hybrid.UpdateWorldTimeSystem
-            var timeData = new TimeData();
+                // Unity.Core.Hybrid.UpdateWorldTimeSystem
+                var timeData = new TimeData();
 
-            void AdvanceWorldTime(float amount)
-            {
-                uc.updateCount = 0;
-                timeData = new TimeData(timeData.ElapsedTime + amount, amount);
-                world.SetTime(timeData);
+                void AdvanceWorldTime(float amount)
+                {
+                    uc.updateCount = 0;
+                    timeData = new TimeData(timeData.ElapsedTime + amount, amount);
+                    world.SetTime(timeData);
+                }
+
+                FixedRateUtils.EnableFixedRateWithCatchUp(sim, 1.0f);
+
+                // first frame will tick immediately
+                AdvanceWorldTime(0.5f);
+                world.Update();
+                Assert.AreEqual(0.5, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(1, uc.updateCount);
+
+                AdvanceWorldTime(1.1f);
+                world.Update();
+                Assert.AreEqual(1.5, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(1, uc.updateCount);
+
+                // No update should happen because the time elapsed is less than the interval
+                AdvanceWorldTime(0.1f);
+                world.Update();
+                Assert.AreEqual(1.5, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(0, uc.updateCount);
+
+                AdvanceWorldTime(1.0f);
+                world.Update();
+                Assert.AreEqual(2.5, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(1, uc.updateCount);
+
+                // If time jumps by a lot, we should tick the fixed rate systems
+                // multiple times
+                AdvanceWorldTime(2.0f);
+                world.Update();
+                Assert.AreEqual(4.5, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(2, uc.updateCount);
             }
-
-            FixedRateUtils.EnableFixedRateWithCatchUp(sim, 1.0f);
-
-            // first frame will tick immediately
-            AdvanceWorldTime(0.5f);
-            world.Update();
-            Assert.AreEqual(0.5, uc.lastUpdateTime, 0.001f);
-            Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
-            Assert.AreEqual(1, uc.updateCount);
-
-            AdvanceWorldTime(1.1f);
-            world.Update();
-            Assert.AreEqual(1.5, uc.lastUpdateTime, 0.001f);
-            Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
-            Assert.AreEqual(1, uc.updateCount);
-
-            // No update should happen because the time elapsed is less than the interval
-            AdvanceWorldTime(0.1f);
-            world.Update();
-            Assert.AreEqual(1.5, uc.lastUpdateTime, 0.001f);
-            Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
-            Assert.AreEqual(0, uc.updateCount);
-
-            AdvanceWorldTime(1.0f);
-            world.Update();
-            Assert.AreEqual(2.5, uc.lastUpdateTime, 0.001f);
-            Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
-            Assert.AreEqual(1, uc.updateCount);
-
-            // If time jumps by a lot, we should tick the fixed rate systems
-            // multiple times
-            AdvanceWorldTime(2.0f);
-            world.Update();
-            Assert.AreEqual(4.5, uc.lastUpdateTime, 0.001f);
-            Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
-            Assert.AreEqual(2, uc.updateCount);
-
-            world.Dispose();
         }
 
         [Test]
@@ -435,6 +398,70 @@ namespace Unity.Entities.Tests
             {
                 World.s_AllWorlds.Add(w);
             }
+        }
+
+        public class MultiPhaseTestSystem : ComponentSystem
+        {
+            private int TotalSystemCount;
+            public bool IsRunning;
+            protected override void OnStartRunning()
+            {
+                base.OnStartRunning();
+                IsRunning = true;
+            }
+
+            protected override void OnStopRunning()
+            {
+                base.OnStopRunning();
+                // All systems should still exist
+                Assert.AreEqual(TotalSystemCount, World.Systems.Count);
+                // Systems should not yet be destroyed
+                foreach (var system in World.Systems)
+                {
+                    Assert.AreEqual(system.World, World); // stand-in for "has system.OnAfterDestroyInternal been called"
+                }
+                
+                IsRunning = false;
+            }
+            protected override void OnDestroy()
+            {
+                base.OnDestroy();
+                // All systems should still exist
+                Assert.AreEqual(TotalSystemCount, World.Systems.Count);
+                // Systems should all be stopped and disabled, but not yet destroyed
+                foreach (var system in World.Systems)
+                {
+                    Assert.IsFalse( (system as MultiPhaseTestSystem)?.IsRunning);
+                    Assert.AreEqual(system.World, World); // stand-in for "has system.OnAfterDestroyInternal been called"
+                }
+            }
+            protected override void OnUpdate()
+            {
+                TotalSystemCount = World.Systems.Count;
+            }
+        }
+        public class MultiPhaseTestSystem1 : MultiPhaseTestSystem
+        {
+        }
+        public class MultiPhaseTestSystem2 : MultiPhaseTestSystem
+        {
+        }
+        public class MultiPhaseTestSystem3 : MultiPhaseTestSystem
+        {
+        }
+
+        [Test]
+        public void World_Dispose_MultiPhaseSystemDestroy()
+        {
+            World world = new World("WorldX");
+            var sys1 = world.CreateSystem<MultiPhaseTestSystem1>();
+            var sys2 = world.CreateSystem<MultiPhaseTestSystem2>();
+            var sys3 = world.CreateSystem<MultiPhaseTestSystem3>();
+            sys1.Update();
+            sys2.Update();
+            sys3.Update();
+            world.Dispose();
+            Assert.AreEqual(0, world.Systems.Count);
         }
     }
 }

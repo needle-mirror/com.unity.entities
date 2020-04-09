@@ -116,7 +116,7 @@ namespace Unity.Scenes.Editor
                     settings.AssetImportContext = ctx;
 
                     var sectionRefObjs = new List<ReferencedUnityObjects>();
-                    var sectionData = EditorEntityScenes.WriteEntityScene(scene, settings, sectionRefObjs);
+                    var sectionData = EditorEntityScenes.ConvertAndWriteEntityScene(scene, settings, sectionRefObjs);
                     WriteRefGuids(sectionRefObjs, sectionData, ctx);
                 }
                 finally

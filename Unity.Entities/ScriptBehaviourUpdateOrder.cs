@@ -126,6 +126,54 @@ namespace Unity.Entities
             currentPlayerLoop = playerLoop;
         }
 
+        private static bool IsWorldInSubSystemList(World world, PlayerLoopSystem[] subSystemList)
+        {
+            foreach (var subSystem in subSystemList)
+            {
+                var type = subSystem.type;
+                if (type == typeof(SimulationSystemGroup) || type == typeof(PresentationSystemGroup) || type == typeof(InitializationSystemGroup))
+                {
+                    var wrapper = subSystem.updateDelegate.Target as DummyDelegateWrapper;
+
+                    if (wrapper.System.World == world)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        public static bool IsWorldInPlayerLoop(World world)
+        {
+            if (world == null)
+                return false;
+
+            var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
+
+            for (var i = 0; i < playerLoop.subSystemList.Length; ++i)
+            {
+                if (playerLoop.subSystemList[i].type == typeof(Update))
+                {
+                    if (!IsWorldInSubSystemList(world, playerLoop.subSystemList[i].subSystemList))
+                        return false;
+                }
+                else if (playerLoop.subSystemList[i].type == typeof(PreLateUpdate))
+                {
+                    if (!IsWorldInSubSystemList(world, playerLoop.subSystemList[i].subSystemList))
+                        return false;
+                }
+                else if (playerLoop.subSystemList[i].type == typeof(Initialization))
+                {
+                    if (!IsWorldInSubSystemList(world, playerLoop.subSystemList[i].subSystemList))
+                        return false;
+                }
+            }
+
+            return true;
+        }
+
         public static PlayerLoopSystem CurrentPlayerLoop => currentPlayerLoop;
         private static PlayerLoopSystem currentPlayerLoop;
 

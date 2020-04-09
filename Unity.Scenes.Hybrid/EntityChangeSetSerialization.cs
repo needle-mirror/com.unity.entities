@@ -88,7 +88,7 @@ namespace Unity.Scenes
 
             var resolvedObjects = new UnityEngine.Object[globalObjectIDs.Length];
             resolver.ResolveObjects(globalObjectIDs, resolvedObjects);
-            var reader = new PropertiesBinaryReader(bufferReader, resolvedObjects);
+            var reader = new ManagedObjectBinaryReader(bufferReader, resolvedObjects);
             var setSharedComponents = new PackedSharedComponentDataChange[setSharedComponentPackedComponents.Length];
             for (int i = 0; i < setSharedComponentPackedComponents.Length; i++)
             {
@@ -99,7 +99,7 @@ namespace Unity.Scenes
                     var stableTypeHash = typeHashes[packedTypeIndex].StableTypeHash;
                     var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(stableTypeHash);
                     var type = TypeManager.GetType(typeIndex);
-                    componentValue = BoxedProperties.ReadBoxedStruct(type, reader);
+                    componentValue = reader.ReadObject(type);
                 }
                 else
                     componentValue = null;
@@ -166,8 +166,7 @@ namespace Unity.Scenes
                 buffer->Add(entityChangeSet.SetSharedComponents[i].Component);
 
             // Write shared components
-            var assets = new HashSet<Hash128>();
-            var writer = new PropertiesBinaryWriter(buffer);
+            var writer = new ManagedObjectBinaryWriter(buffer);
             for (int i = 0; i < setSharedComponentCount; i++)
             {
                 var srcData = entityChangeSet.SetSharedComponents[i].BoxedSharedValue;
@@ -175,7 +174,7 @@ namespace Unity.Scenes
                 if (srcData != null)
                 {
                     buffer->Add(1);
-                    BoxedProperties.WriteBoxedType(srcData, writer);
+                    writer.WriteObject(srcData);
                 }
                 else
                 {

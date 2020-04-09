@@ -22,7 +22,7 @@ namespace Unity.Entities.Tests.Conversion
         {
             m_DstWorld = new World(TestContext.CurrentContext.Test.FullName);
             var settings = new GameObjectConversionSettings(m_DstWorld, ConversionFlags.AssignName | ConversionFlags.AddEntityGUID);
-            m_MappingSystem = World.CreateSystem<GameObjectConversionMappingSystem>(settings);
+            m_MappingSystem = World.AddSystem(new GameObjectConversionMappingSystem(settings));
         }
 
         [TearDown]
@@ -109,7 +109,7 @@ namespace Unity.Entities.Tests.Conversion
         {
             // ok to add
 
-            m_MappingSystem.DeclareDependency(CreateGameObject("Ok0Dependency0"), CreateGameObject("O0kDependency1"));
+            m_MappingSystem.Dependencies.DependOnGameObject(CreateGameObject("Ok0Dependency0"), CreateGameObject("O0kDependency1"));
             m_MappingSystem.DeclareLinkedEntityGroup(CreateGameObject("Ok0LinkedEntityGroup"));
 
             // start destination world conversion
@@ -118,7 +118,7 @@ namespace Unity.Entities.Tests.Conversion
 
             // still ok to add
 
-            m_MappingSystem.DeclareDependency(CreateGameObject("Ok1Dependency0"), CreateGameObject("Ok1Dependency1"));
+            m_MappingSystem.Dependencies.DependOnGameObject(CreateGameObject("Ok1Dependency0"), CreateGameObject("Ok1Dependency1"));
             m_MappingSystem.DeclareLinkedEntityGroup(CreateGameObject("Ok1LinkedEntityGroup"));
         }
 

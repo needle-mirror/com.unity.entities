@@ -35,10 +35,6 @@ namespace Unity.Entities.Tests
         [SetUp]
         public virtual void SetUp()
         {
-#if UNITY_DOTSPLAYER
-            Unity.Burst.DotsRuntimeInitStatics.Init();
-#endif
-
             m_NextEntityGuidIndex = 1;
             m_PreviousWorld = World.DefaultGameObjectInjectionWorld;
             SrcWorld = new World(nameof(EntityDifferTests) + ".Source");

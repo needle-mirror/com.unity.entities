@@ -59,7 +59,7 @@ namespace Unity.Entities
     }
 #endif
 
-    public static unsafe class TypeManager
+    public static unsafe partial class TypeManager
     {
         [AttributeUsage(AttributeTargets.Struct)]
         public class ForcedMemoryOrderingAttribute : Attribute
@@ -131,20 +131,16 @@ namespace Unity.Entities
 
         const int kInitialTypeCount = 2; // one for 'null' and one for 'Entity'
         static int s_TypeCount;
-        static int s_SystemCount;
         static bool s_Initialized;
         static NativeArray<TypeInfo> s_TypeInfos;
         static NativeHashMap<ulong, int> s_StableTypeHashToTypeIndex;
         static NativeList<EntityOffsetInfo> s_EntityOffsetList;
         static NativeList<EntityOffsetInfo> s_BlobAssetRefOffsetList;
         static NativeList<int> s_WriteGroupList;
-        static NativeList<bool> s_SystemIsGroupList;
         static List<FastEquality.TypeInfo> s_FastEqualityTypeInfoList;
         static List<Type> s_Types;
-        static List<Type> s_SystemTypes;
         static List<string> s_TypeNames;
-        static List<string> s_SystemTypeNames;
-        
+
 #if !UNITY_DOTSPLAYER
         static bool s_AppDomainUnloadRegistered;
         static double s_TypeInitializationTime;
@@ -430,7 +426,7 @@ namespace Unity.Entities
                 AppDomain.CurrentDomain.DomainUnload += (_, __) =>
                 {
                     if (s_Initialized)
-                        DisposeNative();
+                        Shutdown();
                 };
                 s_AppDomainUnloadRegistered = true;
             }
@@ -445,17 +441,16 @@ namespace Unity.Entities
             s_EntityOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
             s_BlobAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
             s_WriteGroupList = new NativeList<int>(Allocator.Persistent);
-            s_SystemIsGroupList = new NativeList<bool>(Allocator.Persistent);
             s_FastEqualityTypeInfoList = new List<FastEquality.TypeInfo>();
             s_Types = new List<Type>();
-            s_SystemTypes = new List<Type>();
             s_TypeNames = new List<string>();
-            s_SystemTypeNames = new List<string>();
+
+            InitializeSystemsState();
 
             // There are some types that must be registered first such as a null component and Entity
             RegisterSpecialComponents();
             Assert.IsTrue(kInitialTypeCount == s_TypeCount);
-            
+
 #if !NET_DOTS
             InitializeAllComponentTypes();
 #else
@@ -518,16 +513,16 @@ namespace Unity.Entities
 
             if (!s_Initialized)
                 throw new InvalidOperationException($"{nameof(TypeManager)} cannot be double-freed");
-            
-            s_Initialized = false;
-            s_TypeCount = 0;
 
+            s_Initialized = false;
+
+            s_TypeCount = 0;
             s_FastEqualityTypeInfoList.Clear();
             s_Types.Clear();
-            s_SystemTypes.Clear();
             s_TypeNames.Clear();
-            s_SystemTypeNames.Clear();
-            
+
+            ShutdownSystemsState();
+
 #if !NET_DOTS
             s_ManagedTypeToIndex.Clear();
 #endif
@@ -542,7 +537,6 @@ namespace Unity.Entities
             s_EntityOffsetList.Dispose();
             s_BlobAssetRefOffsetList.Dispose();
             s_WriteGroupList.Dispose();
-            s_SystemIsGroupList.Dispose();
         }
 
         private static int FindTypeIndex(Type type)
@@ -709,72 +703,6 @@ namespace Unity.Entities
             return -1;
         }
         
-        /// <summary>
-        /// Return an array of all the Systems in use. (They are found
-        /// at compile time, and inserted by code generation.)
-        /// </summary>
-        public static Type[] GetSystems()
-        {
-            return s_SystemTypes.ToArray();
-        }
-
-        public static string GetSystemName(Type t)
-        {
-#if !NET_DOTS
-            return t.FullName;
-#else
-            int index = GetSystemTypeIndex(t);
-            if (index < 0 || index >= s_SystemTypeNames.Count) return "null";
-            return s_SystemTypeNames[index];
-#endif
-        }
-
-        public static int GetSystemTypeIndex(Type t)
-        {
-            for (int i = 0; i < s_SystemTypes.Count; ++i)
-            {
-                if (t == s_SystemTypes[i]) return i;
-            }
-            throw new ArgumentException($"Could not find a matching system type for passed in type.");
-        }
-
-        public static bool IsSystemAGroup(Type t)
-        {
-#if !NET_DOTS
-            return t.IsSubclassOf(typeof(ComponentSystemGroup));
-#else
-            int index = GetSystemTypeIndex(t);
-            var isGroup = s_SystemIsGroupList[index];
-            return isGroup;
-#endif
-        }
-
-        /// <summary>
-        /// Construct a System from a Type. Uses the same list in GetSystems()
-        /// </summary>
-        ///
-        public static ComponentSystemBase ConstructSystem(Type systemType)
-        {
-#if !NET_DOTS
-            return (ComponentSystemBase) Activator.CreateInstance(systemType);
-#else
-            var obj = CreateSystem(systemType);
-            if (!(obj is ComponentSystemBase))
-                throw new Exception("Null casting in Construct System. Bug in TypeManager.");
-            return obj as ComponentSystemBase;
-#endif
-        }
-
-        public static T ConstructSystem<T>(Type systemType) where T : ComponentSystemBase
-        {
-            return (T)ConstructSystem(systemType);
-        }
-
-        public static T ConstructSystem<T>() where T : ComponentSystemBase
-        {
-            return ConstructSystem<T>(typeof(T));
-        }
-
         public static object ConstructComponentFromBuffer(int typeIndex, void* data)
         {
 #if !NET_DOTS
@@ -791,42 +719,6 @@ namespace Unity.Entities
             return obj;
 #else
             return ConstructComponentFromBuffer(data, typeIndex & ClearFlagsMask);
-#endif
-        }
-
-        /// <summary>
-        /// Get all the attribute objects of Type attributeType for a System.
-        /// </summary>
-        public static Attribute[] GetSystemAttributes(Type systemType, Type attributeType)
-        {
-#if !NET_DOTS
-            var objArr = systemType.GetCustomAttributes(attributeType, true);
-            var attr = new Attribute[objArr.Length];
-            for (int i = 0; i < objArr.Length; i++)
-            {
-                attr[i] = objArr[i] as Attribute;
-            }
-            return attr;
-#else
-            Attribute[] attr = GetSystemAttributes(systemType);
-            int count = 0;
-            for (int i = 0; i < attr.Length; ++i)
-            {
-                if (attr[i].GetType() == attributeType)
-                {
-                    ++count;
-                }
-            }
-            Attribute[] result = new Attribute[count];
-            count = 0;
-            for (int i = 0; i < attr.Length; ++i)
-            {
-                if (attr[i].GetType() == attributeType)
-                {
-                    result[count++] = attr[i];
-                }
-            }
-            return result;
 #endif
         }
 
@@ -1431,24 +1323,6 @@ namespace Unity.Entities
                 valueTypeSize);
         }
 
-        [Obsolete("CreateTypeIndexForComponent is deprecated. TypeIndices can be created for new Types using AddNewComponentTypes (editor only) (RemovedAfter 2020-03-03)", false)] 
-        public static int CreateTypeIndexForComponent<T>() where T : IComponentData
-        {
-            return GetTypeIndex<T>();
-        }
-
-        [Obsolete("CreateTypeIndexForSharedComponent is deprecated. TypeIndices can be created for new Types using AddNewComponentTypes (editor only) (RemovedAfter 2020-03-03)", false)]
-        public static int CreateTypeIndexForSharedComponent<T>() where T : struct, ISharedComponentData
-        {
-            return GetTypeIndex<T>();
-        }
-
-        [Obsolete("CreateTypeIndexForBufferElement is deprecated. TypeIndices can be created for new Types using AddNewComponentTypes (editor only) (RemovedAfter 2020-03-03)", false)]
-        public static int CreateTypeIndexForBufferElement<T>() where T : struct, IBufferElementData
-        {
-            return GetTypeIndex<T>();
-        }
-
  #if UNITY_EDITOR
         /// <summary>
         /// This function allows for unregistered component types to be added to the TypeManager allowing for their use
@@ -1579,13 +1453,10 @@ namespace Unity.Entities
         }
 
         static List<int> s_TypeDelegateIndexRanges = new List<int>();
-        static List<int> s_SystemTypeDelegateIndexRanges = new List<int>();
         static List<TypeRegistry.GetBoxedEqualsFn> s_AssemblyBoxedEqualsFn = new List<TypeRegistry.GetBoxedEqualsFn>();
         static List<TypeRegistry.GetBoxedEqualsPtrFn> s_AssemblyBoxedEqualsPtrFn = new List<TypeRegistry.GetBoxedEqualsPtrFn>();
         static List<TypeRegistry.BoxedGetHashCodeFn> s_AssemblyBoxedGetHashCodeFn = new List<TypeRegistry.BoxedGetHashCodeFn>();
         static List<TypeRegistry.ConstructComponentFromBufferFn> s_AssemblyConstructComponentFromBufferFn = new List<TypeRegistry.ConstructComponentFromBufferFn>();
-        static List<TypeRegistry.CreateSystemFn> s_AssemblyCreateSystemFn = new List<TypeRegistry.CreateSystemFn>();
-        static List<TypeRegistry.GetSystemAttributesFn> s_AssemblyGetSystemAttributesFn = new List<TypeRegistry.GetSystemAttributesFn>();
 
         internal static bool GetBoxedEquals(object lhs, object rhs, int typeIndexNoFlags)
         {
@@ -1634,42 +1505,6 @@ namespace Unity.Entities
                 if (typeIndexNoFlags < s_TypeDelegateIndexRanges[i])
                     return s_AssemblyConstructComponentFromBufferFn[i](buffer, typeIndexNoFlags - offset);
                 offset = s_TypeDelegateIndexRanges[i];
-            }
-
-            throw new ArgumentException("No function was generated for the provided type.");
-        }
-
-        internal static object CreateSystem(Type systemType)
-        {
-            int systemIndex = 0;
-            for(; systemIndex < s_SystemTypes.Count; ++systemIndex)
-            {
-                if (s_SystemTypes[systemIndex] == systemType)
-                    break;
-            }
-
-            for (int i = 0; i < s_SystemTypeDelegateIndexRanges.Count; ++i)
-            {
-                if (systemIndex < s_SystemTypeDelegateIndexRanges[i])
-                    return s_AssemblyCreateSystemFn[i](systemType);
-            }
-
-            throw new ArgumentException("No function was generated for the provided type.");
-        }
-
-        internal static Attribute[] GetSystemAttributes(Type system)
-        {
-            int typeIndexNoFlags = 0;
-            for (; typeIndexNoFlags < s_SystemTypes.Count; ++typeIndexNoFlags)
-            {
-                if (s_SystemTypes[typeIndexNoFlags] == system)
-                    break;
-            }
-
-            for (int i = 0; i < s_SystemTypeDelegateIndexRanges.Count; ++i)
-            {
-                if (typeIndexNoFlags < s_SystemTypeDelegateIndexRanges[i])
-                    return s_AssemblyGetSystemAttributesFn[i](system);
             }
 
             throw new ArgumentException("No function was generated for the provided type.");
@@ -1796,31 +1631,8 @@ namespace Unity.Entities
                         s_AssemblyConstructComponentFromBufferFn.Add(typeRegistry.ConstructComponentFromBuffer);
                     }
 
-                    // Register system info
-                    int systemTypeIndexOffset = s_SystemCount;
-                    foreach (var type in typeRegistry.SystemTypes)
-                    {
-                        s_SystemTypes.Add(type);
-                        s_SystemCount++;
-                    }
-
-                    foreach (var typeName in typeRegistry.SystemTypeNames)
-                    {
-                        s_SystemTypeNames.Add(typeName);
-                    }
-
-                    foreach (var isSystemGroup in typeRegistry.IsSystemGroup)
-                    {
-                        s_SystemIsGroupList.Add(isSystemGroup);
-                    }
-
-                    if (typeRegistry.SystemTypes.Length > 0)
-                    {
-                        s_SystemTypeDelegateIndexRanges.Add(s_SystemCount);
-
-                        s_AssemblyCreateSystemFn.Add(typeRegistry.CreateSystem);
-                        s_AssemblyGetSystemAttributesFn.Add(typeRegistry.GetSystemAttributes);
-                    }
+                    // Register system types
+                    TypeManager.RegisterAssemblySystemTypes(typeRegistry);
                 }
                 GatherAndInitializeWriteGroups(initializeTypeIndexOffset, registries);
             }
@@ -1902,9 +1714,10 @@ namespace Unity.Entities
         {
             throw new CodegenShouldReplaceException("This call should have been replaced by codegen");
         }
+
 #endif
     }
-    
+
 #if NET_DOTS
     public class TypeRegistry
     {

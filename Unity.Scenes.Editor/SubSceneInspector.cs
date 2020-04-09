@@ -239,11 +239,21 @@ namespace Unity.Scenes.Editor
                 EditorGUILayout.HelpBox($"SubScenes can not have child game objects. Close the scene and delete the child game objects.", MessageType.Warning, true);
             }
 
+            GUILayout.Space(10);
             if (CheckConversionLog(subScene))
             {
-                GUILayout.Space(10);
                 GUILayout.Label("Importing...");
                 Repaint();
+            }
+            else
+            {
+                if (!SubSceneInspectorUtility.IsEditingAll(subscenes))
+                {
+                    if (GUILayout.Button("Reimport"))
+                    {
+                        SubSceneInspectorUtility.ForceReimport(subscenes);
+                    }
+                }
             }
             if (m_ConversionLog.Length != 0)
             {
@@ -289,7 +299,7 @@ namespace Unity.Scenes.Editor
                 else if (loaded)
                     continue;
 
-                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, sceneSystem.BuildConfigurationGUID, UnityEditor.Experimental.AssetDatabaseExperimental.ImportSyncMode.Queue);
+                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, sceneSystem.BuildConfigurationGUID, ImportMode.Asynchronous);
                 if (!hash.IsValid)
                 {
                     pendingWork = true;
@@ -298,7 +308,7 @@ namespace Unity.Scenes.Editor
 
                 m_ConversionLogLoaded[sceneSystem.BuildConfigurationGUID] = true;
 
-                UnityEditor.Experimental.AssetDatabaseExperimental.GetArtifactPaths(hash, out var paths);
+                AssetDatabaseCompatibility.GetArtifactPaths(hash, out var paths);
                 var logPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesConversionLog);
                 if (logPath == null)
                     continue;

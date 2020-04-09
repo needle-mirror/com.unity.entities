@@ -332,6 +332,7 @@ namespace Unity.Entities.Tests
             }
         }
 
+#if !UNITY_DOTSPLAYER
 #pragma warning disable 618
         struct ForEachComponentData : IJobForEachWithEntity<EcsTestData>
         {
@@ -385,6 +386,7 @@ namespace Unity.Entities.Tests
             componentArrayB.Dispose();
             group.Dispose();
         }
+#endif // !UNITY_DOTSPLAYER
 
         struct InitializedAsSingleAndParallelJob : IJobChunk
         {

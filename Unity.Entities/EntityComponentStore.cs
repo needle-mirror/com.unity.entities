@@ -261,7 +261,7 @@ namespace Unity.Entities
         [NativeDisableUnsafePtrRestriction]
         int* m_ComponentTypeOrderVersion;
 
-        ChunkAllocator m_ArchetypeChunkAllocator;
+        BlockAllocator m_ArchetypeChunkAllocator;
 
         internal UnsafeChunkPtrList m_EmptyChunks;
         internal UnsafeArchetypePtrList m_Archetypes;
@@ -404,7 +404,7 @@ namespace Unity.Entities
                 UnsafeUtility.AlignOf<int>(), Allocator.Persistent);
             UnsafeUtility.MemClear(entities->m_ComponentTypeOrderVersion, componentTypeOrderVersionSize);
 
-            entities->m_ArchetypeChunkAllocator = new ChunkAllocator();
+            entities->m_ArchetypeChunkAllocator = new BlockAllocator();
             entities->m_TypeLookup = new ArchetypeListMap();
             entities->m_TypeLookup.Init(16);
             entities->m_NextChunkSequenceNumber = startChunkSequenceNumber;
@@ -1295,7 +1295,8 @@ namespace Unity.Entities
             dstArchetype->EntityCount = 0;
             dstArchetype->Chunks = new ArchetypeChunkData(count, numSharedComponents);
             dstArchetype->ChunksWithEmptySlots = new UnsafeChunkPtrList(0, Allocator.Persistent);
-            dstArchetype->InstantiableArchetype = null;
+            dstArchetype->InstantiateArchetype = null;
+            dstArchetype->CopyArchetype = null;
             dstArchetype->MetaChunkArchetype = null;
             dstArchetype->SystemStateResidueArchetype = null;
 

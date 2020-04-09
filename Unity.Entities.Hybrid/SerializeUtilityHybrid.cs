@@ -10,24 +10,24 @@ namespace Unity.Entities.Serialization
         public static void Serialize(EntityManager manager, BinaryWriter writer, out ReferencedUnityObjects objRefs)
         {
             SerializeUtility.SerializeWorld(manager, writer, out var referencedObjects);
-            SerializeObjectReferences(manager, writer, (UnityEngine.Object[]) referencedObjects, out objRefs);
+            SerializeObjectReferences((UnityEngine.Object[]) referencedObjects, out objRefs);
         }
 
         public static void Serialize(EntityManager manager, BinaryWriter writer, out ReferencedUnityObjects objRefs, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos)
         {
             SerializeUtility.SerializeWorld(manager, writer, out var referencedObjects, entityRemapInfos);
-            SerializeObjectReferences(manager, writer, (UnityEngine.Object[]) referencedObjects, out objRefs);
+            SerializeObjectReferences((UnityEngine.Object[]) referencedObjects, out objRefs);
         }
 
         public static void Deserialize(EntityManager manager, BinaryReader reader, ReferencedUnityObjects objRefs)
         {
-            DeserializeObjectReferences(manager, objRefs, "", out var objectReferences);
+            DeserializeObjectReferences(objRefs, out var objectReferences);
             var transaction = manager.BeginExclusiveEntityTransaction();
             SerializeUtility.DeserializeWorld(transaction, reader, objectReferences);
             manager.EndExclusiveEntityTransaction();
         }
 
-        public static void SerializeObjectReferences(EntityManager manager, BinaryWriter writer, UnityEngine.Object[] referencedObjects, out ReferencedUnityObjects objRefs)
+        public static void SerializeObjectReferences(UnityEngine.Object[] referencedObjects, out ReferencedUnityObjects objRefs)
         {
             objRefs = null;
 
@@ -38,7 +38,7 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        public static void DeserializeObjectReferences(EntityManager manager, ReferencedUnityObjects objRefs, string debugSceneName, out UnityEngine.Object[] objectReferences)
+        public static void DeserializeObjectReferences(ReferencedUnityObjects objRefs, out UnityEngine.Object[] objectReferences)
         {
             objectReferences = objRefs?.Array;
 

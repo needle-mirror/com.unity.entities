@@ -1,15 +1,9 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
-using Mono.Cecil.Rocks;
-using Unity.Collections;
-using FieldAttributes = Mono.Cecil.FieldAttributes;
 #if !UNITY_DOTSPLAYER
-using System.Reflection;
-using UnityEngine;
 using UnityEngine.Scripting;
 #endif
 using MethodAttributes = Mono.Cecil.MethodAttributes;
@@ -67,6 +61,8 @@ namespace Unity.Entities.CodeGen
         public static SequencePoint FindBestSequencePointFor(MethodDefinition method, Instruction instruction)
         {
             var sequencePoints = method.DebugInformation?.GetSequencePointMapping().Values.OrderBy(s => s.Offset).ToList();
+            if (sequencePoints == null || !sequencePoints.Any())
+                return null;
 
             for (int i = 0; i != sequencePoints.Count-1; i++)
             {

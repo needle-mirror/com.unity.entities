@@ -19,10 +19,16 @@ namespace Unity.Entities
     }
 
     /// <summary>
-    /// Describes a query used to find archetypes with specific components.
+    /// Describes a query to find archetypes in terms of required, optional, and excluded
+    /// components.
     /// </summary>
     /// <remarks>
-    /// A query description combines components in the All, Any, and None sets according to the
+    /// Define an EntityQueryDesc object to describe complex queries. Inside a system,
+    /// pass an EntityQueryDesc object to <see cref="ComponentSystemBase.GetEntityQuery(EntityQueryDesc[])"/>
+    /// to create the <see cref="EntityQuery"/>. Outside a system, use
+    /// <see cref="EntityManager.CreateEntityQuery(EntityQueryDesc[])"/>.
+    /// 
+    /// A query description combines the component types you specify in `All`, `Any`, and `None` sets according to the
     /// following rules:
     ///
     /// * All - Includes archetypes that have every component in this set
@@ -35,41 +41,34 @@ namespace Unity.Entities
     /// * Enemy1 has components: Position, Rotation, Melee
     /// * Enemy2 has components: Position, Rotation, Ranger
     ///
-    /// The query description below gives you all of the archetypes that:
+    /// The query description below matches all of the archetypes that:
     /// have any of [Melee or Ranger], AND have none of [Player], AND have all of [Position and Rotation]
-    /// <code>
-    /// new EntityQueryDesc {
-    ///     Any = new ComponentType[] {typeof(Melee), typeof(Ranger)},
-    ///     None = new ComponentType[] {typeof(Player)},
-    ///     All = new ComponentType[] {typeof(Position), typeof(Rotation)}
-    /// }
-    /// </code>
-    ///
-    /// In other words, the query description selects the Enemy1 and Enemy2 entities, but not the Player entity.
-    ///
-    /// Use an EntityQueryDesc object to create an <see cref="EntityQuery"/> object. In a system, call
-    /// <see cref="ComponentSystemBase.GetEntityQuery(EntityQueryDesc[])"/>; otherwise, call
-    /// <see cref="EntityManager.CreateEntityQuery(EntityQueryDesc[])"/>.
+    /// 
+    /// <example>
+    /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-description" title="Query Description"/>
+    /// </example>
+    /// 
+    /// In other words, the query created from this description selects the Enemy1 and Enemy2 entities, but not the Player entity.
     /// </remarks>
     public class EntityQueryDesc
     {
         /// <summary>
         /// Include archetypes that contain at least one (but possibly more) of the
-        /// components in the `Any` list.
+        /// component types in the Any list.
         /// </summary>
         public ComponentType[] Any = Array.Empty<ComponentType>();
         /// <summary>
         /// Exclude archetypes that contain any of the
-        /// components in the `None` list.
+        /// component types in the None list.
         /// </summary>
         public ComponentType[] None = Array.Empty<ComponentType>();
         /// <summary>
         /// Include archetypes that contain all of the
-        /// components in the `All` list.
+        /// component types in the All list.
         /// </summary>
         public ComponentType[] All = Array.Empty<ComponentType>();
         /// <summary>
-        /// Specialized options for the query.
+        /// Specialized query options.
         /// </summary>
         /// <remarks>
         /// You should not need to set these options for most queries.
@@ -160,13 +159,17 @@ namespace Unity.Entities
     }
 
     /// <summary>
-    /// A EntityQueryMask provides a fast check of whether an entity would be selected by an entity query.
+    /// Provides an efficient test of whether a specific entity would be selected by an EntityQuery.
     /// </summary>
     /// <remarks>
-    /// Create an entity query mask using the <seealso cref="EntityManager.GetEntityQueryMask"/> function.
+    /// Use a mask to quickly identify whether an entity would be selected by an EntityQuery.
+    ///
+    /// <example>
+    /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="entity-query-mask" title="Query Mask"/>
+    /// </example>
     /// 
-    /// You can create up to 1024 unique EntityQueryMasks instances in a given progrom. Entity query masks
-    /// cannot be created from entity queries with filters.
+    /// You can create up to 1024 unique EntityQueryMasks in an application.
+    /// Note that you cannot create an EntityQueryMasks from an EntityQuery object that has a filter.
     /// </remarks>
     /// <seealso cref="EntityManager.GetEntityQueryMask"/>
     public unsafe struct EntityQueryMask
@@ -192,7 +195,9 @@ namespace Unity.Entities
         /// <summary>
         /// Reports whether an entity would be selected by the EntityQuery instance used to create this entity query mask.
         /// </summary>
-        /// <remarks>The check does not take the results of filters into account.</remarks>
+        /// <remarks>
+        /// The match does not consider any filter settings of the EntityQuery.
+        /// </remarks>
         /// <param name="entity">The entity to check.</param>
         /// <returns>True if the entity would be returned by the EntityQuery, false if it would not.</returns>
         public bool Matches(Entity entity)
@@ -407,11 +412,11 @@ namespace Unity.Entities
         /// <summary>
         /// Disposes this EntityQuery instance.
         /// </summary>
-        /// <remarks>Do not dispose the EntityQuery instances created using
-        /// <see cref="SystemBase.Entities"/>. The system automatically disposes of
-        /// its own entity queries.</remarks>
+        /// <remarks>Do not dispose EntityQuery instances accessed using
+        /// <see cref="ComponentSystemBase.GetEntityQuery(ComponentType[])"/>. Systems automatically dispose of
+        /// their own entity queries.</remarks>
         /// <exception cref="InvalidOperationException">Thrown if you attempt to dispose an EntityQuery
-        /// belonging to a SystemBase instance.</exception>
+        /// belonging to a system.</exception>
         public void Dispose()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -475,7 +480,7 @@ namespace Unity.Entities
         /// Calculates the number of entities selected by this EntityQuery.
         /// </summary>
         /// <remarks>
-        /// The EntityQuery must run the query and apply any filters to calculate the entity count.
+        /// The EntityQuery must execute and apply any filters to calculate the entity count.
         /// </remarks>
         /// <returns>The number of entities based on the current EntityQuery properties.</returns>
         public int CalculateEntityCount()
@@ -488,7 +493,7 @@ namespace Unity.Entities
         /// Calculates the number of entities selected by this EntityQuery, ignoring any set filters.
         /// </summary>
         /// <remarks>
-        /// The EntityQuery must run the query to calculate the entity count.
+        /// The EntityQuery must execute to calculate the entity count.
         /// </remarks>
         /// <returns>The number of entities based on the current EntityQuery properties.</returns>
         public int CalculateEntityCountWithoutFiltering()
@@ -501,7 +506,7 @@ namespace Unity.Entities
         /// Calculates the number of chunks that match this EntityQuery.
         /// </summary>
         /// <remarks>
-        /// The EntityQuery must run the query and apply any filters to calculate the chunk count.
+        /// The EntityQuery must execute and apply any filters to calculate the chunk count.
         /// </remarks>
         /// <returns>The number of chunks based on the current EntityQuery properties.</returns>
         public int CalculateChunkCount()
@@ -514,7 +519,7 @@ namespace Unity.Entities
         /// Calculates the number of chunks that match this EntityQuery, ignoring any set filters.
         /// </summary>
         /// <remarks>
-        /// The EntityQuery must run the query to calculate the chunk count.
+        /// The EntityQuery must execute to calculate the chunk count.
         /// </remarks>
         /// <returns>The number of chunks based on the current EntityQuery properties.</returns>
         public int CalculateChunkCountWithoutFiltering()
@@ -843,53 +848,69 @@ namespace Unity.Entities
 
         public Entity GetSingletonEntity()
         {
+            var archetypeIndex = GetFirstArchetypeIndexWithEntity(out var entityCount);
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var entityCount = CalculateEntityCount();
             if (entityCount != 1)
-                throw new System.InvalidOperationException($"GetSingletonEntity() requires that exactly one exists but there are {entityCount}.");
-#endif
-
-            Entity entity;
-
-            var iterator = GetArchetypeChunkIterator();
-            iterator.MoveNext();
-
-            var array = iterator.GetCurrentChunkComponentDataPtr(false, 0);
-            UnsafeUtility.CopyPtrToStructure(array, out entity);
+                throw new InvalidOperationException($"GetSingletonEntity() requires that there be exactly one, there is currently {entityCount}.");
             
-            return entity;
+            if (_Filter.RequiresMatchesFilter)
+                throw new InvalidOperationException($"GetSingletonEntity() requires that the EntityQuery does not use Filtering.");
+#endif
+            
+            return UnsafeUtilityEx.AsRef<Entity>(ChunkIterationUtility.GetChunkComponentDataROPtr(_QueryData->MatchingArchetypes.Ptr[archetypeIndex]->Archetype->Chunks.p[0], 0));
         }
 
+        int GetFirstArchetypeIndexWithEntity(out int entityCount)
+        {
+            entityCount = 0;
+            int archeTypeIndex = -1;
+            for (int i = 0; i < _QueryData->MatchingArchetypes.Length; i++)
+            {
+                var entityCountInArchetype = _QueryData->MatchingArchetypes.Ptr[i]->Archetype->EntityCount;
+                if (archeTypeIndex == -1 && entityCountInArchetype > 0)
+                    archeTypeIndex = i;
+                entityCount += entityCountInArchetype;
+            }
+
+            return archeTypeIndex;
+        }
+            
         /// <summary>
         /// Gets the value of a singleton component.
         /// </summary>
-        /// <remarks>A singleton component is a component of which only one instance exists in the world
-        /// and which has been set with <see cref="SetSingleton{T}(T)"/>.</remarks>
+        /// <remarks>A singleton component is a component of which only one instance exists in the world.</remarks>
         /// <typeparam name="T">The component type.</typeparam>
         /// <returns>A copy of the singleton component.</returns>
         /// <exception cref="InvalidOperationException"></exception>
-        public T GetSingleton<T>()
-            where T : struct, IComponentData
+        /// <seealso cref="SetSingleton{T}(T)"/>
+        /// <seealso cref="GetSingletonEntity"/>
+        /// <seealso cref="ComponentSystemBase.GetSingleton{T}"/>
+        public T GetSingleton<T>() where T : struct, IComponentData
         {
-            #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if(GetIndexInEntityQuery(TypeManager.GetTypeIndex<T>()) != 1)
-                throw new System.InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that {typeof(T)} is the only component type in its archetype.");
+            int typeIndex = TypeManager.GetTypeIndex<T>();
+            var archetypeIndex = GetFirstArchetypeIndexWithEntity(out var entityCount);
 
-            var entityCount = CalculateEntityCount();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (entityCount != 1)
-                throw new System.InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exists but there are {entityCount}.");
-            #endif
-
-            CompleteDependency();
-
-            T value;
-            var iterator = GetArchetypeChunkIterator();
-            iterator.MoveNext();
+                throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that there be exactly one of {typeof(T)}, there is currently {entityCount}.");
             
-            var array = iterator.GetCurrentChunkComponentDataPtr(false, 1);
-            UnsafeUtility.CopyPtrToStructure(array, out value);
+            if (_Filter.RequiresMatchesFilter)
+                throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that the EntityQuery does not use Filtering.");
+#endif
+            
+            _DependencyManager->CompleteWriteDependencyNoChecks(typeIndex);
 
-            return value;
+            var archetype = _QueryData->MatchingArchetypes.Ptr[archetypeIndex]->Archetype;
+            for (var typeIndexInArchetype = 0; typeIndexInArchetype < archetype->TypesCount; ++typeIndexInArchetype)
+            {
+                if (archetype->Types[typeIndexInArchetype].TypeIndex == typeIndex)
+                {
+                    void* ptrValue = ChunkIterationUtility.GetChunkComponentDataROPtr(archetype->Chunks.p[0], typeIndexInArchetype);
+                    return UnsafeUtilityEx.AsRef<T>(ptrValue);
+                }
+            }
+            return default; 
         }
 
         /// <summary>
@@ -897,50 +918,67 @@ namespace Unity.Entities
         /// </summary>
         /// <remarks>
         /// For a component to be a singleton, there can be only one instance of that component
-        /// in a <see cref="World"/>. The component must be the only component in its archetype
-        /// and you cannot use the same type of component as a normal component.
+        /// in a <see cref="World"/>.
         ///
-        /// To create a singleton, create an entity with the singleton component as its only component,
-        /// and then use `SetSingleton()` to assign a value.
+        /// **Note:** singletons are otherwise normal entities. The EntityQuery and <see cref="ComponentSystemBase"/>
+        /// singleton functions add checks that you have not created two instances of a
+        /// type intended to be a singleton, but other APIs do not prevent such accidental creation.
+        /// 
+        /// To create a singleton, create an entity with the singleton component.
         ///
         /// For example, if you had a component defined as:
-        /// <code>
-        /// public struct Singlet: IComponentData{ public int Value; }
-        /// </code>
+        /// 
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="singleton-type-example" title="Singleton"/>
+        /// </example>
         ///
         /// You could create a singleton as follows:
         ///
-        /// <code>
-        /// var singletonEntity = entityManager.CreateEntity(typeof(Singlet));
-        /// var singletonGroup = entityManager.CreateEntityQuery(typeof(Singlet));
-        /// singletonGroup.SetSingleton&lt;Singlet&gt;(new Singlet {Value = 1});
-        /// </code>
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="create-singleton" title="Create Singleton"/>
+        /// </example>
+        /// 
+        /// To update the singleton component after creation, you can use an EntityQuery object that
+        /// selects the singleton entity and call this `SetSingleton()` function:
         ///
-        /// You can set and get the singleton value from a EntityQuery or a ComponentSystem.
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="set-singleton" title="Set Singleton"/>
+        /// </example>
+        /// 
+        /// You can set and get the singleton value from a system: see <seealso cref="ComponentSystemBase.SetSingleton{T}(T)"/>
+        /// and <seealso cref="ComponentSystemBase.GetSingleton{T}"/>.
         /// </remarks>
         /// <param name="value">An instance of type T containing the values to set.</param>
         /// <typeparam name="T">The component type.</typeparam>
         /// <exception cref="InvalidOperationException">Thrown if more than one instance of this component type
         /// exists in the world or the component type appears in more than one archetype.</exception>
-        public void SetSingleton<T>(T value)
-            where T : struct, IComponentData
+        /// <seealso cref="GetSingleton{T}"/>
+        /// <seealso cref="GetSingletonEntity"/>
+        public void SetSingleton<T>(T value) where T : struct, IComponentData
         {
+            int typeIndex = TypeManager.GetTypeIndex<T>();
+            var archeTypeIndex = GetFirstArchetypeIndexWithEntity(out var entityCount);
+            
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if(GetIndexInEntityQuery(TypeManager.GetTypeIndex<T>()) != 1)
-                throw new System.InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that {typeof(T)} is the only component type in its archetype.");
-
-            var entityCount = CalculateEntityCount();
             if (entityCount != 1)
-                throw new System.InvalidOperationException($"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exists but there are {entityCount}.");
+                throw new InvalidOperationException($"SetSingleton<{typeof(T)}>(typeof(T)) requires that there be exactly one of {typeof(T)}, there is currently {entityCount}.");
+            
+            if (_Filter.RequiresMatchesFilter)
+                throw new InvalidOperationException($"SetSingleton<{typeof(T)}>(typeof(T)) requires that the EntityQuery does not use Filtering.");
 #endif
+            
+            _DependencyManager->CompleteWriteDependencyNoChecks(typeIndex);
 
-            CompleteDependency();
-
-            var iterator = GetArchetypeChunkIterator();
-            iterator.MoveNext();
-
-            var array = iterator.GetCurrentChunkComponentDataPtr(true, 1);
-            UnsafeUtility.CopyStructureToPtr(ref value, array);
+            var archetype = _QueryData->MatchingArchetypes.Ptr[archeTypeIndex]->Archetype;
+            for (var typeIndexInArchetype = 0; typeIndexInArchetype < archetype->TypesCount; ++typeIndexInArchetype)
+            {
+                if (archetype->Types[typeIndexInArchetype].TypeIndex == typeIndex)
+                {
+                    void* ptrValue = ChunkIterationUtility.GetChunkComponentDataPtr(archetype->Chunks.p[0], true, typeIndexInArchetype, _EntityComponentStore->GlobalSystemVersion);
+                    UnsafeUtility.CopyStructureToPtr(ref value, ptrValue);
+                    return;
+                }
+            }
         }
 
         internal bool CompareComponents(ComponentType* componentTypes, int count)
@@ -1206,7 +1244,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Returns if the entity query has a filter applied to it.
+        /// Reports whether this entity query has a filter applied to it.
         /// </summary>
         /// <returns>Returns true if the query has a filter, returns false if the query does not have a filter.</returns>
         public bool HasFilter()
@@ -1233,11 +1271,14 @@ namespace Unity.Entities
         /// <summary>
         /// Gets the value of a singleton component.
         /// </summary>
-        /// <remarks>A singleton component is a component of which only one instance exists in the world
-        /// and which has been set with <see cref="SetSingleton{T}(T)"/>.</remarks>
+        /// <remarks>A singleton component is a component of which only one instance exists in the world.
+        /// The entity associated wth a singleton component cannot have any other components.</remarks>
         /// <typeparam name="T">The component type.</typeparam>
         /// <returns>A copy of the singleton component.</returns>
         /// <exception cref="InvalidOperationException"></exception>
+        /// <seealso cref="SetSingleton{T}(T)"/>
+        /// <seealso cref="GetSingletonEntity"/>
+        /// <seealso cref="ComponentSystemBase.GetSingleton{T}"/>
         public static T GetSingleton<T>(this EntityQuery query) where T : class, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -1266,28 +1307,40 @@ namespace Unity.Entities
         /// in a <see cref="World"/>. The component must be the only component in its archetype
         /// and you cannot use the same type of component as a normal component.
         ///
-        /// To create a singleton, create an entity with the singleton component as its only component,
-        /// and then use `SetSingleton()` to assign a value.
+        /// **Note:** singletons are otherwise normal entities. The EntityQuery and <see cref="ComponentSystemBase"/>
+        /// singleton functions add checks that you have not created two instances of a
+        /// type intended to be a singleton, but other APIs do not prevent such accidental creation.
+        /// 
+        /// To create a singleton, create an entity with the singleton component as its only component.
         ///
         /// For example, if you had a component defined as:
-        /// <code>
-        /// public class Singlet : IComponentData{ public int Value; }
-        /// </code>
+        /// 
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="singleton-type-example" title="Singleton"/>
+        /// </example>
         ///
         /// You could create a singleton as follows:
         ///
-        /// <code>
-        /// var singletonEntity = entityManager.CreateEntity(typeof(Singlet));
-        /// var singletonGroup = entityManager.CreateEntityQuery(typeof(Singlet));
-        /// singletonGroup.SetSingleton&lt;Singlet&gt;(new Singlet {Value = 1});
-        /// </code>
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="create-singleton" title="Create Singleton"/>
+        /// </example>
+        /// 
+        /// To update the singleton component after creation, you can use an EntityQuery object that
+        /// selects the singleton entity and call this `SetSingleton()` function:
         ///
-        /// You can set and get the singleton value from a EntityQuery or a ComponentSystem.
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="set-singleton" title="Set Singleton"/>
+        /// </example>
+        /// 
+        /// You can set and get the singleton value from a system: see <seealso cref="ComponentSystemBase.SetSingleton{T}(T)"/>
+        /// and <seealso cref="ComponentSystemBase.GetSingleton{T}"/>.
         /// </remarks>
         /// <param name="value">An instance of type T containing the values to set.</param>
         /// <typeparam name="T">The component type.</typeparam>
         /// <exception cref="InvalidOperationException">Thrown if more than one instance of this component type
         /// exists in the world or the component type appears in more than one archetype.</exception>
+        /// <seealso cref="GetSingleton{T}"/>
+        /// <seealso cref="EntityQuery.GetSingletonEntity"/>
         public static void SetSingleton<T>(this EntityQuery query, T value) where T : class, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS

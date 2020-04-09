@@ -11,7 +11,6 @@ using UnityEditor;
 using UnityEditor.Build.Content;
 using UnityEditor.Build.Pipeline;
 using UnityEditor.Build.Pipeline.Interfaces;
-using UnityEditor.Experimental;
 using BuildCompression = UnityEngine.BuildCompression;
 using BuildContext = Unity.Build.BuildContext;
 using BuildPipeline = UnityEditor.BuildPipeline;
@@ -58,8 +57,8 @@ namespace Unity.Scenes.Editor
             {
                 var hash128Guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(subSceneGuid, new Hash128(buildConfigurationGuid));
                 
-                var hash = AssetDatabaseExperimental.GetArtifactHash(hash128Guid.ToString(), typeof(SubSceneImporter));
-                AssetDatabaseExperimental.GetArtifactPaths(hash, out var artifactPaths);
+                var hash = AssetDatabaseCompatibility.GetArtifactHash(hash128Guid.ToString(), typeof(SubSceneImporter), ImportMode.Synchronous);
+                AssetDatabaseCompatibility.GetArtifactPaths(hash, out var artifactPaths);
 
                 foreach (var artifactPath in artifactPaths)
                 {

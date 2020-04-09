@@ -5,6 +5,7 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using Unity.Entities.CodeGen;
+using Unity.Entities.Hybrid.Internal;
 using UnityEngine;
 
 namespace Unity.Entities.Hybrid.CodeGen
@@ -165,15 +166,15 @@ namespace Unity.Entities.Hybrid.CodeGen
             var gameObjectTypeReference = componentDataType.Module.ImportReference(typeof(UnityEngine.GameObject));
             
             var ilProcessor = declareMethod.Body.GetILProcessor();
-            var addGameObjectToListMethod = componentDataType.Module.ImportReference(typeof(List<GameObject>).GetMethod("Add"));
-            var addRangeOfGameObjectsToListMethod = componentDataType.Module.ImportReference(typeof(List<GameObject>).GetMethod("AddRange"));
+            var addGameObjectToListMethod = componentDataType.Module.ImportReference(typeof(GeneratedAuthoringComponentImplementation).GetMethod("AddReferencedPrefab"));
+            var addRangeOfGameObjectsToListMethod = componentDataType.Module.ImportReference(typeof(GeneratedAuthoringComponentImplementation).GetMethod("AddReferencedPrefabs"));
             
             void EmitILToAddGameObjectFieldToReferencedPrefabsList(FieldDefinition field, bool isFieldArray)
             {
                 ilProcessor.Emit(OpCodes.Ldarg_1);                             // referencedPrefabs (List<GameObject>)
                 ilProcessor.Emit(OpCodes.Ldarg_0);                             // this (our MB)
                 ilProcessor.Emit(OpCodes.Ldfld, field);                        // load prefab field from MB
-                ilProcessor.Emit(OpCodes.Callvirt, isFieldArray ? addRangeOfGameObjectsToListMethod : addGameObjectToListMethod); // call List<GameObject>.Add
+                ilProcessor.Emit(OpCodes.Call, isFieldArray ? addRangeOfGameObjectsToListMethod : addGameObjectToListMethod); // call List<GameObject>.Add
             }
 
             // Let's add every element that is a GameObject

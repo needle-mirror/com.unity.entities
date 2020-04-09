@@ -27,20 +27,17 @@ namespace Unity.Entities.Editor
         
         void OnEnable()
         {
-            visitor = new EntityIMGUIVisitor((entity) =>
+            visitor = new EntityIMGUIVisitor(entity =>
                 {
                     var targetProxy = (EntitySelectionProxy) target;
                     if (!targetProxy.Exists)
                         return;
                     targetProxy.OnEntityControlSelectButton(targetProxy.World, entity);
                 },
-                () => { return callCount++ == 0; },
                 entity => currentEntityManager.GetName(entity));
 
             inclusionList = new SystemInclusionList();
         }
-
-        private int callCount = 0;
 
         private uint lastVersion;
         EntityManager currentEntityManager;
@@ -102,7 +99,6 @@ namespace Unity.Entities.Editor
             var container = targetProxy.Container;
 
             currentEntityManager = targetProxy.EntityManager;
-            callCount = 0;
             PropertyContainer.Visit(ref container, visitor);
 
             GUI.enabled = true;

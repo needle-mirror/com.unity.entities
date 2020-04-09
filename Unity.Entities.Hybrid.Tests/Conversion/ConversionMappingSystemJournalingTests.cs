@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Unity.Entities.Conversion;
 using UnityEngine;
@@ -53,6 +54,16 @@ namespace Unity.Entities.Tests.Conversion
                 JournalDataDebug.Create(go.GetInstanceID(), new LogEventData { Type = LogType.Error, Message = "JournalTestAuthoring.Convert error" }) }));
 
             LogAssert.Expect(LogType.Error, "JournalTestAuthoring.Convert error");
+        }
+
+        [Test]
+        public void DeclareReferencedPrefab_WithNonPrefab_LogsWarning()
+        {
+            var go = CreateGameObject();
+            go.AddComponent<DeclareReferencesTestAuthoring>().Prefab = CreateGameObject();
+
+            GameObjectConversionUtility.ConvertGameObjectHierarchy(go, m_Settings);
+            LogAssert.Expect(LogType.Warning, new Regex(".* is not a Prefab"));
         }
     }
 }

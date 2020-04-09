@@ -1,5 +1,4 @@
 using NUnit.Framework;
-using Unity.Collections;
 
 namespace Unity.Entities.Tests
 {
@@ -35,6 +34,7 @@ namespace Unity.Entities.Tests
             SrcEntityManager.Debug.CheckInternalConsistency();
             DstEntityManager.Debug.CheckInternalConsistency();
         }
+        
         
         [Test]
         public void ReplaceEntityManagerContents([Values]bool createToReplaceEntity)

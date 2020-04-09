@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Unity.Entities;
 using UnityEngine;
 using Hash128 = Unity.Entities.Hash128;
 
@@ -42,13 +41,13 @@ namespace Unity.Scenes
 
         static Dictionary<Hash128, string> s_HashToString = new Dictionary<Hash128, string>();
 
-        public static Hash128 GetSubSceneArtifactHash(Hash128 sceneGUID, Hash128 buildConfigurationGUID, UnityEditor.Experimental.AssetDatabaseExperimental.ImportSyncMode syncMode)
+        public static Hash128 GetSubSceneArtifactHash(Hash128 sceneGUID, Hash128 buildConfigurationGUID, ImportMode importMode)
         {
             var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(sceneGUID, buildConfigurationGUID);
             if (!s_HashToString.TryGetValue(guid, out var guidString))
                 guidString = s_HashToString[guid] = guid.ToString();
-            return UnityEditor.Experimental.AssetDatabaseExperimental.GetArtifactHash(guidString, SubSceneImporterType, syncMode);
-        }        
+            return AssetDatabaseCompatibility.GetArtifactHash(guidString, SubSceneImporterType, importMode);
+        }
         
         public static string GetLoadPathFromArtifactPaths(string[] paths, PathType type, int? sectionIndex = null)
         {

@@ -11,7 +11,6 @@ namespace Unity.Entities
         // ----------------------------------------------------------------------------------------------------------
         // PUBLIC
         // ----------------------------------------------------------------------------------------------------------
-
         public Archetype* GetOrCreateArchetype(ComponentTypeInArchetype* inTypesSorted, int count)
         {
             var srcArchetype = GetExistingArchetype(inTypesSorted, count);
@@ -22,42 +21,18 @@ namespace Unity.Entities
 
             var types = stackalloc ComponentTypeInArchetype[count + 1];
 
-            // Setup Instantiable archetype
+            srcArchetype->InstantiateArchetype = CreateInstanceArchetype(inTypesSorted, count, types, srcArchetype, true);
+            srcArchetype->CopyArchetype = CreateInstanceArchetype(inTypesSorted, count, types, srcArchetype, false);
+
+            if (srcArchetype->InstantiateArchetype != null)
             {
-                UnsafeUtility.MemCpy(types, inTypesSorted, sizeof(ComponentTypeInArchetype) * count);
-
-                var hasCleanup = false;
-                var removedTypes = 0;
-                for (var t = 0; t < srcArchetype->TypesCount; ++t)
-                {
-                    var type = srcArchetype->Types[t];
-
-                    hasCleanup |= type.TypeIndex == m_CleanupEntityType;
-
-                    var skip = type.IsSystemStateComponent || type.TypeIndex == m_PrefabType;
-                    if (skip)
-                        ++removedTypes;
-                    else
-                        types[t - removedTypes] = srcArchetype->Types[t];
-                }
-
-                // Entity has already been destroyed, so it shouldn't be instantiated anymore
-                if (hasCleanup)
-                {
-                    srcArchetype->InstantiableArchetype = null;
-                }
-                else if (removedTypes > 0)
-                {
-                    var instantiableArchetype = GetOrCreateArchetype(types, count - removedTypes);
-
-                    srcArchetype->InstantiableArchetype = instantiableArchetype;
-                    Assert.IsTrue(instantiableArchetype->InstantiableArchetype == instantiableArchetype);
-                    Assert.IsTrue(instantiableArchetype->SystemStateResidueArchetype == null);
-                }
-                else
-                {
-                    srcArchetype->InstantiableArchetype = srcArchetype;
-                }
+                Assert.IsTrue(srcArchetype->InstantiateArchetype->InstantiateArchetype == srcArchetype->InstantiateArchetype);
+                Assert.IsTrue(srcArchetype->InstantiateArchetype->SystemStateResidueArchetype == null);
+            }
+            if (srcArchetype->CopyArchetype != null)
+            {
+                Assert.IsTrue(srcArchetype->CopyArchetype->CopyArchetype == srcArchetype->CopyArchetype);
+                Assert.IsTrue(srcArchetype->CopyArchetype->SystemStateResidueArchetype == null);
             }
 
 
@@ -95,7 +70,8 @@ namespace Unity.Entities
                 srcArchetype->SystemStateResidueArchetype = systemStateResidueArchetype;
 
                 Assert.IsTrue(systemStateResidueArchetype->SystemStateResidueArchetype == systemStateResidueArchetype);
-                Assert.IsTrue(systemStateResidueArchetype->InstantiableArchetype == null);
+                Assert.IsTrue(systemStateResidueArchetype->InstantiateArchetype == null);
+                Assert.IsTrue(systemStateResidueArchetype->CopyArchetype == null);
             }
 
             // Setup meta chunk archetype
@@ -125,6 +101,40 @@ namespace Unity.Entities
             }
 
             return srcArchetype;
+        }
+
+        Archetype* CreateInstanceArchetype(ComponentTypeInArchetype* inTypesSorted, int count, ComponentTypeInArchetype* types, Archetype* srcArchetype, bool removePrefab)
+        {
+            UnsafeUtility.MemCpy(types, inTypesSorted, sizeof(ComponentTypeInArchetype) * count);
+
+            var hasCleanup = false;
+            var removedTypes = 0;
+            for (var t = 0; t < srcArchetype->TypesCount; ++t)
+            {
+                var type = srcArchetype->Types[t];
+
+                hasCleanup |= type.TypeIndex == m_CleanupEntityType;
+
+                var skip = type.IsSystemStateComponent || (removePrefab && type.TypeIndex == m_PrefabType);
+                if (skip)
+                    ++removedTypes;
+                else
+                    types[t - removedTypes] = srcArchetype->Types[t];
+            }
+
+            // Entity has already been destroyed, so it shouldn't be instantiated anymore
+            if (hasCleanup)
+            {
+                return null;
+            }
+            else if (removedTypes > 0)
+            {
+                return GetOrCreateArchetype(types, count - removedTypes);
+            }
+            else
+            {
+                return srcArchetype;
+            }
         }
 
         // ----------------------------------------------------------------------------------------------------------

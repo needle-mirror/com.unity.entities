@@ -737,12 +737,12 @@ namespace Unity.Entities
 #if !NET_DOTS
                 var type = obj.GetType();
                 var buffer = new UnsafeAppendBuffer(16, 16, Allocator.Temp);
-                var writer = new PropertiesBinaryWriter(&buffer);
-                BoxedProperties.WriteBoxedType(obj, writer);
+                var writer = new ManagedObjectBinaryWriter(&buffer);
+                writer.WriteObject(obj);
 
                 var readBuffer = buffer.AsReader();
-                var r2 = new PropertiesBinaryReader(&readBuffer, writer.GetObjectTable());
-                object newObj = BoxedProperties.ReadBoxedClass(type, r2);
+                var r2 = new ManagedObjectBinaryReader(&readBuffer, writer.GetObjectTable());
+                var newObj = r2.ReadObject(type);
                 buffer.Dispose();
                 return newObj;
 #else

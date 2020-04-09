@@ -16,7 +16,7 @@ namespace Unity.Entities.CodeGen
     {
         private static bool _enable = true;
         
-        protected override bool PostProcessImpl()
+        protected override bool PostProcessImpl(TypeDefinition[] componentSystemTypes)
         {
             if (_enable)
                 AssertNoBlobAssetLeavesBlobAssetStorage();
@@ -99,7 +99,7 @@ namespace Unity.Entities.CodeGen
                 _nonRestrictedTypes.Add(tr);
                 return false;
             }
-
+            
             foreach (var instruction in method.Body.Instructions)
             {
                 if (instruction.OpCode == OpCodes.Ldfld)
@@ -115,7 +115,7 @@ namespace Unity.Entities.CodeGen
 
                         diagnosticMessages.Add(
                             UserError.MakeError("MayOnlyLiveInBlobStorageViolation",
-                                $"You may only access .{fieldReference.Name} by ref, as it may only live in blob storage. try `{error}`",
+                                $"You may only access .{fieldReference.Name} by (non-readonly) ref, as it may only live in blob storage. try `{error}`",
                                 method, instruction));
                     }
                 }
@@ -136,7 +136,7 @@ namespace Unity.Entities.CodeGen
 
                         diagnosticMessages.Add(
                             UserError.MakeError("MayOnlyLiveInBlobStorageViolation",
-                                $"{tr.Name} may only live in blob storage. Access it by ref instead: `{error}`", method,
+                                $"{tr.Name} may only live in blob storage. Access it by (non-readonly) ref instead: `{error}`", method,
                                 instruction));
                     }
                 }

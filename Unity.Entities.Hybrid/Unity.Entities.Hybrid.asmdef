@@ -10,8 +10,7 @@
         "Unity.Build",
         "Unity.Build.Classic",
         "Unity.Build.Common",
-        "Unity.Properties",
-        "Unity.Properties.Editor"
+        "Unity.Properties"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

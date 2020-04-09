@@ -12,7 +12,6 @@ using UnityEngine.Profiling;
 using UnityEngine.Scripting;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid")]
-[assembly: InternalsVisibleTo("Unity.Entities.Properties")]
 [assembly: InternalsVisibleTo("Unity.Tiny.Core")]
 [assembly: InternalsVisibleTo("Unity.DOTS.Editor")]
 

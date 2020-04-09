@@ -110,33 +110,51 @@ namespace Unity.Entities.CodeGen
             if (instructionThatPushedThis == null)
                     UserError.DC0045(method, componentAccessMethod.Name, instruction).Throw();
             
-            //this instruction is responsible for pushing the systembase 'this' object, that we called GetComponent<T>(Entity e) or its friends on.
-            //there are two cases where this instance can come from, depending on how roslyn emitted the code. Either the original system
-            //was captured into a <>_this variable in our displayclass.  in this case the IL will look like:
+            // This instruction is responsible for pushing the SystemBase 'this' object, that we called GetComponent<T>(Entity e) or its friends on.
+            // there are two cases where this instance can come from, depending on how roslyn emitted the code. Either the original system
+            // was captured into a <>_this variable in our DisplayClass.  In this case the IL will look like:
             //
-            //ldarg0
-            //ldfld <>__this
-            //IL to load entity
-            //call GetComponent<T>
+            // ldarg0
+            // ldfld <>__this
+            // IL to load entity
+            // call GetComponent<T>
             //
-            //or we got emitted without a displayclass, and our method is on the
-            //actual system itself, and in that case the system is just ldarg0:
+            // Or we got emitted without a DisplayClass, and our method is on the
+            // actual system itself, and in that case the system is just ldarg0:
             //
-            //ldarg0
-            //IL to load entity
-            //call GetComponent<T>
+            // ldarg0
+            // IL to load entity
+            // call GetComponent<T>
+            //
+            // OR we captured from multiple scopes, in which case <>this will live inside of another DisplayClass:
+            // ldarg.0
+            // ldfld valuetype '<>c__DisplayClass0_1'::'CS$<>8__locals1'
+            // ldfld class '<>c__DisplayClass0_0'::'<>4__this'
+            // ldarg.1
+            // call GetComponent<T>
             
-            //the output IL that we want looks like this:
-            //ldarg0
-            //ldfld componentdatafromentity
-            //IL to load entity
-            //call componentdatafromentity.getcomponent<t>(entity e);
+            // the output IL that we want looks like this:
+            // ldarg0
+            // ldfld ComponentDataFromEntity
+            // IL to load entity
+            // call ComponentDataFromEntity.GetComponent<t>(entity e);
             //
-            //so the changes we are going to do is remove that original ldfld if it existed, and add the ldfld for our componentdatafromentity
-            //and then patch the callsite target.
+            // So the changes we are going to do is remove that original ldfld if it existed, and add the ldfld for our ComponentDataFromEntity
+            // and then patch the callsite target.  We also need to get nop any ldfld instructions that were used to load the nested DisplayClasses
+            // in the case where we captured locals from multiple scopes.
 
+            // Nop the ldfld for this
             if (instructionThatPushedThis.OpCode == OpCodes.Ldfld) 
                 instructionThatPushedThis.MakeNOP();
+            
+            // Nop any ldflds of nested DisplayClasses
+            var previousInstruction = instructionThatPushedThis.Previous;
+            while (previousInstruction != null && previousInstruction.OpCode == OpCodes.Ldfld && 
+                   ((FieldReference) previousInstruction.Operand).IsNestedDisplayClassField())
+            {
+                previousInstruction.MakeNOP();
+                previousInstruction = previousInstruction.Previous;
+            }
 
             // Insert Ldflda of componentDataFromEntityField after that point
             var componentDataFromEntityFieldInstruction = CecilHelpers.MakeInstruction(OpCodes.Ldflda, componentDataFromEntityField);

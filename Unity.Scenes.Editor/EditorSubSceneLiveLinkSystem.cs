@@ -32,15 +32,15 @@ namespace Unity.Scenes.Editor
             // We can't initialize live link in OnCreate because other systems might configure BuildConfigurationGUID from OnCreate
             if (_EditorLiveLink == null)
                 _EditorLiveLink = new LiveLinkConnection(World.GetExistingSystem<SceneSystem>().BuildConfigurationGUID);
-            
+
             try
             {
                 if (_SceneChangeTracker.GetSceneMessage(out var msg))
                 {
-                    _EditorLiveLink.ApplyLiveLinkSceneMsg(msg);   
+                    _EditorLiveLink.ApplyLiveLinkSceneMsg(msg);
                     msg.Dispose();
                 }
-
+                    
                 _EditorLiveLink.Update(_ChangeSets, _LoadScenes, _UnloadScenes, SubSceneInspectorUtility.LiveLinkMode);
 
                 // Unload scenes that are no longer being edited / need to be reloaded etc
@@ -48,7 +48,7 @@ namespace Unity.Scenes.Editor
                 {
                     _Patcher.UnloadScene(change);
                 }
-                
+
                 // Apply changes to scenes that are being edited
                 foreach (var change in _ChangeSets)
                 {
@@ -64,16 +64,19 @@ namespace Unity.Scenes.Editor
             }
 
 
-            // Configure scene culling masks so that game objects & entities are rendered exlusively to each other
-            var liveLinkEnabled = SubSceneInspectorUtility.LiveLinkMode != LiveLinkMode.Disabled;
-            for (int i = 0; i != EditorSceneManager.sceneCount; i++)
+            if (_EditorLiveLink.HasLoadedScenes())
             {
-                var scene = EditorSceneManager.GetSceneAt(i);
-
-                var sceneGUID = new GUID(AssetDatabase.AssetPathToGUID(scene.path));
-
-                if (_EditorLiveLink.HasScene(sceneGUID))
+                // Configure scene culling masks so that game objects & entities are rendered exlusively to each other
+                var liveLinkEnabled = SubSceneInspectorUtility.LiveLinkMode != LiveLinkMode.Disabled;
+                for (int i = 0; i != EditorSceneManager.sceneCount; i++)
                 {
+                    var scene = EditorSceneManager.GetSceneAt(i);
+
+                    // TODO: Generates garbage, need better API
+                    var sceneGUID = new GUID(AssetDatabase.AssetPathToGUID(scene.path));
+
+                    if (_EditorLiveLink.HasScene(sceneGUID))
+                    {
 #if UNITY_2020_1_OR_NEWER
                     if (SubSceneInspectorUtility.LiveLinkMode == LiveLinkMode.LiveConvertGameView)
                         EditorSceneManager.SetSceneCullingMask(scene, SceneCullingMasks.MainStageSceneViewObjects);
@@ -82,11 +85,12 @@ namespace Unity.Scenes.Editor
                     else
                         EditorSceneManager.SetSceneCullingMask(scene, EditorSceneManager.DefaultSceneCullingMask);
 #else
-                    if (liveLinkEnabled)
-                        EditorSceneManager.SetSceneCullingMask(scene, EditorRenderData.LiveLinkEditSceneViewMask);
-                    else
-                        EditorSceneManager.SetSceneCullingMask(scene, EditorSceneManager.DefaultSceneCullingMask | EditorRenderData.LiveLinkEditGameViewMask);
+                        if (liveLinkEnabled)
+                            EditorSceneManager.SetSceneCullingMask(scene, EditorRenderData.LiveLinkEditSceneViewMask);
+                        else
+                            EditorSceneManager.SetSceneCullingMask(scene, EditorSceneManager.DefaultSceneCullingMask | EditorRenderData.LiveLinkEditGameViewMask);
 #endif
+                    }
                 }
             }
         }

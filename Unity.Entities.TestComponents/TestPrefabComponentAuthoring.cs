@@ -31,7 +31,6 @@ namespace Unity.Entities.Tests {
     }
 #endif
     
-    [GenerateAuthoringComponent]
     public struct TestPrefabComponent : IComponentData
     {
         public int IntValue;

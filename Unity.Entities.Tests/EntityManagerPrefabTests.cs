@@ -124,6 +124,43 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
             Assert.IsFalse(m_Manager.Exists(entity));
         }
+        
+        [Test]
+        public void InstantiateExplicitEntitySet([Values]bool instantiate)
+        {
+            var external = m_Manager.CreateEntity();
+            var a = m_Manager.CreateEntity();
+            var b = m_Manager.CreateEntity(typeof(Prefab));
+            m_Manager.AddComponentData(a, new EcsTestDataEntity { value0 = 0, value1 = b});
+            m_Manager.AddComponentData(b, new EcsTestDataEntity { value0 = 1, value1 = external});
+
+            using (var inputs  = new NativeArray<Entity>(new[] {a, b}, Allocator.TempJob))
+            using (var outputs = new NativeArray<Entity>(2, Allocator.TempJob))
+            {
+                if (instantiate)
+                {
+                    m_Manager.Instantiate(inputs, outputs);
+                    Assert.IsFalse(m_Manager.HasComponent<Prefab>(outputs[1]));
+                }
+                else
+                {
+                    m_Manager.CopyEntities(inputs, outputs);
+                    Assert.IsTrue(m_Manager.HasComponent<Prefab>(outputs[1]));
+                }
+
+                Assert.AreEqual(outputs[1], m_Manager.GetComponentData<EcsTestDataEntity>(outputs[0]).value1);
+                Assert.AreEqual(external, m_Manager.GetComponentData<EcsTestDataEntity>(outputs[1]).value1);
+                Assert.AreEqual(1, m_Manager.GetComponentData<EcsTestDataEntity>(outputs[1]).value0);
+                Assert.AreNotEqual(a, outputs[0]);
+                Assert.AreNotEqual(a, outputs[1]);
+            }
+            Assert.AreEqual(4, m_Manager.CreateEntityQuery(
+                new EntityQueryDesc
+                {
+                    All = new [] { ComponentType.ReadWrite<EcsTestDataEntity>() },
+                    Options = EntityQueryOptions.IncludePrefab
+                }).CalculateEntityCount());
+        }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         public Entity PrepareLinkedGroup_ManagedComponents(Entity external, int count = 4)

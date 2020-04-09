@@ -1031,106 +1031,62 @@ namespace Unity.Entities
             EntityComponentStore* afterEntityComponentStore, int entityGuidTypeIndex)
         {
 #if !NET_DOTS
-            var visitor = new EntityDiffWriter(component, patches, afterEntityComponentStore, entityGuidTypeIndex);
-            var changeTracker = new ChangeTracker();
-            var type = container.GetType();
-
-            var resolved = PropertyBagResolver.Resolve(type);
-            if (resolved != null)
-            {
-                resolved.Accept(ref container, ref visitor, ref changeTracker);
-            }
-            else
-                throw new ArgumentException($"Type '{type.FullName}' not supported for visiting.");
+            PropertyContainer.Visit(container, new EntityDiffWriter(component, patches, afterEntityComponentStore, entityGuidTypeIndex));
 #endif
         }
 
 #if !NET_DOTS
-        internal unsafe class EntityDiffWriter : PropertyVisitor
+        class EntityDiffWriter : PropertyVisitor
         {
-            protected EntityDiffAdapter _EntityDiffAdapter { get; }
-
             public EntityDiffWriter(PackedComponent component, NativeList<EntityReferenceChange> patches, EntityComponentStore* afterEntityComponentStore, int entityGuidTypeIndex)
             {
-                _EntityDiffAdapter = new EntityDiffAdapter(component, patches, afterEntityComponentStore, entityGuidTypeIndex);
-                AddAdapter(_EntityDiffAdapter);
+                AddAdapter(new EntityDiffAdapter(component, patches, afterEntityComponentStore, entityGuidTypeIndex));
             }
 
-            internal unsafe class EntityDiffAdapter : IPropertyVisitorAdapter
-                , IVisitAdapter<Entity>
-                , IVisitAdapter
-                , IVisitCollectionAdapter
-                , IVisitContainerAdapter
+            class EntityDiffAdapter : Properties.Adapters.IVisit<Entity>
             {
-                protected PackedComponent Component;
-                protected NativeList<EntityReferenceChange> Patches { get; }
-                protected EntityComponentStore* AfterEntityComponentStore { get; }
-                protected int EntityGuidTypeIndex;
-                protected int EntityPatchId;
+                readonly PackedComponent _Component;
+                readonly NativeList<EntityReferenceChange> _Patches;
+                readonly EntityComponentStore* _AfterEntityComponentStore;
+                readonly int _EntityGuidTypeIndex;
+                
+                int _EntityPatchId;
 
-                public unsafe EntityDiffAdapter(PackedComponent component, NativeList<EntityReferenceChange> patches, EntityComponentStore* afterEntityComponentStore, int entityGuidTypeIndex)
+                public EntityDiffAdapter(PackedComponent component, NativeList<EntityReferenceChange> patches, EntityComponentStore* afterEntityComponentStore, int entityGuidTypeIndex)
                 {
-                    Component = component;
-                    Patches = patches;
-                    AfterEntityComponentStore = afterEntityComponentStore;
-                    EntityGuidTypeIndex = entityGuidTypeIndex;
-                    EntityPatchId = 0;
+                    _Component = component;
+                    _Patches = patches;
+                    _AfterEntityComponentStore = afterEntityComponentStore;
+                    _EntityGuidTypeIndex = entityGuidTypeIndex;
+                    _EntityPatchId = 0;
                 }
 
-                public unsafe VisitStatus Visit<TProperty, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref Entity value, ref ChangeTracker changeTracker)
-                    where TProperty : IProperty<TContainer, Entity>
+                public VisitStatus Visit<TContainer>(Property<TContainer, Entity> property, ref TContainer container, ref Entity value)
                 {
                     TryGetEntityGuid(value, out var entityGuid);
 
-                    value = new Entity() { Index = EntityPatchId, Version = -1 };
+                    value = new Entity { Index = _EntityPatchId, Version = -1 };
 
-                    Patches.Add(new EntityReferenceChange
+                    _Patches.Add(new EntityReferenceChange
                     {
-                        Component = Component,
-                        Offset = EntityPatchId++,
+                        Component = _Component,
+                        Offset = _EntityPatchId++,
                         Value = entityGuid
                     });
 
-                    return VisitStatus.Handled;
+                    return VisitStatus.Stop;
                 }
 
-                public VisitStatus Visit<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
-                {
-                    return VisitStatus.Unhandled;
-                }
-
-                public VisitStatus BeginCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
-                {
-                    if (value == null)
-                        return VisitStatus.Override;
-                    return VisitStatus.Unhandled;
-                }
-
-                public void EndCollection<TProperty, TContainer, TValue>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : ICollectionProperty<TContainer, TValue>
-                {
-                }
-
-                public VisitStatus BeginContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
-                {
-                    if (value == null)
-                        return VisitStatus.Override;
-                    return VisitStatus.Unhandled;
-                }
-
-                public void EndContainer<TProperty, TValue, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, TValue>
-                {
-                }
-                
-                private bool TryGetEntityGuid(Entity e, out EntityGuid guid)
+                bool TryGetEntityGuid(Entity e, out EntityGuid guid)
                 {
                     guid = default;
 
-                    if (!AfterEntityComponentStore->HasComponent(e, EntityGuidTypeIndex))
+                    if (!_AfterEntityComponentStore->HasComponent(e, _EntityGuidTypeIndex))
                     {
                         return false;
                     }
 
-                    guid = *(EntityGuid*)AfterEntityComponentStore->GetComponentDataWithTypeRO(e, EntityGuidTypeIndex);
+                    guid = *(EntityGuid*)_AfterEntityComponentStore->GetComponentDataWithTypeRO(e, _EntityGuidTypeIndex);
                     return true;
                 }
             }

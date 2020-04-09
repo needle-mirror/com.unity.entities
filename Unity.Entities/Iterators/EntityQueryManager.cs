@@ -11,7 +11,7 @@ namespace Unity.Entities
     internal unsafe struct EntityQueryManager
     {
         private ComponentDependencyManager*  m_DependencyManager;
-        private ChunkAllocator               m_GroupDataChunkAllocator;
+        private BlockAllocator               m_GroupDataChunkAllocator;
         private UnsafeEntityQueryDataPtrList m_EntityGroupDatas;
         
         private UntypedUnsafeHashMap    m_EntityGroupDataCacheUntyped;
@@ -21,7 +21,7 @@ namespace Unity.Entities
         {
             var queryManager = (EntityQueryManager*)UnsafeUtility.Malloc(sizeof(EntityQueryManager), 64, Allocator.Persistent);
             queryManager->m_DependencyManager = dependencyManager;
-            queryManager->m_GroupDataChunkAllocator = new ChunkAllocator();
+            queryManager->m_GroupDataChunkAllocator = new BlockAllocator();
             ref var groupCache = ref UnsafeUtilityEx.As<UntypedUnsafeHashMap, UnsafeMultiHashMap<int, int>>(ref queryManager->m_EntityGroupDataCacheUntyped);
             groupCache = new UnsafeMultiHashMap<int, int>(1024, Allocator.Persistent);
             queryManager->m_EntityGroupDatas = new UnsafeEntityQueryDataPtrList(0, Allocator.Persistent);

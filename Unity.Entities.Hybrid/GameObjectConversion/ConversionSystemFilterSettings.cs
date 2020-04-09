@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Unity.Properties;
 using Assembly = System.Reflection.Assembly;
-using PropertyAttribute = Unity.Properties.PropertyAttribute;
 
 namespace Unity.Entities.Conversion
 {
@@ -17,7 +17,7 @@ namespace Unity.Entities.Conversion
         // about the change.
         bool m_IsDirty = true;
 
-        [Property]
+        [CreateProperty]
         public List<UnityEditorInternal.AssemblyDefinitionAsset> ExcludedConversionSystemAssemblies
         { get; set; } = new List<UnityEditorInternal.AssemblyDefinitionAsset>();
 

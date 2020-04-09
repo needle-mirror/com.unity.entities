@@ -7,3 +7,5 @@
 [assembly: InternalsVisibleTo("Unity.Rendering.Hybrid.Tests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.EndToEnd.Tests")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests.Playmode")]
+[assembly: InternalsVisibleTo("Unity.DOTS.Editor")]
+[assembly: InternalsVisibleTo("Unity.DOTS.Editor.Tests")]

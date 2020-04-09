@@ -4,7 +4,6 @@
         "Unity.Collections",
         "Unity.Entities",
         "Unity.Entities.Hybrid",
-        "Unity.Entities.Properties",
         "Unity.Mathematics",
         "Unity.Properties",
         "Unity.Scenes.Editor",
@@ -19,10 +18,11 @@
         "Editor"
     ],
     "excludePlatforms": [],
-    "allowUnsafeCode": false,
+    "allowUnsafeCode": true,
     "overrideReferences": true,
     "precompiledReferences": [
-        "Mono.Cecil.dll"
+        "Mono.Cecil.dll",
+        "System.Runtime.CompilerServices.Unsafe.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],

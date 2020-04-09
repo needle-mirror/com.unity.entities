@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Mathematics;
 using Unity.Properties;
 using UnityEditor;
@@ -8,89 +7,21 @@ using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
-    internal class EntityIMGUIVisitor : PropertyVisitor
+    class EntityIMGUIVisitor : PropertyVisitor
     {
-        private class VisitorStyles
-        {
-            
-            public GUIStyle EntityStyle { get; private set; }
-            public GUIContent PageLabel { get; private set; }
-
-            public VisitorStyles()
-            {
-                EntityStyle = new GUIStyle(EditorStyles.label)
-                {
-                    normal =
-                    {
-                        textColor = new Color(0.5f, 0.5f, 0.5f)
-                    },
-                    onHover =
-                    {
-                        textColor = new Color(0.0f, 0.7f, 0.7f)
-                    }
-                };
-                PageLabel = new GUIContent(L10n.Tr("Page"), L10n.Tr("Use the slider to navigate pages of buffer elements"));
-            }
-        }
-
-        private static VisitorStyles Styles;
-
-        private static void InitStyles()
-        {
-            if (Styles == null)
-            {
-                Styles = new VisitorStyles();
-            }
-        }
+        const int kBufferPageLength = 5;
         
-        private class EntityIMGUIAdapter : IMGUIAdapter
-            , IVisitAdapter<Entity>
-        {
-
-            private readonly SelectEntityButtonCallback m_selectButtonCallback;
-            private readonly IgnoreEntityCallback m_ignoreEntityCallback;
-            readonly ResolveEntityNameCallback m_resolveNameCallback;
-
-            public EntityIMGUIAdapter(SelectEntityButtonCallback selectButtonCallback, IgnoreEntityCallback ignoreEntityCallback, ResolveEntityNameCallback resolveEntityNameCallback)
-            {
-                m_selectButtonCallback = selectButtonCallback;
-                m_ignoreEntityCallback = ignoreEntityCallback;
-                m_resolveNameCallback = resolveEntityNameCallback;
-            }
-
-            public VisitStatus Visit<TProperty, TContainer>(IPropertyVisitor visitor, TProperty property, ref TContainer container, ref Entity value, ref ChangeTracker changeTracker) where TProperty : IProperty<TContainer, Entity>
-            {
-                InitStyles();
-                
-                if (!m_ignoreEntityCallback())
-                {
-                    GUI.enabled = true;
-                    var pos = EditorGUILayout.GetControlRect();
-                    var buttonPos = pos;
-                    buttonPos.xMin = buttonPos.xMax - 50f;
-                    pos.xMax = pos.xMax - 50f;
-                
-                    EditorGUI.LabelField(pos, $"{property.GetName()}: {m_resolveNameCallback(value)}, Index: {value.Index}, Version: {value.Version}", Styles.EntityStyle);
-                    if (GUI.Button(buttonPos, "Select"))
-                    {
-                        m_selectButtonCallback?.Invoke(value);
-                    }
-                    GUI.enabled = false;
-                }
-
-                return VisitStatus.Handled;
-            }
-        }
-
-        private class ScrollData
+        class ScrollData
         {
             public float PageHeight;
+            int m_Page;
+            int m_Count;
+            
             public int Page
             {
                 get => m_Page;
                 set => m_Page = math.max(0, math.min(value, LastPage));
             }
-            private int m_Page;
 
             public int Count
             {
@@ -101,129 +32,142 @@ namespace Unity.Entities.Editor
                     Page = math.min(Page, LastPage);
                 }
             }
-            private int m_Count = 0;
-
+            
             public int LastPage => (Count - 1) / kBufferPageLength;
         }
         
-        private readonly Dictionary<int, ScrollData> m_ScrollDatas = new Dictionary<int, ScrollData>();
-
-        private const int kBufferPageLength = 5;
-
-        public delegate string ResolveEntityNameCallback(Entity entity);
-        public delegate void SelectEntityButtonCallback(Entity entity);
-        public delegate bool IgnoreEntityCallback();
-
-        public EntityIMGUIVisitor(SelectEntityButtonCallback selectEntityButtonCallback, IgnoreEntityCallback shouldIgnoreEntityCallback, ResolveEntityNameCallback resolveEntityNameCallback)
+        class Styles
         {
-            AddAdapter(new IMGUIPrimitivesAdapter());
-            AddAdapter(new IMGUIMathematicsAdapter());
-            AddAdapter(new EntityIMGUIAdapter(selectEntityButtonCallback, shouldIgnoreEntityCallback, resolveEntityNameCallback));
+            public GUIContent PageLabel { get; }
+
+            public Styles()
+            {
+                PageLabel = new GUIContent(L10n.Tr("Page"), L10n.Tr("Use the slider to navigate pages of buffer elements"));
+            }
         }
 
-        protected override VisitStatus Visit<TProperty, TContainer, TValue>(TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker)
+        static Styles s_Styles;
+
+        readonly Dictionary<int, ScrollData> m_ScrollData = new Dictionary<int, ScrollData>();
+        
+        public EntityIMGUIVisitor(SelectEntityButtonCallback selectEntityButtonCallback, ResolveEntityNameCallback resolveEntityNameCallback)
         {
-            if (typeof(TValue).IsEnum)
+            AddAdapter(new IMGUIAdapter(selectEntityButtonCallback, resolveEntityNameCallback));
+        }
+
+        protected override void VisitProperty<TContainer, TValue>(Property<TContainer, TValue> property, ref TContainer container, ref TValue value)
+        {
+            if (IsContainerType(ref value))
             {
-                var options = Enum.GetNames(typeof(TValue)).ToArray();
-                var local = value;
-                EditorGUILayout.Popup(
-                    typeof(TValue).Name,
-                    Array.FindIndex(options, name => name == local.ToString()),
-                    options);
+                if (typeof(TContainer) == typeof(EntityContainer))
+                {
+                    var enabled = GUI.enabled;
+                    GUI.enabled = true;
+                    EditorGUILayout.LabelField(property.Name, new GUIStyle(EditorStyles.boldLabel) { fontStyle = FontStyle.Bold });
+                    GUI.enabled = enabled;
+                }
+                else
+                {
+                    EditorGUILayout.LabelField(IMGUIAdapter.GetDisplayName(property));
+                }
+
+                if (typeof(IComponentData).IsAssignableFrom(typeof(TValue)) && TypeManager.IsZeroSized(TypeManager.GetTypeIndex<TValue>()))
+                {
+                    return;
+                }
+                
+                EditorGUI.indentLevel++;
+                base.VisitProperty(property, ref container, ref value);
+                EditorGUI.indentLevel--;
             }
             else
             {
-                GUILayout.Label(property.GetName());
+                base.VisitProperty(property, ref container, ref value);
             }
-
-            return VisitStatus.Handled;
         }
 
-        protected override VisitStatus BeginContainer<TProperty, TContainer, TValue>(TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker)
+        protected override void VisitCollection<TContainer, TCollection, TElement>(Property<TContainer, TCollection> property, ref TContainer container, ref TCollection value)
         {
-            var enabled = GUI.enabled;
-            GUI.enabled = true;
-            var foldout = ContainerHeader<TValue>(property.GetName());
-            GUI.enabled = enabled;
+            if (typeof(TContainer) == typeof(EntityContainer))
+            {
+                var enabled = GUI.enabled;
+                GUI.enabled = true;
+                EditorGUILayout.LabelField(property.Name, new GUIStyle(EditorStyles.boldLabel) { fontStyle = FontStyle.Bold });
+                GUI.enabled = enabled;
+            }
+            else
+            {
+                EditorGUILayout.LabelField(IMGUIAdapter.GetDisplayName(property));
+            }
+            
+            EditorGUI.indentLevel++;
+            
+            EditorGUILayout.IntField("Size", value.Count);
 
-            if (foldout)
-                EditorGUI.indentLevel++;
-            return foldout ? VisitStatus.Handled : VisitStatus.Override;
-        }
-
-        private static bool ContainerHeader<TValue>(string displayName)
-        {
-            EditorGUILayout.LabelField(displayName, new GUIStyle(EditorStyles.boldLabel) { fontStyle = FontStyle.Bold });
-            return !typeof(IComponentData).IsAssignableFrom(typeof(TValue)) || !TypeManager.IsZeroSized(TypeManager.GetTypeIndex<TValue>());
-        }
-
-        protected override void EndContainer<TProperty, TContainer, TValue>(TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker)
-        {
+            property.Visit(this, ref value);
+        
             EditorGUI.indentLevel--;
         }
 
-        protected override VisitStatus BeginCollection<TProperty, TContainer, TValue>(TProperty property, ref TContainer container, ref TValue value, ref ChangeTracker changeTracker)
+        protected override void VisitList<TContainer, TList, TElement>(Property<TContainer, TList> property, ref TContainer container, ref TList value)
         {
-            InitStyles();
-            var count = property.GetCount(ref container);
+            if (s_Styles == null) s_Styles = new Styles();
 
-            // If the count is greater then some arbitrary value
-            if (container is IDynamicBufferContainer bufferContainer && count > kBufferPageLength)
+            if (IsDynamicBufferContainer(value.GetType()) && value.Count > kBufferPageLength)
             {
-                var hash = bufferContainer.GetHashCode();
-                if (!m_ScrollDatas.ContainsKey(hash))
-                {
-                    m_ScrollDatas.Add(hash, new ScrollData());
-                }
-
-                var scrollData = m_ScrollDatas[hash];
-                scrollData.Count = count;
-                
-                var oldEnabled = GUI.enabled;
+                var enabled = GUI.enabled;
                 GUI.enabled = true;
-                scrollData.Page = EditorGUILayout.IntSlider(Styles.PageLabel, scrollData.Page, 0, scrollData.LastPage);
-                GUI.enabled = oldEnabled;
                 
-                // We will take control of this branch at this point by by returning `Override`
-                // Run the collection visitation manually.
+                EditorGUILayout.LabelField(property.Name, new GUIStyle(EditorStyles.boldLabel) { fontStyle = FontStyle.Bold });
+                EditorGUI.indentLevel++;
+                
+                GUI.enabled = false;
+                
+                var hash = value.GetHashCode();
+                if (!m_ScrollData.ContainsKey(hash)) m_ScrollData.Add(hash, new ScrollData());
+                var scrollData = m_ScrollData[hash];
+                
+                scrollData.Count = value.Count;
+                
+                EditorGUILayout.IntField("Size", value.Count);
+                
                 GUILayout.BeginVertical(GUILayout.MinHeight(scrollData.PageHeight));
-                for (var i = scrollData.Page*kBufferPageLength; i < (scrollData.Page+1)*kBufferPageLength && i < count; i++)
+                for (var index = scrollData.Page*kBufferPageLength; index < (scrollData.Page+1)*kBufferPageLength && index < value.Count; index++)
                 {
-                    var callback = new VisitCollectionElementCallback<TContainer>(this);
-                    property.GetPropertyAtIndex(ref container, i, ref changeTracker, ref callback);
+                    EditorGUILayout.LabelField($"Element {index}");
+            
+                    EditorGUI.indentLevel++;
+                    PropertyContainer.Visit(value[index], this);
+                    EditorGUI.indentLevel--;
                 }
                 GUILayout.EndVertical();
+
+                GUI.enabled = true;
+                scrollData.Page = EditorGUILayout.IntSlider(s_Styles.PageLabel, scrollData.Page, 0, scrollData.LastPage);
+                GUI.enabled = enabled;
                 scrollData.PageHeight = math.max(scrollData.PageHeight, GUILayoutUtility.GetLastRect().height);
-                EndCollection(property, ref container, ref value, ref changeTracker);
-                
-                return VisitStatus.Override;
+                EditorGUI.indentLevel--;
+                return;
             }
-
-            // Otherwise business as usual.
-            return VisitStatus.Handled;
+            
+            base.VisitList<TContainer, TList, TElement>(property, ref container, ref value);
         }
-        
-        internal struct VisitCollectionElementCallback<TContainer> : ICollectionElementPropertyGetter<TContainer>
+
+        static bool IsDynamicBufferContainer(Type type)
         {
-            private readonly IPropertyVisitor m_Visitor;
-        
-            public VisitCollectionElementCallback(IPropertyVisitor visitor)
+            return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(DynamicBufferContainer<>);
+        } 
+
+        static bool IsContainerType<TValue>(ref TValue value)
+        {
+            var type = typeof(TValue);
+            
+            if (!type.IsValueType && null != value)
             {
-                m_Visitor = visitor;
+                type = value.GetType();
             }
 
-            public void VisitProperty<TElementProperty, TElement>(TElementProperty property, ref TContainer container, ref ChangeTracker changeTracker)
-                where TElementProperty : ICollectionElementProperty<TContainer, TElement>
-            {
-                m_Visitor.VisitProperty<TElementProperty, TContainer, TElement>(property, ref container, ref changeTracker);
-            }
-
-            public void VisitCollectionProperty<TElementProperty, TElement>(TElementProperty property, ref TContainer container, ref ChangeTracker changeTracker)
-                where TElementProperty : ICollectionProperty<TContainer, TElement>, ICollectionElementProperty<TContainer, TElement>
-            {
-                m_Visitor.VisitCollectionProperty<TElementProperty, TContainer, TElement>(property, ref container, ref changeTracker);
-            }
+            return !(type.IsPrimitive || type.IsEnum || type == typeof(string));
         }
     }
 }

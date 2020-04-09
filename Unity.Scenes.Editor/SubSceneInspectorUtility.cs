@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEditor;
-using UnityEditor.Experimental.SceneManagement;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -106,6 +104,23 @@ namespace Unity.Scenes.Editor
             }
 
             return loadables.ToArray();
+        }
+
+        public static void ForceReimport(SubScene[] scenes)
+        {
+            foreach (var scene in scenes)
+            {
+                foreach (var world in World.All)
+                {
+                    var sceneSystem = world.GetExistingSystem<SceneSystem>();
+                    if (sceneSystem != null)
+                    {
+                        var guid = SceneWithBuildConfigurationGUIDs.Dirty(scene.SceneGUID, sceneSystem.BuildConfigurationGUID);
+                        // Ignoring return as this is just being used to force a reimport, we don't actually care about the hash result
+                        AssetDatabaseCompatibility.GetArtifactHash(guid.ToString(), EntityScenesPaths.SubSceneImporterType, ImportMode.Asynchronous);
+                    }
+                }
+            }
         }
 
         public static bool IsEditingAll(SubScene[] scenes)

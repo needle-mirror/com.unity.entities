@@ -1,5 +1,6 @@
 ﻿using System;
 using Unity.Entities;
+using Unity.Scenes.Hybrid.Tests;
 using UnityEngine;
 
 namespace Unity.Scenes.Hybrid.Tests
@@ -23,16 +24,16 @@ namespace Unity.Scenes.Hybrid.Tests
             return (material != null ? material.GetHashCode() : 0);
         }
     }
+}
 
-    [DisallowMultipleComponent]
-    [RequiresEntityConversion]
-    public class AuthoringWithMaterial : MonoBehaviour, IConvertGameObjectToEntity
+[DisallowMultipleComponent]
+[RequiresEntityConversion]
+public class AuthoringWithMaterial : MonoBehaviour, IConvertGameObjectToEntity
+{
+    public Material material;
+
+    public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
     {
-        public Material material;
-
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
-        {
-            dstManager.AddSharedComponentData(entity, new SharedWithMaterial {material = material});
-        }
+        dstManager.AddSharedComponentData(entity, new SharedWithMaterial {material = material});
     }
 }

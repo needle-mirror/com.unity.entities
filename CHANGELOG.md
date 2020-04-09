@@ -1,6 +1,57 @@
 # Change log
 
-## [0.8.0] - 2020-03-13
+## [0.9.0] - 2020-04-08
+
+### Added
+
+* `public void GetCreatedAndDestroyedEntitiesAsync(NativeList<int> state, NativeList<Entity> createdEntities, NativeList<Entity> destroyedEntities)` detects which entities were created and destroyed since the last call to this method.
+* Added the ability to reimport a SubScene via an inspector button, which forces reconversion.
+* Added `GameObjectConversionSystem.DeclareAssetDependency` which expresses that the conversion result of a GameObject depends on an Asset
+* Added `void EntityManager.Instantiate(NativeArray<Entity> srcEntities, NativeArray<Entity> dstEntities)`. It gives explicit control over the set of entities that are instantiated as a set. Entity references on components that are cloned to entities inside the set are remapped to the instantiated entities.
+* Added `void EntityManager.CopyEntitiesFrom(EntityManager srcEntityManager, NativeArray<Entity> srcEntities, NativeArray<Entity> outputEntities = default)`. It lets you copy a specific set of entities from one World to another. Entity references on components that are cloned to entities inside the set are remapped to the instantiated entities.
+* Added assembly for Mesh Deformation data structures.
+
+### Changed
+
+* Systems are now constructed in two phases. First, ECS creates a new instance of all systems and invokes the constructor. Then, it invokes all `OnCreate` methods. This way, you can now use `World.GetExistingSystem<OtherSystem>()` from inside `OnCreate()`.
+* Systems are now destroyed in three phases. First, ECS stops all running systems (i.e. OnStopRunning() is invoked). Then it invokes all `OnDestroy` methods. Finally, ECS destroys all systems. This means you can perform safe and predictable cleanup of systems with cross-references to other systems.
+* EntityCommandBuffer Playback now Bursted through function pointers. When there's a mix of unmanaged and managed commands in a single buffer, unmanaged commands will be Bursted. When there are no managed commands, each chain's Playback is fully Bursted.
+* `Entities.ForEach` in a `GameObjectConversionSystem` no longer logs a warning if there are multiples of a queried authoring component on a matching GameObject. It now returns the first component instance of the desired type, so conversion systems can optionally call `GetComponents<T>()` in order to handle multiples if desired.
+* Declaring a non-Prefab object as a referenced Prefab during conversion now emits a warning
+* Improved performance of access to singletons through `SetSingleton` and `GetSingleton` in SystemBase (peformance is also improved through these methods on EntityQuery).
+* Updated package `com.unity.properties` to version `1.1.0-preview`.
+* Updated package `com.unity.serialization` to version `1.1.0-preview`.
+* Updated package `com.unity.platforms` to version `0.2.2-preview.7`.
+
+### Deprecated
+
+* Deprecated `public T World.CreateSystem<T>(params object[] constructorArguments)`. Please use `World.AddSystem(new MySystem(myParams));` instead.
+* Deprecated `LiveLinkBuildImport.GetHash/GetDependencies/GetBundlePath`.
+
+### Removed
+
+* Removed expired API `TypeManager.CreateTypeIndexForComponent<T>()`
+* Removed expired API `TypeManager.CreateTypeIndexForSharedComponent<T>()`
+* Removed expired API `TypeManager.CreateTypeIndexForBufferElement<T>()`
+* Removed expired API `DynamicBuffer.Reserve(int)`
+* Removed expired API `World.Active`
+
+### Fixed
+
+* Fix BlobAssetSafetyVerifier to generate a better error message when `readonly` is used with BlobAsset references.
+* Fixed incorrect comparison in `EntityChunk.CompareTo()`.
+* `SceneManager.IsSceneLoaded` now works for converted entity Scenes and returns whether all sections of an entity Scene have loaded.
+* Fixed Exception in conversion code when trying to delete entities that are part of a Prefab.
+* Fixed Hybrid Component conversion failing when multiple components were added for the same GameObject.
+* Fixed use of component access methods (GetComponent/SetComponent/HasComponent) inside Entities.ForEach with nested captures.
+* Fix compilation issue when `ENABLE_SIMPLE_SYSTEM_DEPENDENCIES` is enabled.
+
+### Security
+
+### Known Issues
+* System groups do not currently apply to systems running as part of `EntitySceneOptimizations`
+
+## [0.8.0] - 2020-03-12
 
 ### Added
 
@@ -85,6 +136,7 @@
 * Fix IL2CPP compilation error with `Entities.ForEach` that uses a tag component and `WithStructuralChanges`.
 * `Entities.ForEach` now marshals lambda parameters for DOTS Runtime when the lambda is burst compiled and has collection checks enabled. Previously using `EntityCommandBuffer` or other types with a `DisposeSentinel` field as part of your lambda function (when using DOTS Runtime) may have resulted in memory access violation.
 * `.Run()` on `IJobChunk` may have dereferenced null or invalid chunk on filtered queries.
+* BlobAssetSafetyVerifier would throw a `ThrowArgumentOutOfRangeException` if a blob asset was using in a struct with a method that yielded (instead of generating a valid error).
 
 
 ### Security

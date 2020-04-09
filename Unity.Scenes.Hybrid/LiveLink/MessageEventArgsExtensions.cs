@@ -8,7 +8,21 @@ namespace Unity.Scenes
 {
     internal static class MessageEventArgsExtensions
     {
-        unsafe static byte[] SerializeUnmanagedArray<T>(NativeArray<T> value) where T: unmanaged
+        internal static unsafe byte[] SerializeUnmanagedArray<T>(T[] value) where T : unmanaged
+        {
+            var bytes = new byte[UnsafeUtility.SizeOf<T>() * value.Length + sizeof(int)];
+            fixed (byte* ptr = bytes)
+            {
+                var buf = new UnsafeAppendBuffer(ptr, bytes.Length);
+                fixed (T* dataPtr = value)
+                    buf.AddArray<T>(dataPtr, value.Length);
+                Assert.AreEqual(buf.Length, bytes.Length);
+            }
+
+            return bytes;
+        }
+
+        public static unsafe byte[] SerializeUnmanagedArray<T>(NativeArray<T> value) where T: unmanaged
         {
             var bytes = new byte[UnsafeUtility.SizeOf<T>() * value.Length + sizeof(int)];
             fixed (byte* ptr = bytes)
@@ -31,7 +45,7 @@ namespace Unity.Scenes
             }
         }
 
-        unsafe static byte[] SerializeUnmanaged<T>(ref T value) where T: unmanaged
+        public unsafe static byte[] SerializeUnmanaged<T>(ref T value) where T: unmanaged
         {
             var bytes = new byte[UnsafeUtility.SizeOf<T>()];
             fixed (byte* ptr = bytes)
@@ -61,26 +75,14 @@ namespace Unity.Scenes
             return DeserializeUnmanagedArray<T>(args.data, allocator);
         }
         
-        static public void Send<T>(this PlayerConnection connection, Guid msgGuid, T data) where T : unmanaged
+        static public void Send<T>(this IEditorPlayerConnection connection, Guid msgGuid, T data) where T : unmanaged
         {
             connection.Send(msgGuid, SerializeUnmanaged(ref data));
         }
 
-        static public void SendArray<T>(this PlayerConnection connection, Guid msgGuid, NativeArray<T> data) where T : unmanaged
+        static public void SendArray<T>(this IEditorPlayerConnection connection, Guid msgGuid, NativeArray<T> data) where T : unmanaged
         {
             connection.Send(msgGuid, SerializeUnmanagedArray(data));
         }
-
-#if UNITY_EDITOR        
-        static public void Send<T>(this UnityEditor.Networking.PlayerConnection.EditorConnection connection, Guid msgGuid, T data, int playerId = 0) where T : unmanaged
-        {
-            connection.Send(msgGuid, SerializeUnmanaged(ref data), playerId);
-        }
-
-        static public void SendArray<T>(this UnityEditor.Networking.PlayerConnection.EditorConnection connection, Guid msgGuid, NativeArray<T> data, int playerId = 0) where T : unmanaged
-        {
-            connection.Send(msgGuid, SerializeUnmanagedArray(data), playerId);
-        }
-#endif
     }
 }

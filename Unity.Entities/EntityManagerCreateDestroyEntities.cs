@@ -166,10 +166,10 @@ namespace Unity.Entities
         /// Clones an entity.
         /// </summary>
         /// <remarks>
-        /// The new entity has the same archetype and component values as the original.
+        /// The new entity has the same archetype and component values as the original, however system state & prefab tag components are removed from the clone.
         ///
         /// If the source entity was converted from a prefab and thus has a <see cref="LinkedEntityGroup"/> component, 
-        /// the entire group is cloned as a new set of entities.
+        /// the entire group is cloned as a new set of entities. Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
         ///
         /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the entity and no additional Jobs can start before
@@ -182,7 +182,7 @@ namespace Unity.Entities
         public Entity Instantiate(Entity srcEntity)
         {
             Entity entity;
-            InstantiateInternal(srcEntity, &entity, 1);
+            m_EntityDataAccess.InstantiateInternal(srcEntity, &entity, 1);
             return entity;
         }
 
@@ -190,10 +190,10 @@ namespace Unity.Entities
         /// Makes multiple clones of an entity.
         /// </summary>
         /// <remarks>
-        /// The new entities have the same archetype and component values as the original.
+        /// The new entity has the same archetype and component values as the original, however system state & prefab tag components are removed from the clone.
         ///
         /// If the source entity has a <see cref="LinkedEntityGroup"/> component, the entire group is cloned as a new
-        /// set of entities.
+        /// set of entities. Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
         ///
         /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating these entities and no additional Jobs can start before
@@ -206,17 +206,17 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void Instantiate(Entity srcEntity, NativeArray<Entity> outputEntities)
         {
-            InstantiateInternal(srcEntity, (Entity*) outputEntities.GetUnsafePtr(), outputEntities.Length);
+            m_EntityDataAccess.InstantiateInternal(srcEntity, (Entity*) outputEntities.GetUnsafePtr(), outputEntities.Length);
         }
 
         /// <summary>
         /// Makes multiple clones of an entity.
         /// </summary>
         /// <remarks>
-        /// The new entities have the same archetype and component values as the original.
+        /// The new entity has the same archetype and component values as the original, however system state & prefab tag components are removed from the clone.
         /// 
         /// If the source entity has a <see cref="LinkedEntityGroup"/> component, the entire group is cloned as a new
-        /// set of entities.
+        /// set of entities. Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
         /// 
         /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating these entities and no additional Jobs can start before
@@ -231,11 +231,56 @@ namespace Unity.Entities
         public NativeArray<Entity> Instantiate(Entity srcEntity, int instanceCount, Allocator allocator)
         {
             var entities = new NativeArray<Entity>(instanceCount, allocator);
-            InstantiateInternal(srcEntity, (Entity*) entities.GetUnsafePtr(), entities.Length);            
-            
+            m_EntityDataAccess.InstantiateInternal(srcEntity, (Entity*) entities.GetUnsafePtr(), instanceCount);
             return entities;
         }
 
+        /// <summary>
+        /// Clones a set of entities.
+        /// </summary>
+        /// <remarks>
+        /// The new entity has the same archetype and component values as the original, however system state & prefab tag components are removed from the clone.
+        ///
+        /// Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
+        /// This method overload ignores the <see cref="LinkedEntityGroup"/> component,
+        /// since the group of entities that will be cloned is passed explicitly.
+        /// 
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the entity and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="srcEntities">The set of entities to clone</param>
+        /// <param name="outputEntities">the set of entities that were cloned. outputEntities.Length must match srcEntities.Length</param>
+        [StructuralChangeMethod]
+        public void Instantiate(NativeArray<Entity> srcEntities, NativeArray<Entity> outputEntities)
+        {
+            m_EntityDataAccess.InstantiateInternal((Entity*)srcEntities.GetUnsafeReadOnlyPtr(), (Entity*)outputEntities.GetUnsafePtr(), srcEntities.Length, outputEntities.Length, true);
+        }
+        
+        /// <summary>
+        /// Clones a set of entities, different from Instantiate because it does not remove the prefab tag component.
+        /// </summary>
+        /// <remarks>
+        /// The new entity has the same archetype and component values as the original, however system state components are removed from the clone.
+        ///
+        /// Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
+        /// This method overload ignores the <see cref="LinkedEntityGroup"/> component,
+        /// since the group of entities that will be cloned is passed explicitly.
+        /// 
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the entity and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="srcEntities">The set of entities to clone</param>
+        /// <param name="outputEntities">the set of entities that were cloned. outputEntities.Length must match srcEntities.Length</param>
+        [StructuralChangeMethod]
+        public void CopyEntities(NativeArray<Entity> srcEntities, NativeArray<Entity> outputEntities)
+        {
+            m_EntityDataAccess.InstantiateInternal((Entity*)srcEntities.GetUnsafeReadOnlyPtr(), (Entity*)outputEntities.GetUnsafePtr(), srcEntities.Length, outputEntities.Length, false);
+        }
+        
         /// <summary>
         /// Creates a set of chunks containing the specified number of entities having the specified archetype.
         /// </summary>
@@ -259,6 +304,23 @@ namespace Unity.Entities
             EntityComponentStore->CreateChunks(archetype.Archetype, (ArchetypeChunk*) chunks.GetUnsafePtr(), chunks.Length, entityCount);
             ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
         }
+        
+        /// <summary>
+        /// Detects the created and destroyed entities compared to last time the method was called with the given state.
+        /// </summary>
+        /// <remarks>
+        /// Entities must be fully destroyed, if system state components keep it alive it still counts as not yet destroyed.
+        /// EntityCommandBuffers that have not been played back will have no effect on this until they are played back. 
+        /// </remarks>
+        /// <param name="state">The same state list must be passed when you call this method, it remembers the entities that were already notified created & destroyed.</param>
+        /// <param name="createdEntities">The Entities that were created</param>
+        /// <param name="destroyedEntities">The Entities that were destroyed</param>
+        public JobHandle GetCreatedAndDestroyedEntitiesAsync(NativeList<int> state, NativeList<Entity> createdEntities, NativeList<Entity> destroyedEntities)
+        {
+            var jobHandle = m_EntityDataAccess.EntityComponentStore->GetCreatedAndDestroyedEntities(state, createdEntities, destroyedEntities);
+            DependencyManager->AddDependency(null, 0, null, 0, jobHandle);
+            return jobHandle;
+        }
 
 
         // ----------------------------------------------------------------------------------------------------------
@@ -268,11 +330,6 @@ namespace Unity.Entities
         internal void DestroyEntityInternal(Entity* entities, int count)
         {
             m_EntityDataAccess.DestroyEntityInternal(entities, count);
-        }
-
-        internal void InstantiateInternal(Entity srcEntity, Entity* outputEntities, int count)
-        {
-            m_EntityDataAccess.InstantiateInternal(srcEntity, outputEntities, count);
         }
 
         void DestroyEntity(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter)

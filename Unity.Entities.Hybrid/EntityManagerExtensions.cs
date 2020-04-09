@@ -33,10 +33,10 @@ namespace Unity.Entities
                 return;
 
             var entity = entityManager.Instantiate(srcGameObject);
+            
             outputEntities[0] = entity;
-
             var entityPtr = (Entity*)outputEntities.GetUnsafePtr();
-            entityManager.InstantiateInternal(entity, entityPtr + 1, outputEntities.Length - 1);
+            entityManager.EntityDataAccess.InstantiateInternal(entity, entityPtr + 1, outputEntities.Length - 1);
         }
 
         public static unsafe T GetComponentObject<T>(this EntityManager entityManager, Entity entity) where T : Component

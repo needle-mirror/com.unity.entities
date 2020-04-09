@@ -296,6 +296,7 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
         }
 
+#if !UNITY_DOTSPLAYER
 #pragma warning disable 618
         struct BufferSafetyJobA : IJobForEach_B<EcsIntElement>
         {
@@ -354,7 +355,7 @@ namespace Unity.Entities.Tests
             var jobBHandle = jobB.Schedule(jobB.Entities.Length, 1, jobAHandle);
             jobBHandle.Complete();
         }
-        
+
 #pragma warning disable 618
         struct BufferSafetyJob_TwoReadOnly : IJobForEachWithEntity_EB<EcsIntElement>
         {
@@ -400,7 +401,7 @@ namespace Unity.Entities.Tests
             }
         }
 #pragma warning restore 618
-        
+
         [Test]
         public void SingleJobUsingSameReadOnlyAndReadWriteDynamicBufferThrows()
         {
@@ -436,5 +437,6 @@ namespace Unity.Entities.Tests
             var job = new BufferSafetyJob_GetUnsafePtrReadWrite {};
             job.Run(EmptySystem);
         }
+#endif // !UNITY_DOTSPLAYER
     }
 }

@@ -1,5 +1,4 @@
-﻿using System;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 
 namespace Unity.Scenes.Editor
@@ -23,7 +22,14 @@ namespace Unity.Scenes.Editor
             EditorGUI.BeginChangeCheck();
             var liveLinkEnabled = EditorGUILayout.Toggle(new GUIContent("LiveLink Enabled"), !importerData.DisableLiveLink);
             if (EditorGUI.EndChangeCheck())
+            {
                 SceneImporterData.SetAtPath(path, new SceneImporterData() { DisableLiveLink = !liveLinkEnabled });
+                var scene = UnityEditor.SceneManagement.EditorSceneManager.GetSceneByPath(path);
+                if(scene.isLoaded)
+                    UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
+                else
+                    AssetDatabase.ImportAsset(path);
+            }
         }
     }
 }

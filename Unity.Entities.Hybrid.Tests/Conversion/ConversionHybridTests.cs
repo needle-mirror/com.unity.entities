@@ -2,7 +2,6 @@
 using NUnit.Framework;
 using Unity.Collections;
 using UnityEngine;
-using Assert = UnityEngine.Assertions.Assert;
 using UnityObject = UnityEngine.Object;
 
 namespace Unity.Entities.Tests
@@ -52,6 +51,36 @@ namespace Unity.Entities.Tests.Conversion
 
             Assert.AreEqual(345, m_Manager.GetComponentObject<EcsTestMonoBehaviourComponent>(instances[0]).SomeValue);
             Assert.AreEqual(345, m_Manager.GetComponentObject<EcsTestMonoBehaviourComponent>(instances[1]).SomeValue);
+        }
+
+        class MockMultipleAuthoringComponentsConversionSystem : GameObjectConversionSystem
+        {
+            protected override void OnUpdate()
+            {
+                Entities.ForEach((EcsTestMonoBehaviourComponent authoring) =>
+                {
+                    var buffer = DstEntityManager.AddBuffer<MockDynamicBufferData>(GetPrimaryEntity(authoring));
+                    foreach (var authoringInstance in authoring.gameObject.GetComponents<EcsTestMonoBehaviourComponent>())
+                        buffer.Add(new MockDynamicBufferData { Value = authoringInstance.SomeValue });
+                });
+            }
+        }
+
+        [Test]
+        public void EntityQueryBuilder_WhenGameObjectHasMultipleAuthoringComponentsOfQueriedType_ReturnsFirstMatch()
+        {
+            var gameObject =
+                CreateGameObject($"GameObject With 2 {nameof(EcsTestMonoBehaviourComponent)}", typeof(EcsTestMonoBehaviourComponent), typeof(EcsTestMonoBehaviourComponent));
+            var authoringComponents = gameObject.GetComponents<EcsTestMonoBehaviourComponent>();
+            Assume.That(authoringComponents.Length, Is.EqualTo(2));
+            var expectedValues = new[] { new MockDynamicBufferData { Value = 123 }, new MockDynamicBufferData { Value = 456 } };
+            authoringComponents[0].SomeValue = expectedValues[0].Value;
+            authoringComponents[1].SomeValue = expectedValues[1].Value;
+
+            var entity = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings().WithExtraSystem<MockMultipleAuthoringComponentsConversionSystem>());
+
+            var buffer = m_Manager.GetBuffer<MockDynamicBufferData>(entity);
+            Assert.That(buffer.AsNativeArray(), Is.EqualTo(expectedValues));
         }
     }
 }

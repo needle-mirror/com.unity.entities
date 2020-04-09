@@ -13,44 +13,36 @@ namespace Unity.Scenes
 {
     internal static class LiveLinkMsg
     {
-        public static readonly Guid RequestSessionHandshake = new Guid("ee3b9ac439304c98838dcd0245b8b9b1");
-        public static readonly Guid ResponseSessionHandshake = new Guid("212ce8fe16a043428cd4bfbfc081701a");
-        
-        public static readonly Guid ReceiveEntityChangeSet = new Guid("34d9b47f923142ff847c0d1f8b0554d9");
-        public static readonly Guid UnloadScenes = new Guid("c34a0cb23efa4fae81f9f78d755cee10");
-        public static readonly Guid LoadScenes = new Guid("0d0fd642461447a59c45321269cb392d");
+        // All messages must be prefixed by who is sending them.
+        public const string EditorPrefix = "Editor";
+        public const string PlayerPrefix = "Player";
 
-        public static readonly Guid RequestConnectLiveLink = new Guid("d58c350900c24b1e99e150338fa407b5");
-        public static readonly Guid ResponseConnectLiveLink = new Guid("0b070511c643476cb31669334ef3ae88");
+        public static readonly Guid PlayerRequestHandshakeLiveLink = new Guid("ee3b9ac439304c98838dcd0245b8b9b1");
+        public static readonly Guid EditorResponseHandshakeLiveLink = new Guid("212ce8fe16a043428cd4bfbfc081701a");
+        
+        public static readonly Guid EditorReceiveEntityChangeSet = new Guid("34d9b47f923142ff847c0d1f8b0554d9");
+        public static readonly Guid EditorUnloadScenes = new Guid("c34a0cb23efa4fae81f9f78d755cee10");
+        public static readonly Guid EditorLoadScenes = new Guid("0d0fd642461447a59c45321269cb392d");
+
+        public static readonly Guid PlayerRequestConnectLiveLink = new Guid("d58c350900c24b1e99e150338fa407b5");
+        public static readonly Guid EditorResponseConnectLiveLink = new Guid("0b070511c643476cb31669334ef3ae88");
 
         //@TODO: Generate guid properly
-        public static readonly Guid SetLoadedScenes = new Guid("f58c350900c24b1e99e150338fa407b6");
-        public static readonly Guid ResetGame = new Guid("16a2408ca08e48758af41c5f2919d3e4");
+        public static readonly Guid PlayerSetLoadedScenes = new Guid("f58c350900c24b1e99e150338fa407b6");
+        public static readonly Guid EditorResetGame = new Guid("16a2408ca08e48758af41c5f2919d3e4");
         
-        public static readonly Guid RequestAssetTargetHash = new Guid("a56c8732319341c18daae030959993f4");
-        public static readonly Guid ResponseAssetTargetHash = new Guid("4c8f736a115f435cb576b92a6f30bd1f");
+        public static readonly Guid PlayerRequestAssetTargetHash = new Guid("a56c8732319341c18daae030959993f4");
+        public static readonly Guid EditorResponseAssetTargetHash = new Guid("4c8f736a115f435cb576b92a6f30bd1f");
         
-        public static readonly Guid RequestAssetByGUID = new Guid("e078f4ebc7f24e328615ba69bcde0d48");
-        public static readonly Guid ResponseAssetByGUID = new Guid("68163744fe0540468d671f081cbf25cc");
+        public static readonly Guid PlayerRequestAssetForGUID = new Guid("e078f4ebc7f24e328615ba69bcde0d48");
+        public static readonly Guid EditorResponseAssetForGUID = new Guid("68163744fe0540468d671f081cbf25cc");
         
-        public static readonly Guid RequestSubSceneTargetHash = new Guid("5220998d5fdd4c45ab945774d0ea5583");
-        public static readonly Guid ResponseSubSceneTargetHash = new Guid("decb387da44e4d9e8d7b54ee13c72bf5");
-        public static readonly Guid RequestSubSceneByGUID = new Guid("bc3b54dbbbb140c3aff95f6130326ebc");
-        public static readonly Guid ResponseSubSceneByGUID = new Guid("d081fac1-6fa9-461e-a65d-fa60808d92eb");
+        public static readonly Guid PlayerRequestSubSceneTargetHash = new Guid("5220998d5fdd4c45ab945774d0ea5583");
+        public static readonly Guid EditorResponseSubSceneTargetHash = new Guid("decb387da44e4d9e8d7b54ee13c72bf5");
+        public static readonly Guid PlayerRequestSubSceneForGUID = new Guid("bc3b54dbbbb140c3aff95f6130326ebc");
+        public static readonly Guid EditorResponseSubSceneForGUID = new Guid("6aeb95d61c3048feb87a590f416f027b");
 
-        public static readonly Guid SendBuildArtifact = new Guid("9d5dbe09-f86d-4a0e-a1c9-ffb55dbffb15");
-
-        public static bool IsDebugLogging
-        {
-            get
-            {
-                #if DEBUG_LIVE_LINK
-                return true;
-                #else
-                return false;
-                #endif
-            }
-        }
+        public static readonly Guid EditorSendBuildArtifact = new Guid("978a5e8e8bbb4d878b00658e37cac302");
 
         const string k_LogFilePath = "LiveLink.log";
 

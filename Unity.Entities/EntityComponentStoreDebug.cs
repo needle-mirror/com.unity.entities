@@ -511,12 +511,12 @@ namespace Unity.Entities
                 {
                     if (!Exists(entityPtr[i]))
                         throw new ArgumentException(
-                            "The srcEntity's LinkedEntityGroup references an entity that is invalid. (Entity at index {i} on the LinkedEntityGroup.)");
+                            $"The srcEntity's LinkedEntityGroup references an entity that is invalid. (Entity at index {i} on the LinkedEntityGroup.)");
 
                     var archetype = GetArchetype(entityPtr[i]);
-                    if (archetype->InstantiableArchetype == null)
+                    if (archetype->InstantiateArchetype == null)
                         throw new ArgumentException(
-                            "The srcEntity's LinkedEntityGroup references an entity that has already been destroyed. (Entity at index {i} on the LinkedEntityGroup. Only system state components are left on the entity)");
+                            $"The srcEntity's LinkedEntityGroup references an entity that has already been destroyed. (Entity at index {i} on the LinkedEntityGroup. Only system state components are left on the entity)");
                 }
             }
             else
@@ -525,12 +525,28 @@ namespace Unity.Entities
                     throw new ArgumentException("srcEntity is not a valid entity");
 
                 var srcArchetype = GetArchetype(srcEntity);
-                if (srcArchetype->InstantiableArchetype == null)
+                if (srcArchetype->InstantiateArchetype == null)
                     throw new ArgumentException(
                         "srcEntity is not instantiable because it has already been destroyed. (Only system state components are left on it)");
             }
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void AssertCanInstantiateEntities(Entity* srcEntity, int entityCount, bool removePrefab)
+        {
+            for (int i = 0; i < entityCount; i++)
+            {
+                if (!Exists(srcEntity[i]))
+                    throw new ArgumentException(
+                        $"The srcEntity[{i}] references an entity that is invalid.");
+
+                var archetype = GetArchetype(srcEntity[i]);
+                if ((removePrefab ? archetype->InstantiateArchetype : archetype->CopyArchetype) == null)
+                    throw new ArgumentException(
+                        $"The srcEntity[{i}] references an entity that has already been destroyed. (Only system state components are left on the entity)");
+            }
+        }
+        
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public static void AssertValidEntityQuery(EntityQuery query, EntityComponentStore* store)

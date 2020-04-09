@@ -16,7 +16,7 @@ namespace Unity.Scenes
             RemovedScenes.Dispose();
         }
 
-        unsafe public byte[] ToMsg()
+        public byte[] ToMsg()
         {
             var buffer = new UnsafeAppendBuffer(0, 16, Allocator.TempJob);
             Serialize(ref buffer);
@@ -80,6 +80,13 @@ namespace Unity.Scenes
         
         public bool GetSceneMessage(out LiveLinkSceneMsg msg)
         {
+            msg = default;
+            
+            if (_LoadedScenesQuery.CalculateChunkCount() == 0 && _UnloadedScenesQuery.CalculateChunkCount() == 0 
+                && m_PreviousScenes.Length == 0 && m_PreviousRemovedScenes.Length == 0)
+                return false;
+            
+            //TODO: Causes allocations in Editor
             var loadedScenes = _LoadedScenesQuery.ToComponentDataArray<SceneReference>(Allocator.TempJob);
             var removedScenes = _UnloadedScenesQuery.ToComponentDataArray<LiveLinkPatcher.LiveLinkedSceneState>(Allocator.TempJob);
             var newRemovedScenes = SubtractArrays(removedScenes, m_PreviousRemovedScenes);
@@ -91,7 +98,6 @@ namespace Unity.Scenes
                 loadedScenes.Dispose();
                 removedScenes.Dispose();
                 newRemovedScenes.Dispose();
-                msg = default;
                 return false;
             }
 
@@ -110,7 +116,7 @@ namespace Unity.Scenes
         internal static NativeArray<T> SubtractArrays<T>(NativeArray<T> minuend, NativeArray<T> subtrahend) where T : struct, IEquatable<T>
         {
             if (minuend.Length == 0 || minuend.ArraysEqual(subtrahend))
-                return new NativeArray<T>(new T[0], Allocator.Persistent);
+                return new NativeArray<T>(0, Allocator.Persistent);
 
             if (subtrahend.Length == 0)
                 return new NativeArray<T>(minuend, Allocator.Persistent);

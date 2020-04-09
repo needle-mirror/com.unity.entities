@@ -22,18 +22,20 @@ namespace Unity.Entities.Tests
         [Test]
         public void WorldUnityDrivesTime()
         {
-            var world = new World("World A");
-            var sim = world.GetOrCreateSystem<SimulationSystemGroup>();
-            var init = world.GetOrCreateSystem<InitializationSystemGroup>();
+            using (var world = new World("World A"))
+            {
+                var sim = world.GetOrCreateSystem<SimulationSystemGroup>();
+                var init = world.GetOrCreateSystem<InitializationSystemGroup>();
 
-            var unityTimeSys = world.GetOrCreateSystem(typeof(UpdateWorldTimeSystem));
-            init.AddSystemToUpdateList(unityTimeSys);
+                var unityTimeSys = world.GetOrCreateSystem(typeof(UpdateWorldTimeSystem));
+                init.AddSystemToUpdateList(unityTimeSys);
 
-            var checkSys = world.GetOrCreateSystem<TimeCheckMatchesUnitySystem>();
-            sim.AddSystemToUpdateList(checkSys);
+                var checkSys = world.GetOrCreateSystem<TimeCheckMatchesUnitySystem>();
+                sim.AddSystemToUpdateList(checkSys);
 
-            world.Update();
-            Assert.AreEqual(1, checkSys.updateCount);
+                world.Update();
+                Assert.AreEqual(1, checkSys.updateCount);
+            }
         }
     }
 }

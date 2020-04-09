@@ -6,19 +6,19 @@ using Unity.Build;
 using Unity.Build.Classic;
 using Unity.Build.Common;
 using Unity.Build.Internals;
-using Unity.Properties;
+using Unity.Serialization;
 using UnityEditor;
 
 #if !UNITY_BUILD_CLASS_BASED_PIPELINES
 namespace Unity.Scenes.Editor
 {
     [BuildStep(Name = "Build LiveLink Player", Description = "Build LiveLink Player", Category = "Classic")]
-    [FormerlySerializedAs("Unity.Build.Common.BuildStepBuildClassicLiveLink, Unity.Build.Common")]
+    [FormerName("Unity.Build.Common.BuildStepBuildClassicLiveLink, Unity.Build.Common")]
     sealed class BuildStepBuildClassicLiveLink : BuildStep
     {
         const string k_Description = "Build LiveLink Player";
 
-        const string k_BootstrapPath = "Assets/StreamingAssets/" + LiveLinkRuntimeSystemGroup.k_BootstrapFileName;
+        const string k_BootstrapPath = "Assets/StreamingAssets/" + LiveLinkUtility.LiveLinkBootstrapFileName;
         const string k_EmptyScenePath = "Packages/com.unity.entities/Unity.Scenes.Editor/LiveLink/Assets/empty.unity";
 
         TemporaryFileTracker m_TempFileTracker;
@@ -38,7 +38,11 @@ namespace Unity.Scenes.Editor
 
         private bool UseAutoRunPlayer(BuildContext context)
         {
+#if UNITY_2020_1_OR_NEWER
+            var pipeline = GetRequiredComponent<ClassicBuildProfile>(context).Pipeline.asset;
+#else
             var pipeline = GetRequiredComponent<ClassicBuildProfile>(context).Pipeline;
+#endif
             var runStep = pipeline.RunStep;
 
             // RunStep is provided no need to use AutoRunPlayer
@@ -108,13 +112,12 @@ namespace Unity.Scenes.Editor
             }
 
             var settings = BuildContextInternals.GetBuildConfiguration(context);
-            if (AssetDatabase.TryGetGUIDAndLocalFileIdentifier(settings, out var guid, out long _))
+            if (AssetDatabase.TryGetGUIDAndLocalFileIdentifier(settings, out var guidString, out long _))
             {
-                using (var stream = new StreamWriter(m_TempFileTracker.TrackFile(k_BootstrapPath)))
-                {
-                    stream.WriteLine(guid);
-                    stream.WriteLine(EditorAnalyticsSessionInfo.id);
-                }
+                var guid = new GUID(guidString);
+                var path = m_TempFileTracker.TrackFile(k_BootstrapPath);
+                LiveLinkUtility.WriteBootstrap(path, guid);
+
             }
 
             var report = UnityEditor.BuildPipeline.BuildPlayer(buildPlayerOptions);

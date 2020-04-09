@@ -59,8 +59,6 @@ namespace Unity.Scenes
         {
             sceneLoadRequestArchetype = EntityManager.CreateArchetype(typeof(GameObjectSceneLoadRequest));
             sceneLoadRequestQuery = GetEntityQuery(new EntityQueryDesc { All = new[] { ComponentType.ReadWrite<GameObjectSceneLoadRequest>() } });
-            
-            var liveLinkEnabled = World.GetExistingSystem<LiveLinkRuntimeSystemGroup>()?.Enabled ?? false;
 
             var sceneInfoPath = GetSceneInfoPath();
             if (File.Exists(sceneInfoPath))
@@ -72,7 +70,7 @@ namespace Unity.Scenes
                 }
 
                 //if running in LiveLink mode, the initial scenes list is sent from the editor.  otherwise use the flags in the scene data.
-                if (!liveLinkEnabled)
+                if (!LiveLinkUtility.LiveLinkEnabled)
                 {
                     for (int i = 1; i < catalogData.Value.resources.Length; i++)
                     {
@@ -106,11 +104,31 @@ namespace Unity.Scenes
                 var scene = EntityManager.GetComponentData<GameObjectSceneLoadRequest>(entity).loadedScene;
                 return scene.IsValid() && scene.isLoaded;
             }
-            else
+
+            if (!EntityManager.HasComponent<SceneReference>(entity))
+                return false;
+
+            if (!EntityManager.HasComponent<ResolvedSectionEntity>(entity))
+                return false;
+
+            var resolvedSectionEntities = EntityManager.GetBuffer<ResolvedSectionEntity>(entity);
+
+            if (resolvedSectionEntities.Length == 0)
+                return false;
+            
+            foreach (var s in resolvedSectionEntities)
             {
-                return EntityManager.HasComponent<SceneReference>(entity) && !EntityManager.HasComponent<RequestSceneLoaded>(entity);
+                if (!EntityManager.HasComponent<SceneSectionStreamingSystem.StreamingState>(s.SectionEntity))
+                    return false;
+
+                var streamingState =
+                    EntityManager.GetComponentData<SceneSectionStreamingSystem.StreamingState>(s.SectionEntity);
+
+                if (streamingState.Status != SceneSectionStreamingSystem.StreamingStatus.Loaded)
+                    return false;
             }
 
+            return true;
         }
 
         public Hash128 BuildConfigurationGUID { get; set; }
