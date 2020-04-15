@@ -93,7 +93,8 @@ namespace Unity.Entities.CodeGen
                 if (instruction.IsInvocation(out var methodReference))
                 {
                     // Ensure a good match with the singleton method we want to patch
-                    if (SingletonAccessMethodDescriptions.TryGetValue(methodReference.Name, out var methodDescription) &&
+                    if (methodReference.DeclaringType.TypeReferenceEquals(typeof(ComponentSystemBase)) &&
+                        SingletonAccessMethodDescriptions.TryGetValue(methodReference.Name, out var methodDescription) &&
                         methodReference is GenericInstanceMethod genericInvocation && genericInvocation.GenericArguments.Count() == 1 &&
                         methodReference.Parameters.Count() == methodDescription.parameterCount)
                     {

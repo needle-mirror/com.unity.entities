@@ -106,6 +106,16 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(entity, singletonEntity);
             }
 
+            public void GetSingletonThroughQueryWorks()
+            {
+                EntityQuery query = GetEntityQuery(ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>());
+                RequireForUpdate(query);
+                var entity = EntityManager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+                EntityManager.SetComponentData(entity, new EcsTestData() { value = 3 });
+                
+                Assert.AreEqual(3, query.GetSingleton<EcsTestData>().value);
+            }
+
     #if !UNITY_DISABLE_MANAGED_COMPONENTS
             public void GetSetSingleton_ManagedComponents()
             {
@@ -177,6 +187,12 @@ namespace Unity.Entities.Tests
         public void SystemBase_GetSingletonEntityWorks()
         {
             TestSystem.GetSingletonEntityWorks();
+        }
+
+        [Test]
+        public void SystemBase_GetSingletonThroughQueryWorks()
+        {
+            TestSystem.GetSingletonThroughQueryWorks();
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS

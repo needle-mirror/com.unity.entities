@@ -1,6 +1,13 @@
 # Change log
 
-## [0.9.0] - 2020-04-08
+## [0.9.1] - 2020-04-15
+
+### Fixed
+
+* Fixed NullReferenceException issue with Singleton access methods in SystemBase.
+
+
+## [0.9.0] - 2020-04-09
 
 ### Added
 
@@ -46,10 +53,10 @@
 * Fixed use of component access methods (GetComponent/SetComponent/HasComponent) inside Entities.ForEach with nested captures.
 * Fix compilation issue when `ENABLE_SIMPLE_SYSTEM_DEPENDENCIES` is enabled.
 
-### Security
-
 ### Known Issues
+
 * System groups do not currently apply to systems running as part of `EntitySceneOptimizations`
+
 
 ## [0.8.0] - 2020-03-12
 
